@@ -1,0 +1,325 @@
+Title: Multi-Stage Fine-Tuning of Pathology Foundation Models with Head-Diverse Ensembling for White Blood Cell Classification
+
+URL Source: https://arxiv.org/pdf/2603.20383v1
+
+Published Time: Tue, 24 Mar 2026 00:08:08 GMT
+
+Number of Pages: 5
+
+Markdown Content:
+## MULTI-STAGE FINE-TUNING OF PATHOLOGY FOUNDATION MODELS WITH HEAD-DIVERSE ENSEMBLING FOR WHITE BLOOD CELL CLASSIFICATION 
+
+Antony Gitau 1,2 Martin Paulson 2 Bjørn-Jostein Singstad 1,2
+
+Karl Thomas Hjelmervik 1 Ola Marius Lysaker 1 Veralia Gabriela Sanchez 11 University of South-Eastern Norway  
+
+> 2
+
+Vestfold Hospital Trust 
+
+ABSTRACT 
+
+The classification of white blood cells (WBCs) from pe-ripheral blood smears is critical for the diagnosis of leukemia. However, automated approaches still struggle due to chal-lenges including class imbalance, domain shift, and mor-phological continuum confusion, where adjacent maturation stages exhibit subtle, overlapping features. We present a multi-stage fine-tuning methodology for 13-class WBC clas-sification in the WBCBench 2026 Challenge (ISBI 2026). Our best-performing model is a fine-tuned DINOBloom-base, on which we train multiple classifier head families (linear, cosine, and multilayer perceptron (MLP)). The cosine head performed best on the mature granulocyte boundary (Band neutrophil (BNE) F1 = 0.470), the linear head on more immature granulocyte classes (Metamyelocyte (MMY) F1 = 0.585), and the MLP head on the most immature granulocyte (Promyelocyte (PMY) F1 = 0.733), revealing class-specific specialization. Based on this specialization, we construct a head-diverse ensemble, where the MLP head acts as the pri-mary predictor, and its predictions within the four predefined confusion pairs are replaced only when two other head fam-ilies agree. We further show that cases consistently misclas-sified by all models are substantially enriched for probable labeling errors or inherent morphological ambiguity. 
+
+Index Terms — White Blood Cells, Pathology Founda-tion Models, Class Imbalance 
+
+1. INTRODUCTION 
+
+Microscopic examination of peripheral blood smears is clini-cally essential for diagnosing hematologic malignancies, such as leukemia, as well as non-malignant conditions, including infections and immune disorders. However, automated WBC classification remains challenging due to several factors: se-vere class imbalance, where rare morphologies such as pro-lymphocytes (PLY) are underrepresented in normal peripheral blood [1]; morphological ambiguity arising from the contin-uum of cell maturation, where adjacent developmental stages exhibit subtle visual differences as shown in Figure 1; and variability in imaging conditions across scanners and acquisi-tion noise. Recent pathology foundation models (FMs), pretrained on millions of histopathology and cytomorphology images, 
+
+Fig. 1 : An illustration of the morphological continuum from promyelocyte (PMY), to myelocyte (MY), metamyelocyte (MMY), band-form neutrophil (BNE) and segmented neu-trophil (SNE) offer rich feature representations for downstream tasks. Di-noBloom [2], trained on over 380,000 single cell images from blood and bone marrow smears, provides domain-specific representations for hematology. However, standard linear probing, where a linear classifier is trained on features of frozen FM, may fail to fully utilize these representations for fine-grained classification under severe class imbalance. Our contributions are summarized as follows; • We present a reproducible fine-tuning strategy for pathol-ogy FMs, with accompanying code that enables system-atic backbone and head-family ablations to study the ef-fect of different model configurations. • We show that the geometry of the classifier head drives class-specific specialization within a common FM embed-ding space, motivating a head-diverse ensemble for re-solving confusions along morphological continua. • We analyze the WBCBench dataset, showing that many difficult cases may reflect either labeling errors or inherent morphological ambiguity. 
+
+2. MATERIALS AND METHODS 2.1. Dataset 
+
+We employed the official WBCBench 2026 challenge dataset [3], comprising 55,012 images distributed across 13 classes, with splits of 60% for training, 10% for validation, and 30% for testing. Figure 3 illustrates the class distribution in the train-ing set. All images were first resized to 384 × 384 pixels and stain-normalized prior to applying augmentation. Training augmentations included geometric and color perturbations, along with quality degradations such as JPEG compression, resolution scaling, blur, and additive noise to improve robust-ness to test-time corruption. During inference, we applied 8-view test-time augmentation with logit averaging. Full 
+
+> arXiv:2603.20383v1 [cs.CV] 20 Mar 2026
+
+Fig. 2 : End-to-end fine-tuning and inference simplified visual illustration. During training, separate models are obtained by fine-tuning a pathology foundation model (DINOBloom) with different classifier heads (linear, cosine, and MLP) across staged optimization. During inference, saved full DinoBloom-base and head checkpoints are combined using a head-diverse ensemble, where an MLP head acts as the primary predictor and is conditionally overridden by agreement between auxiliary heads. pre-processing and augmentation details are provided in the accompanying code 1.
+
+2.2. Backbone Models and Classification Heads 
+
+We evaluated multiple backbone families to balance hematology-specific pretraining and architectural diversity; the full set of explored backbones is documented in the accompanying codebase. For each backbone, let f ∈ Rd denote the final feature vector produced by the backbone. 
+
+z = Dropout(LayerNorm( f )) .
+
+We then apply a shared head. We evaluated three classifi-cation head families for C = 13 classes: 
+
+Linear head: 
+
+y = W z + b
+
+Cosine head: 
+
+yk =
+
+ z
+
+∥z∥2
+
+, wk
+
+∥wk∥2
+
+
+
+MLP head: 
+
+h = Dropout(GELU( W1z + b1)) ,y = W2h + b2
+
+The overall system design is visually presented in Figure 2. 
+
+> 1github.com/Antony-gitau/msfit
+> SNE: segmented neutrophil LY: lymphocyte MO: monocyte EO: eosinophil BA: basophil VLY: variant lymphocyte BNE: band-form neutrophil MMY: metamyelocyte MY: myelocyte PMY: promyelocyte BL: blast PC: plasma cell PLY: prolymphocyte
+
+Fig. 3 : Distributions of white blood cell types in the training set. 2.3. Multi-Stage Fine-tuning 
+
+We used a three-stage end-to-end fine-tuning schedule, where each stage initializes from the best checkpoint based on the validation F1 score of the previous stage. For both cosine and MLP head models, all backbone layers remained unfrozen throughout training. Stage S1 was trained for 11 epochs using learning rates of 
+
+2.5 × 10 −5 (head) and 5.0 × 10 −6 (backbone) with 2 warmup epochs. Stage S2 continued from S1 for 5 epochs with re-duced learning rates of 1.0 × 10 −5 and 2.0 × 10 −6, respec-tively. Stage S3 further refined the model for 5 epochs using learning rates of 5.0 × 10 −6 and 1.0 × 10 −6. The cosine-head models used the identical 11/5/5 epoch staging scheme that was previously applied with proportionally scaled learn-ing rates. For the fully fine-tuned MLP, linear, and cosine models, we used AdamW with automatic mixed precision and gra-dient accumulation. These models were trained using focal loss ( γ = 2 .0), label smoothing ( ϵ = 0 .1). We used class-dependent focal weights αc ∝ 1/√nc, normalized across classes, where nc denotes the number of training samples in class c and MixUp/CutMix ( p = 0 .1 each). In addition, we trained a frozen-backbone MLP model initialized from the MLP-S3 checkpoint, following the decoupled training idea of [4], using cross-entropy with effective-number class weights and a balanced sampler. We also monitored a tail-aware com-posite metric where TailMacroF1 is assessed over the set of classes ( BNE , PLY , VLY , MMY , PMY , MY , PC ). 
+
+TailComposite = 12 , MacroF1 + 12 , TailMacroF1 ,
+
+2.4. Head-Diverse Ensembling 
+
+During inference, we employ head-diverse ensembling to combine complementary decision boundaries from different classifier heads. The fully fine-tuned MLP model serves as the primary predictor, while the cosine head model and the frozen-backbone MLP head model act as advisors. This means that if both of them disagree with the primary predic-tor, the output will be replaced. Although a linear head model achieved competitive performance, it was not included in the final ensemble due to lower complementarity. Rather than using global voting or weight optimization, we use a con-servative agreement-gated override rule that allows modifica-tions only for a small, pre-approved set of ordered confusion transitions: Let P denote the validated set of ordered confusion pairs identified on the validation set: 
+
+P = {(BNE , SNE ), (MO , VLY ), (MY , MMY ), (LY , BL )} .
+
+(1) Each pair (ci, c j ) indicates that replacing the primary prediction ci with cj improved validation performance. Let 
+
+ˆyprimary denote the primary prediction, and ˆya1, ˆya2 denote the predictions of Advisor 1 and Advisor 2, respectively. The final prediction is defined as: 
+
+ˆy =
+
+
+
+ˆya1, if (ˆ ya1 = ˆ ya2) ∧ ((ˆ yprimary , ˆya1) ∈ P )ˆyprimary , otherwise .
+
+(2) This design preserves the stability of the primary model while allowing overrides only when both advisors agree on a disagreement pattern. 
+
+2.5. Expert Review of Disagreement Cases 
+
+To assess label reliability, we used predictions from a sin-gle end-to-end fine-tuned DINOBloom-base model with a linear classification head, selected as the strongest available single-model checkpoint at the time the expert review was conducted. For each image in the training and validation sets, we recorded the top-3 predicted classes, their softmax probabilities, and the confidence margin m = p1 − p2, where 
+
+p1 and p2 denote the top-1 and top-2 predicted probabilities, respectively. Discordant cases were defined as samples for which the top-1 predicted class differed from the assigned reference label. Expert hematologists from Vestfold Hospital Trust reviewed all discordant cases. Each case was cate-gorized as (i) Label Error , when the model prediction was judged correct and the original label incorrect; (ii) Model Er-ror , when the original label was judged correct and the model prediction incorrect; or (iii) Ambiguous , when both interpre-tations were considered defensible. To assess label reliability beyond model–label disagreement, we additionally reviewed a class-stratified random sample of training images for which the model prediction agreed with the assigned label. 
+
+3. RESULTS 
+
+Our best model was a head-diverse ensemble built on a fine-tuned DINOBloom-base backbone with three distinct heads as visualized in Figure 2. On the organizer validation set, this ensemble achieved a Macro-F1 of 0.7217, and on the hid-den test set, it reached 0.67658, reflecting an evaluation-to-test drop of roughly 0.045 in Macro-F1 score. As shown in Figure 4, this transfer gap was not unique to the ensemble. Higher macro F1 on the validation set did not reliably trans-late to stronger hidden-test performance. For example, linear and decoupled variants achieved higher validation Macro-F1 than the ensemble, yet both scored lower on the test set. To mitigate reliance on a particular data split, we perform a 5-fold out-of-fold analysis, training each head family on four folds and evaluating on the held-out fold before aggregating predictions across all folds. As shown in Figure 5, boundary-level performance is head-dependent: linear and cosine are stronger than MLP on the difficult BNE-SNE boundary, lin-ear is strongest on MMY-MY, and MLP is strongest on PMY-MMY. These trends are consistent with the provided valida-MLP-S3 
+
+> Linear-S3
+> Decoupled
+> Cosine-S3
+> Ensemble
+
+# Model 
+
+0.0 
+
+0.2 
+
+0.4 
+
+0.6 
+
+0.8 
+
+> Macro-F1
+> 0.7184
+> 0.67584
+> 0.7281
+> 0.66870
+> 0.7289
+> 0.67540
+> 0.7225
+> 0.66085
+> 0.7217
+> 0.67658
+
+Validation Test Fig. 4 : Comparison of various of our models’ performances on the validation and test sets tion set where cosine scored high on BNE, linear on MMY, and MLP on PMY. Relative to the primary MLP predictions, the final ensem-ble modified only 20 out of 16,477 test outputs (0.12%), yet increased test performance by 0.00074. Figure 6 presents its confusion matrix, highlighting the recurrent error regions that motivated the restricted override strategy. 
+
+3.1. Expert Label Review Results 
+
+Expert review showed that model-label disagreement was enriched for annotation errors, as summarized in Table 1. Across the training and validation sets, 54.5% of discordant cases were judged to be Label Error , compared with 34.9% 
+
+Model Error and 10.6% Ambiguous . Additionally, the re-viewed 1,954 model-label agreement cases identified more mislabeled samples (8.0%) and ambiguous cases (6.4%), indicating that label noise was not confined to discordant pre-dictions. Agreement-set review also suggested elevated per-class label noise in PC (25.5%), LY (21.7%), VLY (16.7%), PMY (14.6%), and MMY (12.8%).                         
+
+> Disagreement nLabel Error Model Error Ambig. Train 1,457 803 (55.1%) 484 (33.2%) 170 (11.7%) Validation 332 172 (51.8%) 140 (42.2%) 20 (6.0%) Combined 1,789 975 (54.5%) 624 (34.9%) 190 (10.6%) Agreement nLabel Error Ambig. Confirmed Correct Train 1,954 156 (8.0%) 125 (6.4%) 1,673 (85.6%)
+
+Table 1 : Summary of expert label review outcomes. Directional analysis of discordant cases showed that la-bel noise was highly asymmetric, as illustrated in Figure 7. The strongest label-noise pairs were LY →VLY, LY →BL, BNE vs SNE 
+
+> MMY vs MY
+> PMY vs MMY
+> VLY vs LY
+
+# Boundary Subset 
+
+0.7 
+
+0.8 
+
+0.9 
+
+> OOF Macro-F1
+> 0.730
+> 0.764
+> 0.748
+> 0.818
+> 0.743
+> 0.781
+> 0.719
+> 0.819
+> 0.742
+> 0.777
+> 0.699
+> 0.809
+
+MLP Linear Cosine 
+
+Fig. 5 : Comparison of classification head performance for the boundary subsets. BA 
+
+> BL
+> BNE
+> EO
+> LY
+> MMY
+> MO
+> MY
+> PC
+> PLY
+> PMY
+> SNE
+> VLY
+
+# Predicted class 
+
+BA 
+
+BL 
+
+BNE 
+
+EO 
+
+LY 
+
+MMY 
+
+MO 
+
+MY 
+
+PC 
+
+PLY 
+
+PMY 
+
+SNE 
+
+VLY                                                      
+
+> True class
+> 58 2
+> 383 14 753
+> 29 94128
+> 167 2
+> 114 1520 451224
+> 5124 7514
+> 591439 273
+> 1128552 411
+> 320 9
+> 1
+> 323521
+> 36 117612254
+> 334 3165
+
+Fig. 6 : Evaluation confusion matrix of the final hybrid. High-lighted regions indicate recurring confusions relevant to the conservative override rule. and SNE →BNE, whereas the reverse directions were often model errors, including BL →LY, VLY →LY, BNE →SNE, and MO →LY. 
+
+4. DISCUSSION AND CONCLUSION 
+
+We present a multi-stage fine-tuning approach for pathology FMs for the WBC classification task. Three main findings BL 
+
+> BNE
+> LY
+> MMY
+> MO
+> MY
+> SNE
+> VLY
+
+# Predicted top-1 class 
+
+BL 
+
+BNE 
+
+LY 
+
+MMY 
+
+MO 
+
+MY 
+
+SNE 
+
+VLY 
+
+> Assigned label  3/
+> 91
+> 16/
+> 39
+> 14/
+> 28
+> 25/
+> 86
+> 95/
+> 102
+> 31/
+> 45
+> 23/
+> 42
+> 55/
+> 59
+> 22/
+> 30
+> 16/
+> 30
+> 23/
+> 47
+> 25/
+> 33
+> 18/
+> 103
+> 19/
+> 34
+> 11/
+> 29
+> 10/
+> 21
+> 15/
+> 25
+> 312/
+> 381
+> 24/
+> 49
+> 22/
+> 36
+> 18/
+> 26
+> 11/
+> 105
+
+Fig. 7 : Directional analysis of reviewed disagreement cases across training and validation sets. Rows denote assigned la-bels and columns denote model top-1 predictions. Each cell shows label errors / reviewed disagreements for that pair, and color indicates the label-error rate.. emerged from this study. First, classifier-head geometry should be matched to the morphology subgroup rather than selected globally, as no single classification head dominated across all difficult classes. Second, under the observed validation-to-test shift, ahead-diverse ensemble transferred better to the hidden test set than, for example, a broader 9-model weighted ensemble built from all three stages of the three DINOBloom head families (MLP, linear, and cosine). This broader ensemble achieved the highest validation Macro-F1 ( 0.7400) but a lower leader-board score (0.67285) than the head-diverse ensemble, which scored 0.7217 on validation macro F1 and a 0.67658 on the leaderboard. Third, expert review showed that label noise was non-trivial and highly structured rather than uniformly distributed. More than half of the reviewed model–label disagreements were judged as label errors, and additional samples judged as mislabels were also found among agreement cases. More-over, noise seemed concentrated in morphologically adjacent pairs, particularly SNE →BNE and LY →BL/VLY, whereas the reverse directions were often model errors. This indicates that model–label disagreement (and agreements) analysis can serve as an auditing signal for label noise. From a clinical workflow perspective, robust automated pre-classification may reduce manual microscopy burden, but high-stakes use still requires expert review and site-specific validation, especially for rare classes. A limitation of this study is the observed label noise, which is a known problem across medical imaging literature, and the extreme rarity of some classes, such as PLY, which constrains reliable learning and evaluation for such classes, hence limiting the utility of deep learning solutions in real-world clinical setups. In addition, although the multi-stage fine-tuning proto-col performed well in our experiments and transferred better to the hidden test set, we did not include a matched single-stage baseline with equivalent training budget. As a result, the staged design should be interpreted as a strong practical strategy rather than as a uniquely validated requirement. 
+
+5. COMPLIANCE WITH ETHICAL STANDARDS 
+
+This research study was conducted retrospectively using hu-man subject data made available in open access by Xin et al 2026 [3]. Ethical approval was not required as confirmed by the license attached with the open access data 
+
+6. REFERENCES 
+
+[1] L. Palmer et al., “ICSH recommendations for the stan-dardization of nomenclature and grading of peripheral blood cell morphological features,” International Journal of Laboratory Hematology , vol. 37, no. 3, pp. 287–303, 2015. [2] Valentin Koch et al., “ DinoBloom: A Foundation Model for Generalizable Cell Embeddings in Hematology ,” in 
+
+proceedings of Medical Image Computing and Computer Assisted Intervention – MICCAI 2024 . October 2024, vol. LNCS 15012, Springer Nature Switzerland. [3] Xin Tian et al., “WBCBench 2026: A challenge for robust white blood cell classification under class im-balance,” in 2026 IEEE International Symposium on Biomedical Imaging (ISBI) . 2026, IEEE. [4] Bingyi Kang et al., “Decoupling representation and clas-sifier for long-tailed recognition,” in International Con-ference on Learning Representations , 2020.

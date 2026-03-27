@@ -1,0 +1,617 @@
+Title: CFCML: A Coarse-to-Fine Crossmodal Learning Framework For Disease Diagnosis Using Multimodal Images and Tabular Data
+
+URL Source: https://arxiv.org/pdf/2603.20016v1
+
+Published Time: Mon, 23 Mar 2026 01:05:59 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# CFCML: A Coarse-to-Fine Crossmodal Learning Framework For Disease Diagnosis Using Multimodal Images and Tabular Data 
+
+## Tianling Liu a, Hongying Liu b,c , Fanhua Shang a, Lequan Yu d, Tong Han e,f and Liang Wan a,b ,∗
+
+> a
+
+College of Intelligence and Computing, Tianjin University, Tianjin 300350, China. 
+
+> b
+
+Medical School of Tianjin University, Tianjin 300072, China. 
+
+> c
+
+Peng Cheng Lab, Shenzhen 518055, China.  
+
+> d
+
+Department of Statistics and Actuarial Science, School of Computing and Data Science, The University of Hong Kong, Hong Kong. 
+
+> e
+
+Department of Radiology, Tianjin Huanhu Hospital, Tianjin 300350, China. 
+
+> f
+
+Tianjin Key Laboratory of Cerebral Vascular and Neurodegenerative Diseases, Tianjin 300350, China. 
+
+A R T I C L E I N F O 
+
+Keywords :Multimodal images-tabular fusion Coarse-to-fine crossmodal learning Multi-granularity features Class-aware information Disease diagnosis 
+
+A B S T R A C T 
+
+In clinical practice, crossmodal information including medical images and tabular data is essential for disease diagnosis. There exists a significant modality gap between these data types, which obstructs advancements in crossmodal diagnostic accuracy. Most existing crossmodal learning (CML) methods primarily focus on exploring relationships among high-level encoder outputs, leading to the neglect of local information in images. Additionally, these methods often overlook the extraction of task-relevant information. In this paper, we propose a novel coarse-to-fine crossmodal learning (CFCML) framework to progressively reduce the modality gap between multimodal images and tabular data, by thoroughly exploring inter-modal relationships. At the coarse stage, we explore the relationships between multi-granularity features from various image encoder stages and tabular information, facilitating a preliminary reduction of the modality gap. At fine stage, we generate unimodal and cross-modal prototypes that incorporate class-aware information, and establish hierarchical anchor-based relationship mining (HRM) strategy to further diminish the modality gap and extract discriminative crossmodal information. This strategy utilize modality samples, unimodal prototypes, and crossmodal prototypes as anchors to develop contrastive learning approaches, effectively enhancing inter-class disparity while reducing intra-class disparity from multiple perspectives. Experimental results indicate that our method outperforms the state-of-the-art (SOTA) methods, achieving improvements of 1.53% and 0.91% in AUC metrics on the MEN and Derm7pt datasets, respectively. The code is available at https://github.com/IsDling/CFCML. 
+
+## 1. Introduction 
+
+In clinical practice, physicians typically diagnose dis-eases by integrating various information sources (Huang et al., 2020), such as medical images and clinical data. Medical images often provide critical insights into lesions and anatomical structures, enabling visual assessment for patients. In contrast, clinical data include additional essential information such as age, medical history, and details of lesion area. The integration of multimodal medical images and clinical data exemplifies crossmodal learning (CML), enabling a more comprehensive understanding of the pa-tient’s health status and facilitating more accurate diagnoses and treatment planning. CML has garnered significant attentions from researchers due to its potential to provide more comprehensive and robust features (Han et al., 2022b; Li et al., 2023; Xu et al., 2022; Grzeszczyk et al., 2023). Some studies employ concatenation operations (Xia et al., 2019; El-Sappagh et al., 2020; Holste et al., 2021) to fuse the crossmodal informa-tion, while other methods (Han et al., 2022a,b) focus on exploring the uncertainty associated with each modality and generating fusion weights based on the learned uncertainty 
+
+> ∗
+
+Corresponding author: Lequan Yu, Liang Wan.  
+
+> liu_dling@tju.edu.cn
+
+(T. Liu); hyliu2009@tju.edu.cn (H. Liu);  
+
+> fhshang@tju.edu.cn
+
+(F. Shang); lqyu@hku.hk (L.Y. ); mrbold@163.com (T. Han); lwan@tju.edu.cn (L.W. ) 
+
+information. Nevertheless, these approaches often fail to fully explore the interrelationships between cross modalities and frequently overlook the inherent heterogeneity among them, which poses challenges to the learning process. Many studies aim to address the modality gap through the feature disentanglement paradigm, which typically explores both modality-shared and modality-specific features (Yang et al., 2022; Li et al., 2023; Wang et al., 2023). Specifically, modality-shared features can reduce the modality gap by providing a unified representation derived from different modalities. In contrast, extracting modality-specific features allows a deeper understanding of the unique characteristics inherent to each modality, thereby facilitating the acquisition of comprehensive crossmodal information. Furthermore, additional research (Song et al., 2021; Zhu et al., 2022; Hu et al., 2025) focuses on reducing the modality gap using the cross-attention mechanism by exploring the correlations between modalities while obtaining complementary infor-mation. However, in the context of medical multimodal images-tabular fusion, the lesion location information in the tabular data relies on the overall information from the images for accurate correspondence, typically captured effectively in the deeper stages of the encoder. Conversely, lesion content information corresponds precisely to the lesion regions in the images, which are effectively captured in the shallower 
+
+Tianling Liu et al.: Preprint submitted to Elsevier Page 1 of 13     
+
+> arXiv:2603.20016v1 [cs.CV] 20 Mar 2026 CLIP Text
+> Encoder
+> Conv1d Conv1d Conv1d Conv1d
+> Conv1d
+> CIE
+> CIE
+> Conv1d
+> CIE
+> CIE
+> Conv1d
+> Classifier
+> ···
+> ···
+> Samples
+> Unimodal
+> Prototypes
+> Unimodal
+> Prototypes
+> ···
+> ···
+> Samples
+> Crossmodal
+> Prototypes
+> MG -CIE M odule CCRM Strategy
+> ···
+> Image 1
+> Tabular
+
+Figure 1: Overview of proposed CFCML framework. For clarity, the figure illustrates a scenario integrating a single image with tabular data. Initially, we extract multi-granularity features from various stages of the image encoder and obtain features from the tabular data using the pretrained CLIP text encoder. Subsequently, the MG-CIE module explore interactions between these multi-granularity features and tabular features to obtain the enhanced unimodal features while preliminary reducing the modality gap. Finally, the CCRM strategy employs class information as a bridge to further narrow the modality gap and extract discriminative features from the crossmodal features. The resulting class-aware crossmodal features are then concatenated to facilitate the final prediction. Specifically, in the CCRM Strategy section, different colors represent samples from distinct classes, while different shapes denote samples from various modalities. The symbol ⊕ indicates the concatenation operation. 
+
+stages. Therefore, aligning tabular data with images neces-sitates careful consideration of the relationship exploration between the multi-granularity features from the multimodal images and tabular data. To our knowledge, existing CML studies have primarily focused on high-level inter-modal relationship, which may hinder efforts to reduce the modality gap. Furthermore, these studies often overlook the extraction of class-aware features that are essential for disease diag-nostic during intermodal relationship exploration. This over-sight may lead to redundant information, ultimately affecting overall performance. Yan et al. (Yan et al., 2024) proposed the Modality-Relevant Interactive Mining (MRIM) module, which introduces class information to mitigate the modality gap between crossmodal images. Despite the success of MRIM, it primarily targets two image modalities, which have a smaller modality gap compared to that between images and tabular data. Additionally, the mining of cross-modal relationship is insufficient, making it challenging to adapt to application scenarios involving multimodal images and tabular data. In this paper, we propose a new coarse-to-fine cross-modal learning (CFCML) framework designed to progres-sively reduce the modality gap by thoroughly exploring in-termodal relationships. The multi-granularity features con-tain comprehensive information of images, and exploring the relationship between these multi-granularity features and tabular information can yield more complementary infor-mation while better mitigating the modality gap. There-fore, we propose a multi-granularity crossmodal information enhancement (MG-CIE) module. Specifically, we consider the notable differences in the number of tokens between images and tabular data, thereby mapping the token number of the two kinds of modalities to a comparable scale. We then investigate inter-modal relationships at each level of granularity and ultimately obtain multi-granularity com-pleted unimodal features. For each modality, we integrate the multi-granularity features, ultimately achieving a more comprehensive and robust representation. Additionally, we propose a novel class-aware relationship mining (CCRM) strategy to further narrow the modality gap using class information and enhance the discriminability of crossmodal features. Specifically, we first establish unimodal prototypes and crossmodal prototypes based on class information. Sub-sequently, we develop hierarchical anchor-based contrastive learning strategies that incorporate sample anchor, unimodal prototype anchor and crossmodal prototype anchor. The ob-jective of these strategies is to cluster samples with the same disease while distancing those with different diseases, thus dissolving the boundaries across modalities while effectively extracting class-aware information. In summary, our main contributions are summarized as follows: 
+
+• We develop a coarse-to-fine crossmodal learning frame-work that progressively reduces the significant modal-ity gap between multimodal images and tabular data by thoroughly exploring the inter-modal relationships. 
+
+Tianling Liu et al.: Preprint submitted to Elsevier Page 2 of 13 • We propose a novel MG-CIE module that examines intermodal relationships across multi-granularity fea-tures to achieve a more comprehensive unimodal rep-resentation while preliminary reduce the modality gap. 
+
+• We introduce a new CCRM strategy that establishes hierarchical anchor-based contrastive learning strate-gies, utilizing class information as a bridge to further reduce the modality gap and explore discriminative crossmodal information. 
+
+• Experiments conducted on both adopted datasets con-taining multimodal images and tabular data demon-strate the effectiveness and superiority of our method in comparison to state-of-the-art (SOTA) methods. 
+
+## 2. Related Work 
+
+2.1. Crossmodal learning 
+
+In recent years, numerous studies have focused on CML (Wang et al., 2016) to achieve more comprehensive and discrimi-native feature representations. These methods can primarily be classified into three categories: uncertainty-based, feature disentanglement (FD)-based and attention-based. Several studies have concentrated on uncertainty-based CML for more robust integration of cross modalities (Han et al., 2022a,b). Han et al. (Han et al., 2022b) extended the application of evidential deep learning to multi-view learning assigning lower weights to views characterized by high uncertainty during the fusion process. This type of method lacks interaction between modalities and does not account for the heterogeneity among cross modalities. Liu et al. (Liu et al., 2024) identified these limitations and proposed the Consistent and Complementary-aware trusted Multi-view Learning (CCML) method, which decoupled the evidence of each view into shared and specific evidence. Additionally, numerous studies have focused on the FD-based method (Hu et al., 2020; Zheng et al., 2022; Li et al., 2023). These methods typically decouple each modal fea-ture into a modality-shared and a modality-specific feature. Modality-shared features can reduce the modality gap, while modality-specific features serve as supplementary inputs for information completion. Zheng et al. (Zheng et al., 2022) captured the modality-shared and modality-specific features and explored adaptive graph learning to construct patient relationships based on the decoupled features. Li et al. (Li et al., 2023) proposed decoupled multimodal distillation (DMD), which decoupled the information of each modality into modality-irrelevant and modality-exclusive spaces, fol-lowed by the application of a graph distillation unit in each space to dynamically enhance the representations of each modality. Furthermore, several studies have investigated attention-based CML to minimize the modality gap and complete representation by examining intermodal relationships (Song et al., 2021; Zhu et al., 2022; Qiu et al., 2024; Zhuang et al., 2024; Qin et al., 2026). Song et al. (Song et al., 2021) developed the crossmodal Attention Blocks to en-hance representation of each modality by establishing spatial correspondences between cross modalities. Zhu et al. (Zhu et al., 2022) proposed a triplet attention network to explore complementary information from cross modalities. Qiu et al. (Qiu et al., 2024) learned the global relationships and local associations among cross modalities using attention mechanism. Unfortunately, these CML methods primarily focus on high-level information, which is insufficient to fully explore the intermodal relationships, and rarely account for the extraction of task-related information. Yan et al. (Yan et al., 2024) proposed the Modality-Relevant Interactive Mining (MRIM) module, which learn single-modality and hybrid-modality proxies by incorpo-rating class information and investigate sample-to-sample and sample-to-proxy correlations to capture interactions be-tween modalities and classes. The comparative results pre-sented in Fig. 2 and Fig. 3 indicate that MRIM achieves only suboptimal performance, suggesting that it faces challenges in adapting to scenarios involving multimodal images and tabular data. Our analysis attributes this limitation to the greater modality differences between image and tabular data compared to those between two image modalities. This disparity complicates the ability of MRIM’s contrastive learning algorithm, which relies solely on samples as an-chors, to mine class-aware relationships across modalities. Consequently, we propose the establishment of hierarchi-cal anchor-based contrastive learning strategies algorithms which incorporate sample anchor, unimodal prototype an-chorand crossmodal prototype anchor to investigate these relationships from various perspectives. 
+
+2.2. Image-Tabular learning 
+
+In the medical field, the image and tabular data pro-vide complementary information for diagnosing diseases. In recent years, a growing number of studies have focused on the fusion of these two modalities (Cui et al., 2023). Several studies (Xia et al., 2019; El-Sappagh et al., 2020; Holste et al., 2021) have employed concatenation operations to fuse image and tabular features, resulting in insufficient interaction between these modalities, which adversely af-fects the performance of the fused features. Duanmu et al. (Duanmu et al., 2020) integrated multiple intermediate results from image and tabular data using a channel-wise multiplication operation. Wolf et al. (Wolf et al., 2022) proposed Dynamic Affine Feature Map Transform (DAFT), which learned an affine transformation for feature maps based on the interaction of image and tabular data. Due-nias et al. (Duenias et al.) proposed a hypernetwork-based framework for image-tabular fusion that utilized tabular data as priors to improve image network predictions. However, these methods do not account for the heterogeneity between the image and the tabular data. Some studies utilize cross-attention mechanisms to explore the relationships between the two modalities, thereby alleviating the modality gap (Xu et al., 2022; Grzeszczyk et al., 2023; Guo et al., 2024; Xiong et al., 2024b; Ding et al., 2024; Jia et al., 2024; Hu   
+
+> Tianling Liu et al.: Preprint submitted to Elsevier Page 3 of 13
+
+et al., 2025). Wang et al. (Wang et al., 2023) captured the modality-shared and modality-specific features from image and tabular information using learnable bottleneck tokens. Hager et al. (Hager et al., 2023) aimed to alleviate modal-ity gap through contrastive learning. Xiong et al. (Xiong et al., 2024a) introduced the Mixture of Multimodal Experts (MoME) method, designed to capture intricate intra- and inter-modal interactions between image and tabular data, while incorporating bottleneck features that facilitate bridg-ing gaps between modalities. However, these studies often do not explore the fusion of multiple images and tabular data and lack mechanisms for filtering out class-irrelevant features during the fusion process. 
+
+## 3. Method 
+
+Let us denote a crossmodal input as {𝑋 𝑖 , 𝑇 𝑖 , 𝑦 𝑖 }𝑁 𝑖 =1 ,where 𝑁 represents the number of samples, 𝑋 𝑖 denotes the 𝑖 -th multimodal image input, comprising 𝑚 modalities denoted as 𝑥 𝑖 𝑗 (𝑗 ∈ {1 , ..., 𝑚 }) ; 𝑇 𝑖 represents the 𝑖 -th tabular clinical input containing 𝑡 attributes; 𝑀 = 𝑚 + 1 is the total number of modalities; 𝑦 𝑖 is the classification label for the 𝑖 -th sample. 
+
+3.1. Overview 
+
+The overview of the proposed method is illustrated in Fig. 1. Initially, we extract multi-granularity features from each image based on the multi-stage outputs of the image encoder, and obtain feature embeddings from the tabular data with the pretrained CLIP text encoder. Subsequently, we investigate the correlations between the multi-granularity image features and tabular embeddings by our proposed MG-CIE module, thereby obtaining supplementary infor-mation for each modality. At each granularity, a CIE mod-ule generates supplementary information for each modality by exploring the relationships between tabular embeddings and corresponding granularity multimodal image features. This supplementary information is then fused with orig-inal features to generate the enhanced features. For each modality, we further fuse the multi-granularity enhanced features to derive the final enhanced features. Finally, we conduct unimodal and crossmodal prototypes based on class information and employ the CCRM strategy to extract class-aware features by exploring relationships among samples and these prototypes. The objective of the CCRM strategy is to bring samples of the same class closer while pushing samples of different classes apart, thereby transcending the boundaries across modalities. Ultimately, the resulting class-aware features are integrated to produce the final prediction. 
+
+3.2. Feature Extraction 
+
+3.2.1. Multi-granularity feature extraction from images 
+
+Given an input 𝑥 with dimensions of ℝ𝐻 ×𝑊 ×𝐷 for 3D image and ℝ𝐻 ×𝑊 for 2D image, where 𝐻 , 𝑊 , 𝐷 denote height, width and depth, respectively. We obtain four multi-granularity features 𝑓 𝑠 (where 𝑠 ∈ {1 , 2, 3, 4} ) from the Crossmodal Information Enhancement M odule     
+
+> 𝒇 𝟏 𝒇 𝟐 𝒇 𝑴
+> Mapping Mapping
+> 𝑲 𝑽 𝑸
+> ···
+> ···
+> ···
+> ···
+> ···
+> ···
+> ···
+> ···
+> Conv1d
+> ···
+> Correlation
+> Ma trix
+> Figure 2: Architecture of the proposed CIE Module.
+
+outputs of the four stages of the image encoder. For 3D images, we adopt the nnMamba (Gong et al., 2025) as encoder and obtain 𝑓 𝑠 ∈ ℝ𝑐 ×ℎ×𝑤 ×𝑑 , where 𝑐 = 𝐶 ∗ 𝑠 and 
+
+𝐶 denotes the channel dimension of the first stage output, 
+
+ℎ = 𝐻  
+
+> 2𝑠
+
+, 𝑤 = 𝑊  
+
+> 2𝑠
+
+, 𝑑 = 𝐷  
+
+> 2𝑠
+
+. For 2D images, we apply the pretrained Swin Transformer (Swin_T) (Liu et al., 2021) as the encoder, following (Xu et al., 2022), and obtain 𝑓 𝑠 ∈
+
+ℝ𝑐 ×ℎ×𝑤 , where ℎ = 𝐻  
+
+> 2𝑠 +1
+
+, 𝑤 = 𝑊  
+
+> 2𝑠 +1
+
+. The value of 𝐶 is set to 16 in nnMamba while 96 in Swin_T. In the following, we will use 3D multimodal images to illustrate the proposed method. 
+
+3.2.2. Tabular embedding 
+
+Previous studies generally input standardized numerical attributes (e.g., age) or convert categorical clinical attributes into one-hot encoding (e.g., sex) to obtain clinical features, often overlooking their significance (Cui et al., 2023). In-spired by (Xiong et al., 2024b), we utilized the pretrained CLIP text encoder (ViT-B/32) (Radford et al., 2021), which excels in textual feature comprehension, to extract features from tabular data. We have designed several templates to transfer the tabular data into sentences as the input for the text encoder. The details of the templates for different attributes are presented in Table 1. Each sentence generated from an attribute will be extracted as a feature with dimen-sionality of ℝ1×512 . As a result, we can obtain the extracted tabular features 𝑜 ∈ ℝ𝑡 ×512 . During the training process, the text encoder is frozen. 
+
+3.3. Multi-granularity crossmodal information enhancement module 
+
+The deep relationship exploration between tabular em-beddings and multi-granularity features from multimodal images is beneficial for reducing modality gap and obtaining more comprehensive unimodal representation. In fact, there exists a significant disparity in the token numbers between the image and tabular features (e.g., 49,152 tokens for each image at the first granularity compared to 5 tokens for the tabular data in the MEN dataset), resulting in informa-tion overload for the images. Consequently, for images and tabular features, we employ distinct adapters to map their tokens to respective predefined numbers, denoted as 𝑛 𝑥 , 𝑛 𝑡 .By compressing the image tokens, redundant information   
+
+> Tianling Liu et al.: Preprint submitted to Elsevier Page 4 of 13
+
+can be significantly filtered out, thereby enhancing feature representation. The adjusted features of each image and tabular data can be obtained as follows. ̂𝑓 𝑠 = Φ 𝑠 𝑓 (𝑓 𝑐 (𝑅𝑒 (𝑓 𝑠 ))) ,̂ 𝑜 = Φ 𝑜 (𝑓 𝑐 (𝑜 )) , (1) where 𝑅𝑒 represents the operation which converts each granularity feature 𝑓 𝑠 into a token sequence with dimensions of ℝℎ𝑤𝑑 ×𝑐 ; 𝑓 𝑐 (⋅) denotes a fully connected layer that maps the multi-granularity image features or tabular features to a unified dimension 𝐶 𝑑 = 128 ; Φ( ⋅) represents the 𝐶𝑜𝑛𝑣 1𝑑 
+
+operation that maps the number of tokens to a predefined number. Specifically, the input channel of 𝐶𝑜𝑛𝑣 1𝑑 corre-sponds to the original token count for image or tabular fea-tures, while the output channel corresponds to the predefined numbers. We subsequently investigate the correlation between ad-justed tabular features and multimodal image features across different granularity using MG-CIE module, as shown in Fig. 1. As an illustrative example, we demonstrate the corre-lation exploration process between the tabular features ̂ 𝑡 and the first granularity multimodal image features {̂𝑓 11 , ..,̂ 𝑓 1
+
+> 𝑚
+
+}.As depicted in Fig. 2, we sequentially designate one feature as the primary feature 𝑓 𝑏 and treat the concatenated tokens from all other features as the auxiliary feature 𝑓 𝑎 . Then, we perform multi-head cross-attention between the primary and auxiliary feature to capture the additional information for the primary feature. In this context, the primary feature serves as the query, while the auxiliary information acts as both the key and value. Mathematically, this process can be formulated as: 
+
+𝑄 = 𝑓 𝑏 𝑊 𝑄 , 𝐾 = 𝑓 𝑎 𝑊 𝐾 , 𝑉 = 𝑓 𝑎 𝑊 𝑉 , (2) 
+
+𝑀 𝑐𝑜𝑟𝑟 = 𝑠𝑜𝑓 𝑡𝑚𝑎𝑥 ( 𝑄𝐾 𝑇 
+
+√𝐶 𝑑 ∕𝑁 ℎ
+
+), (3) 
+
+𝑓 𝑠𝑢𝑝 𝑏 = 𝑀 𝑐𝑜𝑟𝑟 𝑉 ,̃ 𝑓 𝑏 = Φ 𝑝 (𝐶𝑎𝑡 (𝑓 𝑏 , 𝑓 𝑠𝑢𝑝 𝑏 )) , (4) where 𝑊 𝑄 , 𝑊 𝐾 , 𝑊 𝑉 ∈ ℝ𝐶 𝑑 ×𝐶 𝑑 are learnable parameters; 
+
+𝑁 ℎ denotes the number of heads; 𝑀 𝑐𝑜𝑟𝑟 represents the correlation matrix between tokens of the primary feature and those of the auxiliary feature; 𝑓 𝑠𝑢𝑝 𝑏 denotes the supple-mentary features for the primary features; 𝐶𝑎𝑡 signifies the token concatenation operation; Φ𝑝 represents the 𝐶𝑜𝑛𝑣 1𝑑 
+
+operation that maps the number of concatenated token to a predefined number; and ̃ 𝑓 𝑏 indicates the enhanced features. As a result, we obtain the enhanced multimodal features 
+
+{̃𝑓 11 , ..,̃ 𝑓 1
+
+> 𝑚
+
+} and the enhanced tabular feature ̃𝑜 1 at the first granularity. In this way, we finally obtain the enhanced multimodal image features and enhanced tabular features at different granularity. We then fuse the enhanced features from different gran-ularities for each modality as follows: 
+
+𝑃 = Φ 𝑚𝑔 (𝐶𝑎𝑡 (̃𝑝 1,̃𝑝 2,̃𝑝 3,̃𝑝 4), 𝑝 ∈ { 𝑓 , 𝑜 }, (5) where ̃𝑝 𝑖 represents the enhanced feature at the 𝑖 -th granu-larity, while 𝑃 ∈ { 𝐹 , 𝑂 } denotes the fused features from multiple granularities; Φ𝑚𝑔 indicates the 𝐶𝑜𝑛𝑣 1𝑑 operation Samples  Crossmodal Prototypes  Push away Unimodal Prototypes    
+
+> (a) S ample -anchor -based (b) Unimodal -anchor -based (c) Crossmodal -anchor -based
+> Anchors Pull closer
+
+Figure 3: Illustration of the CCRM strategy across three modalities and three class conditions. CCRM en-compasses sample-anchor-based, unimodal-anchor-based, and crossmodal-anchor-based CL strategies. Specifically, in each strategy, we select an anchor sample and identify its positive samples (connected by the red dashed line) and negative samples (connected by the black dashed line). The objective is to minimize the distance between the anchor and positive samples while maximizing the distance between the anchor and negative samples. 
+
+that maps the number of concatenated token from multi-granularity enhanced features to the predefined number ( 𝑁 𝑥 
+
+for image, 𝑁 𝑡 for tabular data). Ultimately, we obtain fi-nal enhanced multimodal image features {𝐹 1, ..., 𝐹 𝑚 } and tabular feature 𝑂 . For the convenience of the following representation, we have established an enhanced feature set 
+
+ = { 𝐹 1, ..., 𝐹 𝑚 , 𝑂 }.
+
+3.4. Class-aware crossmodal relationship mining strategy 
+
+The MG-CIE module can preliminarily address the modality gap, and each enhanced unimodal representation contains numerous class-irrelevant features, which may ad-versely affect overall classification performance. To address these limitations, we propose a new Class-aware Crossmodal Relationship Mining (CCRM) strategy, which utilizes class information as a bridging mechanism to further mitigate the modality gap while simultaneously extracting discriminative features. Fig. 3 presents examples of three modalities and three classes. As illustrated in this figure, we first establish a crossmodal prototype 𝑐𝑝 for samples belonging to each class, as well as a unimodal prototype 𝑢𝑝 for samples within each modality that correspond to each class. 
+
+𝑐𝑝 𝑙 =
+
+∑𝑁 𝑖 =1 
+
+∑𝑀 𝑗 =1 𝑖 𝑗 1[𝑦 𝑖 = 𝑙 ]
+
+∑𝑁 𝑖 =1 
+
+∑𝑀 𝑗 =1 1[𝑦 𝑖 = 𝑙 ] , (6) 
+
+𝑢𝑝 𝑙 𝑗 =
+
+∑𝑁 𝑖 =1 𝑖 𝑗 1[𝑦 𝑖 = 𝑙 ]
+
+∑𝑁 𝑖 =1 1[𝑦 𝑖 = 𝑙 ] , 𝑗 ∈ {1 , ..., 𝑀 }, (7) where 𝑙 ∈ 𝑁 𝑐 denotes the index of class number, 𝑖 𝑗 
+
+represents the enhanced feature of the 𝑗 -th modality for the 
+
+𝑖 -th sample, and 1[⋅] is the indicator function. 
+
+Tianling Liu et al.: Preprint submitted to Elsevier Page 5 of 13 Due to inherent characteristics, samples from the same modality tend to cluster together, while those from dif-ferent modalities are distributed further apart, resulting in significant modality gap while neglecting class-aware information. Therefore, we introduce hierarchical anchor-based contrastive learning (CL) strategies to further re-duce the modality gap and mine class-aware crossmodal features, which encompasses three components: sample-anchor-based, unimodal proto-anchor-based and crossmodal proto-anchor-based. 
+
+3.4.1. Sample-anchor-based CL strategy 
+
+To differentiate samples of various classes within the same modality and enhance the class-aware information associated with each sample, we establish a sample-anchor-based CL strategy. Specifically, each sample is treated as an anchor, with unimodal prototypes and crossmodal prototype sharing the same class forming the positive sample set, denoted as 𝑆 𝑠𝑎𝑚 + , while samples with different labels from the same modality comprise the negative sample set, denoted as 𝑆 𝑠𝑎𝑚 − . This strategy is mathematically expressed as: 
+
+𝑠𝑎𝑚 = − 𝑙𝑜𝑔 
+
+> 𝑁
+
+∑
+
+> 𝑖 =1
+> 𝑀
+
+∑
+
+> 𝑗 =1
+
+𝑂𝑝 +(𝑖 𝑗 , 𝑆 𝑠𝑎𝑚 + )
+
+𝑂𝑝 +(𝑖 𝑗 , 𝑆 𝑠𝑎𝑚 + ) + 𝑂𝑝 −(𝑖 𝑗 , 𝑆 𝑠𝑎𝑚 − ) ,
+
+(8) where 𝑂𝑝 +(𝑎𝑟, 𝑆 +) represents the cumulative similarity be-tween the anchor 𝑎𝑟 and each sample in the positive sample set 𝑆 +; 𝑂𝑝 −(𝑎𝑟, 𝑆 −) denotes the cumulative similarity be-tween the anchor 𝑎𝑟 and each sample in the negative sample set 𝑆 −. These operations can be expressed as: 
+
+𝑂𝑝 ∗(𝑎𝑟, 𝑆 +) = 
+
+> 𝑁 ∗
+
+∑
+
+> 𝑘 =1
+
+exp( 𝐶𝑆 (𝑎𝑟, 𝑆 𝑘  
+
+> ∗
+
+))∕ 𝜏, (9) where ∗∈ {+ , −} , 𝑁 + and 𝑁 − denote the number of sam-ples in the positive and negative sample sets, respectively; 
+
+𝐶𝑆 (⋅, ⋅) signifies the cosine similarity function, 𝜏 represents the temperature parameter. 
+
+3.4.2. Unimodal proto-anchor-based CL strategy 
+
+We further examine the relationships between unimodal prototypes to capture discriminative information. Specifi-cally, we designate each unimodal prototype as the anchor, with crossmodal prototype that belongs to the same class forming the positive sample set 𝑆 𝑢𝑝 + , while unimodal pro-totypes from different classes serve as the negative sample set 𝑆 𝑢𝑝 − . The mathematical representation of this strategy is as: 
+
+𝑢𝑝 = − 𝑙𝑜𝑔 
+
+> 𝑁 𝑐
+
+∑
+
+> 𝑙 =1
+> 𝑀
+
+∑
+
+> 𝑗 =1
+
+𝑂𝑝 +(𝑢𝑝 𝑙 𝑗 , 𝑆 𝑢𝑝 + )
+
+𝑂𝑝 +(𝑢𝑝 𝑙 𝑗 , 𝑆 𝑢𝑝 + ) + 𝑂𝑝 −(𝑢𝑝 𝑙 𝑗 , 𝑆 𝑢𝑝 − ) .
+
+(10) 
+
+3.4.3. Crossmodal proto-anchor-based CL strategy 
+
+To further enhance the separation between different classes and improve the discriminative power of crossmodal T1C  FLAIR -C ADC  Clinical image  Dermatoscopy image  
+
+> MEN Derm7pt
+
+Figure 4: Display of multimodal images from the adopted datasets. 
+
+features, we propose a crossmodal proto-anchor-based CL strategy. Specifically, each crossmodal prototype serves as an anchor, with all unimodal prototypes sharing the same label comprising the positive sample set 𝑆 𝑐𝑝 + , while other crossmodal prototypes constitute the negative sample set 
+
+𝑆 𝑐𝑝 − . This strategy can be mathematically formulated as: 
+
+𝑐𝑝 = − 𝑙𝑜𝑔 
+
+> 𝑁 𝑐
+
+∑
+
+> 𝑙 =1
+> 𝑀
+
+∑
+
+> 𝑗 =1
+
+𝑂𝑝 +(𝑐𝑝 𝑙 𝑗 , 𝑆 𝑐𝑝 + )
+
+𝑂𝑝 +(𝑐𝑝 𝑙 𝑗 , 𝑆 𝑐𝑝 + ) + 𝑂𝑝 −(𝑐𝑝 𝑙 𝑗 , 𝑆 𝑐𝑝 − ) . (11) Finally, class-aware information is filtered from each en-hanced feature through backpropagation, enabling the acqui-sition of final fused features by concatenating all extracted class-aware features. To obtain the final prediction 𝑦 ′, we utilize a Multi-Layer Perceptron (MLP) as the classifier. The cross-entropy (CE) loss acts as the supervisory signal for prediction. The classification loss 𝑐𝑙𝑠 is defined as follows: 
+
+𝑐𝑙𝑠 = 𝐶𝐸 (𝑦 ′, 𝑦 ). (12) The overall loss  is characterized as the weighted sum of the previously mentioned losses, 
+
+ = 𝑐𝑙𝑠 + 𝛼 𝑠𝑎𝑚 + 𝛽 𝑢𝑝 + 𝛾 𝑐𝑝 , (13) where 𝛼 , 𝛽 and 𝛾 are employed as balance factors. The description of the algorithm for our proposed CFCML framework is summarized in Algorithm 1 .
+
+## 4. Experiments 
+
+4.1. Datasets 
+
+To validate the effectiveness of our proposed method, we conducted experiments using two crossmodal datasets, including a private dataset and a public dataset. Sample instances from these datasets are presented in Fig. 4. 
+
+4.1.1. MEN dataset 
+
+The MEN dataset was collected from the Brain Medical Center of Tianjin University, Tianjin Huanhu Hospital 1. In total, we gathered multimodal magnetic resonance imaging (MRI) and clinical information from 796 patients diag-nosed with meningiomas of three grades: Grade 1 (G1), 
+
+> 1The Ethical Committee of Tianjin Huanhu Hospital has granted approval for the scientific research involving multimodal MRIs and clinical data and has waived the necessity for informed patient consent (Jinhuan Ethical Review No. 2022-046)
+
+Tianling Liu et al.: Preprint submitted to Elsevier Page 6 of 13 Algorithm 1: CFCML Algorithm 
+
+Input: Multimodal images 𝑋 𝑖 and tabular data 𝑇 𝑖 ;Target class 𝑦 𝑖 .
+
+for e = 1; e ≤ Epoch; e + + do 
+
+1. Extract multi-granularity features 𝑓 𝑠 𝑗 from multimodal images and 𝑜 𝑠 from tabular data, where 𝑗 ∈ {1 , ..., 𝑚 }, 𝑠 ∈ {1 , 2, 3, 4} ;2. Obatain the adjusted multi-granularity multimodal image features ̂ 𝑓 𝑠 𝑗 and tabular features ̂𝑜 𝑠 as Eq.1; 3. Get enhanced multimodal features ̃ 𝑓 𝑠  
+
+> 1
+
+, ..,̃ 𝑓 𝑠 𝑚 
+
+and the enhanced tabular feature ̃𝑜 𝑠 at multiple levels of granularity as Eq.4; 4. Obtain the final enhanced multimodal image features 𝐹 1, ..., 𝐹 𝑚 and tabular feature 𝑂 from multi-granularity features as Eq.5; 5. Calculate the crossmodal prototype 𝑐𝑝 and the unimodal prototype 𝑢𝑝 as Eq.6 and Eq.7; 6. Conduct relationship mining including sample-anchor-based, unimodal proto-anchor-based and crossmodal proto-anchor-based approaches as Eq.8-11; 7. Concatenate the extracted class-aware features and obtain the final prediction 𝑦 ′;8. Compute the classification loss and overall loss as Eq.12 and Eq.13; 
+
+end 
+
+Grade 2 with invasion (G2inv), and Grade 2 without in-vasion (G2ninv). The dataset comprises 650 patients with G1, 60 patients with G2inv, and 86 patients with G2ninv. We adopted three MRI series for each patient: Contrast-Enhanced T1 series (T1C), Contrast-Enhanced T2 FLAIR series (FLAIR-C), and Apparent Diffusion Coefficient series (ADC). The clinical information consists of six attributes: sex, age, tumor area, edema area, tumor location, and the value of the apparent diffusion coefficient. Following (Liu et al., 2025), we zero-padded the regions of interest (ROIs) in MRIs, including the tumor and edema area, to squares and resized them to dimensions of 24*128*128 for model input. 
+
+4.1.2. Derm7pt dataset 
+
+The Derm7pt (Kawahara et al., 2018) is a publicly avail-able crossmodal skin lesion analysis dataset. Following (Pa-trício et al., 2023; Hou et al., 2024), we focused on predicting disease categories, specifically melanoma (MEL) and nevus (NEV), and filtered the original dataset to obtain a subset of 827 cases, each containing multimodal images and clinical data. There are 346 cases in the training set (90 NEV and 256 MEL cases), 161 cases in the validation set (61 NEV and 100 MEL cases), and 320 cases in the test set (101 NEV and 219 MEL cases), respectively. For each case, we adopted two multimodal images, consisting of clinical and dermatoscopy images, alongside five attributes, including sex, management, lesion location, lesion elevation, and level    
+
+> Table 1
+> The templates for different attributes. In each template, the first {} represents the attribute, and the second {} represents the attribute value.
+> Attributes Templates
+> management The {} for the patient is {} sex The {} of patient is {} age tumor area The {} in the brain is {}. edema area tumor location lesion location The {} is {} lesion elevation level of diagnostic difficulty value of apparent diffusion coefficient
+
+of diagnostic difficulty. All images were resized to dimen-sions of 224*224*3 for model input. 
+
+4.2. Evaluation metrics 
+
+Following (Liu et al., 2025), we adopted 7 metrics to validate the effectiveness of the proposed method for the MEN dataset, including Accuracy (ACC), Accuracy of G1 (ACC_G1), Accuracy of G2inv (ACC_G2inv), Accuracy of G2ninv (ACC_G2ninv), weighted F1 score (weighted-F1), macro F1 score (macro-F1) and Area Under the Curve (AUC). For the Derm7pt dataset, we employed 7 met-rics as well, which included Sensitivity (SEN), Speci-ficity (SPE), Accuracy (ACC), G-mean, Balanced Accu-racy (Ba_ACC) (Brodersen et al., 2010), Area Under the Precision-Recall Curve (AUPRC), and AUC. In the statisti-cal analysis, we utilized the Wilcoxon signed-rank test (Wilcoxon, 1992) to compare the metrics of our proposed method with SOTA methods. 
+
+4.3. Experiment setup and implementation details 
+
+For both adopted datasets, we utilized the Adam opti-mizer with a weight decay of 1𝑒 −4 to update the model. The training was conducted over 50 epochs. We implemented a linear warm-up strategy during the first 5 epochs, gradually increasing the learning rate from zero to its initial value. Additionally, we applied a learning rate decay strategy that reduced the learning rate to 80% of its previous value every 
+
+5 epochs. The dropout rate was set to 0.5. The temperature parameter 𝜏 is set as 0.07 (Wu et al., 2018; He et al., 2020). We transferred tabular attributes to sentences using the templates presented in Table 1. For the MEN dataset, we employed 3-fold cross-validation to evaluate performance. The learning rate was set to 5𝑒 − 4 , and the batch size was established at 36 . Data augmentation techniques including Gaussian noise, random crop, random flip, and random erasing (Zhong et al., 2020), were applied to the training images. In the case of the Derm7pt dataset, we trained the model three times using different seeds, utilizing training, validation, and testing data pre-divided by the creator. We initialized the learning rate value at 1𝑒 − 4 and set the batch size to 64. Following (Tang et al., 2022), we employed random vertical and horizontal flips, shifts, and distortions   
+
+> Tianling Liu et al.: Preprint submitted to Elsevier Page 7 of 13
+
+Table 2 
+
+The comparison results on the MEN dataset (mean ±standard deviation). The best results for each metric are highlighted in 
+
+bold . * indicates that our proposed method achieves statistically significant improvements over the other compared methods (p-value<0.05). The complexity, including the number of parameters (M) and GFLOPs (G), is displayed on the right. The term MRIM+ denotes the integration of the proposed MG-CIE module into the comparative method MRIM, while Proposed- indicates the replacement of the MG-CIE module with the single-granularity CIE at the final stage of the encoder (SG-CIE). Methods Metrics Complexity ACC ACC_G1 ACC_G2inv ACC_G2ninv weighted-F1 macro-F1 AUC Param GFLOPs ETMC Han et al. (2022b) 88.66 ±4.74* 93.99 ±7.22* 66.94 ±8.68* 63.73 ±15.01* 89.02 ±3.40* 75.39 ±3.54* 90.19 ±0.98* 10.50 18.51 DMD Li et al. (2023) 92.21 ±0.51* 96.46 ±1.42* 91.49 ±7.70 60.72 ±9.45* 92.13 ±0.25* 81.34 ±1.15* 96.25 ±0.73* 171.66 18.74 MVCNet Guo et al. (2024) 93.84 ±1.33* 97.53 ±2.72 86.72 ±7.35* 71.11 ±6.74* 93.81 ±1.12* 85.84 ±2.50* 96.83 ±1.05* 10.67 18.51 CCML Liu et al. (2024) 91.33 ±1.06* 96.92 ±1.63 81.22 ±13.45* 56.19 ±14.02* 90.91 ±0.92* 79.50 ±3.00* 95.41 ±1.36* 10.36 18.51 GLoMo Zhuang et al. (2024) 94.35 ±0.95* 96.62 ±0.69 86.56 ±3.41* 82.62 ±5.82* 94.50 ±0.91* 87.40 ±2.70* 97.04 ±1.19* 12.85 18.60 MRIM Yan et al. (2024) 90.32 ±0.93* 95.07 ±2.64* 76.12 ±16.64* 64.52 ±21.31* 90.29 ±1.04* 78.78 ±1.24* 95.00 ±0.40* 10.39 18.51 MRIM+ 92.57 ±2.63* 94.92 ±2.83* 88.05 ±13.33* 77.86 ±12.64* 93.02 ±2.32* 82.88 ±4.87* 96.21 ±0.56* 35.98 19.07                   
+
+> Proposed-92.97 ±0.51 95.08 ±2.69 91.57 ±3.19 77.70 ±14.72 93.24 ±0.17 84.99 ±3.33 97.80 ±0.33 10.71 18.07
+> Proposed 95.61 ±0.56 96.77 ±1.23 93.24 ±3.26 88.57 ±7.42 95.76 ±0.52 91.13 ±1.28 98.57 ±0.12 35.98 19.07
+
+Table 3 
+
+The comparison results on the Derm7pt dataset. Methods Metrics Complexity SEN SPE ACC G_Mean Ba_ACC AUPRC AUC Param GFLOPs ETMC Han et al. (2022b) 77.56 ±8.42 73.98 ±5.54* 75.11 ±2.90* 75.57 ±3.02* 75.77 ±3.22* 52.13 ±3.44* 83.06 ±1.67* 28.69 44.66 DMD Li et al. (2023) 69.97 ±5.80* 88.89 ±2.16 82.92 ±0.36* 78.79 ±2.38* 79.43 ±1.82* 61.56 ±0.99* 89.61 ±1.06* 184.49 44.76 MVCNet Guo et al. (2024) 73.27 ±3.57* 86.45 ±1.90* 82.29 ±0.65* 79.56 ±1.24* 79.86 ±1.07* 60.77 ±1.12* 88.88 ±0.50* 28.89 44.66 CCML Liu et al. (2024) 69.97 ±2.06* 83.71 ±2.16* 79.38 ±1.90* 76.53 ±1.84* 76.84 ±1.84* 56.05 ±2.80* 86.63 ±2.41* 28.58 44.66 GLoMo Zhuang et al. (2024) 79.87 ±3.48 78.69 ±8.12* 79.06 ±4.81* 79.15 ±3.17* 79.28 ±3.03* 57.48 ±5.61* 88.77 ±1.85* 30.67 44.69 MRIM Yan et al. (2024) 71.95 ±5.45* 86.00 ±4.60* 81.56 ±1.44* 78.55 ±0.91* 78.97 ±0.46* 59.65 ±1.82* 88.79 ±1.14* 26.60 44.67 MRIM+ 75.91 ±5.08 85.85 ±5.19* 82.71 ±2.43* 80.62 ±1.67* 80.88 ±1.56* 61.93 ±3.48* 89.02 ±1.79* 30.63 79.79                   
+
+> Proposed-73.60 ±3.02 88.58 ±1.99 83.85 ±1.41 80.72 ±1.65 81.09 ±1.54 63.47 ±2.54 89.70 ±1.62 28.81 44.68
+> Proposed 75.91 ±3.48 89.49 ±2.09 85.21 ±1.41 82.40 ±1.75 82.70 ±1.63 66.07 ±2.64 90.52 ±0.96 30.63 79.79
+
+as data augmentation operations. The predefined token num-bers for image and tabular data, { 𝑛 𝑥 , 𝑛 𝑡 } were set to {48, 16} for the MEN dataset and {32, 24} for the Derm7pt dataset. The ablation studies regarding the token number settings are discussed in the Section 5. We adjusted the balance factors to ensure that the initial magnitudes of the other loss components (i.e. 𝑠𝑎𝑚 , 𝑢𝑝 , 𝑐𝑝 ) were comparable to that of the task loss ( 𝑐𝑙𝑠 ). Specifically, the factors 𝛼 , 𝛽 , 𝛾 were set to 0.06 , 0.04 and 0.24 for the MEN dataset, and to 0.04 , 0.06 ,
+
+0.18 for the Derm7pt dataset, respectively. All experiments were conducted using Python 3.10 with the PyTorch toolkit 2.1 on a platform equipped with an NVIDIA GeForce RTX 3090 GPU. 
+
+4.4. Quantitative results 
+
+To showcase the superiority of our proposed method, we identified six SOTA methods, including (1) the uncertainty-based methods, i.e., ETMC (Han et al., 2022b), CCML (Liu et al., 2024), (2) the feature disentanglement-based methods like DMD (Li et al., 2023), (3) the attention-based methods, such as MVCNet 2 (Guo et al., 2024), GLoMo (Zhuang et al., 2024), and (4) MRIM (Yan et al., 2024). To ensure a 
+
+> 2
+
+MVCNet was originally designed to fuse a single image with tabular data. To adapt it to our multimodal images and tabular data fusion scenario, we fuse the extracted features of the multimodal image through a channel concatenation operation and subsequently interact with the tabular data. 
+
+fair comparison, we configured the encoders for multimodal images and tabular data to be consistent with those of the proposed method. The comparison results on the MEN dataset are pre-sented in Table 2. Notably, our proposed method out-performs all comparison methods across nearly all met-rics, achieving improvements of 1.26% in ACC, 1.75% in ACC_G2inv, 5.95% in ACC_G2ninv, 1.26% in weighted-F1, 3.73% in macro-F1 and 1.53% in AUC compared to the SOTA methods with the best results. In Table 3, we further validate the proposed method on the public Derm7pt dataset, where it also achieves superior results across almost all metrics compared to the SOTA methods. Specifically, our proposed method demonstrates improvements of 0.6% in SPE, 2.29% in ACC, 2.84% in G_Mean, 2.84% in Ba_ACC, 
+
+4.51% in AUPRC and 0.91% in AUC. Furthermore, the results of the statistical tests conducted on both datasets, as presented in Table 2 and Table 3, provide additional evidence that our proposed method significantly surpasses the comparison methods across the majority of metrics. In summary, the high accuracy attained in each category suggests that the proposed method is capable of effectively extracting more discriminative crossmodal fea-tures. 
+
+Tianling Liu et al.: Preprint submitted to Elsevier Page 8 of 13 Table 4 
+
+The ablation study on the MEN dataset.                                     
+
+> Proposed ACC ACC _G1 ACC _G2inv ACC _G2ninv weighted -F1 macro -F1 AUC MG-RIE CCRM
+> ××91.32 95.84 82.06 64.13 91.37 80.95 95.77
+> ✓×92.84 96.00 84.73 74.44 92.99 84.15 95.90
+> ×✓91.70 94.61 86.48 73.49 92.04 82.42 96.02
+> ✓✓95.61 96.77 93.24 88.57 95.76 91.13 98.57
+
+Table 5 
+
+The ablation study on the Derm7pt dataset.                                         
+
+> Proposed SEN SPE ACC G_Mean Ba_ACC AUPRC AUC MG-CIE CCRM
+> ××75.58 83.56 81.04 79.36 79.57 59.38 87.52
+> ✓×74.92 87.52 83.54 80.91 81.22 63.01 89.51
+> ×✓73.27 88.28 83.54 80.32 80.77 62.89 88.96
+> ✓✓75.91 89.49 85.21 82.40 82.70 66.07 90.52
+
+4.5. Ablation studies 
+
+We conduct ablation experiments to justify the effec-tiveness of the two components in the proposed method, including the MG-CIE module and the CCRM strategy. The ablation results are shown in Table 4 and Table 5 for the MEN and Derm7pt datasets, respectively. 
+
+4.5.1. Effectiveness of the MG-CIE module 
+
+Comparing the first two rows in Table 4, it is evident that the MG-CIE module significantly enhances most metrics on the MEN dataset, particularly with a 3.2% improvement in the macro-F1 metric. A similar phenomenon is observed on the derm7pt dataset, as shown in Table 5. These im-provements indicate that the MG-CIE module has obtained more comprehensive unimodal features by exploring the relationships among cross modalities. To further validate the effectiveness of the MG-CIE module, we integrated it into the comparative method MRIM, resulting in method MRIM+. As presented in Table 2, MRIM+ exhibits substantial improvements over MRIM across six metrics on the MEN dataset, with similar en-hancements also seen in the derm7pt dataset (Table 3). As depicted in Fig. 5, compared to MRIM, the t-SNE (Van der Maaten and Hinton, 2008) visualization results of MRIM+ indicate tighter clustering of samples within the same class and increased distance between different classes, alleviating the modality gap. This suggests that MG-CIE has extracted more robust unimodal information and aids in exploring subsequent class-aware crossmodal relationships. We also compared single-granularity CIE (denoted as SG-CIE) with multi-granularity CIE (MG-CIE). SG-CIE explore intermodal relationships only on the final outputs of encoders. The comparison results for both datasets are presented in Table 2 and Table 3, where Proposed- in-corporates SG-CIE and Proposed uses MG-CIE. In both datasets, Proposed demonstrates significant improvements over Proposed- across all metrics, highlighting the impor-tance of relationship exploration and supplementary infor-mation extraction from multiple granularities. MRIM MRIM+ Proposed MEN Derm7pt 
+
+Figure 5: Display of t-SNE visualization results for proposed and comparison methods. In each sub-figure, different colors represent samples belonging to distinct classes, while different shapes denote samples from various modalities. The samples exhibiting different shapes but sharing the same color are more compact, while those of varying colors are more dispersed, suggesting that the model is more effective in reducing modality gap and extracting richer class-aware information. 
+
+4.5.2. Effectiveness of the CCRM strategy 
+
+The ablation studies of the CCRM strategy on the MEN dataset are presented in the first and third rows of Table 4. The incorporation of the CCRM strategy resulted in notable improvements across six metrics, particularly a 9.36% in-crease in the ACC_G2ninv metric and a 2.46% increase in the ACC_G2inv metric. Similarly, Table 5 shows that the CCRM strategy also improved six metrics for the Derm7pt dataset, particularly a 4.72% increase in the SPE metric and a 3.51% increase in the AUPRC metric. We also visualize the crossmodal relationships of sam-ples in the testing set for both datasets, as depicted in Fig. 5. It illustrates that samples of the same class, indicated by the same color, are clustered together, even if they originate from different modalities, represented by different shapes. This observation suggests that our proposed CCRM strat-egy effectively extracts class-aware information from each modality, bridging the inherent modality gap. Additionally, we compare the visualization results between MRIM+ and our proposed method. The increased compactness within the same class and the greater separation between different classes across both datasets further validate the effectiveness of our proposed CCRM strategy. 
+
+## 5. Discussion 
+
+5.1. The impact of predefined token mapping number 
+
+As mentioned in Section 3, the significant disparity in token mapping numbers between images and tabular data can lead to an information imbalance. Additionally, explor-ing the relationships among the numerous tokens necessi-tates substantial computational resources. Consequently, we mapped the token numbers of images and tabular data to predefined quantities. We performed ablation experiments 
+
+Tianling Liu et al.: Preprint submitted to Elsevier Page 9 of 13 Comparison - image_clinical_number                                
+
+> 97.46
+> 98.08
+> 96.78
+> 97.69
+> 96.0
+> 96.5
+> 97.0
+> 97.5
+> 98.0
+> 98.5
+> 99.0
+> n_t=8 n_t=16 n_t=24 n_t=32 𝑛 𝑡 =8 𝑛 𝑡 =16 𝑛 𝑡 =24 𝑛 𝑡 =32
+> 97.90
+> 98.08
+> 98.57
+> 97.66
+> 96.0
+> 96.5
+> 97.0
+> 97.5
+> 98.0
+> 98.5
+> 99.0
+> n_x=16 n_x=32 n_x=48 n_x=64 𝑛 𝑥 =16 𝑛 𝑥 =32 𝑛 𝑥 =48 𝑛 𝑥 =64
+> (a) 𝑛 𝑥 =32 (b) 𝑛 𝑡 =16
+> 88.15
+> 89.00
+> 90.52
+> 89.29
+> 86.0
+> 87.0
+> 88.0
+> 89.0
+> 90.0
+> 91.0
+> n_t=8 n_t=16 n_t=24 n_t=32
+> 86.64
+> 90.52
+> 87.46
+> 90.20
+> 86.0
+> 87.0
+> 88.0
+> 89.0
+> 90.0
+> 91.0
+> n_x=16 n_x=32 n_x=48 n_x=64 𝑛 𝑡 =8 𝑛 𝑡 =16 𝑛 𝑡 =24 𝑛 𝑡 =32 𝑛 𝑥 =16 𝑛 𝑥 =32 𝑛 𝑥 =48 𝑛 𝑥 =64
+> (c) 𝑛 𝑥 =32 (d) 𝑛 𝑡 =24
+
+MEN  Derm7pt Figure 6: Display of the ablation study results about various predefined token numbers on both adopted datasets. CCML  DMD  GLoMo  MRIM  Proposed FLAIR -C
+
+Figure 7: Activation map visualization results of the proposed and comparison methods for three cases in the MEN dataset using Grad-CAM. Original FLAIR-C images are displayed on the right, with the lesion areas highlighted by red boxes. In the Grad-CAM images, darker red regions signify the areas with the highest contribution to the prediction. 
+
+with varying token numbers for both datasets, as illustrated in Fig. 6. Since images naturally possess more tokens than tabular data, we set the token range for images as 𝑛 𝑥 ∈{16 , 32 , 48 , 64} and for tabular data as 𝑛 𝑡 ∈ {8 , 16 , 24 , 32} .For the MEN dataset, we initially fixed 𝑛 𝑥 at 32 and identified optimal performance at 𝑛 𝑡 = 16 (Fig. 6 (a)). Subsequently, with 𝑛 𝑡 held constant at 16 , we confirmed optimal perfor-mance at 𝑛 𝑥 = 48 (Fig. 6 (b)), thereby establishing the final values of 𝑛 𝑥 = 48 and 𝑛 𝑡 = 16 . Following the same rationale, we determined 𝑛 𝑥 = 32 and 𝑛 𝑡 = 24 for the Derm7pt data. 
+
+5.2. Visualization analysis 
+
+The lesion area, which includes the tumor, its surround-ing region, and edema, is critical for predicting meningioma grades in clinical research (Hess et al., 2018; Li et al., 2019; Chen et al., 2023). To enhance the interpretability, we employed Grad-CAM (Selvaraju et al., 2017) to visualize the activation maps of the proposed and comparison methods 3
+
+applied to FLAIR-C images across three cases in the MEN dataset, as illustrated in Fig 7. This figure demonstrates that the proposed method emphasizes the lesion area, indicated by red boxes in the FLAIR-C images 4, underscoring its     
+
+> 3We selected one method for each type of CML for comparison.
+> 4Both the tumor and edema areas are highlighted in the FLAIR-C image; we utilize this modality for visualization. DMD GLoMo MVCNET
+> MRIM MRIM+ Proposed
+
+Figure 8: Display of MDA visualization results for proposed and comparison methods. In each sub-figure, different colors represent samples belonging to distinct classes. 
+
+effectiveness in identifying critical regions relevant to the prediction of meningioma grade. To validate the discrimination of the fused crossmodal features, we used the Manifold Discovery and Analysis (MDA) (Islam et al., 2023) algorithm to visualize the feature space distribution for the proposed and comparison meth-ods 5 on the MEN dataset, as illustrated in Fig. 8. Com-pared to the SOTA methods, the visualization results for the proposed method exhibit clear boundaries between different class samples and fewer misclassifications, indicating that the crossmodal features derived from our proposed method are more discriminative, owing to the MG-CIE module and CCRM strategy. 
+
+5.3. Computational complexity analysis 
+
+We analyzed the computational complexity of the com-parison methods, with results shown in Table 2 for the MEN dataset and Table 3 for the Derm7pt dataset. As mentioned in Section 3, we configured the encoder of the comparison methods to be identical to ours; however, the comparison methods did not explore the multi-granularity relationships across modalities. To ensure fairness, we com-pared the Proposed- method (with the SG-CIE module) against the comparison methods. Specifically, the Proposed-method utilized relatively fewer parameters and GFLOPs 
+
+> 5We did not compare the uncertainty-based methods because these methods involve decision-level fusion and do not generate fused crossmodal features.
+
+Tianling Liu et al.: Preprint submitted to Elsevier Page 10 of 13 Comparison - singlelevel        
+
+> MLP CLIP
+> MEN 97.02 98.57
+> Derm7pt 89.3 90.52
+> 97.02
+> 89.3
+> 98.57
+> 90.52
+> 84.00
+> 88.00
+> 92.00
+> 96.00
+> 100.00
+> MEN Derm7pt
+> MLP CLIP
+
+Figure 9: The comparison results of the AUC metric for CLIP embedding and MLP embedding of tabular data on the MEN and Derm7pt datasets. Conv1D Perceiver Conv1D Perceiver 30M 35M 46M Parameters 
+
+Figure 10: The comparison results for different token mapping operations, including 𝐶𝑜𝑛𝑣 1𝐷 and 𝑃 𝑒𝑟𝑐𝑒𝑖𝑣𝑒𝑟 , on the MEN (left part) and Derm7pt (right part) datasets. 
+
+while achieving notable improvements over the comparison methods across multiple metrics on both adopted datasets. It is observed that the proposed method incurs slightly higher costs in terms of parameters and GFLOPs com-pared to the Proposed- method. This increase is primarily attributed to the 𝐶𝑜𝑛𝑣 1𝑑 operations employed to map the crossmodal tokens to a predefined value across multiple granularities. Specifically, there are 16 𝐶𝑜𝑛𝑣 1𝑑 operations for four input modalities. Furthermore, we compared our proposed method with MRIM+, which incorporates the MG-CIE module into the MRIM method and has similar parameters and GFLOPs; however, our method shows sig-nificant improvements. 
+
+5.4. Comparison of tabular data embedding methods 
+
+We conducted a comparison of embeddings for tabular data across both adopted datasets, including the pretrained CLIP and the traditional multi-layer perceptron (MLP) method, as illustrated in Fig. 9. This figure demonstrates that the CLIP embedding outperforms the MLP embedding by 1.55% and 1.22% for the MEN and Derm7pt datasets, respectively. These results indicate that the pretrained CLIP is more effective in extracting relevant information from tabular data compared to the MLP. 
+
+5.5. Comparison of different token mapping methods 
+
+We compared different token mapping operations, in-cluding 𝐶𝑜𝑛𝑣 1𝐷 and 𝑃 𝑒𝑟𝑐𝑒𝑖𝑣𝑒𝑟 (Jaegle et al., 2021), as shown in Fig. 10. In both datasets, 𝐶𝑜𝑛𝑣 1𝐷 outperformed 
+
+𝑃 𝑒𝑟𝑐𝑒𝑖𝑣𝑒𝑟 in AUC metrics while requiring fewer parameters Comparison - singlelevel                     
+
+> SG -CIE@1 SG -CIE@2 SG -CIE@3 SG -CIE@4 MG -CIE
+> MEN 96.1 097.37 97.6 097.8 098.57
+> Derm7pt 85.76 85.66 87.65 89.7 90.52
+> 96.1
+> 97.37 97.6 97.80
+> 98.57
+> 95.0
+> 96.0
+> 97.0
+> 98.0
+> 99.0
+> SG -CIE @1SG -CIE @2SG -CIE @3SG -CIE @4MG-CIE
+
+Figure 11: The ablation results for the AUC metric of SG-CIE at various stages on the MEN dataset. The notation “SG-CIE@i” denotes SG-CIE at the 𝑖 th stage of the encoders. 
+
+and GFLOPS. This indicates that 𝐶𝑜𝑛𝑣 1𝐷 is a more efficient and effective approach for token mapping in the proposed method, reducing model complexity while maintaining high performance. 
+
+5.6. Ablation of SG-CIE at various stages 
+
+We compared the results of SG-CIE at various stages on the MEN dataset, as illustrated in Fig. 11. The figure indicates that the results improve as the stage of SG-CIE increases, suggesting that a deeper encoder stage yields better-extracted features. Furthermore, the performance of MG-CIE surpasses that of all SG-CIE at each stage, thereby demonstrating the effectiveness of exploring relationships between multi-granularity features across modalities. 
+
+## 6. Conclusion and future works 
+
+In this paper, we propose a novel coarse-to-fine cross-modal learning (CFCML) framework that progressively re-duce the modality gap between multimodal images and tab-ular data by thoroughly exploring intermodal relationships. We first design MG-CIE module to preliminary reduce the modality gap and enhance unimodal feature by exploring the interactions between the multi-granularity image features and tabular information. To further reduce the modality gap and extract class-aware information, we introduce the CCRM strategy, which establishes the unimodal and cross-modal prototypes and develops hierarchical anchor-based CL strategies. These strategies aim to cluster modalities belonging to the same class while pushing those from dif-ferent classes apart, thereby bridging the boundaries across modalities. Experimental results and visualization analysis demonstrated the superiority of our proposed method over other SOTA CML methods. Despite the proposed CFCML method demonstrating ex-cellent performance, it has several limitations. First, the ex-ploration of interactions from multi-granularity crossmodal features in the MG-CIE leads to an increase in computational complexity. Second, manual adjustment of the token map-ping number across different datasets is necessary, which requires a considerable amount of time to determine the optimal value. Future work will focus on developing fully automated and parameter-efficient methods. 
+
+Tianling Liu et al.: Preprint submitted to Elsevier Page 11 of 13 References 
+
+Brodersen, K.H., Ong, C.S., Stephan, K.E., Buhmann, J.M., 2010. The bal-anced accuracy and its posterior distribution, in: 2010 20th international conference on pattern recognition, IEEE. pp. 3121–3124. Chen, W.C., Lucas, C.H.G., Magill, S.T., Rogers, C.L., Raleigh, D.R., 2023. Radiotherapy and radiosurgery for meningiomas. Neuro-Oncology Advances 5, i67–i83. Cui, C., Yang, H., Wang, Y., Zhao, S., Asad, Z., Coburn, L.A., Wilson, K.T., Landman, B.A., Huo, Y., 2023. Deep multimodal fusion of image and non-image data in disease diagnosis and prognosis: a review. Progress in Biomedical Engineering 5, 022001. Ding, S., Li, J., Wang, J., Ying, S., Shi, J., 2024. Multimodal co-attention fusion network with online data augmentation for cancer subtype clas-sification. IEEE Transactions on Medical Imaging . Duanmu, H., Huang, P.B., Brahmavar, S., Lin, L., Ren, T., Kong, J., Wang, F., Duong, T.Q., 2020. Prediction of pathological complete response to neoadjuvant chemotherapy using deep learning with inte-grative imaging, molecular and demographic data, in: Proceedings of the 3rd International Conference on Medical Image Computing and Computer-Assisted Intervention (MICCAI), Lima, Peru, pp. 4–8. Duenias, D., Nichyporuk, B., Arbel, T., Raviv, T.R., et al., . Hyperfusion: A hypernetwork approach to multimodal integration of tabular and medical imaging data for predictive modeling. Medical Image Analysis 102, 103503. El-Sappagh, S., Abuhmed, T., Islam, S.R., Kwak, K.S., 2020. Multimodal multitask deep learning model for alzheimer’s disease progression de-tection based on time series data. Neurocomputing 412, 197–215. Gong, H., Kang, L., Wang, Y., Wang, Y., Wan, X., Wu, X., Li, H., 2025. nnmamba: 3d biomedical image segmentation, classification and land-mark detection with state space model, in: 2025 IEEE 22nd International Symposium on Biomedical Imaging (ISBI), IEEE. pp. 1–5. Grzeszczyk, M.K., Płotka, S., Rebizant, B., Kosińska-Kaczyńska, K., Lipa, M., Brawura-Biskupski-Samaha, R., Korzeniowski, P., Trzciński, T., Sitek, A., 2023. Tabattention: Learning attention conditionally on tabular data, in: International Conference on Medical Image Computing and Computer-Assisted Intervention, Springer. pp. 347–357. Guo, Z., Wang, Z., Ge, R., Yu, J., Qin, F., Tian, Y., Peng, Y., Li, Y., Wang, C., 2024. Pe-mvcnet: Multi-view and cross-modal fusion network for pulmonary embolism prediction, in: 2024 IEEE International Sympo-sium on Biomedical Imaging (ISBI), IEEE. pp. 1–5. Hager, P., Menten, M.J., Rueckert, D., 2023. Best of both worlds: Multimodal contrastive learning with tabular and imaging data, in: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 23924–23935. Han, Z., Yang, F., Huang, J., Zhang, C., Yao, J., 2022a. Multimodal dynamics: Dynamical fusion for trustworthy multimodal classification, in: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pp. 20707–20717. Han, Z., Zhang, C., Fu, H., Zhou, J.T., 2022b. Trusted multi-view classi-fication with dynamic evidential fusion. IEEE transactions on pattern analysis and machine intelligence 45, 2551–2566. He, K., Fan, H., Wu, Y., Xie, S., Girshick, R., 2020. Momentum contrast for unsupervised visual representation learning, in: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition, pp. 9729–9738. Hess, K., Spille, D.C., Adeli, A., Sporns, P.B., Brokinkel, C., Grauer, O., Mawrin, C., Stummer, W., Paulus, W., Brokinkel, B., 2018. Brain invasion and the risk of seizures in patients with meningioma. Journal of Neurosurgery 130, 789–796. Holste, G., Partridge, S.C., Rahbar, H., Biswas, D., Lee, C.I., Alessio, A.M., 2021. End-to-end learning of fused image and non-image features for improved breast cancer classification from mri, in: Proceedings of the IEEE/CVF international conference on computer vision, pp. 3294–3303. Hou, J., Xu, J., Chen, H., 2024. Concept-attention whitening for inter-pretable skin lesion diagnosis, in: International Conference on Medical Image Computing and Computer-Assisted Intervention, Springer. pp. 113–123. Hu, D., Zhang, H., Wu, Z., Wang, F., Wang, L., Smith, J.K., Lin, W., Li, G., Shen, D., 2020. Disentangled-multimodal adversarial autoencoder: Application to infant age prediction with incomplete multimodal neu-roimages. IEEE Transactions on Medical Imaging 39, 4137–4149. Hu, X., Shen, X., Sun, Y., Shan, X., Min, W., Su, L., Fan, X., Elazab, A., Ge, R., Wang, C., et al., 2025. Itcfn: Incomplete triple-modal co-attention fusion network for mild cognitive impairment conversion prediction. arXiv preprint arXiv:2501.11276 . Huang, S.C., Pareek, A., Seyyedi, S., Banerjee, I., Lungren, M.P., 2020. Fusion of medical imaging and electronic health records using deep learning: a systematic review and implementation guidelines. NPJ digital medicine 3, 136. Islam, M.T., Zhou, Z., Ren, H., Khuzani, M.B., Kapp, D., Zou, J., Tian, L., Liao, J.C., Xing, L., 2023. Revealing hidden patterns in deep neural network feature space continuum via manifold learning. Nature Communications 14, 8506. Jaegle, A., Gimeno, F., Brock, A., Vinyals, O., Zisserman, A., Carreira, J., 2021. Perceiver: General perception with iterative attention, in: International conference on machine learning, PMLR. pp. 4651–4664. Jia, N., Jia, T., Zhao, L., Ma, B., Zhu, Z., 2024. Multi-modal global-and local-feature interaction with attention-based mechanism for diagnosis of alzheimer’s disease. Biomedical Signal Processing and Control 95, 106404. Kawahara, J., Daneshvar, S., Argenziano, G., Hamarneh, G., 2018. Seven-point checklist and skin lesion classification using multitask multimodal neural nets. IEEE journal of biomedical and health informatics 23, 538– 546. Li, X., Lu, Y., Xiong, J., Wang, D., She, D., Kuai, X., Geng, D., Yin, B., 2019. Presurgical differentiation between malignant haemangiopericy-toma and angiomatous meningioma by a radiomics approach based on texture analysis. Journal of Neuroradiology 46, 281–287. Li, Y., Wang, Y., Cui, Z., 2023. Decoupled multimodal distilling for emotion recognition, in: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 6631–6640. Liu, T., Liu, H., Shang, F., Yu, L., Han, T., Wan, L., 2025. Completed feature disentanglement learning for multimodal mris analysis. IEEE Journal of Biomedical and Health Informatics . Liu, Y., Liu, L., Xu, C., Song, X., Guan, Z., Zhao, W., 2024. Dynamic evidence decoupling for trusted multi-view learning, in: Proceedings of the 32nd ACM International Conference on Multimedia, pp. 7269–7277. Liu, Z., Lin, Y., Cao, Y., Hu, H., Wei, Y., Zhang, Z., Lin, S., Guo, B., 2021. Swin transformer: Hierarchical vision transformer using shifted windows, in: Proceedings of the IEEE/CVF international conference on computer vision, pp. 10012–10022. Van der Maaten, L., Hinton, G., 2008. Visualizing data using t-sne. Journal of machine learning research 9. Patrício, C., Neves, J.C., Teixeira, L.F., 2023. Coherent concept-based ex-planations in medical image and its application to skin lesion diagnosis, in: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 3799–3808. Qin, J., Chen, J., Chen, T., Yang, Z., 2026. Multimodal feature disentangle-fusion network for detecting and grounding multi-modal media manip-ulation. Expert Systems with Applications , 132076. Qiu, Z., Yang, P., Xiao, C., Wang, S., Xiao, X., Qin, J., Liu, C.M., Wang, T., Lei, B., 2024. 3d multimodal fusion network with disease-induced joint learning for early alzheimer’s disease diagnosis. IEEE Transactions on Medical Imaging . Radford, A., Kim, J.W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., Sastry, G., Askell, A., Mishkin, P., Clark, J., et al., 2021. Learning transferable visual models from natural language supervision, in: Inter-national conference on machine learning, PmLR. pp. 8748–8763. Selvaraju, R.R., Cogswell, M., Das, A., Vedantam, R., Parikh, D., Batra, D., 2017. Grad-cam: Visual explanations from deep networks via gradient-based localization, in: Proceedings of the IEEE international conference on computer vision, pp. 618–626. Song, X., Guo, H., Xu, X., Chao, H., Xu, S., Turkbey, B., Wood, B.J., Wang, G., Yan, P., 2021. Cross-modal attention for mri and ultra-sound volume registration, in: Medical Image Computing and Computer 
+
+Tianling Liu et al.: Preprint submitted to Elsevier Page 12 of 13 Assisted Intervention–MICCAI 2021: 24th International Conference, Strasbourg, France, September 27–October 1, 2021, Proceedings, Part IV 24, Springer. pp. 66–75. Tang, P., Yan, X., Nan, Y., Xiang, S., Krammer, S., Lasser, T., 2022. Fusionm4net: A multi-stage multi-modal learning algorithm for multi-label skin lesion classification. Medical Image Analysis 76, 102307. Wang, K., Yin, Q., Wang, W., Wu, S., Wang, L., 2016. A comprehensive survey on cross-modal retrieval. arXiv preprint arXiv:1607.06215 . Wang, Z., Yu, L., Ding, X., Liao, X., Wang, L., 2023. Shared-specific feature learning with bottleneck fusion transformer for multi-modal whole slide image analysis. IEEE Transactions on Medical Imaging 42, 3374–3383. Wilcoxon, F., 1992. Individual comparisons by ranking methods, in: Breakthroughs in Statistics: Methodology and Distribution. Springer, pp. 196–202. Wolf, T.N., Pölsterl, S., Wachinger, C., Initiative, A.D.N., et al., 2022. Daft: A universal module to interweave tabular data and 3d images in cnns. NeuroImage 260, 119505. Wu, Z., Xiong, Y., Yu, S.X., Lin, D., 2018. Unsupervised feature learning via non-parametric instance discrimination, in: Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 3733–3742. Xia, C., Li, X., Wang, X., Kong, B., Chen, Y., Yin, Y., Cao, K., Song, Q., Lyu, S., Wu, X., 2019. A multi-modality network for cardiomyopathy death risk prediction with cmr images and clinical information, in: International Conference on Medical Image Computing and Computer-Assisted Intervention, Springer. pp. 577–585. Xiong, C., Chen, H., Zheng, H., Wei, D., Zheng, Y., Sung, J.J., King, I., 2024a. Mome: Mixture of multimodal experts for cancer survival prediction, in: International Conference on Medical Image Computing and Computer-Assisted Intervention, Springer. pp. 318–328. Xiong, Z., Zhao, K., Ji, L., Shu, X., Long, D., Chen, S., Yang, F., 2024b. Multi-modality 3d cnn transformer for assisting clinical decision in in-tracerebral hemorrhage, in: International Conference on Medical Image Computing and Computer-Assisted Intervention, Springer. pp. 522–531. Xu, J., Gao, Y., Liu, W., Huang, K., Zhao, S., Lu, L., Wang, X., Hua, X.S., Wang, Y., Chen, X., 2022. Remixformer: a transformer model for precision skin tumor differential diagnosis via multi-modal imaging and non-imaging data, in: International Conference on Medical Image Computing and Computer-Assisted Intervention, Springer. pp. 624–633. Yan, J., Deng, C., Huang, H., Liu, W., 2024. Causality-invariant interactive mining for cross-modal similarity learning. IEEE Transactions on Pattern Analysis and Machine Intelligence . Yang, D., Huang, S., Kuang, H., Du, Y., Zhang, L., 2022. Disentangled representation learning for multimodal emotion recognition, in: Pro-ceedings of the 30th ACM international conference on multimedia, pp. 1642–1651. Zheng, S., Zhu, Z., Liu, Z., Guo, Z., Liu, Y., Yang, Y., Zhao, Y., 2022. Multi-modal graph learning for disease prediction. IEEE Transactions on Medical Imaging 41, 2207–2216. Zhong, Z., Zheng, L., Kang, G., Li, S., Yang, Y., 2020. Random erasing data augmentation, in: Proceedings of the AAAI conference on artificial intelligence, pp. 13001–13008. Zhu, Q., Wang, H., Xu, B., Zhang, Z., Shao, W., Zhang, D., 2022. Mul-timodal triplet attention network for brain disease diagnosis. IEEE Transactions on Medical Imaging 41, 3884–3894. Zhuang, Y., Zhang, Y., Hu, Z., Zhang, X., Deng, J., Ren, F., 2024. Glomo: Global-local modal fusion for multimodal sentiment analysis, in: Pro-ceedings of the 32nd ACM International Conference on Multimedia, pp. 1800–1809. 
+
+Tianling Liu et al.: Preprint submitted to Elsevier Page 13 of 13
