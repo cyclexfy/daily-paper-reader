@@ -1,0 +1,251 @@
+Title: DeNuC: Decoupling Nuclei Detection and Classification in Histopathology
+
+URL Source: https://arxiv.org/pdf/2603.04240v1
+
+Published Time: Thu, 05 Mar 2026 02:17:01 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# DeNuC: Decoupling Nuclei Detection and Classification in Histopathology 
+
+Zijiang Yang 1, Chen Kuang 1, and Dongmei Fu 1,2 
+
+> 1
+
+School of Automation and Electrical Engineering, University of Science and Technology Beijing, Beijing 100083, China  
+
+> 2
+
+Beijing Engineering Research Center of Industrial Spectrum Imaging 
+
+{zijiangyang, ckuang}@xs.ustb.edu.cn, fdm_ustb@ustb.edu.cn 
+
+Abstract. Pathology Foundation Models (FMs) have shown strong per-formance across a wide range of pathology image representation and di-agnostic tasks. However, FMs do not exhibit the expected performance advantage over traditional specialized models in Nuclei Detection and Classification (NDC). In this work, we reveal that jointly optimizing nuclei detection and classification leads to severe representation degra-dation in FMs. Moreover, we identify that the substantial intrinsic dis-parity in task difficulty between nuclei detection and nuclei classification renders joint NDC optimization unnecessarily computationally burden-some for the detection stage. To address these challenges, we propose 
+
+DeNuC , a simple yet effective method designed to break through ex-isting bottlenecks by De coupling Nu clei detection and Classification. DeNuC employs a lightweight model for accurate nuclei localization, sub-sequently leveraging a pathology FM to encode input images and query nucleus-specific features based on the detected coordinates for classifi-cation. Extensive experiments on three widely used benchmarks demon-strate that DeNuC effectively unlocks the representational potential of FMs for NDC and significantly outperforms state-of-the-art methods. Notably, DeNuC improves F1 scores by 4.2% and 3.6% (or higher) on the BRCAM2C and PUMA datasets, respectively, while using only 16% (or fewer) trainable parameters compared to other methods. Code is available at https://github.com/ZijiangY1116/DeNuC. 
+
+Keywords: Computational pathology · Nuclei detection and classifica-tion · Foundation model. 
+
+## 1 Introduction 
+
+Nuclei Detection and Classification (NDC) is a cornerstone of quantitative anal-ysis and diagnosis in computational pathology [3, 23]. Recent efforts have shown promising results by exploring spatial context representation [1], nuclei graph [9], or leveraging tissue-level context features [15]. Despite these approaches gener-ally validating that enhancing nuclear morphology and tissue context representa-tion is key to improving performance, they often come at the cost of introducing highly complex module designs, which not only necessitate excessive design for 
+
+> arXiv:2603.04240v1 [cs.CV] 4 Mar 2026
+
+2 Yang et al. 0                
+
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> 70
+> 80
+> 90
+> 01000 2000 3000 4000 5000 6000 7000
+> F1 Score (%)
+> Step
+> ×2.3 faster
+> 65
+> 70
+> 75
+> 80
+> 85
+> 90
+> 04812 16 20 24 28
+> F1 Score (%)
+> Epoch
+> (b) F1 Scores of NDC (a) Representation degradation and recovery of FM
+> Degradation
+> Recovery
+> Over -fitting
+> Initial Performance
+> Linear Probing
+> Nuclei Detection
+> Nuclei Classification
+
+Fig. 1. Analysis of model performance during the NDC training. (a) We evaluate the representation capability of UNI2-H [2] during joint optimization for NDC on the OCELOT [13] dataset via linear probing. UNI2-H undergoes a severe representation degradation in the early training phase. Although the performance subsequently recov-ers, it fails to regain its initial optimal level and rapidly deteriorates into over-fitting. (b) We evaluate the detection and classification F1 scores of a ConvNeXt-S [8] model pre-trained solely on ImageNet-1K throughout the training process on PUMA [14]. Despite lacking domain-specific pathology pre-training, nuclei detection converges ap-proximately 2.3 × faster than classification, highlighting the inherent difficulty disparity between the two tasks. 
+
+specific datasets but also increase computational redundancy, thereby limiting the generalization of models across diverse clinical scenarios. Recently, benefiting from a generic design and pre-training on large-scale un-labeled data, pathology Foundation Models (FMs) [2, 20] exhibit strong general visual representation capabilities for pathology images, significantly improving performance on numerous downstream tasks [19]. This has fostered the expecta-tion that high-performance NDC can be achieved with simple architectures by directly leveraging the robust feature extraction of FMs. However, compared to traditional specialized models, FMs have not demonstrated a significant perfor-mance advantage in nucleus-level tasks [5]. In this work, we reveal that FMs suffer from severe representation degra-dation when jointly optimizing nuclei localization and classification. Although pathology pre-trained models effectively encode semantic representations of im-ages, they are not inherently designed for coordinate regression. Forcing simulta-neous joint optimization of classification and regression disrupts the pre-trained feature space, preventing the effective utilization of the original robust repre-sentations of FMs for NDC. As illustrated in Fig.1 (a), although the FM ini-tially possesses strong nuclei representation capabilities, the model parameters undergo updates during joint training to rapidly adapt to nuclei localization requirements. While this improves detection performance, it causes a severe de-cline in the quality of pure nuclei representations. In subsequent training stages, DeNuC: Decoupling Nuclei Detection and Classification in Histopathology 3
+
+although classification representation capability recovers, it fails to return to its initial optimal level. Furthermore, we identify a significant disparity in optimization difficulty be-tween nuclei detection and nuclei classification, which exacerbates the inefficiency of joint optimization. Nuclei typically exhibit a relatively fixed size range and distinct contrast against the stromal background, resulting in lower optimization difficulty for detection. As shown in Fig.1 (b), even a model without pathology pre-training can achieve high-performance nuclei detection within a very short training period, whereas nuclei detection converges approximately 2.3 × faster than classification. This implies that formulating NDC as a multi-task joint op-timization problem not only fails to achieve mutual complementarity between tasks but also significantly inflates the computational cost of detection. To address these issues, we propose a simple yet effective method named 
+
+DeNuC , designed to break through existing bottlenecks by De coupling Nu clei detection and Classification. Specifically, DeNuC first employs a lightweight de-tection model to localize all nuclei in the input pathology image. Subsequently, we leverage a pathology foundation model to encode the input image and uti-lize the detected coordinates to query nucleus-specific features from the feature maps for classification. For nuclei detection, DeNuC not only compresses model parameters to an extreme minimum but also unlocks the capability for cross-dataset joint detection learning. For nuclei classification, this decoupled design allows the foundation model to focus on fine-grained nuclei representation with-out being disturbed by localization task gradients, thereby fully unleashing its pre-trained representation potential. As shown in Fig.2, extensive experiments on three widely used benchmarks indicate that DeNuC not only significantly out-performs existing State-Of-The-Art (SOTA) methods in performance but also requires only 16% or less of the training parameters compared to other models. 
+
+## 2 Methodology 
+
+2.1 Problem Formulation 
+
+Given an input pathology image X ∈ RH×W ×3, the objective of NDC is to identify both the spatial localization and category of nuclei: 
+
+P = F(X) = {(pk, c k)}Kk=1 , (1) where P is the set of predictions, F is the model, and K denotes the total number of detected nuclei. Each prediction consists of a centroid coordinate vector p = ( xk, y k) ∈ R2 locating the nucleus in X, and a scalar ck ∈ { 1, . . . , C }
+
+representing the predicted class category, with C being the total number of defined nuclei types. The set of nuclei coordinates {pk}Kk=1 and the set of nuclei types {ck}Kk=1 are denoted as Pdet and Pcls , respectively. 4 Yang et al. SENC                
+
+> CellViT
+> Hover -Net
+> MCSpatNet
+> SMILE
+> DeNuC (ours)
+> 60
+> 62
+> 64
+> 66
+> 68
+> 70
+> 72
+> 050 100 150
+> Average  F1 -Score (%)
+> Training Parameters (Million)
+> SENC
+> CellViT
+> Hover -Net
+> MCSpatNet
+> SMILE
+> DeNuC (ours)
+> 61
+> 63
+> 65
+> 67
+> 69
+> 71
+> 050 100 150
+> Average  F1 -Score  (%)
+> Training Parameters (Million)
+> SENC
+> CellViT
+> Hover -Net
+> MCSpatNet SMILE
+> DeNuC (ours)
+> 67
+> 69
+> 71
+> 73
+> 75
+> 77
+> 050 100 150
+> Average  F1 -Score  (%)
+> Training Parameters (Million)
+> (a) BRCAM2C (b) OCELOT (c) PUMA
+
+Fig. 2. Comparison of DeNuC and SOTA methods. DeNuC achieves significantly su-perior performance across three benchmark datasets. 
+
+2.2 DeNuC Decoupling NDC. Existing methods typically formulate Equation (1) as a multi-task problem that share the backbone: 
+
+P = {H det (B(X)) 
+
+| {z }
+
+> Detection
+
+, Hcls (B(X)) 
+
+| {z }
+
+> Classification
+
+}, (2) where B denotes the backbone encoder, while Hcls and Hdet represent the detection and classification modules, respectively. In map-based methods [4], an additional decoder is required for nuclei segmentation [16]. Moreover, Hcls 
+
+and Hdet are implemented as parameter-free post-processing algorithms. Con-versely, anchor-based methods [17, 15, 21] implement them as lightweight Multi-Layer Perceptrons (MLPs) for regression and prediction. Given that map-based methods are susceptible to morphological variations and necessitate heuristic tuning—thereby limiting performance, we focus our analysis primarily on the anchor-based methods to streamline the discussion. In anchor-based frameworks, the backbone is required to extract feature maps that not only effectively represent nuclei appearance but can also be exploited by 
+
+Hcls to regress the relative offsets between anchor points and potential ground-truth nuclei locations. Although pathology pre-trained models excel at repre-senting histopathological images, they are inherently unsuitable for coordinate regression. Jointly optimizing NDC disrupts the pre-trained feature space, hin-dering the effective utilization of the robust representations derived from foun-dation models. As illustrated in Fig.3, we address this bottleneck by decoupling detection and classification: 
+
+P = { D (X)
+
+| {z } 
+
+> Detection
+
+, Hcls (B(X, D(X))) 
+
+| {z }
+
+> Classification
+
+}, (3) where D(X) represents an lightweight detection model. This formulation sepa-rates NDC into two distinct optimization objectives: (i) D(X) is dedicated solely DeNuC: Decoupling Nuclei Detection and Classification in Histopathology 5Backbone        
+
+> Decoder
+> Backbone
+> Proposal Backbone /
+> Post -process
+> Map -based Anchor -based DeNuC (ours)
+> Learnable Module
+> Parameter -free Module
+> Inputs / Outputs
+> Training Module
+> Frozen Module
+> (a) Joint optimization (b) Decoupled optimization
+
+Fig. 3. Illustration of (a) Joint optimization and (b) Decoupled optimization for NDC. Existing methods require the backbone to accommodate additional optimization objec-tives beyond nuclei representation, leading to representation degradation. In contrast, DeNuC employs an independent lightweight detection network D for nuclei localization, thereby allowing the backbone to focus exclusively on representation learning. 
+
+to nuclei localization and (ii) B focus on extracting nucleus-specific features for classification, conditioned on the input image and the detected coordinates. As demonstrated in our experiments, this decoupled framework not only fully ex-ploits the powerful representation capabilities of pathology foundation models but also significantly alleviates the computational burden of detection. 
+
+Nuclei Detection. To achieve efficient and robust nuclei localization, we adopt a single-stage point detection architecture inspired by P2PNet [18]. Given an input pathology image X, the detection model D extracts feature maps and constructs a corresponding reference grid G. For each spatial location (i, j ) on the grid, the network concurrently predicts a nuclei confidence score si,j and a spatial coordinate offset δi,j ∈ R2 relative to the grid point. The final set of detected nuclei Pdet is then directly formulated as: 
+
+Pdet = {gi,j + δi,j | si,j > τ, ∀(i, j ) ∈ G} , (4) where gi,j denotes the original coordinates of the grid point, and τ = 0 .5 is the confidence threshold used to filter out background noise. Crucially, Equation (4) only necessitates binary classification between nuclei and background, thereby enabling the use of an extremely lightweight model for detection and facilitating joint training across multiple datasets. 
+
+Nuclei Classification. Based on the detected nuclei locations Pdet , the clas-sification module further predicts the specific category for each nucleus. First, a pre-trained foundation model B extracts high-dimensional semantic feature maps F ∈ RC×H′×W ′
+
+of X. Subsequently, to precisely capture the local context of each nucleus, we employ a bilinear interpolation sampling operation S to di-rectly query the corresponding feature vectors from F using the coordinate set 6 Yang et al. 
+
+Table 1. Comparison of nucleus detection and classification in F1-score % ( ↑). F T um. ,
+
+F Lym. , F Oth. , and F Avg. denote the F1 score of tumor nucleus, lymphocytes, other nucleus, and average, respectively. The best results are highlighted in bold , and the second-best results are in underlined. DeNuC significantly outperforms other methods. Method Training BRCAM2C OCELOT PUMA Params. F Lym. F T um. F Oth. F Avg. F T um. F Oth. F Avg. F Lym. F T um. F Oth. F Avg.                                                                                                                  
+
+> CGT [9] 37M 56.42 75.98 50.44 60.95 68.77 61.30 65.03 76.55 79.66 54.20 70.14 SENC [10] 27M 57.94 76.50 49.42 61.29 70.02 62.08 66.05 77.38 81.51 54.38 71.09 CellViT [6] 143M 67.20 78.20 51.81 65.73 67.36 60.22 63.79 79.07 81.16 57.96 72.73 Hover-Net [4] 34M 62.31 75.25 49.58 62.38 69.27 61.03 65.15 75.72 78.36 49.53 67.87 DPA-P2PNet [17] 32M 59.65 77.26 55.26 64.06 70.07 59.92 64.99 76.80 81.87 54.04 70.90 MCSpatNet [1] 26M 63.15 78.56 54.66 65.46 68.60 59.99 64.29 78.25 82.05 51.54 70.61 PointNu-Net [22] 160M 71.51 76.02 51.95 66.50 66.72 56.96 61.84 76.31 79.57 52.68 69.52 SMILE [12] 100M 72.59 79.61 51.06 67.75 66.99 60.10 63.55 80.35 77.54 52.52 70.14 MUSE [21] 123M ----73.48 64.52 69.00 ----
+> DeNuC (ours) 4.3M 69.73 85.10 61.08 71.97 73.83 66.04 69.94 81.00 85.25 62.85 76.37
+
+Pdet . The final classification prediction set Pcls is obtained via Hcls :
+
+Pcls = {H cls (fk) | fk = S(F, pk), ∀pk ∈ Pdet }, (5) where pk denotes the k-th detected nuclei, and fk represents the sampled fea-ture vector specific to that nucleus. This coordinate-guided feature querying mechanism not only eliminates redundant computations but also ensures a high alignment between classification features and the spatial locations of nuclei. 
+
+Learning. We optimize DeNuC via a two-stage training paradigm. First, D
+
+is trained using a combination of L2 regression loss and binary cross-entropy loss. Unless otherwise specified, D is jointly trained across multiple datasets to maximize the utility of all available annotations. Then, D serves as an auxiliary network to facilitate classifier training. The classifier is optimized with standard cross-entropy loss. To maximize training efficiency, we freeze the backbone B and only optimize the classification head Hcls , unless stated otherwise. As demon-strated in our experiments, optimizing solely D and Hcls is sufficient to achieve SOTA performance. 
+
+## 3 Experiments 
+
+3.1 Experiment Settings Datasets and evaluation metrics. To comprehensively evaluate the perfor-mance of DeNuC, we conduct extensive experiments on three widely used public datasets, including BRCAM2C [1], OCELOT [13], and PUMA [14]. Following the common practice of NDC [21, 15], we employ the distance-based F1-score for evaluation. Specifically, we perform a one-to-one matching between the pre-dicted and ground-truth (GT) nuclei within the same category. A prediction is identified as a True Positive (TP) if it successfully matches a GT nucleus within DeNuC: Decoupling Nuclei Detection and Classification in Histopathology 7
+
+Table 2. Ablation study of D in F1-score % ( ↑). (Left) Comparison of different back-bones. (Right) Ablation of cross-dataset training strategy. Nnu denotes the number of nuclei in the training set. F Det. denotes the F1 score of detection. "SN" denotes ShuffleNetV2. "Separated" and "Joint" indicate that models are trained individually on each dataset and jointly across all datasets, respectively. Backbone Params. BRCAM2C OCELOT PUMA                                                                   
+
+> FDet. FAvg. FDet. FAvg. FDet. FAvg.
+> SN (0.5 ×)0.3M 86.61 71.43 79.89 68.85 92.23 75.45 SN (1.0 ×)1.0M 86.98 71.58 80.97 69.74 93.13 75.98 SN (1.5 ×)2.7M 87.00 71.90 81.07 69.76 93.28 76.19 SN (2.0 ×)4.3M 87.52 71.97 81.33 69.94 93.57 76.36 ResNet-50 26M 87.29 71.90 81.48 70.03 93.22 76.07 Dataset Nnu
+> Separated Joint
+> FDet. FAvg. FDet. FAvg.
+> BRCAM2C 18.6k 85.15 70.26 87.52 71.97 OCELOT 65.8k 81.22 69.90 81.33 69.94 PUMA 56.9k 93.42 76.25 93.57 76.36
+
+a predefined distance threshold. Unmatched predictions, or those exceeding the distance threshold, are counted as False Positives (FP), while unmatched GT nu-clei are designated as False Negatives (FN). Furthermore, we report the average F1-score across all classes to assess the overall performance on the dataset. 
+
+Baselines. We compare DeNuC with SOTA methods, including SENC [10], Cel-lViT [6], Hover-Net [4], CGT [9], DPA-P2PNet [17], MCSpatNet [1], SMILE [12], and MUSE [21]. For fair comparison, we cite the results of MUSE evaluated at the same input size as the other models, instead of using LFoV samples. 
+
+Implementation. D employs a pre-trained ShuffleNetV2 [11] as the backbone and a Path Aggregation Network (PAN) [7] as the FPN. The detector is trained for 100 epochs, utilizing a batch size of 32 and an initial learning rate of 0.001. UNI2-H [2] is employed as the feature extractor. Hcls is implemented as a single fully connected layer. The classifier is trained for 100 epochs with a batch size of 256 and an initial learning rate of 0.01. 
+
+3.2 Main Results 
+
+Table 1 reports the comparative results for nuclei detection and classification. De-NuC demonstrates significant performance advantages over both existing map-based and anchor-based approaches. Specifically, DeNuC outperforms current SOTA methods on BRCAM2C, OCELOT, and PUMA by substantial margins of 4.2%, 0.9%, and 3.6% in F Avg. , respectively. Notably, DeNuC achieves these superior results with only 4.3M trainable parameters, which constitutes 16% or less of the parameters required by other methods. The results clearly demon-strate that DeNuC not only substantially improves the performance of nuclear analysis but also achieves remarkably high parameter efficiency. 
+
+3.3 Ablation Studies Detection model. Table 2 reports the ablation results for the detection module 
+
+D. Table 2 (Left) shows that ShuffleNetV2 (0.5 ×) with only 0.3M parameters achieves a detection F1-score highly comparable to that of the 26M ResNet-50. This suggests that model capacity has a negligible impact on nuclei detection, 8 Yang et al. 
+
+Table 3. Ablation study on the optimization strategy of the classification network in F1-score % ( ↑). Providing nuclei coordinates highly improves performance. Method Pdet                                                                              
+
+> Training BRCAM2C OCELOT PUMA Params. FLym. FT um. FOth. FAvg. FT um. FOth. FAvg. FLym. FT um. FOth. FAvg.
+> Linear ✓4.6K 69.73 85.10 61.08 71.97 73.83 66.04 69.94 81.00 85.25 62.85 76.37 Lora ✓2.4M 71.79 85.33 61.40 72.84 74.19 66.93 70.56 81.23 85.70 63.38 76.77 Fully ✓681M 71.03 85.50 61.11 72.55 73.87 65.52 69.69 81.45 85.37 63.13 76.65 End-to-end ✗686M 68.21 79.42 56.67 68.10 67.37 58.15 62.76 79.50 83.19 62.20 74.97
+
+further verifying the low optimization difficulty of this task. In addition, Table 2 (Rights) shows that joint multi-dataset training effectively boosts performance on datasets with fewer samples. Specifically, on BRCAM2C, joint training in-creases the detection F1-score by 2.4%, which subsequently improves classifica-tion performance by 1.7%. 
+
+Optimization strategy of the classification network. Table 3 reports the ablation study on the optimization strategy for the classification network. The results indicate that providing Pdet to allow the classifier to focus solely on nuclei representation significantly improves F1-scores. Notably, compared to end-to-end training, simply freezing the backbone B and optimizing only the linear classi-fication head yields substantial gains of 3.9%, 7.2%, and 1.4% on BRCAM2C, OCELOT, and PUMA, respectively. Furthermore, optimizing B via LoRA or full fine-tuning leads to additional performance improvements. These results strongly suggest that simultaneous end-to-end detection and classification induces rep-resentation degradation, whereas DeNuC effectively capitalizes on the robust visual representation capabilities of FMs for pathology images. 
+
+## 4 Conclusion 
+
+In this work, we reveal that FMs suffer from severe representation degradation when jointly optimizing nuclei localization and classification. Furthermore, we identify a significant disparity in task difficulty between nuclei detection and classification, implying that formulating NDC as a multi-task joint optimization problem not only fails to achieve mutual complementarity but also unnecessar-ily inflates the computational cost of detection. To address these challenges, we propose DeNuC , a simple yet effective method designed to break through ex-isting bottlenecks by De coupling Nu clei detection and Classification. Extensive experiments demonstrate that DeNuC significantly outperforms existing meth-ods while requiring only 16% or fewer training parameters compared to existing methods. These results validate DeNuC as a new paradigm that combines high performance with high training efficiency, offering a novel perspective for devel-oping high-precision and resource-efficient algorithms in NDC. DeNuC: Decoupling Nuclei Detection and Classification in Histopathology 9
+
+## References 
+
+1. Abousamra, S., Belinsky, D., Van Arnam, J., Allard, F., Yee, E., Gupta, R., Kurc, T., Samaras, D., Saltz, J., Chen, C.: Multi-class cell detection using spatial con-text representation. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 4005–4014 (2021) 2. Chen, R.J., Ding, T., Lu, M.Y., Williamson, D.F., Jaume, G., Song, A.H., Chen, B., Zhang, A., Shao, D., Shaban, M., et al.: Towards a general-purpose foundation model for computational pathology. Nature medicine 30 (3), 850–862 (2024) 3. Diao, J.A., Wang, J.K., Chui, W.F., Mountain, V., Gullapally, S.C., Srinivasan, R., Mitchell, R.N., Glass, B., Hoffman, S., Rao, S.K., et al.: Human-interpretable image features derived from densely mapped cancer pathology slides predict diverse molecular phenotypes. Nature communications 12 (1), 1613 (2021) 4. Graham, S., Vu, Q.D., Raza, S.E.A., Azam, A., Tsang, Y.W., Kwak, J.T., Rajpoot, N.: Hover-net: Simultaneous segmentation and classification of nuclei in multi-tissue histology images. Medical image analysis 58 , 101563 (2019) 5. Hörst, F., Rempe, M., Becker, H., Heine, L., Keyl, J., Kleesiek, J.: Cellvit++: Energy-efficient and adaptive cell segmentation and classification using foundation models. arXiv preprint arXiv:2501.05269 (2025) 6. Hörst, F., Rempe, M., Heine, L., Seibold, C., Keyl, J., Baldini, G., Ugurel, S., Siveke, J., Grünwald, B., Egger, J., et al.: Cellvit: Vision transformers for precise cell segmentation and classification. Medical Image Analysis 94 , 103143 (2024) 7. Liu, S., Qi, L., Qin, H., Shi, J., Jia, J.: Path aggregation network for instance segmentation. In: Proceedings of the IEEE conference on computer vision and pattern recognition. pp. 8759–8768 (2018) 8. Liu, Z., Mao, H., Wu, C.Y., Feichtenhofer, C., Darrell, T., Xie, S.: A convnet for the 2020s. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 11976–11986 (2022) 9. Lou, W., Li, G., Wan, X., Li, H.: Cell graph transformer for nuclei classification. In: Proceedings of the AAAI Conference on Artificial Intelligence. vol. 38, pp. 3873–3881 (2024) 10. Lou, W., Wan, X., Li, G., Lou, X., Li, C., Gao, F., Li, H.: Structure embedded nucleus classification for histopathology images. IEEE Transactions on Medical Imaging 43 (9), 3149–3160 (2024) 11. Ma, N., Zhang, X., Zheng, H.T., Sun, J.: Shufflenet v2: Practical guidelines for efficient cnn architecture design. In: Proceedings of the European conference on computer vision (ECCV). pp. 116–131 (2018) 12. Pan, X., Cheng, J., Hou, F., Lan, R., Lu, C., Li, L., Feng, Z., Wang, H., Liang, C., Liu, Z., et al.: Smile: Cost-sensitive multi-task learning for nuclear segmentation and classification with imbalanced annotations. Medical Image Analysis 88 , 102867 (2023) 13. Ryu, J., Puche, A.V., Shin, J., Park, S., Brattoli, B., Lee, J., Jung, W., Cho, S.I., Paeng, K., Ock, C.Y., et al.: Ocelot: Overlapped cell on tissue dataset for histopathology. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 23902–23912 (2023) 14. Schuiveling, M., Liu, H., Eek, D., Breimer, G.E., Suijkerbuijk, K.P., Blokx, W.A., Veta, M.: A novel dataset for nuclei and tissue segmentation in melanoma with baseline nuclei segmentation and tissue segmentation benchmarks. GigaScience 
+
+14 , giaf011 (2025) 10 Yang et al. 15. Shui, Z., Guo, R., Li, H., Sun, Y., Zhang, Y., Zhu, C., Cai, J., Chen, P., Su, Y., Yang, L.: Towards effective and efficient context-aware nucleus detection in histopathology whole slide images. arXiv preprint arXiv:2503.05678 (2025) 16. Shui, Z., Zhang, Y., Yao, K., Zhu, C., Zheng, S., Li, J., Li, H., Sun, Y., Guo, R., Yang, L.: Unleashing the power of prompt-driven nucleus instance segmentation. In: European conference on computer vision. pp. 288–304. Springer (2024) 17. Shui, Z., Zheng, S., Zhu, C., Zhang, S., Yu, X., Li, H., Li, J., Chen, P., Yang, L.: Dpa-p2pnet: deformable proposal-aware p2pnet for accurate point-based cell de-tection. In: Proceedings of the AAAI Conference on Artificial Intelligence. vol. 38, pp. 4864–4872 (2024) 18. Song, Q., Wang, C., Jiang, Z., Wang, Y., Tai, Y., Wang, C., Li, J., Huang, F., Wu, Y.: Rethinking counting and localization in crowds: A purely point-based frame-work. In: Proceedings of the IEEE/CVF international conference on computer vision. pp. 3365–3374 (2021) 19. Wang, X., Yang, S., Zhang, J., Wang, M., Zhang, J., Yang, W., Huang, J., Han, X.: Transformer-based unsupervised contrastive learning for histopathological image classification. Medical image analysis 81 , 102559 (2022) 20. Xu, H., Usuyama, N., Bagga, J., Zhang, S., Rao, R., Naumann, T., Wong, C., Gero, Z., González, J., Gu, Y., et al.: A whole-slide foundation model for digital pathology from real-world data. Nature 630 (8015), 181–188 (2024) 21. Yang, Z., Chao, H., Zhao, B., Yang, Y., Zhang, Y., Fu, D., Zhang, J., Lu, L., Yan, K., Jin, D., et al.: Muse: Multi-scale dense self-distillation for nucleus detection and classification. arXiv preprint arXiv:2511.05170 (2025) 22. Yao, K., Huang, K., Sun, J., Hussain, A.: Pointnu-net: Keypoint-assisted convolu-tional neural network for simultaneous multi-tissue histology nuclei segmentation and classification. IEEE Transactions on Emerging Topics in Computational Intel-ligence 8(1), 802–813 (2023) 23. Zhang, P., Gao, C., Zhang, Z., Yuan, Z., Zhang, Q., Zhang, P., Du, S., Zhou, W., Li, Y., Li, S.: Systematic inference of super-resolution cell spatial profiles from histology images. Nature Communications 16 (1), 1838 (2025)

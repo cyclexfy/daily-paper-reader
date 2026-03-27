@@ -1,0 +1,429 @@
+Title: Layout-Guided Controllable Pathology Image Generation with In-Context Diffusion Transformers
+
+URL Source: https://arxiv.org/pdf/2603.13386v1
+
+Published Time: Tue, 17 Mar 2026 00:11:38 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# Layout-Guided Controllable Pathology Image Generation with In-Context Diffusion Transformers 
+
+Yuntao Shou 1, Xiangyong Cao 1, Qian Zhao 1, and Deyu Meng 1
+
+Xi’an Jiaotong University 
+
+shouyuntao@stu.xjtu.edu.cn 
+
+Abstract. Controllable pathology image synthesis requires reliable reg-ulation of spatial layout, tissue morphology, and semantic detail. How-ever, existing text-guided diffusion models offer only coarse global con-trol and lack the ability to enforce fine-grained structural constraints. Progress is further limited by the absence of large datasets that pair patch-level spatial layouts with detailed diagnostic descriptions, since generating such annotations for gigapixel whole-slide images is prohibitively time-consuming for human experts. To overcome these challenges, we first develop a scalable multi-agent LVLM annotation framework that integrates image description, diagnostic step extraction, and automatic quality judgment into a coordinated pipeline, and we evaluate the reli-ability of the system through a human verification process. This frame-work enables efficient construction of fine-grained and clinically aligned supervision at scale. Building on the curated data, we propose In-Context Diffusion Transformer (IC-DiT), a layout-aware generative model that incorporates spatial layouts, textual descriptions, and visual embeddings into a unified diffusion transformer. Through hierarchical multimodal attention, IC-DiT maintains global semantic coherence while accurately preserving structural and morphological details. Extensive experiments on five histopathology datasets show that IC-DiT achieves higher fidelity, stronger spatial controllability, and better diagnostic consistency than existing methods. In addition, the generated images serve as effective data augmentation resources for downstream tasks such as cancer clas-sification and survival analysis. 
+
+Keywords: Pathology Image Generation · Diffusion Transformers · In-Context Learning 
+
+1 Introduction 
+
+The synthesis of realistic and clinically reliable pathology images remains a chal-lenging problem in computational pathology. Although recent text-guided diffu-sion models have demonstrated remarkable capability in generating photorealis-tic images with semantic control [16,27,55,64], they still struggle to provide fine-grained spatial and morphological controllability. As shown in Fig. 1, most exist-ing diffusion pipelines rely on coarse global conditions such as prompts or latent 
+
+> arXiv:2603.13386v1 [cs.CV] 11 Mar 2026
+
+2 Y. Shou et al. 
+
+embeddings, which offer only implicit control over spatial arrangements. How-ever, histopathological images critically depend on precise cellular organization, tissue topology, and morphological continuity, making layout-controllable gener-ation essential for producing diagnostically meaningful outputs [21,60]. Without explicit structural guidance, standard diffusion models often fail to maintain con-sistent glandular boundaries, cell distributions, or regional tissue compositions, limiting their applicability in clinical and educational scenarios [59]. LDM      
+
+> Cross Attention
+> Noise
+> Process
+> Self -Surprivised
+> Model
+> (a) Traditional Generation
+> Methods
+> The cells
+> were
+> extremely
+> dense ... .
+> Diffusion Transformer
+> Self -Surprivised
+> Model
+> (b) Our I n-Context Diffusion Transformer Generation Methods
+> Caption Tokens Image Tokens Layout Tokens Embedd ings Tokens
+
+Fig. 1: Comparison between traditional diffusion-based pathology synthesis and the proposed IC-DiT. (a) Conventional la-tent diffusion models rely on global cross-attention, offering limited control over spa-tial structure and semantics. (b) IC-DiT in-tegrates multi-modal in-context condition-ing with image, layout, visual, and text to-kens, enabling anatomically coherent and spatially controllable pathology generation. 
+
+To address the above limitations, we aim to propose a context-aware generative framework that integrates explicit spatial layout conditioning with textual and visual semantics. However, achieving such controllable synthesis presents two fundamental challenges. First, realizing layout-aware generation requires a train-ing dataset that contains fine-grained spatial layouts paired with detailed diagnostic descriptions, yet no pub-licly available pathology dataset pro-vides such patch-level semantic lay-outs together with high-quality cap-tions. Second, existing diffusion-based pathology generators lack mecha-nisms for precise structural super-vision, making it difficult for the model to learn how spatial constraints should be mapped to valid tissue mor-phology. Therefore, we devote our-selves to addressing these two chal-lenges in this work. For constructing the desired dataset, unlike natural images that can be an-notated with coarse captions by crowdworkers, histopathology data involve gi-gapixel whole-slide images with highly complex tissue morphology and subtle cellular differences [31, 48, 50]. Producing consistent patch-level annotations re-quires medical expertise, and the annotation burden grows exponentially with image scale. For example, generating high-quality descriptions for the entire BRCA cohort would require more than 40,000 hours of expert pathologists’ time [17]. Such heavy cost makes large-scale fine-grained annotation essentially infeasible and leaves current models without the conditional signals needed for controllable synthesis [1, 8, 18]. To overcome this bottleneck, we introduce an automated multi-agent large vision–language model (LVLM) annotation frame-work, enabling scalable generation of reliable pseudo-supervision for fine-grained pathology data. The framework orchestrates several specialized agents to mimic diagnostic reasoning. Specifically, Image-to-Text agent extracts morphological Abbreviated paper title 3
+
+characteristics, a Key-Step Extraction agent decomposes them into interpretable diagnostic steps, and a Judge agent evaluates their consistency through auto-matic metrics. A human verification process then calibrates the scoring criteria, progressively improving domain alignment [7,30,49,62]. This multi-agent pipeline allows us to automatically construct fine-grained textual annotations at scale, significantly reducing expert workload while maintaining diagnostic relevance. Based on the curated dataset, we introduce In-Context Diffusion Trans-former (IC-DiT), a unified generation framework that supports explicit layout-to-pathology synthesis. IC-DiT injects multimodal contextual information, in-cluding spatial layout masks, textual descriptions, and visual embeddings, into a diffusion transformer backbone. Within IC-DiT, a set of multimodal atten-tion blocks performs hierarchical feature alignment in which textual semantics guide global appearance, layout tokens ensure structural fidelity, and visual em-beddings enhance local morphological detail. This design enables controllable synthesis with fine-grained spatial accuracy and diagnostically faithful textures, addressing key limitations of previous diffusion-based approaches. The main con-tributions of this paper are summarized as follows. 
+
+– To the best of our knowledge, we make the first attempt to incorporate large vision–language models (LVLMs) into a multi-agent annotation framework for histopathology, enabling scalable generation of fine-grained and clinically interpretable pseudo-labels through automated reasoning and human verifi-cation. 
+
+– We propose a unified In-Context Diffusion Transformer (IC-DiT) that in-tegrates textual, spatial, and visual embedding modalities via dedicated encoders and hybrid cross-modal attention blocks, achieving fine-grained controllability over both semantic appearance and structural layout during pathology image synthesis. 
+
+– We conduct comprehensive experiments on multiple histopathology datasets, demonstrating that our method can obtain superior generation performance over state-of-the-art baselines in image fidelity, spatial consistency, and con-trollability. Additionally, our method can help augment the data for down-stream high-level tasks, such as survival analysis and cancer classification. 
+
+2 Related Work 
+
+2.1 Diffusion Models for Digital Pathology 
+
+Diffusion models have recently emerged as powerful generative tools for high-fidelity image synthesis and data augmentation in medical imaging, including digital pathology [13,15,20,23,38]. By modeling the data distribution through a learned denoising process, these models can generate realistic histopathological images, aiding in data scarcity and domain generalization issues. Yellapragada et al. [59] demonstrated the effectiveness of conditional diffusion models in synthe-sizing diverse and class-specific histology patches for cancer classification tasks. Similarly, Xu et al. [57] applied latent diffusion to perform high-resolution Whole 4 Y. Shou et al. 
+
+Slide Image (WSI) synthesis, improving downstream segmentation and detection performance. 
+
+2.2 Diffusion Transformer 
+
+Diffusion Transformer (DiT) [14, 32, 33, 42, 47] represents a recent advancement in generative modeling, combining the strengths of diffusion models and vision transformers. Unlike traditional convolution-based denoising networks, DiT re-places the U-Net backbone with a pure transformer architecture, offering greater modeling capacity and scalability for high-resolution image generation. DiT op-erates directly in the latent space using transformer blocks, and demonstrated state-of-the-art performance on ImageNet. Its self-attention mechanism enables efficient global context modeling, which is particularly beneficial for visual do-mains where spatial dependencies are critical, such as digital pathology. Com-pared to latent diffusion models that rely on autoencoders and operate in com-pressed latent spaces, DiT preserves full spatial fidelity and shows superior per-formance in capturing fine-grained textures and structural [19, 56]. 
+
+2.3 Layout-to-Image Generation 
+
+Layout-to-image generation creates photorealistic images from structured scene layouts, typically using bounding boxes, object categories, and spatial relation-ships [41, 51, 63]. Early methods used conditional generative adversarial net-works (cGANs) [25] or variational autoencoders (VAEs) [26], but struggled with multi-object composition and consistency. Later, object-aware architectures like LayoutGAN [28] and InstaGAN [35] improved by modeling individual object features before combining them into a scene. Transformer-based models, such as DALL ·E [44], GLIDE [39], LAMIC [11], and LayoutDM [6], have advanced by treating layout elements as tokens and using autoregressive or diffusion-based methods for high-fidelity synthesis. Additionally, scene graphs [2,26] and hierar-chical layouts [22] have been explored to capture complex relational semantics beyond basic bounding boxes. Recent works have adapted layout-guided gener-ation for explicit structural grounding to mitigate geometric hallucinations. For example, PathDiff [5] employs unpaired text and mask conditions for spatially controlled histopathology synthesis. Similarly, other recent frameworks integrate fine-grained layout guidance to generate realistic clinical scans that strictly con-form to predefined anatomical structures [34, 40, 58]. 
+
+3 Proposed Method 
+
+In this section, we first briefly overview the proposed multi-agent and IC-DiT framework, and then describe the details of its components, as well as the training strategy. Abbreviated paper title 5Candidate labels: BRCA, BLCA, LUAD, UCEC, GBMLGG ...... 
+
+Please think step by step. 
+
+Enclose your final answer within <answer></answer> tags.             
+
+> User:
+> P l e a s e analyze the medical image for visible tumors, lesions, or
+> abnormalities. Identify which pattern and location of these findings in
+> the image reflect that the image is {Cancer Label }, as each cancer
+> type has distinct characteristics in terms of size, shape, and location.
+> {Cancer Label }: BLCA
+> Pathology Ag ent:
+> The tissue displays aggressive malignancy through marked nuclear
+> atypia loss of architecture and invasive growth which are hallmarks of
+> high grade urothelial carcinoma The forceful infiltration into stroma
+> and disorganized glandular structures reflect the uncontrolled
+> proliferation characteristic of BLCA .
+
+Extract P athological Features Extract Key Steps 
+
+> Qwen3 -VL
+> Gemini -2.5
+> GPT -4o
+> KIMI -K2
+
+Evaluated MLLMs 
+
+> Baichuan
+> Doubao
+
+Image to Text 
+
+Answer to Step    
+
+> User:
+> Given the following {Model Response} about the diagnosis based
+> on a medical image, please extract several key steps from the
+> answer. Each step should be as concise as possible and prefixed
+> with Step X. In the last step, showcase the predicted diagnosis.
+> {Model Response}: To identify the most likely diagnosis based on
+> the medical image, let's analyze the visual features step by step:
+> Step Agent:
+> <step>Step 1: Examine the overall tissue structure for any signs
+> of abnormal growth or lesions. ......Step 5: Based on the findings,
+> predict the diagnosis. The most likely diagnosis is BLCA.< /step>
+
+Question: As a medical image analysis expert, identify the most 
+
+likely diagnosis based on the given medical image.  
+
+> WSI -LLaVA Histgen
+
+…… 
+
+> Step 1: ......
+> ......
+> Step 2: ......
+> Step 5: ......
+
+Reasoning Score: 0.5 Recognition Score: 1 
+
+CoT Score: 0.75 Evaluation Suite 
+
+# +   
+
+> Visual Features Cancer Label Answer Step
+
+Step 1: 1/1, Step 2 0/1, Step 3: 0/1, Step 4: 0/1, Step 5: 1/1 
+
+Evaluating 
+
+Sampling Sampling 
+
+Human Verification 
+
+Judge Agent 
+
+Fig. 2: Overview of the multi-agent framework for pathological image description gen-eration. It includes: (1) Pathological Feature Extraction, where vision-language models convert images into visual-textual descriptions; (2) Key Step Extraction, where lan-guage models break down diagnostic reasoning into structured steps; and (3) Human Verification, which uses automated scores and expert feedback for accuracy assessment. A Judge Agent quantifies reliability through recognition and coherence metrics. 
+
+3.1 Framework Overview 
+
+Figs. 2 and 3 show our framework, combining a multi-agent annotation pipeline with In-Context Diffusion Transformer (IC-DiT). The multi-agent system in-cludes: (1) Pathological Feature Extraction, using LVLMs to convert images into visual-textual descriptions; (2) Step-wise Diagnostic Decomposition, break-ing down clinical reasoning into structured steps; and (3) Human Verification, integrating automated scoring and expert feedback for accuracy. IC-DiT con-sists of: (1) a T5 encoder for semantic prompts; (2) dual frozen VAE encoders for image and layout features; (3) a self-supervised iBOT encoder for anatom-ical priors; and (4) a diffusion transformer with hybrid multimodal attention. Modality features are mapped into a shared space, and MM-Attention enables fine control over both semantic and spatial structure during generation. 
+
+3.2 Pathology Image-Text Pair Construction 
+
+To enable controllable diffusion-based pathology image generation with fine-grained supervision, we propose a multi-agent annotation framework that con-structs semantically consistent patch-level image–text pairs. Each local tissue region is independently analyzed, described, and verified through coordinated 6 Y. Shou et al. Linear                        
+
+> Trainable
+> Freeze
+> Trainable
+> Freeze
+> Global Caption
+> T5 Text Encoder
+> Image Layout Image
+> VAE Encoder VAE Encoder iBOT Encoder
+> A breast tissue section shows
+> an irregular glandular
+> structure, densely stained cell
+> nuclei, and pink fibrous
+> stroma, typical pathological
+> features of breast cancer.
+> Global Caption Tokens Image Tokens Layout Tokens Embedd ings Tokens
+> QKV Concat
+> Linear Linear
+> QKV
+> MM -Attention
+> Add
+> MLP MLP
+> QKV Concat
+> QKV
+> MM -Attention
+> QKV Concat
+> Linear Linear Linear Linear Linear
+> QKV
+> MM -Attention
+
+Text Image Layout  
+
+> MLP MLP MLP MLP
+> Embedd ings Diffusion Transformer
+
+Fig. 3: Overview of the In-Context Diffusion Transformer (IC-DiT) architecture. This model integrates text, image, layout, and embedding tokens through separate encoders (T5, VAE, iBOT) and processes them with multi-modal attention (MM-Attention) mechanisms. The attention mechanism is applied across different modalities to fuse them in a shared latent space, allowing for high-fidelity pathology image generation based on semantic descriptions and spatial layouts. 
+
+LVLM reasoning and human evaluation as shown in Fig. 2. In the following, we discuss the detail of the multi-agent annotation framework. 
+
+Step-Wise Diagnostic Reasoning. Formally, a whole-slide image I ∈
+
+RH×W ×3 is divided into a set of N non-overlapping patches as follows: 
+
+I = {x1, x 2, . . . , x N }, xi ∈ Rh×w×3. (1) A reasoning agent gstep first performs localized observation and deduction to form a fine-grained diagnostic chain as follows: 
+
+Yi = {yi, 1, y i, 2, . . . , y i,M i }, yi,j = gstep (xi, prompt ), (2) where each yi,j is a structured statement such as “dense epithelial clustering” or “nuclei show hyperchromatic features”. The sequence Yi defines a directed reasoning graph Gi = ( Vi, Ei) with Vi = {yi,j } and Ei = {(yi,j , y i,k )|j < k }. A lightweight graph aggregator Ψ yields a probabilistic patch label distribution: 
+
+pi(ℓ) = Softmax 
+
+
+
+Ψ ({yi,j }Mi
+
+> j=1
+
+)
+
+
+
+, ˆℓi = arg max  
+
+> ℓ∈C
+
+pi(ℓ), (3) where C denotes the pathology label set. Abbreviated paper title 7
+
+Label-Conditioned Patch-Level Visual-Language Description. The inferred label ˆℓi is then injected as conditional context into a label-aware LVLM to produce a clinically coherent description: 
+
+ti = fLVLM 
+
+ xi, prompt (ˆℓi), (4) yielding a localized caption such as “fibrotic stroma with mild lymphocytic infil-tration”. 
+
+Judge Agent for Global Evaluation. To evaluate the reliability and qual-ity of each automatically annotated patch, we employ a powerful large vision– language model (LVLM) as a judgment agent. This agent directly assesses the overall correctness, diagnostic consistency, and textual coherence of the gener-ated sample, serving as an automatic evaluator that mimics expert reasoning behavior. Given a patch xi with its reasoning chain Yi, inferred label ˆℓi, and generated textual description ti, the judgment agent J(·) is prompted with a structured query PJ that requests an analytical evaluation of the sample across multiple diagnostic perspectives. The evaluation process can be formulated as: 
+
+Qi = J(PJ , x i, Y i, ˆℓi, t i), (5) where Qi ∈ [0 , 1] denotes the confidence score provided by the LVLM. The score is directly derived from the model’s textual output via instruction-based prompting, in which the LVLM is asked to rate the sample quality along sev-eral explicit dimensions ( e.g. , visual grounding accuracy, reasoning validity, and factual consistency) and then summarize them into an overall confidence score. 
+
+Human Verification. To further validate the reliability of our multi-agent annotation and evaluation framework, we conducted a comprehensive human verification study with multiple pathologists. Each expert independently re-viewed a subset of patch-level samples drawn from the automatically annotated corpus, which included the visual patch xi, its reasoning chain Yi, the predicted label ˆℓi, and the generated textual description ti. The experts were asked to assess these samples in terms of visual grounding accuracy, diagnostic reason-ing soundness, and textual fidelity, following standard pathological evaluation criteria. To ensure consistency, all experts followed a unified scoring guideline adapted from clinical diagnostic reporting. The consistency between human rat-ings and the scores produced by our LVLM-based judgment agent was then qual-itatively analyzed. The results revealed a strong alignment between the model’s evaluations and expert judgments, indicating that the proposed LVLM-as-judge mechanism can effectively capture domain-relevant cues and provide assessments highly consistent with human reasoning patterns. 
+
+3.3 Layout Representation Generation 
+
+We extract spatial layout representations using UN-SAM [12], a zero-shot seg-mentation model for nuclei and tissue structures. Given a whole-slide or patch image, UN-SAM produces binary masks that outline nuclei and stroma without 8 Y. Shou et al. 
+
+task-specific fine-tuning. These masks are then encoded by a VAE into a com-pact latent layout aligned with the diffusion transformer. This layout serves as a structured prior, enabling anatomically precise and multi-modally compatible controllable generation. 
+
+3.4 Layout-to-Image Generation Tokenization of Multi-modal Conditions. In our approach, we tokenize the input modalities to facilitate their integration within a unified diffusion trans-former framework. For textual information, we employ a frozen T5 encoder [43] to process the global prompt, extracting contextual embeddings that represent the semantic guidance for image generation. Regarding the target image, it is first encoded into a latent space using a frozen VAE, from which the latent features are patchified into tokens that capture essential visual elements. Spatial structures are encoded by processing layout masks through a dedicated VAE encoder [4], also frozen, with the resulting latent features being patchified to generate layout tokens, thereby capturing rich spatial priors without relying on explicit coordi-nates or bounding boxes. To enrich the model with additional high-level context, we utilize a frozen iBOT encoder [66] to derive dense visual embeddings from either the raw image or reference patches, providing supplementary information that enhances the generative process. This multi-modal tokenization strategy enables coherent alignment and effective fusion of semantics, spatial structure, and appearance, driving precise and controllable pathology image synthesis. 
+
+3.5 Semantic, Spatial, and Visual Integration 
+
+We integrate semantic, spatial, and visual information through a unified multi-modal attention (MM-Attention) mechanism that enables cross-modal alignment in the shared latent space. As illustrated in Fig. 3, the global caption tokens 
+
+hp, image tokens hz , layout tokens hl, and embedding tokens he are projected into query Q, key K, and value V spaces via modality-specific linear layers. These projections are then concatenated across modalities before being fed into a shared attention module. The MM-Attention operation is defined as: 
+
+hz′
+
+, hp′
+
+= Attention ([ Qz , Qp], [Kz , Kp], [Vz , Vp]) , (6) where [·, ·] denotes concatenation along the token dimension. This allows im-age and text modalities to interact bidirectionally, aligning visual content with semantic descriptions. Similarly, layout tokens hl are fused with image tokens: 
+
+hz′
+
+, hl′
+
+= Attention  [Qz , Ql], [Kz , Kl], [Vz , Vl] , (7) enabling spatial structure to guide the generation of anatomical features while preserving layout consistency. Finally, embeddings from iBOT are incorporated via: 
+
+hz′
+
+, he′
+
+= Attention ([ Qz , Qe], [Kz , Ke], [Vz , Ve]) , (8) Abbreviated paper title 9
+
+which enhances fine-grained visual fidelity by injecting high-level contextual rep-resentations. By unifying these interactions within a single diffusion transformer, our model achieves coherent control over semantics, spatial layout, and appear-ance, ensuring high-fidelity pathology image generation that is both interpretable and clinically relevant. 
+
+Training and Inference. We freeze all pre-trained components, including the T5 text encoder, VAE encoders for image and layout, and the iBOT model, as well as train only the newly introduced learnable parameters indicated in Fig. 3. The training objective is a layout and embedding-conditioned denoising loss as: 
+
+Lcond = Ez,p,l,e,t,ϵ ∼N (0 ,1) 
+
+h
+
+ϵ − ϵ{θ}(zt, t, p, l, e) 22
+
+i
+
+, (9) where zt denotes the noisy latent at diffusion step t, p is the global caption, l
+
+is the layout representation, and e is the visual embedding extracted by iBOT from the image. 
+
+4 Experiments 
+
+4.1 Datasets and Evaluation Metrics Datasets. The Cancer Genome Atlas (TCGA) is a public repository of genomic and clinical data from thousands of cancer patients across 33 cancer types, widely used in survival analysis to identify genetic and molecular markers linked to prognosis. In this work, we evaluate our model on five TCGA cohorts, including BLCA (373), BRCA (956), GBMLGG (569), LUAD (453), and UCEC (480). 
+
+Evaluation Metrics. We adopt five metrics for assessing the generation quality: for visual quality, we report Fréchet Inception Distance computed on Inception-v3 features of real and generated pathology images (“Vanilla FID”); for high-level semantic alignment, we compute FID in the CLIP image embedding space between generated and ground-truth images (“CLIP FID”); for structural and textural fidelity, we measure the cosine similarity between visual embeddings of generated and original images extracted by a frozen iBOT model (“Embedding Similarity”); for image and text similarity, we report PLIP [24] cosine similar-ity computed on generated image and text embeddings; and for mask-to-image faithfulness, we report the faithfulness scores, defined as the Dice coefficient be-tween the segmentation masks predicted from the synthesized images and those from their real counterparts. In downstream cancer analysis tasks, we further evaluate classification performance using accuracy and assess survival predic-tion using the concordance index (C-index). 
+
+Baselines. (1) For pathological image generation, we compare with MFDiffusion [36], Medfusion [37], PathLDM [59], SSL-guided LDM [17], ZoomLDM [60], and PathDiff [5]. (2) For vision-language models evaluation, we compare with Qwen2-VL [53], Qwen2.5-VL [52], Qwen3-VL [3], Janus-Pro [10], and MedGemma [45]. (3) For text-to-image alignment evaluation,we compare with ControlNet [63], and PathDiff [5]. (4) For image faithfulness evaluation, we compare with Diffmix 10 Y. Shou et al. 
+
+[40], SDM [54], ControlNet [63], and PathDiff [5]. (5) For downstream cancer analysis, we use ViLa-MIL [46] and PMIL [61] for classification, and Porpoise [9], HFBSurv [29], CMTA [65], and MurreNet [65] for survival prediction. 
+
+4.2 Pathological Image Generation Image Quality Results. Our method consistently outperforms existing ap-proaches across all datasets and magnification levels as shown in Table 1. Among the baselines, earlier methods struggle to capture fine pathological details and structural coherence, while recent diffusion-based models show improved fidelity but limited layout control. In contrast, our proposed IC-DiT with layout-aware conditioning and multimodal in-context learning achieves the best balance be-tween semantic accuracy, anatomical plausibility, and visual realism. Notably, IC-DiT maintains strong performance even at 5 × magnification, demonstrating robustness across scales and highlighting the effectiveness of our unified multi-modal framework. 
+
+Table 1: Quantitative evaluation of pathological image generation methods under 20 ×
+
+and 5 × magnification across four cancer datasets. The best and second best results are highlighted in bold and underline, respectively. Methods BLCA BRCA GBMLGG LUAD Vanilla FID CLIP FID Similarity Vanilla FID CLIP FID Similarity Vanilla FID CLIP FID Emb Similarity Vanilla FID CLIP FID Similarity                                                                                                                                                                         
+
+> 20x Magnification
+> MFDiffusion 115.73 101.88 0.24 104.72 94.31 0.29 127.90 115.43 0.18 145.72 131.93 0.15 Medfusion 57.62 50.09 0.33 68.52 59.02 0.31 70.59 66.33 0.27 73.48 67.65 0.24 Pathldm 18.62 15.47 0.46 21.38 17.59 0.43 22.54 19.41 0.41 24.10 22.03 0.38 SSL-guided LDM 10.47 7.43 0.56 12.57 8.41 0.49 14.59 13.36 0.46 15.03 14.17 0.44 ZoomLDM 8.21 6.85 0.61 9.12 7.23 0.54 8.76 7.58 0.57 9.85 7.91 0.53 PathDiff 7.84 6.13 0.65 10.03 7.87 0.51 9.21 9.58 0.50 11.73 10.41 0.49 IC-DiT (Ours) 5.12 5.87 0.72 6.45 6.54 0.64 6.18 6.02 0.65 7.23 7.18 0.62
+> 5x Magnification
+> MFDiffusion 122.54 109.29 0.20 112.34 100.59 0.24 135.47 122.1 8 0.15 152.83 139.40 0.12 Medfusion 64.37 56.22 0.28 74.15 64.83 0.26 77.52 73.10 0.22 80.64 74.93 0.19 Pathldm 25.16 21.32 0.41 26.99 22.84 0.38 28.41 24.67 0.36 27.58 23.20 0.33 SSL-guided LDM 16.24 12.73 0.51 18.19 13.84 0.43 17.31 13.47 0.47 19.05 14.69 0.42 ZoomLDM 15.37 13.91 0.55 16.28 14.33 0.48 15.85 14.62 0.51 17.11 15.27 0.47 PathDiff 13.84 12.05 0.59 15.11 13.39 0.51 14.30 13.29 0.53 15.52 14.26 0.51 IC-DiT (Ours) 11.26 11.93 0.66 12.47 10.59 0.58 12.04 11.44 0.59 13.28 13.21 0.56
+
+Table 2: Quantitatively evalua-tion the image-text similarity of four cancer datasets at 20x and 5x magnification. The best and sec-ond best results are highlighted in 
+
+bold and underline, respectively. 
+
+Methods BLCA BRCA GBMLGG LUAD 20x Magnification ControlNet 20.67 19.76 20.03 20.34 PathDiff 22.48 21.35 21.92 22.15 IC-DiT 24.83 24.64 23.72 25.67 
+
+5x Magnification ControlNet 17.23 18.91 17.34 18.45 PathDiff 18.34 19.45 18.56 19.59 IC-DiT 20.65 21.29 21.82 22.49 
+
+Text-to-Image Alignment. To evaluate se-mantic alignment, we assess image-text sim-ilarity across four cancer cohorts at 20 ×
+
+and 5× magnifications using the PLIP co-sine similarity metric. As shown in Table 2, IC-DiT consistently outperforms ControlNet and PathDiff across all datasets and scales. Notably, at 20 × magnification, our method achieves superior scores. This performance lead persists at 5× magnification, where IC-DiT sets the benchmark for cross-modal co-herence. The significant margin over PathDiff indicates that our in-context mechanism facil-itates more robust integration of textual prompts with spatial structures, ensur-ing synthesized morphology remains strictly aligned with clinical semantics. Abbreviated paper title 11 
+
+Vision-Language Models Evaluation. To rigorously evaluate the quality of the generated data, we benchmarked IC-DiT across multiple cancer cohorts us-ing various visual language models (VLMs) at 20x magnification. Our method was validated in multiple dimensions on both general and medical-specific archi-tectures. We observed a significant scaling effect in our evaluations, with larger VLM variants consistently producing lower FID values than smaller models, in-dicating that IC-DiT effectively captures fine morphological nuances detectable by high-capacity discriminators. Further experimental results are provided in Section 4.2 of the supplementary materials. 
+
+Table 3: Quantitatively evalua-tion the faithfulness scores of four cancer datasets at 20x and 5x mag-nification. The best and second best results are highlighted in bold 
+
+and underline, respectively.                                       
+
+> Methods BLCA BRCA GBMLGG LUAD 20x Magnification Diffmix 0.7123 0.7312 0.7089 0.7245 SDM 0.6532 0.6891 0.6245 0.6978 ControlNet 0.7425 0.7034 0.7289 0.7167 PathDiff 0.7856 0.7912 0.7734 0.8015 IC-DiT 0.8319 0.8412 0.8352 0.8363
+> 5x Magnification Diffmix 0.6912 0.6945 0.6712 0.6886 SDM 0.6104 0.6756 0.6178 0.6389 ControlNet 0.6945 0.6889 0.7056 0.6923 PathDiff 0.7745 0.7801 0.7548 0.7663 IC-DiT 0.8245 0.8167 0.8312 0.8198
+
+Mask-to-Image Faithfulness. To assess the structural integrity of the generated im-ages, we evaluate the faithfulness scores. As shown in Table 3, IC-DiT achieves the high-est faithfulness across all cancer cohorts at both 20 × and 5× magnifications, significantly outperforming competitive baselines such as PathDiff and ControlNet. Specifically, at 20 ×
+
+magnification, our method maintains consis-tent structural alignment with scores exceed-ing 0.81 across all datasets, demonstrating its superior ability to preserve complex tis-sue morphology. The substantial margin over diffusion-based alternatives like SDM suggests that our layout-guided in-context mechanism effectively constrains the generative process, ensuring that the spatial arrange-ments of pathological structures remain anatomically accurate. 
+
+Table 4: The results of ablation studies in TCGA datasets. We highlight the best performing scores in bold .Components BLCA BRCA GBMLGG LUAD Global Caption Layout Embeddings Similarity Vanilla FID Vanilla FID Vanilla FID Vanilla FID                                  
+
+> ✓74.59 79.02 76.60 80.45
+> ✓70.05 72.31 72.29 76.53
+> ✓12.15 15.77 18.68 20.03
+> ✓✓66.14 67.51 68.20 73.37
+> ✓✓10.09 12.41 14.57 17.30
+> ✓✓7.38 9.52 10.05 13.47
+> ✓✓✓5.12 6.45 6.18 7.23
+
+Ablation Studies. We ablate key components of IC-DiT to assess their con-tributions as shown in Table 4. Using only global semantic guidance yields rea-sonable generation quality but lacks structural precision. Incorporating layout significantly improves anatomical fidelity by enforcing spatial consistency, while adding self-supervised embeddings further enhances pathological realism through fine-grained visual priors. The full model achieves the best performance, demon-strating that multi-modal conditioning is essential for high-quality, controllable pathology image synthesis. Notably, replacing the global caption with simple 12 Y. Shou et al. 
+
+labels still provides effective semantic guidance, making the framework practical even when detailed captions are unavailable. 
+
+Qualitative Visual Assessment. As shown in Fig. 4, our IC-DiT framework generates high-fidelity pathology images that faithfully reproduce both the tex-tual semantics and spatial layouts. The generated images preserve key histolog-ical features with strong alignment to the input masks and captions. Compared to prior methods, our approach demonstrates superior layout consistency and semantic control, enabling realistic and interpretable synthesis of complex tissue structures without manual annotation. Mask Image Generated Image Real Image                                                                                         
+
+> Medical image of BRCA showing invasive
+> ductal carcinoma with a pink -stained fibrous
+> stroma background, featuring pleomorphic
+> malignant epithelial cells of varying sizes,
+> embedded within desmoplastic connective
+> tissue.
+> Medical image of BRCA showing invasive
+> ductal carcinoma with a pink fibrous stroma
+> background and scattered pleomorphic
+> malignant cells featuring enlarged
+> hyperchromatic nuclei and irregular shapes
+> embedded in desmoplastic tissue.
+> Medical image of BRCA showing invasive
+> ductal carcinoma with nests of pleomorphic
+> malignant cells featuring hyperchromatic
+> nuclei and high N/C ratio, infiltrating a pink
+> desmoplastic stroma.
+> Mask Image Generated Image Real Image
+> Medical image of BRCA showing invasive
+> ductal carcinoma with discohesive, single -file
+> or loosely clustered malignant cells exhibiting
+> marked nuclear pleomorphism,
+> hyperchromasia, and irregular shapes,
+> embedded in aloose, myxoid -to -fibrous
+> stroma with pale pink background.
+> Medical image of BRCA showing invasive
+> ductal carcinoma with densely packed
+> clusters of malignant epithelial cells
+> exhibiting marked nuclear pleomorphism,
+> hyperchromasia, prominent nucleoli, and
+> high nuclear -to -cytoplasmic ratio, infiltrating
+> a scant fibrous stroma.
+> Medical image of BRCA showing high -grade
+> invasive ductal carcinoma with sheets of
+> poorly differentiated malignant cells
+> exhibiting marked nuclear pleomorphism,
+> hyperchromasia, prominent nucleoli,
+> frequent mitoses, and minimal stroma,
+> consistent with aggressive tumor biology.
+> Caption Caption
+
+Fig. 4: Qualitative comparison of layout-guided pathology image generation. Each col-umn shows the input caption, corresponding mask, real image, and generated image. 
+
+Furthermore, removing the layout mask constraint leads to a significant degradation in local structural fidelity and tissue morphology as illustrated in Fig. 5. While the model maintains coarse spatial distributions, it fails to preserve precise regional boundaries, resulting in misaligned tumor clusters and blurred tissue interfaces. This lack of explicit guidance triggers microscopic morpholog-ical drift, evidenced by inconsistent nucleus sizes and the loss of stromal fiber directionality, which suggests that unconstrained diffusion priors alone cannot sustain fine-grained pathological textures. Furthermore, text prompts prove in-sufficient for spatial grounding as critical structures like glandular boundaries exhibit positional shifts when explicit region allocation is absent. These obser-vations collectively confirm that layout conditioning is indispensable for IC-DiT to achieve strict semantic-to-spatial alignment and high-fidelity synthesis. 
+
+4.3 Downstream Tasks Synthetic Images on Survival Prediction. We evaluate the utility of IC-DiT-generated synthetic pathology images for downstream survival prediction across five cancer datasets. As shown in Table 5, our method demonstrates supe-rior clinical validity under both synthetic-only and augmented training paradigms. First, when training models exclusively on synthetic data, a performance drop compared to real-data baselines is expected; however, IC-DiT incurs significantly Abbreviated paper title 13 Real Image Generate Image Real Image Generate Image Real Image Generate Image 
+
+Fig. 5: Ablation study on layout control. Comparison between real pathology patches and images generated without layout-mask constraints. 
+
+Table 5: Comparison of survival prediction models trained with and without synthetic pathology data. C-index (mean ± std) is reported across five histopathology datasets under three training settings: (1) real data only, (2) synthetic data only and (3) real data with one-fold synthetic augmentation. Best results are highlighted in bold .Methods Train Data Datasets BLCA BRCA GBMLGG LUAD UCEC Porpoise Real 0.6461 ± 0.0338 0.6207 ± 0.0544 0.8479 ± 0.0128 0.6403 ± 0.0412 0.6918 ± 0.0488 w/PathDiff Synth 0.5735 ± 0.0273 0.5581 ± 0.0373 0.7383 ± 0.0470 0.5637 ± 0.0509 0.6049 ± 0.0286 w/PathDiff Real+Synth 0.6523 ± 0.0179 0.6291 ± 0.0307 0.8585 ± 0.0288 0.6524 ± 0.0283 0.6997 ± 0.0416 w/IC-DiT Synth 0.5970 ± 0.0319 0.5891 ± 0.0274 0.7613 ± 0.0482 0.5933 ± 0.0144 0.6318 ± 0.0337 w/IC-DiT Real+Synth 0.6694 ± 0.0456 0.6440 ± 0.0734 0.8702 ± 0.0173 0.6636 ± 0.0556 0.7151 ± 0.0659 
+
+HFBSurv Real 0.6398 ± 0.0277 0.6473 ± 0.0346 0.8383 ± 0.0128 0.6501 ± 0.0495 0.6421 ± 0.0445 w/PathDiff Synth 0.5639 ± 0.0358 0.5714 ± 0.0371 0.7418 ± 0.0474 0.5619 ± 0.0448 0.5782 ± 0.0305 w/PathDiff Real+Synth 0.6473 ± 0.0336 0.6518 ± 0.0134 0.8452 ± 0.0341 0.6589 ± 0.0437 0.6525 ± 0.0219 w/IC-DiT Synth 0.5992 ± 0.0376 0.6003 ± 0.0447 0.7924 ± 0.0175 0.6008 ± 0.0336 0.5993 ± 0.0405 w/IC-DiT Real+Synth 0.6631 ± 0.0374 0.6706 ± 0.0467 0.8606 ± 0.0173 0.6734 ± 0.0668 0.6654 ± 0.0601 
+
+CMTA Real 0.6910 ± 0.0426 0.6679 ± 0.0434 0.8531 ± 0.0116 0.6864 ± 0.0359 0.6975 ± 0.0409 w/PathDiff Synth 0.6215 ± 0.0479 0.6046 ± 0.0319 0.7891 ± 0.0427 0.6154 ± 0.0310 0.6431 ± 0.0147 w/PathDiff Real+Synth 0.6988 ± 0.0227 0.6785 ± 0.0401 0.8614 ± 0.0115 0.6927 ± 0.0279 0.7052 ± 0.0471 w/IC-DiT Synth 0.6418 ± 0.0237 0.6351 ± 0.0317 0.8129 ± 0.0433 0.6350 ± 0.0174 0.6683 ± 0.0274 w/IC-DiT Real+Synth 0.7143 ± 0.0575 0.6912 ± 0.0586 0.8754 ± 0.0157 0.7097 ± 0.0485 0.7208 ± 0.0552 
+
+MurreNet Real 0.7052 ± 0.0481 0.7031 ± 0.0252 0.8734 ± 0.0207 0.6847 ± 0.0449 0.7319 ± 0.0613 w/PathDiff Synth 0.6351 ± 0.0284 0.6219 ± 0.0147 0.7993 ± 0.0258 0.6143 ± 0.0372 0.6654 ± 0.0336 w/PathDiff Real+Synth 0.7113 ± 0.0252 0.7073 ± 0.0403 0.8779 ± 0.0156 0.7004 ± 0.0273 0.7347 ± 0.0306 w/IC-DiT Synth 0.6529 ± 0.0441 0.6618 ± 0.0348 0.8251 ± 0.0408 0.6449 ± 0.0442 0.6959 ± 0.0307 w/IC-DiT Real+Synth 0.7255 ± 0.0316 0.7154 ± 0.0392 0.8811 ± 0.0420 0.7251 ± 0.0728 0.7415 ± 0.0448 
+
+less degradation than the state-of-the-art PathDiff synthesis method, indicating a better preservation of intrinsic prognostic features. Second, in the data aug-mentation setting (Real+Synth), incorporating one-fold synthetic images con-sistently improves the C-index scores over the real-data baselines. While both PathDiff and IC-DiT provide noticeable performance gains, integrating our IC-DiT-generated images yields substantially larger and more consistent improve-ments across all four baseline models and five datasets. These quantitative results 14 Y. Shou et al. 
+
+confirm that our layout-controllable synthesis not only generates visually realis-tic images but also effectively retains clinically relevant structures and semantics, making it highly advantageous for enhancing data-efficient clinical modeling. 
+
+Synthetic Images on Cancer Classification. We evaluate the impact of synthetic pathology images on downstream cancer classification across five co-horts. As shown in Table 6, our IC-DiT framework demonstrates superior clin-ical utility under both synthetic-only and augmented training settings. In the data augmentation scenario (Real+Synth), incorporating one-fold synthetic sam-ples consistently improves classification accuracy over the real-only baselines. While PathDiff provides moderate performance gains, augmenting with IC-DiT yields significantly larger and more consistent improvements across both base-line models (ViLa-MIL and PMIL). Notably, the most substantial improvements are observed in datasets like BLCA and BRCA, demonstrating that our layout-controllable synthesis effectively complements limited real samples. 
+
+Table 6: Performance comparison of the classification model on downstream tasks. Accuracy is reported across five histopathology datasets under three training settings: (1) real data only, (2) synthetic data only and (3) real data with one-fold synthetic augmentation. We highlight the best performing scores in bold .                                                                             
+
+> Methods Train Data Datasets BLCA BRCA GBMLGG LUAD UCEC Avg. ViLa-MIL Real 84.59 81.06 90.35 82.06 91.52 85.92 w/PathDiff Synth 78.41 74.53 85.99 76.28 87.65 80.57 w/PathDiff Real+Synth 85.26 82.34 90.69 83.44 91.80 86.71 w/IC-DiT Synth 80.48 77.13 87.49 79.05 89.08 82.66 w/IC-DiT Real+Synth 88.10 84.73 91.58 84.13 92.30 88.17
+> PMIL Real 87.63 86.90 91.37 83.41 92.07 88.28 w/PathDiff Synth 80.25 81.34 85.08 76.47 86.15 81.86 w/PathDiff Real+Synth 88.41 87.54 91.63 84.96 92.97 89.10 w/IC-DiT Synth 82.52 83.79 88.04 79.44 88.25 84.41 w/IC-DiT Real+Synth 89.86 89.39 92.51 86.26 94.13 90.43
+
+5 Conclusions 
+
+In this work, we have devoted to addressing the challenge of controllable high-fidelity pathology image generation by introducing In-Context Diffusion Trans-formers (IC-DiT), a framework that unifies textual semantics, spatial layouts, and vision-language embeddings within a diffusion transformer architecture. To overcome the impracticality of exhaustive pixel-level annotations, we have de-signed a multi-agent annotation pipeline that leverages large vision-language models as scalable substitutes for expert labeling, enabling semantically rich and cost-efficient supervision. Our key insight is that precise structural control for clinical utility can be achieved through cross-modal attention that aligns layout priors with generative dynamics in latent space. Extensive experiments have shown that IC-DiT surpasses existing methods in image fidelity, layout adherence, and semantic controllability, while also serving as a powerful data generation engine for downstream tasks. Abbreviated paper title 15 
+
+References 
+
+1. Ahmed, F., Sellergen, A., Yang, L., Xu, S., Babenko, B., Ward, A., Olson, N., Mohtashamian, A., Matias, Y., Corrado, G.S., et al.: Pathalign: A vision–language model for whole slide images in histopathology. In: Proceedings of the MICCAI Workshop on Computational Pathology. pp. 72–108. PMLR (2024) 2. Ashual, O., Wolf, L.: Specifying object attributes and relations in interactive scene generation. In: Proceedings of the IEEE/CVF international conference on com-puter vision. pp. 4561–4569 (2019) 3. Bai, S., Cai, Y., Chen, R., Chen, K., Chen, X., Cheng, Z., Deng, L., Ding, W., Gao, C., Ge, C., et al.: Qwen3-vl technical report. arXiv preprint arXiv:2511.21631 (2025) 4. Batifol, S., Blattmann, A., Boesel, F., Consul, S., Diagne, C., Dockhorn, T., En-glish, J., English, Z., Esser, P., Kulal, S., et al.: Flux. 1 kontext: Flow matching for in-context image generation and editing in latent space. arXiv e-prints pp. arXiv–2506 (2025) 5. Bhosale, M., Wasi, A., Zhai, Y., Tian, Y., Border, S., Xi, N., Sarder, P., Yuan, J., Doermann, D., Gong, X.: Pathdiff: Histopathology image synthesis with un-paired text and mask conditions. In: Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV). pp. 22415–22424 (October 2025) 6. Chai, S., Zhuang, L., Yan, F.: Layoutdm: Transformer-based diffusion model for layout generation. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 18349–18358 (2023) 7. Chen, L., Li, J., Dong, X., Zhang, P., Zang, Y., Chen, Z., Duan, H., Wang, J., Qiao, Y., Lin, D., et al.: Are we on the right way for evaluating large vision-language models? Advances in Neural Information Processing Systems 37 , 27056– 27087 (2024) 8. Chen, P., Li, H., Zhu, C., Zheng, S., Shui, Z., Yang, L.: Wsicaption: Multiple instance generation of pathology reports for gigapixel whole-slide images. In: In-ternational Conference on Medical Image Computing and Computer-Assisted In-tervention. pp. 546–556. Springer (2024) 9. Chen, R.J., Lu, M.Y., Williamson, D.F., Chen, T.Y., Lipkova, J., Noor, Z., Shaban, M., Shady, M., Williams, M., Joo, B., et al.: Pan-cancer integrative histology-genomic analysis via multimodal deep learning. Cancer cell 40 (8), 865–878 (2022) 10. Chen, X., Wu, Z., Liu, X., Pan, Z., Liu, W., Xie, Z., Yu, X., Ruan, C.: Janus-pro: Unified multimodal understanding and generation with data and model scaling. arXiv preprint arXiv:2501.17811 (2025) 11. Chen, Y., Ma, Z., Wang, J., Kang, K., Yao, S., Zhang, W.: Lamic: Layout-aware multi-image composition via scalability of multimodal diffusion transformer. arXiv preprint arXiv:2508.00477 (2025) 12. Chen, Z., Xu, Q., Liu, X., Yuan, Y.: Un-sam: Universal prompt-free segmentation for generalized nuclei images. arXiv preprint arXiv:2402.16663 (2024) 13. Dhariwal, P., Nichol, A.: Diffusion models beat gans on image synthesis. In: NeurIPS (2021) 14. Esser, P., Kulal, S., Blattmann, A., Entezari, R., Müller, J., Saini, H., Levi, Y., Lorenz, D., Sauer, A., Boesel, F., et al.: Scaling rectified flow transformers for high-resolution image synthesis. In: Forty-first international conference on machine learning (2024) 15. Fei, B., Lyu, Z., Pan, L., Zhang, J., Yang, W., Luo, T., Zhang, B., Dai, B.: Genera-tive diffusion prior for unified image restoration and enhancement. In: Proceedings 16 Y. Shou et al. of the IEEE/CVF conference on computer vision and pattern recognition. pp. 9935–9946 (2023) 16. Feng, C.M.: Enhancing label-efficient medical image segmentation with text-guided diffusion models. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 253–262. Springer (2024) 17. Graikos, A., Yellapragada, S., Le, M.Q., Kapse, S., Prasanna, P., Saltz, J., Sama-ras, D.: Learned representation-guided diffusion models for large-image generation. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 8532–8542 (2024) 18. Harb, R., Pock, T., Müller, H.: Diffusion-based generation of histopathological whole slide images at a gigapixel scale. In: Proceedings of the IEEE/CVF winter conference on applications of computer vision. pp. 5131–5140 (2024) 19. Hatamizadeh, A., Song, J., Liu, G., Kautz, J., Vahdat, A.: Diffit: Diffusion vision transformers for image generation. In: European Conference on Computer Vision. pp. 37–55. Springer (2024) 20. Ho, J., Jain, A., Abbeel, P.: Denoising diffusion probabilistic models. Advances in neural information processing systems 33 , 6840–6851 (2020) 21. Ho, M.M., Dubey, S., Chong, Y., Knudsen, B., Tasdizen, T.: F2fldm: Latent diffu-sion models with histopathology pre-trained embeddings for unpaired frozen sec-tion to ffpe translation. In: 2025 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV). pp. 4382–4391. IEEE (2025) 22. Hong, S., Yang, D., Choi, J., Lee, H.: Inferring semantic layout for hierarchical text-to-image synthesis. In: Proceedings of the IEEE conference on computer vision and pattern recognition. pp. 7986–7994 (2018) 23. Hou, J., Zhu, Z., Hou, J., Liu, H., Zeng, H., Yuan, H.: Global structure-aware diffusion process for low-light image enhancement. Advances in Neural Information Processing Systems 36 , 79734–79747 (2023) 24. Huang, Z., Bianchi, F., Yuksekgonul, M., Montine, T.J., Zou, J.: A visual–language foundation model for pathology image analysis using medical twitter. Nature medicine 29 (9), 2307–2316 (2023) 25. Isola, P., Zhu, J.Y., Zhou, T., Efros, A.A.: Image-to-image translation with condi-tional adversarial networks. In: Proceedings of the IEEE conference on computer vision and pattern recognition. pp. 1125–1134 (2017) 26. Johnson, J., Gupta, A., Fei-Fei, L.: Image generation from scene graphs. In: Pro-ceedings of the IEEE conference on computer vision and pattern recognition. pp. 1219–1228 (2018) 27. Lee, H., Son, M., Kang, D., Jung, S.W.: Text embedding knows how to quan-tize text-guided diffusion models. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 15426–15436 (2025) 28. Li, J., Yang, J., Hertzmann, A., Zhang, J., Xu, T.: Layoutgan: Generating graphic layouts with wireframe discriminators. In: International Conference on Learning Representations (2019) 29. Li, R., Wu, X., Li, A., Wang, M.: Hfbsurv: hierarchical multimodal fusion with fac-torized bilinear models for cancer survival prediction. Bioinformatics 38 (9), 2587– 2594 (2022) 30. Liu, D., Yang, M., Qu, X., Zhou, P., Cheng, Y., Hu, W.: A survey of attacks on large vision–language models: Resources, advances, and future trends. IEEE Transactions on Neural Networks and Learning Systems (2025) 31. Lu, M.Y., Chen, B., Williamson, D.F., Chen, R.J., Zhao, M., Chow, A.K., Ikemura, K., Kim, A., Pouli, D., Patel, A., et al.: A multimodal generative ai copilot for human pathology. Nature 634 (8033), 466–473 (2024) Abbreviated paper title 17 32. Lv, Z., Pan, T., Si, C., Chen, Z., Zuo, W., Liu, Z., Wong, K.Y.K.: Rethinking cross-modal interaction in multimodal diffusion transformers. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 5934–5943 (2025) 33. Ma, J., Peng, Q., Guo, X., Chen, C., Lu, H., Yang, Z.: X2i: Seamless integration of multimodal understanding into diffusion transformer via attention distillation. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 16733–16744 (2025) 34. Min, S., Oh, H.J., Jeong, W.K.: Co-synthesis of histopathology nuclei image-label pairs using a context-conditioned joint diffusion model. In: European Conference on Computer Vision. pp. 146–162. Springer (2024) 35. Mo, S., Cho, M., Shin, J.: Instagan: Instance-aware image-to-image translation. In: International Conference on Learning Representations (2019) 36. Moghadam, P.A., Van Dalen, S., Martin, K.C., Lennerz, J., Yip, S., Farahani, H., Bashashati, A.: A morphology focused diffusion probabilistic model for synthesis of histopathology images. In: Proceedings of the IEEE/CVF winter conference on applications of computer vision. pp. 2000–2009 (2023) 37. Müller-Franzes, G., Niehues, J.M., Khader, F., Arasteh, S.T., Haarburger, C., Kuhl, C., Wang, T., Han, T., Nolte, T., Nebelung, S., et al.: A multimodal compar-ison of latent denoising diffusion probabilistic models and generative adversarial networks for medical image synthesis. Scientific Reports 13 (1), 12098 (2023) 38. Nichol, A.Q., Dhariwal, P.: Improved denoising diffusion probabilistic models. In: International conference on machine learning. pp. 8162–8171. PMLR (2021) 39. Nichol, A.Q., Dhariwal, P., Ramesh, A., Shyam, P., Mishkin, P., Mcgrew, B., Sutskever, I., Chen, M.: Glide: Towards photorealistic image generation and edit-ing with text-guided diffusion models. In: International Conference on Machine Learning. pp. 16784–16804. PMLR (2022) 40. Oh, H.J., Jeong, W.K.: Diffmix: Diffusion model-based data synthesis for nuclei segmentation and classification in imbalanced pathology image datasets. In: Inter-national conference on medical image computing and computer-assisted interven-tion. pp. 337–345. Springer (2023) 41. Pang, L., Cao, X., Tang, D., Xu, S., Bai, X., Zhou, F., Meng, D.: Hsigene: a foun-dation model for hyperspectral image generation. IEEE Transactions on Pattern Analysis and Machine Intelligence pp. 1–18 (2025) 42. Peebles, W., Xie, S.: Scalable diffusion models with transformers. In: Proceedings of the IEEE/CVF international conference on computer vision. pp. 4195–4205 (2023) 43. Raffel, C., Shazeer, N., Roberts, A., Lee, K., Narang, S., Matena, M., Zhou, Y., Li, W., Liu, P.J.: Exploring the limits of transfer learning with a unified text-to-text transformer. Journal of machine learning research 21 (140), 1–67 (2020) 44. Ramesh, A., Pavlov, M., Goh, G., Gray, S., Voss, C., Radford, A., Chen, M., Sutskever, I.: Zero-shot text-to-image generation. In: International conference on machine learning. pp. 8821–8831. Pmlr (2021) 45. Sellergren, A., Kazemzadeh, S., Jaroensri, T., Kiraly, A., Traverse, M., Kohlberger, T., Xu, S., Jamil, F., Hughes, C., Lau, C., et al.: Medgemma technical report. arXiv preprint arXiv:2507.05201 (2025) 46. Shi, J., Li, C., Gong, T., Zheng, Y., Fu, H.: Vila-mil: Dual-scale vision-language multiple instance learning for whole slide image classification. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 11248– 11258 (2024) 47. Shin, J., Hwang, A., Kim, Y., Kim, D., Park, J.: Exploring multimodal diffu-sion transformers for enhanced prompt-based image editing. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 19492–19502 (2025) 18 Y. Shou et al. 48. Shou, Y., Cao, X., Yan, P., Hui, Q., Zhao, Q., Meng, D.: Graph domain adaptation with dual-branch encoder and two-level alignment for whole slide image-based survival prediction. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 19925–19935 (2025) 49. Shou, Y., Meng, T., Ai, W., Li, K.: Multimodal large language models meet multimodal emotion recognition and reasoning: A survey. arXiv preprint arXiv:2509.24322 (2025) 50. Sun, Y., Zhu, C., Zheng, S., Zhang, K., Sun, L., Shui, Z., Zhang, Y., Li, H., Yang, L.: Pathasst: A generative foundation ai assistant towards artificial general intelligence of pathology. In: Proceedings of the AAAI Conference on Artificial Intelligence. vol. 38, pp. 5034–5042 (2024) 51. Tang, D., Cao, X., Hou, X., Jiang, Z., Liu, J., Meng, D.: Crs-diff: Controllable remote sensing image generation with diffusion model. IEEE Transactions on Geo-science and Remote Sensing (2024) 52. Team, Q.: Qwen2.5-vl (January 2025), https://qwenlm.github.io/blog/qwen2. 5-vl/ 
+
+53. Wang, P., Bai, S., Tan, S., Wang, S., Fan, Z., Bai, J., Chen, K., Liu, X., Wang, J., Ge, W., et al.: Qwen2-vl: Enhancing vision-language model’s perception of the world at any resolution. arXiv preprint arXiv:2409.12191 (2024) 54. Wang, W., Bao, J., Zhou, W., Chen, D., Chen, D., Yuan, L., Li, H.: Semantic image synthesis via diffusion models. arXiv preprint arXiv:2207.00050 (2022) 55. Xing, X., Zhou, H., Wang, C., Zhang, J., Xu, D., Yu, Q.: Svgdreamer: Text guided svg generation with diffusion model. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 4546–4555 (2024) 56. Xu, X., Kapse, S., Gupta, R., Prasanna, P.: Vit-dae: Transformer-driven diffu-sion autoencoder for histopathology image analysis. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 66–76. Springer (2023) 57. Xu, X., Kapse, S., Prasanna, P.: Histo-diffusion: A diffusion super-resolution method for digital pathology with comprehensive quality assessment. arXiv preprint arXiv:2408.15218 (2024) 58. Yellapragada, S., Graikos, A., Li, Z., Triaridis, K., Belagali, V., Kapse, S., Nandi, T.N., Madduri, R.K., Prasanna, P., Kurc, T., et al.: Pixcell: A generative foun-dation model for digital histopathology images. arXiv preprint arXiv:2506.05127 (2025) 59. Yellapragada, S., Graikos, A., Prasanna, P., Kurc, T., Saltz, J., Samaras, D.: Pathldm: Text conditioned latent diffusion model for histopathology. In: Proceed-ings of the IEEE/CVF Winter Conference on Applications of Computer Vision. pp. 5182–5191 (2024) 60. Yellapragada, S., Graikos, A., Triaridis, K., Prasanna, P., Gupta, R., Saltz, J., Samaras, D.: Zoomldm: Latent diffusion model for multi-scale image generation. In: Proceedings of the Computer Vision and Pattern Recognition Conference. pp. 23453–23463 (2025) 61. Yu, J.G., Wu, Z., Ming, Y., Deng, S., Li, Y., Ou, C., He, C., Wang, B., Zhang, P., Wang, Y.: Prototypical multiple instance learning for predicting lymph node metastasis of breast cancer from whole-slide pathological images. Medical Image Analysis p. 102748 (2023) 62. Zhang, F., Cheng, Z., Deng, C., Li, H., Lian, Z., Chen, Q., Liu, H., Wang, W., Zhang, Y.F., Zhang, R., et al.: Mme-emotion: A holistic evaluation benchmark for emotional intelligence in multimodal large language models. arXiv preprint arXiv:2508.09210 (2025) Abbreviated paper title 19 63. Zhang, L., Rao, A., Agrawala, M.: Adding conditional control to text-to-image diffusion models. In: Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV). pp. 3836–3847 (October 2023) 64. Zhang, Z., Yao, L., Wang, B., Jha, D., Durak, G., Keles, E., Medetalibeyoglu, A., Bagci, U.: Diffboost: Enhancing medical image segmentation via text-guided diffusion model. IEEE Transactions on Medical Imaging (2024) 65. Zhou, F., Chen, H.: Cross-modal translation and alignment for survival analysis. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 21485–21494 (2023) 66. Zhou, X., Wei, C., Wang, H., Shen, Y., Xie, C., Yuille, A., Lin, D., Loy, C.C.: ibot: Image bert pre-training with online tokenizer. In: International Conference on Learning Representations (ICLR) (2022)

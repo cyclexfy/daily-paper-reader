@@ -1,0 +1,1292 @@
+Title: Sparse Task Vector Mixup with Hypernetworks for Efficient Knowledge Transfer in Whole-Slide Image Prognosis
+
+URL Source: https://arxiv.org/pdf/2603.10526v1
+
+Published Time: Thu, 12 Mar 2026 00:59:16 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# Sparse Task Vector Mixup with Hypernetworks for Efficient Knowledge Transfer in Whole-Slide Image Prognosis 
+
+Pei Liu 1, Xiangxiang Zeng 1,*, Tengfei Ma 1, Yucheng Xing 2, Xuanbai Ren 1, Yiping Liu 1
+
+> 1
+
+College of Computer Science and Electronic Engineering, Hunan University 2National University of Singapore 
+
+Abstract 
+
+Whole-Slide Images (WSIs) are widely used for estimat-ing the prognosis of cancer patients. Current studies gen-erally follow a cancer-specific learning paradigm. How-ever, the available training samples for one cancer type are usually scarce in pathology. Consequently, the model of-ten struggles to learn generalizable knowledge, thus per-forming worse on the tumor samples with inherent high heterogeneity. Although multi-cancer joint learning and knowledge transfer approaches have been explored recently to address it, they either rely on large-scale joint train-ing or extensive inference across multiple models, posing new challenges in computational efficiency. To this end, this paper proposes a new scheme, Sparse Task Vector Mixup with Hypernetworks ( STEPH ). Unlike previous ones, it efficiently absorbs generalizable knowledge from other cancers for the target via model merging: i) ap-plying task vector mixup to each source-target pair and then ii) sparsely aggregating task vector mixtures to ob-tain an improved target model, driven by hypernetworks. Extensive experiments on 13 cancer datasets show that 
+
+STEPH improves over cancer-specific learning and an ex-isting knowledge transfer baseline by 5.14% and 2.01%, respectively. Moreover, it is a more efficient solution for learning prognostic knowledge from other cancers, with-out requiring large-scale joint training or extensive multi-model inference. Code is publicly available at https: //github.com/liupei101/STEPH .
+
+1. Introduction 
+
+Histopathology Whole-Slide Image (WSI) is a special med-ical image with gigapixel size ( e.g ., 20,000 × 20,000). It can exhibit microscopic details in tumor tissues at differ-ent levels, e.g ., cellular morphology, cell-tissue interac-tions, and tumor micro-environments [5, 24]. These com-prehensive features enable doctors to scientifically assess the progression of tumor diseases and estimate the progno-
+
+> *
+
+Correspondence to X. Zeng ( xzeng@hnu.edu.cn )Task V ector Mixup     
+
+> (a)Cancer-speci fi c learning
+> Cancer
+> A
+> train
+> WSIs
+> train
+> WSIs
+> (b)Multi-cancer joint learning
+> Model
+> Model
+> Multi-cancer
+> WSIs
+> jointly train
+> Model
+> (c)Cross-cancer knowledge transfer
+> Cancer
+> B
+> A
+> B
+> C
+> isolated
+> Target
+> cancer
+> Experts of other cancers
+> Merged
+> model
+> Our scheme (STEPH) Existing solution
+> Representation transfer
+> train
+> Hyper
+> networks
+> Model merging
+
+Figure 1. Current learning paradigms of modeling WSIs for survival analysis . Unlike previous approaches, the proposed STEPH efficiently utilizes the generalizable prognostic knowl-edge from other cancers by model merging. 
+
+sis of cancer patients [11, 41] (also called survival analy-sis ). Since a precise prognosis could provide critical guid-ance for therapeutic planning [7], various computational ap-proaches have been developed to model WSIs for accurate prognosis estimates [4, 13, 14, 20, 25, 33, 36, 48]. Cancer-specific learning, as depicted in Fig. 1 (a), has always been the mainstream paradigm [16] for developing prognostic models. In this line of research, current studies focus on devising better multi-instance learning (MIL) ap-proaches [9, 12, 22, 45] to gather key visual information from ultra-large WSIs. They have demonstrated contin-uously improving abilities in capturing prognosis-relevant cues. However, WSI samples are often scarce for one cancer type ( N ≈ 1, 000 ) in the real world. This naturally raises a common concern: could the prognostic model trained on very limited data generalize well , especially when con-fronted with high heterogeneity in tumors? Multi-cancer joint learning [42, 47] is a straightforward solution for the above issue. As shown in Fig. 1 (b), in-stead of training a cancer-specific model on limited sam-    
+
+> arXiv:2603.10526v1 [cs.CV] 11 Mar 2026 Learnable parameters
+> (M)
+> GFLOPs
+> (test-time inference)
+> C-Index
+> (avg. on 13 cancer datasets)
+> 1.0
+> 0.0
+> 2.0
+> 3.0
+> 4.0
+> 5.0
+> 70
+> 0
+> 140
+> 210
+> 280
+> 350
+> 0.66
+> 0.65
+> 0.67
+> 0.68
+> 0.69
+> 0.70
+> Cancer-speci fi c learning Representation transfer Model merging (ours )
+> 1.20
+> 4.62
+> 1.34
+> 23.6
+> 330.7
+> 40.1
+> 0.6609
+> 0.6812
+> 0.6949
+
+Figure 2. Performance of different learning paradigms in WSI prognosis. We compare STEPH with cancer-specific learning and a representation transfer-based solution. Multi-cancer joint learn-ing is absent as its training overheads and hardware specifications are orders of magnitude greater than those of others. 
+
+ples, it constructs a multi-cancer WSI dataset to scale up the data size and jointly train a model that can learn gener-alizable features across different tumors. Nevertheless, this approach is rooted in large-scale multi-cancer data. Due to the gigapixel size of WSIs, it not only incurs extremely ex-pensive computational costs, but also raises potential con-cerns about data privacy [29]. These intractable issues call for a new learning paradigm that enables the model to uti-lize the knowledge from other cancers more efficiently. Cross-cancer knowledge transfer, i.e ., ROUPKT [15], has been proposed recently to fulfill the above purpose. In-stead of directly training on a gigantic multi-cancer WSI dataset, it employs multiple off-the-shelf models and trans-fers their generalizable knowledge for a target cancer by integrating the image representations output by them, as shown in Fig. 1 (c). Although the potential of knowledge transfer has been proven, such a representation-based solu-tion still faces critical challenges in terms of computation efficiency: it has to explicitly pass each sample through multiple transferred models at test-time, causing the com-putational overhead to increase linearly with the number of transferred models. This limitation motivates us to ask: can we ultimately use one single model to fulfill efficient cross-cancer knowledge transfer ?To answer this question, we take inspiration from model merging [8], a lightweight approach for merging multiple source models into one target model that can reuse or trans-fer knowledge from different sources. Built upon its funda-mentals, i.e ., task vectors τt = Mt −M 0, we propose a new scheme, Sparse Task Vector Mixup with Hypernetworks (STEPH ), for efficient cross-cancer knowledge transfer. As illustrated in Fig. 1 (c), it merges the model of a tar-get cancer ( Mt) and those of other cancers ( {M si }) into a single M∗ 
+
+> t
+
+by i) applying task vector mixup to each paired 
+
+τt and τsi and then ii ) sparsely aggregating task vector mix-tures to obtain M∗ 
+
+> t
+
+. Hypernetworks are devised to drive this process. They learn how to adjust the weight of M∗
+
+> t
+
+by steering task vectors. In this way, M∗ 
+
+> t
+
+can absorb the knowledge from other cancers, thereby improving the gen-eralizability of Mt. Unlike previous approaches, STEPH leverages cross-cancer knowledge more efficiently, without requiring either large-scale joint training or intensive multi-model inference. We compare STEPH with different learn-ing paradigms using 13 datasets (see Fig. 2). Results show that STEPH outperforms traditional cancer-specific learn-ing and a representation transfer-based solution by 5.14% and 2.01%, respectively. It only introduces marginal addi-tional costs and has significantly lower computation over-head than the existing solution. Our contributions are summarized as follows. (1) We propose Sparse Task Vector Mixup with Hypernetworks (STEPH) to fulfill efficient knowledge transfer across can-cers in WSI prognosis. (2) Task vector mixup (TVM) is presented as a variant of task arithmetic tailored for trans-ferring knowledge from one cancer to another; a principled analysis and empirical studies suggest that TVM enhances the generalizability of prognostic models by offering better optimization directions. (3) We conduct extensive compar-ative experiments on 13 cancer datasets; results show that STEPH often efficiently transfers knowledge from other cancers and performs better than existing methods. 
+
+2. Related work 
+
+2.1. WSI-based survival analysis 
+
+Due to the gigapixel size, histopathology WSIs are usu-ally divided into image patches, followed by patch feature extraction with pretrained foundation models [6, 17, 34]. This produces a bag of numerous feature vectors (or in-stances) for one WSI. To learn a slide-level representation from it for survival analysis, various multi-instance learning (MIL) approaches with the cluster [35, 40], graph [4, 21], or pure sequence [9, 14, 22] structure imposed on instances, are proposed to aggregate global prognosis-relevant fea-tures from local instances under the supervision of time-to-event labels. Despite their remarkable success, these stud-ies generally follow a conventional cancer-specific learn-ing paradigm: one model corresponds to one specific can-cer, and this model does not benefit from the generalizable knowledge of other cancers. To tackle it, multi-cancer joint learning [42, 47] and cross-cancer knowledge transfer [15] have been studied recently. However, these solutions still struggle to learn generalizable prognostic knowledge from other cancers efficiently. 
+
+2.2. Model merging 
+
+Model merging [8, 31, 32] emerges as an efficient approach that reuses or transfers knowledge from models by editing the weights of neural networks. Ilharco et al. [8] propose 
+
+task vectors τt, obtained by subtracting the weights of a pretrained model from the weights of the same model af-ter fine-tuning on task t, to represent the knowledge learned from t. Since its inception, various task vector-based meth-ods have been investigated for certain purposes; multi-task learning (MTL) attracts the most attention [26]. Instead of performing MTL on large-scale datasets, the task vectors of task-specific models are computed and aggregated to obtain a multi-task model without training. However, simply ag-gregating task vectors often results in limited multi-task per-formances due to the underlying interference between tasks, so a multitude of methods are proposed to resolve task in-terference by disentangling task-common and task-specific subspaces [3, 18, 19, 28, 30, 37–39]. Although this paper also studies model merging, it differs from the above stud-ies in research purpose: it does not aim to obtain a model capable of multiple tasks but aims to further enhance the generalizability of cancer-specific models by model merg-ing. This discrepancy in purpose naturally leads to two dis-tinct focuses on methodology: existing methods focus on addressing task interference, while our method focuses on transferring generalizable and beneficial knowledge from cross-cancer models for a target cancer. 
+
+3. Preliminary 
+
+This section introduces the preliminaries closely related to STEPH, as well as some notations and conventions. 
+
+3.1. General MIL architecture 
+
+For a WSI, it is usually represented as a bag with multiple instances after patching and feature extraction, X ∈ Rn×d,where xi ∈ Rd denotes an instance. To learn a bag-level representation from instances, Ilse et al. [9] propose a general attention-based architecture. It contains an instance embedding layer femb (·), followed by an attention layer fattn (·). femb (·) encodes task-specific features for xi while fattn (·) learns instance-wise attention scores and aggregates instance embeddings into a single vector as a bag-level representation by attention pooling. 
+
+3.2. Task vectors 
+
+Definition Formally, given an initial model M0, Mt de-notes a model obtained by training M0 on the data of task 
+
+t. The task vector of Mt is defined as τt = Mt − M 0,which encodes the information necessary to do well on t [8]. From an optimization perspective [30], τt represents cumu-lative gradients for task t. It delineates an overall direction for a model to perform well on t.
+
+Task arithmetic Based on task vectors, a simple arithmetic operation is introduced in [8] to merge a set of individual task-specific models {M ti } into a new multi-task model: 
+
+Mnew = M0 + τnew , (1) where τnew = P 
+
+> i
+
+τti . Our model merging scheme is also built upon this fundamental operation, yet its focus is to pro-duce a new model with better generalizability on t, rather than with multi-task capabilities. 
+
+Task subspace alignment It is often of great interest to know whether a merged model Mnew can perform well on a specific task t. A common approach for this is to directly evaluate Mnew using the test data of t. As a more efficient alternative, Subspace Alignment Ratio ( SAR ) is studied in [18]. It reflects how well Mnew could perform on t by quan-tifying the overlap between the dominant subspace of τnew 
+
+and τt, as follows: SAR (τt, τ new ) = ∥Proj τ α 
+
+> new
+
+τt∥F
+
+∥τt∥F
+
+, (2) where τ α 
+
+> new
+
+is the subspace spanned by the top α left-singular vectors of τnew , representing a dominant subspace of τnew (e.g ., α = 0 .95 ). Proj τ α 
+
+> new
+
+τt is the projection of τt
+
+onto τ α
+
+> new
+
+. For the details of SAR calculation, please refer to Appendix. It has been shown that SAR (τt, τ new ) highly cor-relates with the performance of Mnew on task t [18]. In light of this, we adopt SAR to analyze the behavior and proper-ties of new task vectors. 
+
+4. Method 
+
+Given a target cancer type, written as t, we denote its corre-sponding prognostic model by Mt. Let {M si | i ∈ [1 , m ]}
+
+represent a set of source models independently trained on cancer types {si | i ∈ [1 , m ]}. To enhance the general-izability of Mt, we propose STEPH (Sparse Task Vector Mixup with Hypernetworks) to efficiently transfer prognos-tic knowledge from other models {M si | i ∈ [1 , m ]}.As shown in Fig. 3, STEPH is composed of three main steps: i) task vector computation, ii ) task vector mixup, and 
+
+iii ) sparse task vector aggregation. The last two are driven by hypernetworks. Next, we elucidate them, along with dis-cussion and justification for key components. 
+
+4.1. Task vector computation 
+
+At first, task vectors are computed for all given models, as follows: τt = Mt − M 0 and τs = Ms − M 0 for any 
+
+s ∈ { si | i ∈ [1 , m ]}, according to the definition of task vectors [8], as shown in Fig. 3. 
+
+4.2. Task vector mixup (TVM) 
+
+To absorb generalizable knowledge from {M si } for t, our 
+
+core idea is Task Vector Mixup (TVM), i.e ., applying mixup to any paired τsi and τt, inspired by the Vicinal Risk Min-imization (VRM) principle [2]. Concretely, we i) first con-struct a source-target model pair for any s ∈ { si | i ∈
+
+[1 , m ]} and ii ) then apply mixup interpolation to its task vectors, formulated as follows: 
+
+τmix = λτ t + (1 − λ)τs. (3) Patch  
+
+> features
+> Merged
+> model
+> WSI
+> Target cancer:
+
+t    
+
+> Survival prediction
+> Task vector: trained on t
+> Top K
+> Pool of cancer-speci fi c prognostic models
+> trained on s
+> Task
+> vectors
+> Mixup
+> Sparse
+> aggregation
+
+Sparse task vector mixup with hypernetworks Network training 
+
+> Gradients
+> Hyper
+> networks
+
+Figure 3. Sparse Task Vector Mixup with Hypernetworks (STEPH) for efficient knowledge transfer in WSI prognosis. After computing task vectors, STEPH first applies mixup to each paired (τt, τ s) to absorb prognostic knowledge from cross-cancer models. Then, the most beneficial mixtures are selected and aggregated to derive M∗ 
+
+> t
+
+for prediction. Hypernetworks drive these steps by steering task vectors. 
+
+λ ∈ [0 , 1] is a mixup coefficient that determines the direc-tion of τmix . Intuitively, increasing λ means pushing the direction of task vectors from τs to τt. Since τs encodes the knowledge of cancer s, Eq. (3) could enable the target model to take in the knowledge from other models. Next, we first i) introduce our hypernetwork-driven TVM tailored for WSI prognosis and then ii ) justify TVM from a principled and an empirical perspective. 
+
+4.2.1. Hypernetwork-driven TVM 
+
+Although TVM could carry the generalizable knowledge from other cancers, determining the value of λ remains a challenge. A simple approach is to perform a grid search using a validation set. However, it tends to introduce large biases as the number of available WSI samples is typically around 1,000 for one specific cancer. To tackle it, we em-ploy a hypernetwork Hmix that learns to output adaptive λ
+
+for different WSI inputs, rather than a fixed one for all in-puts. We call it “ hypernetwork ” because it is a network that learns how to adjust the weights of another network ( i.e ., the final model) by steering task vectors. As shown in Fig. 3, for WSI patch features X ∈ Rn×d,an MIL-based hypernetwork Hmix is used to output λ =
+
+{λi | i ∈ [1 , m ]}, where λi ∈ [0 , 1] corresponds to the adaptive mixup coefficient of a task vector pair (τt, τ si ).Formally, we have τmix = {λiτt + (1 − λi)τsi | i ∈ [1 , m ]},where λi ∈ λ = Hmix (X).
+
+4.2.2. What is TVM doing? A principled perspective We first provide a principled analysis to understand TVM. In a nutshell, we argue that TVM offers effective optimization directions that can yield a model under the VRM principle [2]. As aforementioned, task vectors represent cumulative gradients for a specific task. This means that τt and τs express the cumulative gradients produced by training a model on labeled data 
+
+Dt = {(xti, y ti )} and Ds = {(xsj , y sj )}, respectively. Un-der certain conditions, the interpolation between τt and τs
+
+in Eq. (3) can approximate the gradients produced by train-ing a model on the virtual mix data with a vicinity distribu-tion , i.e ., Dmix = {(λx ti + (1 − λ)xsj , λy ti + (1 − λ)ysj )}.Through training on these linearly-interpolated samples, the model learns from a smoother vicinity space and thus leads to a VRM-based model with better generalization abilities, as proven in a multitude of studies [1, 27, 44, 46]. A more formal analysis of TVM is given in Appendix. 
+
+An empirical perspective To verify the argument above, we further perform empirical studies to analyze the be-havior and properties of TVM. Concretely, we construct a paired task vector (τt, τ s) from cancer-specific prognostic models (Mt, Ms) and show the dynamics of TVM by loss landscape visualization and SAR quantification. We pro-vide an example here for illustration. Please refer to Sec. 5.3 for more results. 0.0 0.2 0.4 0.6 0.8 1.0                  
+
+> ∏in task vector mixup
+> 0.53
+> 0.60
+> 0.68
+> 0.76
+> 0.83
+> Min.  L
+> Min. Ltrain
+> Min. Ltest
+> (a) Training loss landscape (b) Test loss landscape (c) Min. loss by TVM
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Coefficient of øt
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coefficient of  øs
+> 0.524
+> 0.585
+> 0.626
+> 0.662
+> 0.693
+> 0.726
+> 0.776
+> 0.843
+> 0.951
+> 1.140
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Coefficient of øt
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coefficient of  øs
+> 0.749
+> 0.759
+> 0.768
+> 0.780
+> 0.794
+> 0.811
+> 0.841
+> 0.885
+> 0.988
+> 1.173
+
+Figure 4. Loss landscape of task vector mixup on t. Red vectors in (a) and (b) depict the range of TVM with lower loss. Figure (c) shows the minimum loss that can be reached by TVM. 
+
+Fig. 4 shows that TVM can point towards the optimiza-tion direction that produces a prognostic model with better generalizability on t. For example, there is a prognostic model that obtains a lower loss on both training and test sets when λ ∈ [0 .7, 0.8] . Furthermore, we analyze the SAR (subspace alignment ratio) of TVM with τt at the two lay-ers of MIL encoder, i.e ., femb (·) for instance embedding and 
+
+fattn (·) for attention-based instance aggregation. Results in Fig. 5 show that the TVM of fattn (·) often keeps a close alignment with τt, while that of femb (·) does not. This sug-gests that the improvements in generalization ability may be attributed more to the attention layer in MIL. 0.0 0.2 0.4 0.6 0.8 1.0   
+
+> ∏in task vector mixup
+> 0.887
+> 0.909
+> 0.931
+> 0.952
+> 0.974
+> Alignment of  ømix  with  øt (SAR)
+> 0.751
+> 0.767
+> 0.783
+> 0.798
+> 0.814
+> Min.  Ltest
+> SAR-MIL attn
+> SAR-MIL emb
+> Min. Ltest
+
+Figure 5. Alignment of τmix with τt in dominant subspaces 
+
+(95%) for the two layers of MIL encoder, measured by SAR [18]. 
+
+4.3. Sparse task vector aggregation 
+
+The task vector mixture τmix encodes the prognostic knowl-edge from various cancers. However, it is not always bene-ficial for t, e.g ., Ms is not well trained and even performs worse on s, or s inherently conflicts with t. Besides, τmix 
+
+could contain redundant knowledge, especially when the prognosis of two cancer diseases is highly correlated. To address these issues, we propose sparse task vector aggre-gation to integrate the most beneficial knowledge from var-ious, multiple sources, borrowing the idea from Mixture of Experts [10, 23]. Concretely, for any WSI input X, another MIL-based hypernetwork Hagg , which shares its MIL encoder with 
+
+Hmix but has an independent output head, is adopted to learn the weights assigned for each task vector mixture, as shown in Fig. 3. Namely, there is w = Hagg (X) = {wi ≥ 0 | i ∈
+
+[1 , m ]}. Similar to λ, w is also adaptive to inputs, indicating dynamic model weights. According to w, we select the top 
+
+K mixtures from τmix and then aggregate them into τ ∗ 
+
+> t
+
+by weighted summation, written as 
+
+τ ∗ 
+
+> t
+
+= X
+
+> j
+
+wj τmix ,j , (4) where j is the index of top K elements in {wi} and τmix ,j is the j-th element in τmix .
+
+Discussion (1) The role of w. As aforementioned, TVM offers possible directions towards better model generaliza-tion. It may not reach the optimal point solely by adjust-ing λ, as shown in Fig. 4. w could help to accomplish this, by optimizing the magnitude of TVM. (2) Compar-ison with existing methods . We note that this task vector aggregation scheme is different from existing methods for MTL [3, 8, 18, 28, 30, 38, 39] in terms of both motivation and purpose. (a) Existing methods generally derive w from a validation set. However, this tends to obtain a biased w
+
+in the scenario of WSI prognosis. Because only a few WSI samples can be used, they are prone to deviating from the true data distribution. Given this, we train a hypernetwork to learn input-conditional w. (b) In particular, we impose sparsification on mixed task vectors, in light of the fact that the knowledge offered by some cancer-specific models may be redundant or useless for the cancer of interest. 
+
+4.4. Network training 
+
+As illustrated in Fig. 3, we derive the final target model M∗
+
+> t
+
+by applying τ ∗ 
+
+> t
+
+to initial model weights, as follows: 
+
+M∗ 
+
+> t
+
+= M0 + τ ∗ 
+
+> t
+
+. (5) Unlike traditional network training, here we optimize two hypernetworks, i.e ., Hmix and Hagg , which share an MIL encoder but have independent output heads. They output suitable λ and w for task vector merging. For any training sample, we adopt a loss function as follows: 
+
+L = Lsl + Laux , (6) where Lsl = LNLL (y, ˆy) is a negative likelihood loss (NLL) [43] frequently-adopted in WSI-based survival anal-ysis for supervised learning. Laux is an auxiliary loss: 
+
+Laux = βLmix + γLagg 
+
+= β
+
+P 
+
+> j
+
+λ2
+
+> j
+
+K + γ(log X
+
+> i
+
+ewi )2, (7) where j is the index of top K elements in {wi}; β and γ are hyper-parameters controlling loss weights. Lmix is an auxil-iary loss for mixup coefficients λ. It penalizes large values in {λi}, utilized to encourage transferring knowledge from 
+
+Ms. Lagg is a penalty loss for aggregating weights {wi}.It can suppress excessively large wi, often adopted in the training of MoE [49]. 
+
+5. Experiments and results 
+
+5.1. Experimental settings 
+
+Datasets Following [15], 13 cancer datasets from TCGA, each of which corresponds to one cancer type, are used in experiments. They cover 8,818 diagnostic WSIs from 7,268 patients. WSIs are processed into patch features by UNI [6]. The number of patients in each dataset ranges from 248 (TCGA-SARC) to 1,035 (TCGA-BRCA), with an overall disease-specific survival (DSS) rate of 76.82%. Each dataset includes 5-fold cross-validation splits. Table 1. Comparison with baselines in WSI prognosis tasks. It reports the mean and standard deviation of C-Index in five-fold cross-validation. Best in bold, second best underline.                                                                                                                                                                                                                                                                                                  
+
+> Method BRCA KIPAN LUNG GBM LGG COAD READ STES UCEC HNSC SKCM BLCA LIHC CESC SARC Avg.
+> -Traditional cancer-specific training on Mt
+> 0.6648 0.8094 0.5496 0.7756 0.6725 0.6648 0.7098 0.6201 0.5708 0.6438 0.7265 0.6500 0.5312 Vanilla (±0.032) ( ±0.013) ( ±0.034) ( ±0.020) ( ±0.028) ( ±0.040) ( ±0.043) ( ±0.047) ( ±0.037) ( ±0.015) ( ±0.048) ( ±0.058) ( ±0.056) 0.6609 Fine-tuned 0.6723 0.8080 0.5463 0.7744 0.6753 0.6694 0.7136 0.6207 0.5682 0.6384 0.7253 0.6367 0.5462 0.6611 (±0.021) ( ±0.014) ( ±0.034) ( ±0.020) ( ±0.028) ( ±0.044) ( ±0.039) ( ±0.043) ( ±0.032) ( ±0.021) ( ±0.046) ( ±0.058) ( ±0.030) -Representation-based knowledge transfer from Ms
+> Fine-tuned 0.5121 0.6430 0.5406 0.7713 0.6345 0.6155 0.7146 0.5638 0.5206 0.5971 0.6276 0.6177 0.4764 0.6027 (±0.044) ( ±0.050) ( ±0.035) ( ±0.022) ( ±0.039) ( ±0.042) ( ±0.075) ( ±0.052) ( ±0.036) ( ±0.024) ( ±0.056) ( ±0.046) ( ±0.051) 0.7181 0.8096 0.5714 0.7726 0.7123 0.6708 0.7371 0.6257 0.5954 0.6644 0.7563 0.6629 0.5596 ROUPKT [15] (±0.051) ( ±0.007) ( ±0.033) ( ±0.019) ( ±0.047) ( ±0.042) ( ±0.054) ( ±0.034) ( ±0.025) ( ±0.017) ( ±0.048) ( ±0.061) ( ±0.040) 0.6812 -Model merging-based knowledge transfer from Ms
+> Model Avg. 0.5450 0.5849 0.5306 0.7401 0.6260 0.5707 0.6971 0.5670 0.4812 0.5843 0.5553 0.6179 0.4448 0.5804 (±0.066) ( ±0.047) ( ±0.037) ( ±0.021) ( ±0.050) ( ±0.052) ( ±0.082) ( ±0.067) ( ±0.026) ( ±0.028) ( ±0.058) ( ±0.051) ( ±0.065) AdaMerging [39] 0.5534 0.5529 0.5260 0.7477 0.5971 0.5530 0.6791 0.5384 0.4812 0.5928 0.5567 0.5826 0.4341 0.5689 (±0.051) ( ±0.044) ( ±0.036) ( ±0.020) ( ±0.047) ( ±0.043) ( ±0.083) ( ±0.067) ( ±0.040) ( ±0.025) ( ±0.052) ( ±0.061) ( ±0.034) TIES AM [37] 0.6799 0.7866 0.5319 0.7699 0.6444 0.6080 0.7174 0.5522 0.5781 0.6401 0.7009 0.6418 0.4637 0.6396 (±0.037) ( ±0.015) ( ±0.027) ( ±0.018) ( ±0.029) ( ±0.052) ( ±0.026) ( ±0.046) ( ±0.026) ( ±0.043) ( ±0.062) ( ±0.059) ( ±0.035) Surgery AM [38] 0.5448 0.7172 0.5335 0.7696 0.6137 0.5825 0.6964 0.5670 0.4933 0.5881 0.5794 0.6067 0.4342 0.5943 (±0.052) ( ±0.035) ( ±0.038) ( ±0.023) ( ±0.049) ( ±0.059) ( ±0.076) ( ±0.066) ( ±0.040) ( ±0.022) ( ±0.055) ( ±0.062) ( ±0.065) Iso-C AM [18] 0.5425 0.7058 0.5499 0.7253 0.5532 0.4753 0.7334 0.4946 0.4634 0.5862 0.5406 0.5131 0.5252 0.5699 (±0.056) ( ±0.033) ( ±0.042) ( ±0.016) ( ±0.044) ( ±0.080) ( ±0.067) ( ±0.064) ( ±0.043) ( ±0.075) ( ±0.084) ( ±0.109) ( ±0.026)
+> 0.7408 0.8228 0.5836 0.7763 0.7069 0.6698 0.7830 0.6569 0.5948 0.6413 0.7585 0.6965 0.6024 STEPH (±0.060) ( ±0.015) ( ±0.042) ( ±0.022) ( ±0.029) ( ±0.050) ( ±0.072) ( ±0.042) ( ±0.027) ( ±0.038) ( ±0.036) ( ±0.065) ( ±0.070) 0.6949
+
+Baselines Three categories of baselines are compared in experiments. (1) Traditional cancer-specific training. It contains vanilla and fine-tuned prognostic models, where “fine-tuned” refers to fine-tuning the last prediction layer of 
+
+Mt while keeping the others frozen. (2) Representation-based knowledge transfer from Ms: “fine-tuned” means fine-tuning the last prediction layer of Ms on t while freez-ing the WSI-level representations output by Ms where 
+
+Ms is a model with the best transfer performance on t;ROUPKT [15] is a routing-based network that utilizes the representations output by {M si }. (3) Model merging-based knowledge transfer from Ms. Besides model av-erage, existing generic model merging methods are com-pared: AdaMerging (AM) [39], TIES [37], Surgery [38], and Iso-C [18]. Other recent methods are not presented as they are tailored for MTL or a specific architecture. AM is a general method for optimizing the w in τnew =
+
+wtτt + P 
+
+> i
+
+wsi τsi . To adapt it to this task, the same Lsl is employed to train w. The other three baselines are adopted to merge each paired τt and τsi . AM is also used along with them to learn the aggregating weight w.
+
+Implementation details All cancer-specific prognostic models, i.e ., Mt and {M si }mi=1 where m = 12 , are imple-mented by a general attention-based MIL architecture [9], following the training recipe from [25]. For other compared models, the same training settings are used. In STEPH, the hypernetworks, Fmix and Fagg , share a simple mean-MIL encoder, each of which has an independent fully-connected layer as its output head. For hyper-parameters, K is set to 5 and the coefficient of Lmix , β, is set to 0.05 by de-fault across all datasets; the coefficient of Lagg , γ, is derived by cross-validation on training samples. For performance evaluation, a frequently adopted metric, C-Index, is mea-sured; we report its mean and standard deviation in 5-fold cross-validation. For more details on experimental settings, please refer to Appendix. 
+
+5.2. Comparison with baselines 
+
+Comparative results are shown in Tab. 1. We have three main observations as follows. (1) STEPH outperforms cancer-specific learning by 5.14% on average and obtains better performance on 12 out of 13 datasets. This suggests that STEPH almost always enhances the target model fur-ther through effectively utilizing the knowledge from other cancers. (2) STEPH surpasses the representation-based knowledge transfer baseline on 9 out of 13 datasets, with an overall improvement of 2.01%. Moreover, STEPH has significantly lower inference costs, as exhibited in Fig. 2. These head-to-head comparisons confirm the superiority of our scheme over the representation-based solution in terms of both computation efficiency and predictive performance. (3) Existing model merging approaches often struggle to leverage the knowledge from other cancers for a target, while our STEPH does not. Because existing approaches generally consider developing multi-task capabilities by re-solving task interference, while STEPH aims to boost the model performance on a single task by utilizing the most beneficial, generalizable knowledge from others. 5.3. Visualization results 
+
+More empirical results of TVM As shown in Fig. 6 and Fig. 7, we observe similar results on other task vector pairs: 
+
+i) TVM offers possible optimization directions towards bet-ter model generalization and ii ) τmix often aligns with τt
+
+when applied to the attention layer of MIL encoder. (a) Training loss landscape (b) Test loss landscape (c) Min. loss by TVM      
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Coefficient of øt     
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coefficient of  øs
+> 0.491
+> 0.525
+> 0.550
+> 0.581
+> 0.627
+> 0.698
+> 0.795
+> 0.916
+> 1.083
+> 1.357
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Coefficient of øt     
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coefficient of  øs
+> 0.790
+> 0.798
+> 0.805
+> 0.814
+> 0.831
+> 0.856
+> 0.912
+> 1.011
+> 1.162
+> 1.433
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+∏ in task vector mixup        
+
+> 0.49
+> 0.60
+> 0.71
+> 0.81
+> 0.92
+> Min.  L
+> Min. Ltrain
+> Min. Ltest
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Coefficient of øt     
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coefficient of  øs
+> 0.299
+> 0.320
+> 0.335
+> 0.361
+> 0.411
+> 0.491
+> 0.628
+> 0.813
+> 1.101
+> 1.603
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Coefficient of øt     
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coefficient of  øs
+> 0.512
+> 0.519
+> 0.526
+> 0.536
+> 0.551
+> 0.591
+> 0.684
+> 0.846
+> 1.108
+> 1.577
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+∏ in task vector mixup   
+
+> 0.30
+> 0.43
+> 0.56
+> 0.68
+> 0.81
+> Min.  L
+> Min. Ltrain
+> Min. Ltest
+
+Figure 6. More results of TVM loss landscape .0.0 0.2 0.4 0.6 0.8 1.0          
+
+> ∏in task vector mixup
+> 0.865
+> 0.891
+> 0.918
+> 0.945
+> 0.972
+> Alignment of  ømix  with  øt (SAR)
+> 0.513
+> 0.586
+> 0.659
+> 0.733
+> 0.806
+> Min.  Ltest
+> SAR-MIL attn
+> SAR-MIL emb
+> Min. Ltest
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> ∏in task vector mixup
+> 0.876
+> 0.899
+> 0.921
+> 0.944
+> 0.967
+> Alignment of  ømix  with  øt (SAR)
+> 0.792
+> 0.840
+> 0.889
+> 0.937
+> 0.986
+> Min.  Ltest
+> SAR-MIL attn
+> SAR-MIL emb
+> Min. Ltest
+
+Figure 7. More results of the alignment of τmix with τt.
+
+Trajectory of TVM in optimization We further visualize the trajectory of TVM over the landscape of test loss in training, to examine how TVM changes and whether it can step into the area with smaller test loss on t. For a bet-ter view on 2D plane, a pair of τt and τs is also constructed. We train its mixture using STEPH and record the value of λ
+
+and w (averaged over training samples) at each epoch to vi-0.0 0.2 0.4 0.6 0.8 1.0 
+
+Coefficient of øt     
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coefficient of  øs
+> 0.749
+> 0.759
+> 0.768
+> 0.780
+> 0.794
+> 0.811
+> 0.841
+> 0.885
+> 0.988
+> 1.173
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Coefficient of øt     
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coefficient of  øs
+> 0.790
+> 0.798
+> 0.805
+> 0.814
+> 0.831
+> 0.856
+> 0.912
+> 1.011
+> 1.162
+> 1.433
+> 0.0 0.2 0.4 0.6 0.8 1.0
+
+Coefficient of øt
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Coefficient of  øs
+> 0.512
+> 0.519
+> 0.526
+> 0.536
+> 0.551
+> 0.591
+> 0.684
+> 0.846
+> 1.108
+> 1.577
+
+Figure 8. Visualization of TVM trajectory in training. STEPH is used to train the paired τt and τs (same as those in Fig. 4 and Fig. 6). A deeper point color indicates a larger epoch number. 
+
+sualize the location of task vector mixture in the landscape of test loss. Visualization results are provided in Fig. 8. These results further imply that our STEPH can effectively improve the generalization ability of cancer-specific models by utilizing the knowledge of other cancers. 
+
+Dynamics of λ and w in training Here we investigate a real case ( t = BRCA and m = 12 ), instead of a model pair ( i.e ., m = 1 ), to study the optimization dynamics of 
+
+λ and w. As shown in Fig. 9, we find that i) two models have λi = 1 while associated with larger wi and ii ) there are three models of other cancers (KIPAN, COADREAD, and BLCA) that exhibit lower λi (< 0.3) in TVM and rel-atively large wi in aggregation. This means that MBRCA is encouraged to leverage prognostic knowledge from KIPAN, COADREAD, and BLCA. This observation indicates that cross-cancer prognostic models are utilized in the learning process. These models transferred from other cancers help 
+
+MBRCA perform better in WSI prognosis, reflected by the 11.4% improvement on BRCA in Tab. 1. 1 5 10 15 20 
+
+Epoch 
+
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Mixup coefficients ( ∏) KIPAN
+> LUNG
+> GBM
+> LGG
+> COAD
+> READ
+> STES
+> UCEC
+> HNSC
+> SKCM
+> BLCA
+> LIHC
+> CESC
+> SARC
+
+(a) Mixup coe ffi cients 
+
+(b) Aggregating weights     
+
+> 1510 15 20
+
+Epoch 
+
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> Aggregating weight ( w) KIPAN
+> LUNG
+> GBM
+> LGG
+> COAD
+> READ
+> STES
+> UCEC
+> HNSC
+> SKCM
+> BLCA
+> LIHC
+> CESC
+> SARC
+
+Figure 9. Dynamics of λ and w in training. This example shows a case where t = BRCA and 12 cancer-specific models ( Ms) are merged with Mt by STEPH to obtain M∗
+
+t .
+
+5.4. Ablation study 
+
+We perform ablation studies on two key components of STEPH, i.e ., task vector mixup and sparse mixture ag-gregation. Their results are exhibited in Tab. 2. (1) For task vector mixup, we observe that i) there are performance drops when no interpolation between τt and τsi is used and ii ) hypernetwork-driven λi yields a slight improvement in overall performance over its trainable-parameter-based variant. (2) For sparse mixture aggregation, we find that hypernetwork-driven w is crucial, compared to a unified 
+
+w for all inputs. This result indicates the importance of dynamic w for different WSI samples. As mentioned in Sec. 4.3, although TVM offers better optimization direc-tions, it is w that ultimately determines the position of TVM and plays a critical role in finding optimal models. More-over, the model benefits from the sparsity in τmix . These results verify the effectiveness of our core designs.                                 
+
+> Table 2. Ablation study on STEPH.
+> Ablation Avg.
+> -On task vector mixup
+> w/o mixup fix λ= 0 (only {τsi})0.6860 fix λ= 0 ( τt∈ { τsi})0.6895 fix λ= 1 (only τt)0.6851 w/ mixup trainable param. λ0.6921 hypernetwork-driven λ0.6949
+> -On task vector aggregating
+> w/o sparsity hypernetwork-driven w0.6912 w/ sparsity trainable param. w0.6490 hypernetwork-driven w0.6949
+
+5.5. More experiments and analysis 
+
+Hypernetwork-driven aggregation An adaptive w is im-portant for task vector aggregation, as discussed in Sec. 4.3 and shown in Tab. 2. To further examine its potential, we incorporate it into existing model merging methods. From the results given in Tab. 3, we find that our scheme can boost the performance of existing methods by a large mar-gin (14.5% on average). This confirms the importance of input-conditional weights for this task. Intuitively, com-pared with a unified w, the input-conditional w enables a flexible model that can adjust its strength of connecting with 
+
+Msi according to the current input.                         
+
+> Table 3. Our hypernetwork-driven aggregation scheme for ex-isting model merging methods.
+> Method Avg.
+> AdaMerging vanilla (w/ trainable param. w)0.5689 AdaMerging w/ our hypernetwork-driven w0.6877
+> TIES w/ AM 0.6396 TIES w/ our hypernetwork-driven w0.6802
+> Surgery w/ AM 0.5943 Surgery w/ our hypernetwork-driven w0.6668
+> Iso-C w/ AM 0.5699 Iso-C w/ our hypernetwork-driven w0.6761
+
+Hyper-parameters We evaluate STEPH with different hyper-parameter settings. Tab. 4 and Tab. 5 show that it is suitable to impose mild penalties on λ and w.
+
+Additional experiments For more experiments, e.g ., visu-alization, hyper-parameter K, comparison with MIL net-works, and training efficiency, please refer to Appendix.                           
+
+> Table 4. STEPH with different β(coefficient of Lmix ).
+> β00.01 0.05 0.1
+> Avg. 0.6927 0.6933 0.6949 0.6909
+> Table 5. STEPH with different γ(coefficient of Lagg ).
+> γ00.0025 0.005 0.01 0.05
+> Avg. 0.6879 0.6896 0.6896 0.6865 0.6881
+
+6. Discussion 
+
+Classical cancer-specific learning paradigm faces critical challenges posed by limited data in histopathology and high heterogeneity in tumors. Although better WSI represen-tation approaches have been invented, they still struggle to learn generalizable prognostic knowledge from small data. Cross-cancer knowledge transfer, as a new learning paradigm, has shown potential in addressing this issue. Fol-lowing this line of research, this paper presents an effective scheme for efficient prognosis knowledge transfer. Never-theless, there are some limitations in this study. We dis-cuss them and future works as follows. ( 1) The datasets this study relies on are from TCGA. Although covering diverse cancer types, the number of patients is still very limited for certain types, e.g ., cervical and liver cancer ( N < 400 ). This poses great challenges to model evaluation. It would be better to adopt repeated cross-validation with more folds when additional computation overhead is allowed. ( 2) Our experiments are based on a general MIL network architec-ture. More advanced architectures could be further adopted to evaluate algorithms. ( 3) STEPH still requires access to training data to obtain suitable merging weights. It would be exciting to study training-free strategies for this task, like most existing studies on model merging. 
+
+7. Conclusion 
+
+This paper presents Sparse Task Vector Mixup with Hyper-networks (STEPH) to efficiently absorb prognostic knowl-edge from other cancers to improve the generalization per-formance of cancer-specific models. Our principled analy-sis and empirical studies imply that task vector mixup helps to improve the performance of target models by offering directions towards better model generalization. Extensive experiments show that STEPH performs better than tra-ditional cancer-specific learning on 12 out of 13 datasets, with an overall improvement of 5.14%. Compared to an existing knowledge transfer solution, our scheme often ex-hibits better predictive performances yet significantly lower computational costs. These impressive results suggest that STEPH could provide an effective approach for efficient knowledge transfer in WSI prognosis. Acknowledgements 
+
+This work was supported by the National Nat-ural Science Foundation of China (grant nos. U22A2037, 62425204, 62122025, 62450002, 62432011). 
+
+References 
+
+[1] Luigi Carratino, Moustapha Ciss´ e, Rodolphe Jenatton, and Jean-Philippe Vert. On mixup regularization. Journal of ma-chine learning research , 23(325):1–31, 2022. 4, 1 [2] Olivier Chapelle, Jason Weston, L´ eon Bottou, and Vladimir Vapnik. Vicinal risk minimization. In Advances in Neural Information Processing Systems . MIT Press, 2000. 3, 4 [3] Hao Mark Chen, Shell Xu Hu, Wayne Luk, Timothy Hospedales, and Hongxiang Fan. Fw-merging: Scaling model merging with frank-wolfe optimization. In ICCV ,2025. 3, 5 [4] Richard J Chen, Ming Y Lu, Muhammad Shaban, Chengkuan Chen, Tiffany Y Chen, Drew FK Williamson, and Faisal Mahmood. Whole slide images are 2d point clouds: Context-aware survival prediction using patch-based graph convolutional networks. In Medical Image Comput-ing and Computer Assisted Intervention , pages 339–349. Springer, 2021. 1, 2, 3 [5] Richard J Chen, Chengkuan Chen, Yicong Li, Tiffany Y Chen, Andrew D Trister, Rahul G Krishnan, and Faisal Mahmood. Scaling vision transformers to gigapixel images via hierarchical self-supervised learning. In CVPR , pages 16144–16155, 2022. 1 [6] Richard J Chen, Tong Ding, Ming Y Lu, Drew FK Williamson, Guillaume Jaume, Andrew H Song, Bowen Chen, Andrew Zhang, Daniel Shao, Muhammad Shaban, et al. Towards a general-purpose foundation model for computational pathology. Nature Medicine , 30(3):850–862, 2024. 2, 5, 1 [7] Tao Chen, Jialiang Wen, Xinchen Shen, Jiaqi Shen, Jiajun Deng, Mengmeng Zhao, Long Xu, Chunyan Wu, Bentong Yu, Minglei Yang, et al. Whole slide image based deep learn-ing refines prognosis and therapeutic response evaluation in lung adenocarcinoma. npj Digital Medicine , 8(1):69, 2025. 1[8] Gabriel Ilharco, Marco Tulio Ribeiro, Mitchell Wortsman, Ludwig Schmidt, Hannaneh Hajishirzi, and Ali Farhadi. Editing models with task arithmetic. In ICLR , 2023. 2, 3, 5[9] Maximilian Ilse, Jakub Tomczak, and Max Welling. Attention-based deep multiple instance learning. In ICML ,pages 2127–2136, 2018. 1, 2, 3, 6 [10] Robert A Jacobs, Michael I Jordan, Steven J Nowlan, and Geoffrey E Hinton. Adaptive mixtures of local experts. Neu-ral computation , 3(1):79–87, 1991. 5 [11] Jakob Nikolas Kather, Johannes Krisam, Pornpimol Charoentong, Tom Luedde, Esther Herpel, Cleo-Aron Weis, Timo Gaiser, Alexander Marx, Nektarios A. Valous, Dyke Ferber, Lina Jansen, Constantino Carlos Reyes-Aldasoro, Inka Z¨ ornig, Dirk J¨ ager, Hermann Brenner, Jenny Chang-Claude, Michael Hoffmeister, and Niels Halama. Predicting survival from colorectal cancer histology slides using deep learning: A retrospective multicenter study. PLOS Medicine ,16(1):e1002730, 2019. 1 [12] Bin Li, Yin Li, and Kevin W Eliceiri. Dual-stream multi-ple instance learning network for whole slide image classi-fication with self-supervised contrastive learning. In CVPR ,pages 14318–14328, 2021. 1 [13] Pei Liu, Luping Ji, Feng Ye, and Bo Fu. Advmil: Adversarial multiple instance learning for the survival analysis on whole-slide images. Medical Image Analysis , 91:103020, 2024. 1 [14] Pei Liu, Luping Ji, Jiaxiang Gou, Bo Fu, and Mao Ye. In-terpretable vision-language survival analysis with ordinal in-ductive bias for computational pathology. In ICLR , 2025. 1, 2[15] Pei Liu, Luping Ji, Jiaxiang Gou, and Xiangxiang Zeng. Cross-cancer knowledge transfer in wsi-based prognosis pre-diction. arXiv preprint arXiv:2508.13482 , 2025. 2, 5, 6, 1, 4[16] Ming Y Lu, Bowen Chen, Andrew Zhang, Drew FK Williamson, Richard J Chen, Tong Ding, Long Phi Le, Yung-Sung Chuang, and Faisal Mahmood. Visual language pre-trained multiple instance zero-shot transfer for histopathol-ogy images. In CVPR , pages 19764–19775, 2023. 1 [17] Ming Y Lu, Bowen Chen, Drew FK Williamson, Richard J Chen, Ivy Liang, Tong Ding, Guillaume Jaume, Igor Odintsov, Long Phi Le, Georg Gerber, et al. A visual-language foundation model for computational pathology. 
+
+Nature Medicine , 30:863–874, 2024. 2, 5 [18] Daniel Marczak, Simone Magistri, Sebastian Cygert, Bartłomiej Twardowski, Andrew D Bagdanov, and Joost van de Weijer. No task left behind: Isotropic model merging with common and task-specific subspaces. In ICML , 2025. 3, 5, 6, 1 [19] Guillermo Ortiz-Jimenez, Alessandro Favero, and Pascal Frossard. Task arithmetic in the tangent space: Improved editing of pre-trained models. In NeurIPS , 2023. 3 [20] Wei Shao, Tongxin Wang, Zhi Huang, Zhi Han, Jie Zhang, and Kun Huang. Weakly supervised deep ordinal cox model for survival prediction from whole-slide pathological im-ages. IEEE Transactions on Medical Imaging , 40(12):3739– 3747, 2021. 1 [21] Wei Shao, YangYang Shi, Daoqiang Zhang, JunJie Zhou, and Peng Wan. Tumor micro-environment interactions guided graph learning for survival analysis of human cancers from whole-slide pathological images. In CVPR , pages 11694– 11703, 2024. 2 [22] Zhuchen Shao, Hao Bian, Yang Chen, Yifeng Wang, Jian Zhang, Xiangyang Ji, and Yongbing Zhang. TransMIL: Transformer based correlated multiple instance learning for whole slide image classification. In NeurIPS , 2021. 1, 2 [23] Noam Shazeer, Azalia Mirhoseini, Krzysztof Maziarz, Andy Davis, Quoc Le, Geoffrey Hinton, and Jeff Dean. Outra-geously large neural networks: The sparsely-gated mixture-of-experts layer. In ICLR , 2017. 5 [24] Andrew H Song, Richard J Chen, Tong Ding, Drew FK Williamson, Guillaume Jaume, and Faisal Mahmood. Mor-phological prototyping for unsupervised slide representa-tion learning in computational pathology. In CVPR , pages 11566–11578, 2024. 1 [25] Andrew H. Song, Richard J. Chen, Guillaume Jaume, Anurag Jayant Vaidya, Alexander Baras, and Faisal Mah-mood. Multimodal prototyping for cancer survival predic-tion. In ICML , 2024. 1, 6, 2 [26] Anke Tang, Li Shen, Yong Luo, Han Hu, Bo Du, and Dacheng Tao. Fusionbench: A comprehensive benchmark of deep model fusion. arXiv preprint arXiv:2406.03280 , 2024. 3[27] Vikas Verma, Alex Lamb, Christopher Beckham, Amir Na-jafi, Ioannis Mitliagkas, David Lopez-Paz, and Yoshua Ben-gio. Manifold mixup: Better representations by interpolating hidden states. In ICML , pages 6438–6447. PMLR, 2019. 4, 1[28] Ke Wang, Nikolaos Dimitriadis, Guillermo Ortiz-Jimenez, Franc ¸ois Fleuret, and Pascal Frossard. Localizing task in-formation for improved model merging and compression. In 
+
+ICML , pages 50268–50287. PMLR, 2024. 3, 5 [29] Yongxian Wei, Zixuan Hu, Li Shen, Zhenyi Wang, Yu Li, Chun Yuan, and Dacheng Tao. Task groupings regular-ization: Data-free meta-learning with heterogeneous pre-trained models. In ICML , pages 52573–52587. PMLR, 2024. 2[30] Yongxian Wei, Anke Tang, Li Shen, Zixuan Hu, Chun Yuan, and Xiaochun Cao. Modeling multi-task model merging as adaptive projective gradient descent. In ICML , 2025. 3, 5 [31] Mitchell Wortsman, Gabriel Ilharco, Samir Ya Gadre, Re-becca Roelofs, Raphael Gontijo-Lopes, Ari S Morcos, Hongseok Namkoong, Ali Farhadi, Yair Carmon, Simon Ko-rnblith, et al. Model soups: averaging weights of multiple fine-tuned models improves accuracy without increasing in-ference time. In ICML , 2022. 2 [32] Mitchell Wortsman, Gabriel Ilharco, Jong Wook Kim, Mike Li, Simon Kornblith, Rebecca Roelofs, Raphael Gon-tijo Lopes, Hannaneh Hajishirzi, Ali Farhadi, Hongseok Namkoong, et al. Robust fine-tuning of zero-shot models. In CVPR , pages 7959–7971, 2022. 2 [33] Junxian Wu, Minheng Chen, Xinyi Ke, Tianwang Xun, Xi-aoming Jiang, Hongyu Zhou, Lizhi Shao, and Youyong Kong. Learning heterogeneous tissues with mixture of ex-perts for gigapixel whole slide images. In CVPR , pages 5144–5153, 2025. 1 [34] Jinxi Xiang, Xiyue Wang, Xiaoming Zhang, Yinghua Xi, Feyisope Eweje, Yijiang Chen, Yuchen Li, Colin Bergstrom, Matthew Gopaulchan, Ted Kim, et al. A vision–language foundation model for precision oncology. Nature , 638 (8051):769–778, 2025. 2 [35] Yucheng Xing, Ling Huang, Jingying Ma, Ruping Hong, Jiangdong Qiu, Pei Liu, Kai He, Huazhu Fu, and Mengling Feng. Dpsurv: Dual-prototype evidential fusion for uncertainty-aware and interpretable whole-slide image sur-vival prediction. arXiv preprint arXiv:2510.00053 , 2025. 2 [36] Yingxue Xu, Fengtao Zhou, Chenyu Zhao, Yihui Wang, Can Yang, and Hao Chen. Distilled prompt learning for incom-plete multimodal survival prediction. In CVPR , pages 5102– 5111, 2025. 1 [37] Prateek Yadav, Derek Tam, Leshem Choshen, Colin A Raf-fel, and Mohit Bansal. Ties-merging: Resolving interference when merging models. In NeurIPS , 2023. 3, 6 [38] Enneng Yang, Li Shen, Zhenyi Wang, Guibing Guo, Xiao-jun Chen, Xingwei Wang, and Dacheng Tao. Representation surgery for multi-task model merging. In ICML , 2024. 5, 6 [39] Enneng Yang, Zhenyi Wang, Li Shen, Shiwei Liu, Guibing Guo, Xingwei Wang, and Dacheng Tao. Adamerging: Adap-tive model merging for multi-task learning. In ICLR , 2024. 3, 5, 6 [40] Jiawen Yao, Xinliang Zhu, Jitendra Jonnagaddala, Nicholas Hawkins, and Junzhou Huang. Whole slide images based cancer survival prediction using attention guided deep multi-ple instance learning networks. Medical Image Analysis , 65: 101789, 2020. 2 [41] Kun-Hsing Yu, Ce Zhang, Gerald J Berry, Russ B Altman, Christopher R´ e, Daniel L Rubin, and Michael Snyder. Pre-dicting non-small cell lung cancer prognosis by fully auto-mated microscopic pathology image features. Nature com-munications , 7(1):12474, 2016. 1 [42] Wei Yuan, Yijiang Chen, Biyue Zhu, Sen Yang, Jiayu Zhang, Ning Mao, Jinxi Xiang, Yuchen Li, Yuanfeng Ji, Xiangde Luo, et al. Pancancer outcome prediction via a unified weakly supervised deep learning model. Signal transduction and targeted therapy , 10(1):285, 2025. 1, 2 [43] Shekoufeh Gorgi Zadeh and Matthias Schmid. Bias in cross-entropy-based training of deep survival networks. IEEE TPAMI , 43(9):3126–3137, 2020. 5, 2 [44] Hongyi Zhang, Moustapha Cisse, Yann N Dauphin, and David Lopez-Paz. mixup: Beyond empirical risk minimiza-tion. In ICLR , 2018. 4 [45] Hongrun Zhang, Yanda Meng, Yitian Zhao, Yihong Qiao, Xiaoyun Yang, Sarah E Coupland, and Yalin Zheng. Dtfd-mil: Double-tier feature distillation multiple instance learn-ing for histopathology whole slide image classification. In 
+
+CVPR , pages 18802–18812, 2022. 1 [46] Linjun Zhang, Zhun Deng, Kenji Kawaguchi, Amirata Ghor-bani, and James Zou. How does mixup help with robustness and generalization? In ICLR , 2021. 4 [47] Huajun Zhou, Fengtao Zhou, Jiabo Ma, Yingxue Xu, Xi Wang, Xiuming Zhang, Li Liang, Zhenhui Li, and Hao Chen. A multimodal foundation model to enhance generalizabil-ity and data efficiency for pan-cancer prognosis prediction. 
+
+arXiv preprint arXiv:2509.12600 , 2025. 1, 2 [48] Junjie Zhou, Jiao Tang, Yingli Zuo, Peng Wan, Daoqiang Zhang, and Wei Shao. Robust multimodal survival pre-diction with conditional latent differentiation variational au-toencoder. In CVPR , pages 10384–10393, 2025. 1 [49] Barret Zoph, Irwan Bello, Sameer Kumar, Nan Du, Yanping Huang, Jeff Dean, Noam Shazeer, and William Fedus. St-moe: Designing stable and transferable sparse expert mod-els. arXiv preprint arXiv:2202.08906 , 2022. 5 Sparse Task Vector Mixup with Hypernetworks for Efficient Knowledge Transfer in Whole-Slide Image Prognosis 
+
+# Appendix 
+
+A. Derivations of subspace alignment ratio 
+
+Here, we complete the derivation of subspace alignment ra-tio (SAR), following [18]. Recall the definition of SAR given in the main paper, as follows: SAR (τt, τ new ) = ∥Proj τ α 
+
+> new
+
+τt∥F
+
+∥τt∥F
+
+. (1) 
+
+τ α 
+
+> new
+
+is the subspace spanned by the top α left-singular vec-tors of τnew . It represents a dominant subspace of τnew , ex-pressed as follows: 
+
+τ α 
+
+> new
+
+= U α
+
+> new
+
+(U α
+
+> new
+
+)⊤. (2) 
+
+U α 
+
+> new
+
+corresponds to the first Rα columns of Unew . Unew 
+
+is obtained from the SVD (Singular Value Decomposition) decomposition of τnew , i.e ., 
+
+τnew = Unew 
+
+X(Vnew )⊤, (3) where P = diag (σ1, · · · , σ R) contains the singular values of τnew . Rα is calculated by 
+
+Rα = min {Rα : ∥τnew − τ α
+
+> new
+
+∥F ≤ (1 − α)∥τ α
+
+> new
+
+∥F }
+
+= min 
+
+(
+
+Rα :
+
+PRr=Rα+1 σ2
+
+> r
+
+PRr=1 σ2
+
+> r
+
+≤ (1 − α)2
+
+)
+
+.
+
+(4) This ensures that the approximation error between τ α 
+
+> new
+
+and 
+
+τnew is equal to or less than 1 − α. Therefore, τ α 
+
+> new
+
+indicates the dominant subspace of τnew (e.g ., α = 0 .95 ). Proj τ α 
+
+> new
+
+τt
+
+is the projection of τt onto τ α
+
+> new
+
+, calculated by Proj τ α 
+
+> new
+
+τt = U α
+
+> new
+
+(U α
+
+> new
+
+)⊤τt. (5) 
+
+B. A formal analysis of task vector mixup 
+
+Let Mt and Ms denote two independent models, initial-ized by random model weights M0 and trained on two dis-joint datasets Dt = {(xti, y ti )}Nt 
+
+> i=1
+
+and Ds = {(xsj , y sj )}Ns
+
+> j=1
+
+by optimizing a supervised loss function L with the SGD (Stochastic Gradient Descent) algorithm, respectively. From an optimization perspective, task vectors are the sum of the cumulative gradient ∇ contributed by each la-beled sample in iterative training, i.e ., 
+
+τt = Mt − M 0 =
+
+> Nt
+
+X
+
+> i=1
+
+∇L (M(xti), y ti ),τs = Ms − M 0 =
+
+> Ns
+
+X
+
+> j=1
+
+∇L (M(xsj ), y sj ).
+
+(6) We write an interpolation between τt and τs as follows: 
+
+τmix = λτ t + (1 − λ)τs, (7) where λ ∈ [0 , 1] . Thus, we have 
+
+τmix = λ X
+
+> i
+
+∇L (M(xti), y ti ) + (1 − λ) X
+
+> j
+
+∇L (M(xsj ), y sj ),
+
+=
+
+P
+
+> i
+
+P
+
+> j
+
+ λ∇L (M(xti), y ti ) + (1 − λ)∇L (M(xsj ), y sj )
+
+Nt ∗ Ns
+
+.
+
+(8) Let ˆy = M(x). When ∂L  
+
+> ∂ˆy
+
+is a convex function w.r.t. ˆy,there is 
+
+λ∇L (ˆ yti , y ti ) + (1 − λ)∇L (ˆ ysj ), y sj )
+
+≥ ∇L  λˆyti + (1 − λ)ˆ ysj , λy ti + (1 − λ)ysj
+
+ . (9) Let h = ME (x) where ME is the MIL encoder of M.Since the last layer of M is usually a fully-connected layer for prediction, we further have 
+
+λ∇L (ˆ yti , y ti ) + (1 − λ)∇L (ˆ ysj ), y sj )
+
+≥ ∇L  λh ti + (1 − λ)hsj , λy ti + (1 − λ)ysj
+
+ (10) This means that under certain conditions τmix can be cast (approximately) as the cumulative gradients obtained by training on the interpolation of any paired MIL representa-tion (hti, h sj ). Although this interpolation does not directly lead to that applied to inputs (xti, x sj ) due to the nonlinearity of M, existing studies [1, 27] have shown that representa-tion interpolation helps to train a VRM-based model with better generalization ability. 
+
+C. More details on experimental settings 
+
+C.1. Datasets 
+
+There are 13 WSI datasets used in experiments. We show their characteristics in Tab. S1. Each dataset is split into 5 folds for cross-validation in algorithm evaluation, derived from [15]. Histopathology WSIs are processed by UNI2-h [6]. Specifically, for one image, tissue regions are seg-mented and tiled into image patches with 256 × 256 pixels at 20 × magnification, followed by patch feature extraction using UNI2-h. The feature extraction converts each patch into a 1,536-dimensional feature vector. 
+
+C.2. Implementation details 
+
+C.2.1. Model implementation and training 
+
+For any prognostic model obtained by traditional cancer-specific training, i.e ., Mt or any Ms, its implementation Table S1. Characteristics of WSI datasets .
+
+Dataset # Patients # WSIs # Patches 
+
+(avg. )
+
+# Patches 
+
+(max )
+
+Survival rate 
+
+BRCA 1,035 1,106 10,694 58,176 92.4% KIPAN 880 910 10,117 72,795 83.6% LUNG 848 924 13,199 220,294 78.2% GBMLGG 841 1,623 16,209 216,885 52.4% COADREAD 568 577 6,458 38,322 86.6% STES 512 539 8,429 31,458 72.7% UCEC 504 565 14,203 73,141 89.3% HNSC 427 449 6,530 56,558 71.7% SKCM 412 453 9,593 136,934 60.7% BLCA 372 443 14,465 103,807 68.5% LIHC 355 362 8,875 35,839 77.5% CESC 266 276 6,212 54,021 81.6% SARC 248 591 27,346 243,906 68.5% 
+
+and network training follow Song et al. [25]. Specifically, the network is implemented by an ABMIL architecture with an MLP as its instance embedding layer 
+
+femb (·), a gated attention layer fattn (·) for multi-instance ag-gregation, and a fully-connected layer as its prediction head at the end. Each model is trained under the following set-tings: 20 epoch numbers, a learning rate of 0.0001 with a cosine annealing schedule (the epoch number of warming up is set to 1), an optimizer of AdamW with a weight decay of 0.00001, and a batch size of 1 (one bag) with 16 bags for gradient accumulation, and a frequently-adopted NLL loss for supervised learning in survival modeling [43]. For the other models presented in Tab. 1, their training settings are identical to those stated above. All experiments are run on two NVIDIA GeForce RTX 3090 GPUs. For knowledge transfer methods, i.e ., representation-based and model merging-based baselines, the Ms used in experiments is a prognostic model trained on the first data split in Ds; Mt is from the data split corresponding to current training fold to prevent data leakage. For our STEPH, the hyper-parameter γ is derived by a grid search over {0, 0.0025 , 0.005 , 0.01 , 0.05 } through cross-validation on training samples. It is set to 0.005 for the dataset with over 500 patients and 0.05 for the others. The other hyper-parameters, K and β, are set to default values across all datasets without hyper-parameter searching, as stated in the main paper. For more details, please refer to our source code (see Supplementary File). 
+
+C.2.2. Efficiency evaluation 
+
+In Fig. 2, we evaluate the inference overhead of different models using a bag of 10,000 instances. Note that a bag of 10,000 instances is a general case for gigapixel WSIs, as shown in Tab. S1. 
+
+C.2.3. Loss landscape visualization 
+
+For τs and τt, we uniformly sample task vector coefficients (denoted as Cs and Ct) from [0 , 1] with a step size of 0.04. Given a group of coefficients (Cs, C t), we obtain a merged model by Mnew = M0 + Csτs + Ctτt and then measure its Ltest on t. Based on the test loss under different coeffi-cient combinations, we generate a full loss landscape using a Gaussian smooth with σ = 1 .0.
+
+D. Additional experimental results 
+
+D.1. Dynamics of λ and w in training 
+
+We provide more results on the changes of λ and w in train-ing. As shown in Fig. S1 ( t = KIPAN), four models of other cancers (HNSC, STES, CESC, and SARC) are leveraged in task vector mixup ( λi < 0.8) and aggregation ( wi > 0). When t = LUNG (Fig. S2), there are three models of other cancers (HNSC, STES, and CESC) involved more in M∗
+
+t .(a) Mixup coe ffi cients         
+
+> (b) Aggregating weights
+> 1510 15 20
+> Epoch
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Mixup coefficients ( ∏) BRCA
+> LUNG
+> GBM
+> LGG
+> COAD
+> READ
+> STES
+> UCEC
+> HNSC
+> SKCM
+> BLCA
+> LIHC
+> CESC
+> SARC
+> 1510 15 20
+> Epoch
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> Aggregating weight ( w) BRCA
+> LUNG
+> GBM
+> LGG
+> COAD
+> READ
+> STES
+> UCEC
+> HNSC
+> SKCM
+> BLCA
+> LIHC
+> CESC
+> SARC
+
+Figure S1. Dynamics of λ and w in training (t = KIPAN). (a) Mixup coe ffi cients         
+
+> (b) Aggregating weights
+> 1510 15 20
+> Epoch
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Mixup coefficients ( ∏) BRCA
+> KIPAN
+> GBM
+> LGG
+> COAD
+> READ
+> STES
+> UCEC
+> HNSC
+> SKCM
+> BLCA
+> LIHC
+> CESC
+> SARC
+> 1510 15 20
+> Epoch
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> Aggregating weight ( w) BRCA
+> KIPAN
+> GBM
+> LGG
+> COAD
+> READ
+> STES
+> UCEC
+> HNSC
+> SKCM
+> BLCA
+> LIHC
+> CESC
+> SARC
+
+Figure S2. Dynamics of λ and w in training (t = LUNG). Table S2. Comparison with MIL networks for WSI-based survival prediction on 13 cancer datasets. 
+
+Method BRCA KIPAN LUNG GBM LGG COAD READ STES UCEC HNSC SKCM BLCA LIHC CESC SARC Avg. 
+
+ABMIL 0.6648 0.8094 0.5496 0.7756 0.6725 0.6648 0.7098 0.6201 0.5708 0.6438 0.7265 0.6500 0.5312 0.6609 (± 0.032) (± 0.013) (± 0.034) (± 0.020) (± 0.028) (± 0.040) (± 0.043) (± 0.047) (± 0.037) (± 0.015) (± 0.048) (± 0.058) (± 0.056) TransMIL 0.6802 0.8121 0.5669 0.7873 0.6651 0.6582 0.7471 0.6315 0.5786 0.6173 0.7385 0.6365 0.5152 0.6642 (± 0.026) (± 0.018) (± 0.021) (± 0.019) (± 0.059) (± 0.056) (± 0.072) (± 0.014) (± 0.039) (± 0.029) (± 0.044) (± 0.068) (± 0.042) ILRA 0.6645 0.8017 0.5374 0.7739 0.6147 0.6451 0.7442 0.5262 0.5586 0.6608 0.7231 0.6336 0.5351 0.6476 (± 0.026) (± 0.016) (± 0.062) (± 0.016) (± 0.041) (± 0.053) (± 0.057) (± 0.024) (± 0.042) (± 0.046) (± 0.044) (± 0.016) (± 0.055) R2T-MIL 0.6619 0.8071 0.5805 0.7775 0.6843 0.6472 0.7253 0.6169 0.5376 0.6014 0.7163 0.6386 0.5326 0.6559 (± 0.040) (± 0.021) (± 0.055) (± 0.019) (± 0.039) (± 0.033) (± 0.064) (± 0.037) (± 0.056) (± 0.024) (± 0.039) (± 0.090) (± 0.032) Patch-GCN 0.7017 0.8181 0.5850 0.7853 0.6675 0.6575 0.7369 0.6019 0.5770 0.6164 0.7487 0.6585 0.5736 0.6714 (± 0.024) (± 0.009) (± 0.027) (± 0.019) (± 0.041) (± 0.035) (± 0.058) (± 0.037) (± 0.040) (± 0.025) (± 0.062) (± 0.065) (± 0.034) 
+
+0.7408 0.8228 0.5836 0.7763 0.7069 0.6698 0.7830 0.6569 0.5948 0.6413 0.7585 0.6965 0.6024 STEPH (± 0.060) (± 0.015) (± 0.042) (± 0.022) (± 0.029) (± 0.050) (± 0.072) (± 0.042) (± 0.027) (± 0.038) (± 0.036) (± 0.065) (± 0.070) 0.6949 
+
+D.2. Task vector mixup 
+
+As presented in Fig. S3, similar results are observed on ad-ditional task vector pairs. In particular, Fig. S3(c) shows a marginal benefit ( i.e ., a relatively small improvement in 
+
+Ltest ) from task vector mixup; such pairs could be filtered in the later sparse aggregating stage. 0.0 0.2 0.4 0.6 0.8 1.0                          
+
+> ∏in task vector mixup
+> 0.900
+> 0.919
+> 0.938
+> 0.958
+> 0.977
+> Alignment of  ømix  with  øt (SAR)
+> 0.894
+> 0.940
+> 0.986
+> 1.032
+> 1.078
+> Min.  Ltest
+> SAR-MIL attn
+> SAR-MIL emb
+> Min. Ltest
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> ∏in task vector mixup
+> 0.893
+> 0.913
+> 0.934
+> 0.955
+> 0.975
+> Alignment of  ømix  with  øt (SAR)
+> 0.929
+> 0.944
+> 0.959
+> 0.974
+> 0.989
+> Min.  Ltest
+> SAR-MIL attn
+> SAR-MIL emb
+> Min. Ltest
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> ∏in task vector mixup
+> 0.881
+> 0.904
+> 0.926
+> 0.948
+> 0.971
+> Alignment of  ømix  with  øt (SAR)
+> 0.719
+> 0.759
+> 0.799
+> 0.839
+> 0.879
+> Min.  Ltest
+> SAR-MIL attn
+> SAR-MIL emb
+> Min. Ltest
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> ∏in task vector mixup
+> 0.883
+> 0.904
+> 0.926
+> 0.947
+> 0.968
+> Alignment of  ømix  with  øt (SAR)
+> 0.585
+> 0.681
+> 0.778
+> 0.874
+> 0.971
+> Min.  Ltest
+> SAR-MIL attn
+> SAR-MIL emb
+> Min. Ltest
+> (a) (b)
+> (c) (d)
+
+Figure S3. Additional results of task vector mixup .
+
+D.3. Hyper-parameter K
+
+As shown in Tab. S3, using more than half of task vector mixtures often leads to a performance drop. This further confirms the effectiveness of imposing sparsity on τmix .
+
+Table S3. STEPH with different K (the number of selected task vector mixtures in sparse aggregation). 
+
+K 1 3 5 7 9 11 13 
+
+Avg. 0.6882 0.6929 0.6949 0.6935 0.6932 0.6926 0.6912 
+
+D.4. Comparison with MIL networks 
+
+We further compare STEPH with representative MIL net-works to see whether it is competitive with popular MIL methods. These networks are based on the Transformer or graph convolution architecture. We observed that their orig-inal settings often lead to severe overfitting (perfect train-ing metrics), especially on those datasets with fewer than 400 cases. Moreover, they struggle to process WSIs with over 200,000 instances (see Tab. S1) in mini-batch training. To address these issues, we adapt their settings to this task for stable training and apply patch sampling to ultra-large WSIs. Refer to our source code for more details. From Tab. S2 and Tab. S4, we observe that STEPH out-performs existing MIL networks, with an overall improve-ment of 3.5% over the best baseline on 13 datasets. Be-sides, Patch-GCN [4] is a competitive network in terms of predictive performance and model efficiency. This implies that merging Patch-GCN models may lead to better perfor-mance. We leave it as our future work. 
+
+Table S4. Comparison with MIL networks in terms of model efficiency . A WSI with 10,000 patches is used in model inference. 
+
+Method Learnable param. Test-time inference 
+
+(M) (GFLOPs) ABMIL 1.20 23.6 TransMIL 2.95 60.3 ILRA 4.21 55.3 R2T-MIL 2.98 40.7 Patch-GCN 1.69 21.7 STEPH 1.34 40.1 
+
+D.5. Complete ablation results on all datasets 
+
+We present the complete results of key ablation components in Tab. S5. The contribution of key designs can be ob-served in most cases: hypernetwork-driven λ on 11 out of 13 datasets and w on 12 out of 13 datasets, TVM over λ = 1 
+
+on 8 out of 13 datasets, and sparse aggregation on 11 out of 13 datasets. Table S5. Complete ablation results on 13 datasets.                                                                                                                                                         
+
+> Ablation BRCA KIPAN LUNG GBM LGG COAD READ STES UCEC HNSC SKCM BLCA LIHC CESC SARC Avg.
+> w/o mixup 0.7183 0.8264 0.5876 0.7745 0.6971 0.6781 0.7840 0.6420 0.5954 0.6387 0.7400 0.6886 0.5358 0.6851 (λ= 1 )(±0.051) (±0.016) (±0.039) (±0.024) (±0.024) (±0.030) (±0.069) (±0.022) (±0.037) (±0.038) (±0.046) (±0.043) (±0.070) w/o Hmix 0.7323 0.8152 0.5901 0.7728 0.7044 0.6645 0.7852 0.6548 0.5903 0.6404 0.7579 0.6951 0.5944 0.6921 (param. λ)(±0.061) (±0.019) (±0.040) (±0.024) (±0.027) (±0.047) (±0.073) (±0.041) (±0.031) (±0.038) (±0.034) (±0.066) (±0.066) w/o sparse 0.7263 0.8212 0.5865 0.7746 0.7009 0.6640 0.7803 0.6526 0.5891 0.6433 0.7541 0.6937 0.5994 0.6912 (±0.052) (±0.016) (±0.043) (±0.021) (±0.027) (±0.055) (±0.075) (±0.038) (±0.024) (±0.041) (±0.034) (±0.063) (±0.086) w/o Hagg 0.7133 0.8042 0.5417 0.7800 0.6564 0.5984 0.7359 0.5266 0.5753 0.6289 0.7035 0.6424 0.5299 0.6490 (param. w)(±0.015) (±0.014) (±0.033) (±0.017) (±0.033) (±0.036) (±0.049) (±0.037) (±0.032) (±0.049) (±0.034) (±0.025) (±0.030) 0.7408 0.8228 0.5836 0.7763 0.7069 0.6698 0.7830 0.6569 0.5948 0.6413 0.7585 0.6965 0.6024
+> STEPH (±0.060) (±0.015) (±0.042) (±0.022) (±0.029) (±0.050) (±0.072) (±0.042) (±0.027) (±0.038) (±0.036) (±0.065) (±0.070) 0.6949
+
+Figure S4. Visualization of attention maps given by models. The two WSIs are from the test set of COADREAD. Tumor (TUM). 
+
+D.6. Training efficiency 
+
+Comparison with other model merging methods To show the training efficiency of STEPH, we measure the mean training time per epoch on BRCA and report it for all model merging methods. Tab. S6 shows that STEPH only intro-duces marginal training costs compared to the methods with AdaMerging. 
+
+Table S6. Mean training time per epoch on BRCA. 
+
+Method Model Avg. AdaMerging TIES AM Surgery AM Iso-C AM STEPH 
+
+Time (s) 0.00 78.08 78.42 78.00 78.50 80.45 
+
+(± 0.00) (± 0.92) (± 2.20) (± 1.34) (± 1.54) (± 1.63) 
+
+Increasing the number of source models We further vary the number of source models (denoted by m) to show the training efficiency of STEPH. The number of chosen task vector mixtures, K, is set to be equal to m, i.e. , all source models are utilized. Tab. S7 shows that increasing m would not introduce too much training time. 
+
+Table S7. Mean training time per epoch on BRCA with different numbers of source models ( m). 
+
+m (K) 6 7 8 9 10 11 12 
+
+Time (s) 72.91 72.98 74.51 75.62 75.60 75.74 76.69 
+
+(± 1.20) ( ± 1.42) ( ± 3.00) ( ± 1.54) ( ± 1.62) ( ± 2.18) ( ± 1.79) 
+
+D.7. Interpretability 
+
+We visualize and compare the attention maps given by Mt
+
+and STEPH, following the setting of [15]. From Fig. S4, we observe that STEPH captures more prognostic cues: tu-mor areas and the boundary of tumor infiltration. 
+
+E. More discussions 
+
+Comparison with ROUPKT [15] STEPH is based on model merging, whereas ROUPKT is based on represen-tation transfer (as shown in Fig. 1). Two methods are dis-tinct in design philosophy, though both are used for knowl-edge transfer. In the comparative results given by Tab. 1, ROUPKT performs better than STEPH on 4 datasets. We 0.0 0.2 0.4 0.6 0.8 1.0                      
+
+> ∏in task vector mixup
+> 0.68
+> 0.77
+> 0.85
+> 0.93
+> 1.01
+> Min.  L
+> Min. Ltrain
+> Min. Ltest
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> ∏in task vector mixup
+> 0.69
+> 0.87
+> 1.04
+> 1.22
+> 1.39
+> Min.  L
+> Min. Ltrain
+> Min. Ltest
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> ∏in task vector mixup
+> 0.69
+> 0.82
+> 0.95
+> 1.09
+> 1.22
+> Min.  L
+> Min. Ltrain
+> Min. Ltest
+> BRCA KIPAN COADREAD
+
+Figure S5. Loss of TVM between BLCA and others (w/ top w). 
+
+examine the cause of the largest performance gap, BLCA, by analyzing the loss landscape of TVM. From Fig. S5, we observe that λ with the best Ltest is often larger (0.7 ∼0.8). It would be helpful to decrease the degree of penalty by set-ting a smaller β for Lmix to encourage a larger λ. However, 
+
+β is simply set to 0.05 for all datasets in this paper with-out fine-tuning. Fine-tuning β on BLCA may improve the performance of STEPH. 
+
+Choice of foundation models UNI2-h [6] is adopted be-cause i) it is trained with private data (not TCGA) so data leakage can be avoided and ii ) it has demonstrated excel-lent generalizability. Other models, like CONCH [17], are also competitive. Yet, one more foundation model leads to substantial computational costs since there are 8,818 WSIs (>100 million patches) and 5-fold cross-validation experi-ments on 13 datasets. Given these, we choose one of the representatives. 
+
+F. Reproducibility statement 
+
+To ensure reproducibility, we provide detailed descriptions of the datasets in Sec. C.1 and comprehensive implementa-tion specifics in Sec. C.2. Our source code is publicly avail-able at https://github.com/liupei101/STEPH .It includes the checkpoints and training logs of our model.

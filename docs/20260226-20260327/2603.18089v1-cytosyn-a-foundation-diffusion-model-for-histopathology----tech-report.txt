@@ -1,0 +1,318 @@
+Title: CytoSyn: a Foundation Diffusion Model for Histopathology -- Tech Report
+
+URL Source: https://arxiv.org/pdf/2603.18089v1
+
+Published Time: Fri, 20 Mar 2026 00:06:27 GMT
+
+Number of Pages: 21
+
+Markdown Content:
+# CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 
+
+Thomas Duboudin †, Xavier Fontaine, Etienne Andrier, Lionel Guillou, Alexandre Filiot, Thalyssa Baiocco-Rodrigues, Antoine Olivier, Alberto Romagnoni, John Klein, and Jean-Baptiste Schiratti 
+
+Owkin, Inc  
+
+> †
+
+Corresponding author 
+
+firstname.lastname@owkin.com 
+
+Abstract. Computational pathology has made significant progress in recent years, fueling advances in both fundamental disease understand-ing and clinically ready tools. This evolution is driven by the availability of large amounts of digitized slides and specialized deep learning methods and models. Multiple self-supervised foundation feature extractors have been developed, enabling downstream predictive applications from cell segmentation to tumor sub-typing and survival analysis. In contrast, gen-erative foundation models designed specifically for histopathology remain scarce. Such models could address tasks that are beyond the capabilities of feature extractors, such as virtual staining. In this paper, we introduce CytoSyn, a state-of-the-art foundation latent diffusion model that en-ables the guided generation of highly realistic and diverse histopathology H&E-stained images, as shown in an extensive benchmark. We explored methodological improvements, training set scaling, sampling strategies and slide-level overfitting, culminating in the improved CytoSyn-v2, and compared our work to PixCell, a state-of-the-art model, in an in-depth manner. This comparison highlighted the strong sensitivity of both dif-fusion models and performance metrics to preprocessing-specific details such as JPEG compression. Our model has been trained on a dataset obtained from more than 10,000 TCGA diagnostic whole-slide images of 32 different cancer types. Despite being trained only on oncology slides, it maintains state-of-the-art performance generating inflammatory bowel disease images. To support the research community, we publicly release CytoSyn’s weights, its training and validation datasets, and a sample of synthetic images in this repository: https://huggingface.co/Owkin-Bioptimus/CytoSyn. 
+
+Keywords: Image synthesis · Digital pathology · Diffusion · CytoSyn 
+
+# 1 Introduction 
+
+Most modern computational pathology pipelines are built upon large deep-learning models trained in a self-supervised (SSL) fashion to extract semantically-rich features from pathology images. SSL foundation backbones have outper-formed models trained on labeled datasets by leveraging a significantly higher  
+
+> arXiv:2603.18089v1 [cs.CV] 18 Mar 2026 2T. Duboudin, X. Fontaine, E. Andrier et al.
+
+amount of data and larger model size. Several such models [37,6,51,28,11] have been created specifically for digital pathology (a field in which annotated data is scarce) and enable a wide range of downstream predictive applications: tis-sue and cells segmentation [1], gene expression prediction [18], tumor sub-typing and survival analysis [31,13,4], etc. These applications allow researchers to both build clinically usable tools and derive deep biological insights. However, SSL foundation models are not designed to effectively address all questions of in-terest to the computational pathology field. We argue that a domain-specific image generation model would be helpful to better tackle some of these prob-lems. For instance, they are not easily interpretable with interpretation usually only happening with regard to a particular downstream task using attention scores or Shapley values. Generative models offer a path toward counterfactual interpretability, allowing researchers to visualize how an image would change if specific features were missing or over-amplified. Feature extractors also cannot perform inherently generative tasks, such as virtual staining: an approach used to mitigate performance degradation due to scanner and staining variability that relies on being able to transfer staining while keeping the biologically-relevant content unchanged. Furthermore, standard data augmentation cannot counter-act the lack of diversity in rare diseases or tissue types datasets. This could be addressed by a generative model going beyond simple geometric transformations. Diffusion and flow matching models have become the de facto standard for image synthesis in recent years. However, most of the publicly available models are trained for illustrative, graphic design, or photo editing purposes on "natu-ral" image datasets. They are thus unsuitable to generate highly-specific images such as H&E histopathology images, in which fine details (such as the shapes, types and organization of cells) can contain a lot of biologically relevant infor-mation. In this paper, we therefore introduce CytoSyn, a foundational diffusion model specifically tailored to generate H&E-stained pathology images that is able to generate highly realistic and diversified images (a sample of generated images is available in Figure 1). Our contributions in this paper are threefold: 
+
+– We built CytoSyn, a state-of-the-art diffusion model. Building upon REPA-E [23], we introduce some methodological novelties to tailor the architecture to histopathology. 
+
+– We benchmarked it extensively, including an out-of-distribution scenario on non-oncology tissue, and performed an in-depth comparison against the cur-rent state-of-the-art model, revealing the high impact of the data preparation steps on the final output. 
+
+– We publicly release both the model weights and the data used to train and benchmark it to support the research community and to ensure reproducibil-ity. CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 3 
+
+> Fig. 1. Examples of tiles generated unconditionally with CytoSyn.
+
+# 2 Related Works 
+
+2.1 Diffusion models 
+
+In the last few years, Generative Adversarial Networks (GANs) have been out-performed by diffusion models [39,16,7] and score-based generative models [40] to produce high-quality images. Diffusion models work by gradually adding noise to input data and learning the backward denoising process. Score-based methods work by producing samples using a Langevin dynamics after estimation of the score ∇ log p(x). These two approaches have been unified by Song et al. [41] who showed that the reverse diffusion process can be modeled by a stochastic differen-tial equation containing the score of the data distribution. Many improvements have been designed over the initial diffusion models including guidance [7,17], 4 T. Duboudin, X. Fontaine, E. Andrier et al. 
+
+replacing the original U-Net architecture by a vision transformer [34] and the use of the latent space of a VAE to perform the diffusion process [36], allowing the faster generation of larger images with a limited computational power. Fur-ther methods have been then proposed to improve training efficiency and quality generation, among them REPA [48] and REPA-E [23] which use an additional feature extractor to align the hidden state representations of the denoising net-work with the embeddings of the input data. Flow matching is another state-of-the-art technique for generative model-ing [25,26] which is actually equivalent to diffusion models [12]. The Stochastic Interpolants Framework [2] unify both approaches with a general formulation that allows more flexible paths from the noise to the data distribution, as well as different sampling options. The SiT model [29] builds upon this work and proposes improvements over a classical Diffusion Transformer by using notably stochastic sampling (from the SDE) instead of deterministic sampling (from the ODE), which improves the quality of the generated images despite requiring a higher computational budget. 
+
+2.2 Diffusion applied to digital pathology 
+
+Diffusion-based image synthesis has emerged recently within the computational pathology community but has already been explored for a wide range of pur-poses: virtual staining [44], improving self-supervised foundation models and downstream predictive models [14,3], enabling privacy-preserving [46] or inter-pretability [50] applications, and generating whole-slide images [47] (as opposed to tile-level synthesis). Another line of research bridges histology with transcrip-tomic data by conditioning generation on RNA expression profiles [5]. However, until recently, most approaches trained their own backbone diffusion models on limited amounts of data, on select indications, or with a highly specific con-ditioning mechanism, thereby preventing them from generalizing beyond their originally envisioned applications (e.g. tumor or non-tumor binary labels that are meaningless in a non-oncology setting). 
+
+2.3 PixCell 
+
+To the best of our knowledge, PixCell [46] is currently the only other publicly released foundation diffusion model for histopathology. Our work most closely re-sembles the base model PixCell-256 but several architectural and methodological distinctions exist. Primarily, our approach is based on REPA-E and enforce rep-resentation alignment during training, whereas PixCell follows the conventional Latent Diffusion Model (LDM) approach with a frozen VAE and no specific training constraints in addition to the standard reconstruction loss. From an architecture perspective, the models differ notably in their choice of conditioning model: CytoSyn employs H0-mini (86M parameters) for guidance while PixCell uses UNI2-h [6] (680M parameters), making CytoSyn’s VRAM CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 5
+
+requirements at inference time lower. Furthermore, PixCell utilizes a frozen VAE from Stable Diffusion v3 [9] (SD3.5 Large) trained on natural images while we trained our VAE from scratch on histopathology data, with the goal of learning better pathology-specific features. Finally, we only trained our model on TCGA diagnostic slides as we envisioned oncology-focused predictive applications. We therefore excluded the GTEX slides from healthy samples and the fresh frozen TCGA slides as they are usually not suitable for these purposes. In contrast, PixCell’s training set is more diverse with data coming from a mix of TCGA (both diagnostic and fresh frozen), GTEX [27], CPTAC [8] and other sources. In Table 1 we summarize all differences between the two models. We compare them and explore the impact of some of these choices in the Experiments section. In the rest of the paper, by PixCell we denote the PixCell-256 model, not its PixCell-1024 counterpart.                                   
+
+> Table 1. Differences between PixCell and CytoSyn Model PixCell-256 CytoSyn Framework Standard LDM REPA-E Diffusion Model DiT-XL/2 SiT-XL/2 Sampling scheme DPM-Solver Euler-Maruyama VAE SD3.5 Large VAE, frozen SD-VAE, f8d4, trained Conditioning UNI2-h (ViT-h/14) H0-mini (ViT-B/14) Data Sources GTEX, CPTAC, TCGA & others TCGA diag. # Tiles in training set ∼31 M∼40 M/∼108 M
+> # Slides in training set ∼69 k∼10 .6k
+> Image size 256 ×256 224 ×224
+> Tiling pipeline DS-MIL Internal
+
+# 3 Method 
+
+3.1 Architecture 
+
+CytoSyn is based on the REPA-E architecture [23], itself a modification of REPA [48]. The REPA architecture is a latent-diffusion architecture [36] (LDM) with an additional alignment constraint: the patch tokens of the diffusion trans-former model are aligned to those of a frozen self-supervised transformer using a cosine similarity loss. It was found to make training much faster and improve the quality of generated images. REPA-E builds upon REPA by training both the VAE and the diffusion model at the same time: in REPA, the VAE is trained beforehand and frozen during the training of the diffusion model, whereas in REPA-E, the two models are trained simultaneously with specific care taken to avoid collapse. This yielded additional gains in both training speed and gen-eration quality. We introduced several modifications compared to the original REPA-E: 6 T. Duboudin, X. Fontaine, E. Andrier et al. 
+
+– Image size : The default size for generated images is 256 × 256 for both REPA and REPA-E. In the computational pathology field, for legacy reasons, most feature extractors expect as inputs images of 224 × 224 pixels. We therefore decided to generate images at this particular dimension to ease further processing: no need for additional image resizing or cropping. 
+
+– Representation alignment : The original REPA and REPA-E methods use the ViT-B/14 extractor from DINOv2 [32]. DINOv2 models are near state-of-the-art SSL feature extractors trained on a curated subset of the LVD-142M dataset, which contains ImageNet-like images that are very dif-ferent from histopathology images. We therefore replaced the DINOv2 model with a publicly available feature extractor trained on histopathology data: H0-mini [10]. We chose this SSL model among many as it achieves high performance on many downstream tasks, indicating a good capacity at ex-tracting informative and generalist embeddings, while still being lightweight (ViT-B/14). For an image of size 224 × 224 , H0-mini yields 16 × 16 patch tokens, and the f8d4 SD-VAE [36] a latent of size 28 ×28 . When this latent is sent through the SiT-XL/2 [29] diffusion model, we get 14 × 14 patch tokens. To enable the alignment of the tokens, we opted to subsample the spatial-ized H0-mini tokens to 14 × 14 with a bicubic interpolation and anti-aliasing instead of doing the opposite (upsampling the 14 × 14 SiT-XL/2 tokens), allowing for the pre-computing of H0-mini resized patch tokens. 
+
+– Conditioning : REPA-E and REPA rely on classifier-free guidance [17] to enable the synthesis of images based on additional semantic information (such as a caption, a label, or a semantic segmentation map). We opted to use SSL features to encompass the semantic information present in a tile, as in PixCell, due to the lack of large-scale datasets with fine-grained tile-level annotations. We hypothesized that slide-level labels (such as the indication) lacked the granularity required to be a useful supervisory signal. We again used H0-mini for the tile-level conditioning ([CLS]-token for the condition-ing, patch tokens for the alignment). We did not explore different pairs of SSL models for guidance and alignment, as using a single model is more computationally efficient: a single forward pass yields both the alignment tokens and the guidance token. Samples generated conditionally with H0-mini guidance are available in Figure 2. Feature-based guidance enables a fine-grained control on the semantic of the generated images that text-based guidance does not (as can be seen in Figure 3). 
+
+– REPA post-training : REPA-E shows that the best generation results can be achieved by first training end-to-end the full architecture, and then using the obtained VAE (in a frozen fashion) to train a diffusion model with the REPA architecture. Due to computational limitations, we did not perform this additional step and all the results of the paper are from end-to-end trainings. 
+
+– Initialization : In REPA-E, the VAE weights at initialization are those of an already trained VAE (e.g SD-VAE, VA-VAE). In our case, given the speci-ficity of histopathology data and its overall abundance (in a non-annotated format) we trained all the models from scratch. CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 7
+
+– VAE EMA : It has been shown that computing an exponential moving average (EMA) of both the latent diffusion model and the VAE was beneficial to performance and this has since become common practice [36,16,7]. We computed such an EMA of the VAE during training to be used at inference-time, as an EMA model is computed only for the latent diffusion and not for the VAE in the original REPA-E paper (we used the exact same EMA parameters for both models). Whether the raw VAE model or the EMA version is used will be indicated in the results.  
+
+> Fig. 2. H0-mini conditioning enables the generation of visually distinct yet biologically highly consistent tiles. Each row shows one reference image (left) and five generated variations.
+
+The model therefore consists of 3 different components, totaling 853M pa-rameters, out of which 767M are trained: 
+
+– a variational auto-encoder (SD-VAE, f8d4 version, 84M parameters), 
+
+– a transformer latent diffusion model (SiT XL/2, 683M parameters), 
+
+– H0-mini, used frozen as both the guidance and the representation alignment model (ViT-b/14, 86M parameters). 8 T. Duboudin, X. Fontaine, E. Andrier et al. 
+
+3.2 Dataset 
+
+Histopathology slides (also called whole-slide images) are usually digitized via very high resolution scanning, resulting in very large images that cannot be pro-cessed entirely at once by any deep computer vision model. Slides are therefore partitioned into collections of smaller images, called tiles, extracted from the areas containing tissue and liekly devoid of artifacts (e.g., folds, bubbles, pen marks, out-of-focus areas, and dust). To perform this operation, we use a pro-prietary pipeline, built upon a tissue detection model, that ingests the slides at lower resolution and excludes empty spaces and artifacts from the extraction. Using this pipeline, we extracted 40M ( 224 × 224 ) randomly sampled tiles from 10,622 TCGA [45] diagnostic slides at 0.5 microns per pixel (MPP, equivalent to 20 × magnification). TCGA slides have a tissue source site (TSS), which is a code for both the hospital or the research center from which the tissue sam-ples have been sourced and the indication. Given that all centers use potentially different scanners and staining protocols, we sampled our 40M tiles to ensure a stratified representation of TSS codes, mirroring the global TCGA distribution. This encompassed images from 32 different indications (and 679 TSS). Additionally, to investigate scaling behavior, we created an expanded train-ing set. Starting with 11,520 TCGA diagnostic H&E whole-slide images across 32 indications, we applied a curation process to remove artifacted tiles, yielding a curated dataset comprising 115M tiles. Artifact curation was performed using an in-house ViT-Small model pre-trained with iBOT [49] on TCGA-COAD (3.9M tiles), incorporating histology-specific augmentations [38]. Using the frozen back-bone features, a linear classifier was trained under 5-fold cross-validation on 79.5k tile-level annotations distinguishing usable tissue from artifacts. At infer-ence, predictions were averaged across folds. This procedure removed 1.6M tiles (1.4%). Finally, we removed all necessary validation tiles to prevent data leakage, resulting in a total of 108M tiles. 
+
+3.3 Training 
+
+The models have been trained on 64 A100 GPUs with a total batch size of 640. Other training parameters were kept to their default value in the REPA-E repository (unless specified otherwise). In particular, the classifier-free guidance scale is set to 2.5, and the guidance-high (resp. -low) parameter is set to 0.75 (resp. 0). The entirety of the experiments detailed in the paper represents around 40k GPU-hours. 
+
+# 4 Experiments 
+
+4.1 Benchmark 
+
+To rigorously benchmark our model, we created 2 validation sets of 100k im-ages using the TCGA cohort, stratified to maintain the TSS distribution. These CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 9     
+
+> Fig. 3. Feature-based conditioning allows a fine-grained control on the semantic of the synthesized images, a prerequisite to use synthetic images as data augmentation, while maintaining highly realistic outputs as illustrated in this figure with a linear interpo-lation example. Left and right columns: original tiles, center columns: synthetic tiles obtained using a linear interpolation of left and right tiles’ features (with interpolation factor 0.2,0.4,0.6,0.8).
+
+sets differ based on their source slides: in both cases, the selected tiles are non-overlapping with the training tiles. However, for the val-in dataset, the tiles originate from slides from which some tiles were extracted for use in training. In the val-out dataset, the tiles’ originating slides are entirely distinct from the training set’s slides. We held out 1,012 slides for the val-out dataset, cov-ering 32 indications and 359 TSS. These two datasets will enable us to assess the level of slide-level overfitting in histopathology-specific generative models by comparing results. We generated 100k images with each benchmarked model, using features from 100k tiles randomly sampled from the training set (stratified by TSS) as guidance, following PixCell’s methodology. Main results have been obtained with 250 steps of SDE sampling and all models have been trained over the same number of epochs. 10 T. Duboudin, X. Fontaine, E. Andrier et al. 
+
+Table 2. Performance comparison of CytoSyn models across different metrics and feature extractors ( val-in / val-out values in the table cells).                                                                                                           
+
+> Metric Model H-Optimus-0 Virchow 2 UNI2-h Inception V3 FD CytoSyn - 40M 58.4 / 72.2 55.3 / 70.6 10.9 / 16.7 2.9 /3.4
+> CytoSyn - 108M 58.4 / 72.3 56.8 / 71.5 12.5 / 18.3 3.7 / 4.1 CytoSyn - 108M - EMA 48.1 /62.5 50.1 /63.5 9.4 /15.1 3.4 / 3.9 FD Guidance vs Val. sets 4.0 / 20.1 3.5 / 20.6 1.4 / 7.7 0.5 / 0.8 FLD CytoSyn - 40M 11.4 / 10.4 3.4 /3.9 9.0 / 4.9 1.9 / 0.5
+> CytoSyn - 108M 11.1 /9.7 4.1 / 3.6 6.3 / 4.8 1.0 / 4.5 CytoSyn - 108M - EMA 11.6 / 10.6 4.3 / 4.0 6.2 / 4.9 2.6 / 3.2 Precision CytoSyn - 40M 0.94 / 0.94 0.95 / 0.95 0.98 / 0.98 0.82 / 0.82 CytoSyn - 108M 0.95 / 0.95 0.96 / 0.96 0.98 / 0.98 0.83 / 0.83 CytoSyn - 108M - EMA 0.96 /0.96 0.96 /0.96 0.98 /0.98 0.83 /0.83
+> Recall CytoSyn - 40M 0.99 / 0.99 0.99 / 0.99 0.98 / 0.98 0.89 / 0.89 CytoSyn - 108M 0.99 / 0.99 0.99 / 0.99 0.97 / 0.97 0.88 / 0.88 CytoSyn - 108M - EMA 0.99 /0.99 0.99 /0.99 0.99 /0.99 0.90 /0.90
+> Cosine Sim CytoSyn - 40M 0.78 / 0.78 0.90 / 0.90 0.79 / 0.78 0.88 / 0.88 CytoSyn - 108M 0.79 / 0.79 0.91 / 0.91 0.79 / 0.79 0.88 / 0.88 CytoSyn - 108M - EMA 0.80 /0.80 0.91 /0.91 0.80 /0.80 0.88 /0.88
+
+To obtain a more comprehensive evaluation of our models, we decided to compute several metrics in addition to the standard Fréchet Inception Distance [15] (FID) and to use several state-of-the-art pathology-specific extractors (H-Optimus-0 [37], UNI2-h [6], Virchow 2 [51], UNI [6], CONCH-v1 [28] and Phikon-v2 [11]) to compute them rather than relying solely on standard models like Inception-v3 [42] or DINOv2. Given the high fidelity of the generated images, we posit that pathology feature extractor will be able to uncover subtle differ-ences in generated tiles that models trained on ImageNet-like datasets might miss. We use "FD" as the base metric name for the Fréchet distance computed with different extractors. Furthermore, we incorporated Feature Likelihood Di-vergence (FLD), recently introduced by Jiralerspong et al. [19], to account for novelty in addition to realism and diversity, and Precision and Recall [22] to disentangle performance between coverage and sample realism. In addition, to precisely measure the quality of the learned conditioning and not only the overall realism, we used the H0-mini features of the validation sets as guidance to the diffusion model to create synthetic validation-like datasets. We then compared the cosine similarity of the embeddings between the original and synthetic sets sample-wise, with different extractors again. Finally, we investigated both ODE and SDE sampling with varying number of sampling steps in an unconditional sampling scenario for both validation sets (Figure 4). Based on our quantitative evaluation (Table 2), we draw several conclusions: 
+
+– Data Scaling : There is no gain in scaling the training data from 40M to 108M images, or in moving from a randomly sampled dataset to a thoroughly CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 11 
+
+0 50 100 150 200 250 
+
+10 
+
+20 
+
+30 
+
+40 
+
+Inception V3  
+
+> ODE (val-out)
+> SDE (val-out)
+> ODE (val-in)
+> SDE (val-in)
+> 240 260
+> 4.4
+> 6
+> 5.2
+> 5.4
+> 4.8
+> 4.9
+
+0 50 100 150 200 250 
+
+150 
+
+200 
+
+250 
+
+H-Optimus-0  
+
+> 240 260
+> 154
+> 176
+> 171.3
+> 170.7
+> 159.6
+> 158.7
+
+0 50 100 150 200 250 
+
+40 
+
+50 
+
+60 
+
+70 
+
+UNI2-h  
+
+> 240 260
+> 32
+> 43
+> 40.2
+> 39.1
+> 35.5
+> 34.5
+
+0 50 100 150 200 250 
+
+200 
+
+250 
+
+300 
+
+350 
+
+Virchow 2  
+
+> 240 260
+> 178
+> 212
+> 203.7
+> 197.4
+> 191.5
+> 185.8
+
+Fig. 4. Unconditional image generation performance of CytoSyn (40M model) across different feature extractors, number of sampling steps, sampling methods and validation sets ( y-axis: Fréchet distance, x-axis: number of sampling steps). The inset box in each plot provides a magnified view of the values obtained with 250 sampling steps. 
+
+curated one, with the Fréchet distance increasing slightly across extractors. A similar observation has been made by Karasikov et al. [20] in the context of SSL models, where smaller training sets do not systematically translate to lower performance. 
+
+– VAE EMA : Computing an exponential moving average of the VAE weights to use for inference yielded observable quality improvements. While this im-provement was not uniform across all metrics (e.g., the standard Inception-v3 FD slightly degraded in the EMA version), we observed consistent Fréchet Distance improvements across all histopathology-specific extractors. Conse-quently, we selected the EMA model for our subsequent experiments. 
+
+– Metric Concordance : We found an overall high model ranking agreement among the different metrics and across extractors (with FD computed with pathology extractors being the most sensitive). Precision and Recall met-rics reached saturation, indicating good distribution coverage and realism but rendering them less discriminative for fine-grained model comparison. 12 T. Duboudin, X. Fontaine, E. Andrier et al. 
+
+Conversely, the FLD score proved difficult to interpret, as model rankings fluctuated depending on the chosen feature extractor. 
+
+– Overfitting Analysis : Results obtained on the val-in dataset are consis-tently better than their val-out counterparts, suggesting a slide-level over-fitting of our models. However, because a small but non-zero domain shift exists between the training subset used for guidance and the val-out dataset, the performance of our models must be weighted against this gap to assess overfitting. We computed the Fréchet Distance between the guidance subset and val-in and val-out as a baseline (row 4 of Table 2). All the extractors detected a shift between the real conditioning subset and the val-out set, indicating that the performance degradation seen on val-out is partially attributable to this inherent distribution gap. Furthermore, because cosine similarity scores remained identical between val-in and val-out results, we conclude that our models do not significantly overfit to slide-level specifici-ties. 
+
+– Sampling Dynamics : Our experiments indicate that ODE and SDE sam-pling schemes perform comparably after 250 sampling steps. However, SDE demonstrates a clear advantage at lower step counts. Additionally, while the most pronounced decrease in Fréchet Distance occurs between 20 and 50 steps, extending the process to 250 steps still yields measurable gains. From the Figure 4 and the Table 2, we also note that conditional sampling achieves consistently better results than unconditional sampling, an obser-vation aligned with prior research. We release two models on HugginFace with the following naming convention: CytoSyn, corresponding to the model trained on the 40M dataset, and CytoSyn-v2 corresponding to the model trained on the 108M dataset with the EMA VAE. In addition, we release 100k synthetic tiles generated unconditionally with CytoSyn-v2. 
+
+4.2 Out-of-distribution validation 
+
+In addition to measuring our models’ capacity to generate TCGA-like H&E-stained tiles, we also investigated their ability to synthesize strongly out-of-distribution (OOD) samples. While unconditional sampling is inherently limited to the training distribution, conditional sampling can bypass this limitation by leveraging features from OOD tiles as conditioning (therefore relying on the ro-bustness of the underlying feature extractor to guide the generation process). For this benchmark, we used data from the Study of a Prospective Adult Research Cohort with Inflammatory Bowel Disease [35] (SPARC IBD) cohort, a multicen-tered longitudinal study of adult IBD patients. It provides both a non-oncology scenario, shifting the focus from the tumor microenvironments of TCGA to the inflammatory infiltrates and mucosal distortions characteristic of IBD, and new staining/scanner scenario as its slides and TCGA slides were digitized in different centers with different scanner brands (Olympus versus mainly Leica). SPARC IBD histology data consists of 3322 H&E slides obtained from intestinal mucosal CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 13 
+
+(mostly colon and ileum) biopsies of patients diagnosed with Crohn’s disease, ulcerative colitis and other forms of IBD. We sampled 50k tiles uniformly at 
+
+≃ 20 × magnification to use as conditioning and a distinct set of the same size as reference to compute the Fréchet distance.                      
+
+> Table 3. Comparison of FD score and cosine similarity of CytoSyn-v2 on the SPARC IBD tiles and on the val-out tiles, computed with different extractors. Performance metric ↓H-optimus-0 Virchow 2 UNI2-h Inception V3 FD (SPARC-IBD) 196.5 245.0 83.8 8.6 FD (val-out) 62.5 63.5 15.1 3.9 Cosine Sim. (SPARC-IBD) 0.73 0.84 0.71 0.86 Cosine Sim. (val-out) 0.80 0.91 0.80 0.88
+
+Our OOD results (Table 3) show that our model is sensitive to the distri-bution shift: we observed a noticeable FD increase consistent across extractors between the results on SPARC IBD and val-out . Cosine similarity followed a similar degradation trend. In contrast to our results, PixCell’s experiments on their OOD dataset SPIDER [30] yielded a near invariant Inception FD and a moderate increase for the other extractors, likely highlighting the benefit of having several sources in the training set. Nevertheless, in terms of absolute FD values, the out-of-distribution performance of our model reaches PixCell’s in-distribution performance (Inception FD of around 8, Table 4). Further investi-gation is required to isolate the origin of our observed performance drop: whether it is driven by biologically relevant differences or a sensitivity to center-specific scanning and staining artifacts. Given that our training set already contains colonic histological patterns (via TCGA COAD tiles for instance), we posit that the latter is more likely. 
+
+4.3 Comparison with PixCell 
+
+To the best of our knowledge, this study represents the first instance where histopathology-specific diffusion models from different organizations are directly benchmarked together. Given the many differences between PixCell and our models, and to ensure the fairness of the comparison, we took into account some of the distinct design choices. First, we compared both models on the generation of TCGA tiles only (as TCGA is the intersection of their respective training distributions) rather than relying solely on published metrics derived from PixCell’s own validation set (which is partly OOD for CytoSyn). Then, we focused our efforts on two impactful points in particular: 
+
+– Image size : PixCell generates 256 × 256 tiles conditioned on 256 × 256 tiles’ features, whereas CytoSyn generates 224 ×224 tiles conditioned on 224 ×224 
+
+tiles’ features. PixCell’s guidance arm first resizes the images to 224 × 224 
+
+before inputting them to UNI2-h, while our guidance branch processes 224 ×14 T. Duboudin, X. Fontaine, E. Andrier et al. 
+
+224 images natively. This resizing operation slightly changes the resolution of the guidance tiles and introduces interpolation artifacts into the conditioning embeddings. 
+
+– Image format : PixCell’s tiling pipeline is based on DS-MIL [24] which saves tiles in the JPEG format by default. An analysis of the PixCell repository confirms that the tiles were indeed likely saved as JPEG, while our pipeline extracts and saves tiles in the lossless PNG format. While extracting tiles as PNG files does not guarantee the complete absence of upstream compression artifacts, as JPEG compression can also be applied during the digitization of slides, it prevents additional compression loss. These artifacts will distort both the conditioning and the validation features used in the final metrics computation. We first applied CytoSyn’s original validation pipeline (equivalent to the pipeline in Figure 5, with a center-crop operation for both models and no JPEG compression) on images generated with PixCell. We did not compute all metrics for this scenario. Then, to account for the differences between the models, we performed a step-wise ablation: 
+
+– Image Size Adjustment : We modified our val-out dataset by expanding the original tile coordinates by ±16 pixels, enlarging the tiles to 256 × 256 .Consequently, the original validation dataset becomes a center-cropped ver-sion of this new 256 ×256 dataset. We performed the same transformation for the conditioning subset. The UNI2-h features computed on this new dataset were then used as inputs for the conditional sampling. 
+
+– Validation JPEG Compression : To mimic the validation data used for PixCell, which likely contained JPEG artifacts, we created a JPEG version of the 256 × 256 val-out dataset, with a JPEG quality of 70 (the DS-MIL default), and keep the 256 ×256 guidance subset in its previous PNG version. 
+
+– Conditioning JPEG Compression : To further understand the effect of compression, we created a JPEG version of the 256 × 256 guidance subset, and recomputed the conditioning UNI2-h features again. Splitting the JPEG experiments into two steps allowed us to disentangle the origin of the remaining performance gap after taking into account image size: whether it arose from JPEG artifacts in the generated images or JPEG artifact effects in the conditioning features. A complete overview of the final valida-tion pipeline is available in Figure 5. As a negative control, we also computed a FD score using our model’s images and a JPEG-compressed version of the 
+
+224 × 224 val-out dataset. This ensured that the FD decrease observed with PixCell was not a general effect of the JPEG-compression. Finally, we note that discrepancies beyond image size and compression remain, for instance, PixCell utilized the Clean-FID implementation, whereas we relied on the Jiralerspong et al. implementation. Differences in underlying resizing operations and inter-polation kernels are known to affect FID scores, and we leave this additional investigation to future work. CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 15 
+
+To align with CytoSyn’s inference configuration, our preliminary experiments evaluated PixCell using 250 sampling steps rather than the 50 steps utilized in the original study. However, upon observing negligible differences in image quality between the 50-step and 250-step regimes, we reverted to 50 steps to accelerate the evaluation process. Furthermore, because PixCell was trained on a highly heterogeneous dataset encompassing multiple data sources, its uncon-ditionally generated images naturally reflect this broader distribution. Because our validation set is strictly derived from the TCGA cohort, unconditional gen-eration metrics would be artificially penalized by this domain mismatch. Con-sequently, only conditional sampling metrics provide a meaningful comparison and are reported here. Finally, we note that because TCGA data is a core com-ponent of PixCell’s training data, this benchmark effectively serves as a rigorous in-distribution validation for their model. To complement this in-distribution evaluation, we also conducted an out-of-distribution benchmark using the pre-viously described SPARC IBD dataset. For this OOD comparison, we applied directly the final validation pipeline (with both the 256 ×256 tiles and the JPEG compression for validation and guidance images).                 
+
+> UNI-2h / H0-mini
+> PixCell / CytoSyn
+> Resize
+> 224 ×224
+> JPEG compression (PixCell only)
+> Center-Crop
+> 224 ×224
+> (Cytosyn only)
+> Cond. Tiles
+> 256 ×256
+> Synth. Tiles Resize
+> 224 ×224 Feature Extractor
+> Feature Extractor
+> Resize
+> 224 ×224
+> JPEG compression (PixCell only)
+> Center-Crop
+> 224 ×224
+> (CytoSyn only)
+> Val. Tiles
+> 256 ×256
+> FID & other metrics
+
+Fig. 5. Overview of our all-in-one validation pipeline. 
+
+Our results first highlight the extreme sensitivity of both diffusion models and performance metrics to mundane preprocessing pipeline details. Indeed, ac-counting for image size and format, we were able to reduce PixCell’s Inception FD score by an order of magnitude (from 61.5 to 5.5). While the exact magni-tude varied, this behavior was consistent across different extractors for both FD and embeddings similarity. We found that PixCell learned JPEG artifacts in two distinct areas during training: in generated images, and in the conditioning path-way. Indeed, utilizing guidance features computed from JPEG tiles in addition 16 T. Duboudin, X. Fontaine, E. Andrier et al. 
+
+Table 4. FD and cosine similarity for CytoSyn-v2 and PixCell on the val-out and SPARC IBD datasets across different scenarios. Approximate PixCell results were read from the paper’s figures, while precise cosine similarities were obtained from the arXiv v1 version. PixCell results were obtained with a classifier-free guidance scale of 2.0. All images generated with PixCell and CytoSyn-v2 were saved as PNGs.                                                                                            
+
+> FD - val-out
+> Model & validation details ↓H-Optimus-0 Virchow 2 UNI2-h Inception V3 PixCell Original paper’s in-domain results –∼140 –∼8
+> 224px + PNG images (all) - 250 steps –––61.5 256px + PNG images (all) - 250 steps 355.9 368.0 95.6 28.5 256px + PNG images (all) - 50 steps 346.2 368.4 94.4 29.0 256px + JPEG val-out only - 250 steps 210.5 257.3 58.3 10.1 256px + JPEG val-out only - 50 steps 207.8 266.6 58.4 10.4 256px + JPEG images (all) - 50 steps 194.3 206.1 48.0 5.5 CytoSyn-v2 (JPEG val-out )212.4 168.2 76.3 40.4 CytoSyn-v2 62.5 63.5 15.1 3.9 FD - SPARC IBD
+> PixCell - 256px, JPEG images, 50 steps 550.7 668.1 340.5 26.7 CytoSyn-v2 196.5 245.0 83.8 8.6
+> Cosine Similarity - val-out
+> Model & validation details ↓UNI CONCH-v1 Phikon-v2 Virchow 2 PixCell Original paper’s in-domain results 0.70 0.89 0.83 ∼0.8
+> 256px + PNG images (all) - 250 steps 0.54 0.75 0.45 0.72 256px + JPEG val-out only - 250 steps 0.64 0.81 0.75 0.75 256px + JPEG images (all) - 50 steps 0.70 0.84 0.81 0.79 CytoSyn-v2 0.80 0.91 0.81 0.91 Cosine Similarity - SPARC IBD
+> Pixcell - 256px, JPEG images, 50 steps 0.49 0.72 0.71 0.63 CytoSyn-v2 0.76 0.86 0.70 0.84
+
+to a JPEG validation set consistently improved PixCell’s results across all met-rics. Our negative control (CytoSyn-v2 + JPEG val-out ) confirmed that this performance boost seems specifically tied to PixCell’s training pipeline and is not a universal feature-level effect of JPEG compression. In our experiments, we managed to reproduce results close to the original PixCell paper scores, particu-larly for the cosine similarity. We therefore posit that the initial reproducibility gap was primarily driven by discrepancies in image size and file format. The remaining inconsistencies (e.g., our reproduced Inception FD being lower than PixCell’s reported results, while the Virchow 2 FD was higher) may stem from differences of validation sets (PixCell in-domain validation set incorporates data from multiple sources beyond TCGA) or finer pipeline differences (such as the aforementioned metric and resize implementation, the use of mixed-precision, CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 17 
+
+etc). After accounting for differences in data preparation, CytoSyn-v2 consistently outperforms PixCell in generation quality, whether evaluated on the TCGA val-idation set with reproduced results or compared directly against PixCell’s origi-nally published metrics. This advantage is confirmed on the SPARC IBD cohort. While both models exhibit a noticeable performance drop in this OOD scenario, our results demonstrate the superior robustness of our model, seen across met-rics and extractors (e.g., an Inception FD of 8.6 compared to PixCell’s 26.7). These findings do not align with the good generalization capabilities observed on PixCell’s own OOD benchmark on the SPIDER [30] dataset, and further inves-tigation is required to understand this apparently contradictory behavior (possi-ble reasons include different scanner brands, staining protocols, slightly different MPP, etc.). Given that our model was trained exclusively on TCGA diagnostic slides, we attribute its robustness to H0-mini. Indeed, this model stands among the most robust histology feature extractors currently available [10,21,43], and constraining the diffusion model’s latent space to align with H0-mini’s embed-dings likely transferred the extractor’s broad generalization capabilities directly to the generative model. 
+
+# 5 A note on variability 
+
+The implementation by Jiralerspong et al. [19] of the FID score restricts the number of synthetic samples to 50k while keeping the entire real set. Other im-plementations [33] follow this strategy as well. To account for stochasticity in CytoSyn’s inference and tile selection and obtain a standard deviation for our results, we used a bootstrapping procedure (sampling of 50k synthetic tiles from the 100k pool 50 times). We initially performed this analysis for the Fréchet distance across all extractors using CytoSyn. Upon observation that results did not fluctuate significantly (Table 5), and that a similar conclusion was reached independently by PixCell, we did not conduct this analysis for subsequent ex-periments. All results in Table 2 and Table 4 were obtained with the same seed for the synthetic samples selection.                            
+
+> Table 5. CytoSyn’s Mean ±standard deviation obtained with bootstrapping for the Fréchet distance metric, across validation sets and extractors. H-Optimus-0 Virchow-2 UNI2-h Inception-v3 val-out 72 .17 ±0.18 70 .23 ±0.42 16 .67 ±0.05 3.40 ±0.03
+> val-in 58 .27 ±0.18 55 .41 ±0.45 10 .94 ±0.04 2.90 ±0.02 18 T. Duboudin, X. Fontaine, E. Andrier et al.
+
+# 6 Conclusion 
+
+In this work, we introduced CytoSyn, a novel family of foundation diffusion models tailored specifically to histopathology. Outperforming current baselines, our models achieve state-of-the-art results in generating H&E-stained tiles and demonstrate strong out-of-distribution generalization on an unseen clinical indi-cation. Beyond confirming high synthesis quality, we conducted an exploration of different methodological choices regarding both the diffusion models and the benchmarking process and investigated several properties of pathology diffusion models, such as the slide-level overfitting tendency and the out-of-distribution behavior. Through a rigorous comparison with PixCell, our study sheds light on the important sensitivity of generative models and evaluation metrics to seem-ingly trivial technical choices, such as image resizing and compression. Whole-slide image processing pipelines are complex and the downstream impact of their many details is rarely quantified. This work underscores their importance and highlights ongoing reproducibility challenges in the field. We publicly released our models and additional data to encourage the pathology research commu-nity to further investigate the potential of domain-specific generative foundation models. 
+
+# Acknowledgment 
+
+This work was granted access to the High Performance Computing (HPC) re-sources of Meluxina, from LuxProvide, as part of a Euro-HPC grant under the allocation EHPC-AI-2024A04-020, and to the HPC resources of IDRIS under the allocations 2025-A0181012519 made by GENCI. The results published here are in part based on data and biosamples obtained from the IBD Plexus program of the Crohn’s & Colitis Foundation and in part based upon data generated by the TCGA Research Network: https://www.cancer.gov/tcga. 
+
+# References 
+
+> 1. Adjadj, B., Bannier, P.A., Horent, G., Mandela, S., Lyon, A., Schutte, K., Marteau, U., Gaury, V., Dumont, L., Mathieu, T., Belbahri, R., Schmauch, B., Durand, E., Loga, K.V., Gillet, L.: Towards comprehensive cellular characterisation of h&e slides (2025) 2. Albergo, M.S., Boffi, N.M., Vanden-Eijnden, E.: Stochastic interpolants: A unifying framework for flows and diffusions. arXiv preprint arXiv:2303.08797 (2023) 3. Belagali, V., Yellapragada, S., Graikos, A., Kapse, S., Li, Z., Nandi, T.N., Madduri, R.K., Prasanna, P., Saltz, J., Samaras, D.: Gen-sis: Generative self-augmentation improves self-supervised learning. arXiv preprint arXiv:2412.01672 (2024) 4. Campanella, G., Chen, S., Singh, M., Verma, R., Muehlstedt, S., Zeng, J., Stock, A., Croken, M., Veremis, B., Elmas, A., et al.: A clinical benchmark of public self-supervised pathology foundation models. Nature Communications (2025)
+
+CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 19 5. Carrillo-Perez, F., Pizurica, M., Zheng, Y., Nandi, T.N., Madduri, R., Shen, J., Gevaert, O.: Generation of synthetic whole-slide image tiles of tumours from rna-sequencing data via cascaded diffusion models. Nature Biomedical Engineering 
+
+9(3), 320–332 (2025) 6. Chen, R.J., Ding, T., Lu, M.Y., Williamson, D.F., Jaume, G., Song, A.H., Chen, B., Zhang, A., Shao, D., Shaban, M., et al.: Towards a general-purpose foundation model for computational pathology. Nature medicine (2024) 7. Dhariwal, P., Nichol, A.: Diffusion models beat GANs on image synthesis. Advances in neural information processing systems (2021) 8. Edwards, N.J., Oberti, M., Thangudu, R.R., Cai, S., McGarvey, P.B., Jacob, S., Madhavan, S., Ketchum, K.A.: The cptac data portal: a resource for cancer pro-teomics research. Journal of proteome research (2015) 9. Esser, P., Kulal, S., Blattmann, A., Entezari, R., Müller, J., Saini, H., Levi, Y., Lorenz, D., Sauer, A., et al.: Scaling rectified flow transformers for high-resolution image synthesis. In: International Conference on Machine Learning (2024) 10. Filiot, A., Dop, N., Tchita, O., Riou, A., Dubois, R., Peeters, T., Valter, D., Scal-bert, M., Saillard, C., Robin, G., et al.: Distilling foundation models for robust and efficient models in digital pathology. In: International Conference on Medical Image Computing and Computer-Assisted Intervention (2025) 11. Filiot, A., Jacob, P., Mac Kain, A., Saillard, C.: Phikon-v2, a large and public feature extractor for biomarker prediction. arXiv preprint arXiv:2409.09173 (2024) 12. Gao, R., Hoogeboom, E., Heek, J., Bortoli, V.D., Murphy, K.P., Salimans, T.: Diffusion models and gaussian flow matching: Two sides of the same coin. In: The Fourth Blogpost Track at ICLR 2025 (2025), https://openreview.net/forum?id= C8Yyg9wy0s 13. Gatopoulos, I., Känzig, N., Moser, R., Otálora, S., et al.: eva: Evaluation framework for pathology foundation models. In: Medical Imaging with Deep Learning (2024) 14. Graikos, A., Yellapragada, S., Le, M.Q., Kapse, S., Prasanna, P., Saltz, J., Sama-ras, D.: Learned representation-guided diffusion models for large-image generation. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (2024) 15. Heusel, M., Ramsauer, H., Unterthiner, T., Nessler, B., Hochreiter, S.: Gans trained by a two time-scale update rule converge to a local nash equilibrium. Advances in neural information processing systems (2017) 16. Ho, J., Jain, A., Abbeel, P.: Denoising diffusion probabilistic models. Advances in neural information processing systems (2020) 17. Ho, J., Salimans, T.: Classifier-free diffusion guidance. In: NeurIPS 2021 Workshop on Deep Generative Models and Downstream Applications (2021) 18. Jaume, G., Doucet, P., Song, A., Lu, M.Y., Almagro Pérez, C., Wagner, S., Vaidya, A., Chen, R., Williamson, D., Kim, A., et al.: Hest-1k: A dataset for spatial tran-scriptomics and histology image analysis. Advances in Neural Information Process-ing Systems (2024) 19. Jiralerspong, M., Bose, J., Gemp, I., Qin, C., Bachrach, Y., Gidel, G.: Feature likeli-hood divergence: evaluating the generalization of generative models using samples. Advances in Neural Information Processing Systems (2023) 20. Karasikov, M., van Doorn, J., Känzig, N., Erdal Cesur, M., Horlings, H.M., Berke, R., Tang, F., Otálora, S.: Training state-of-the-art pathology foundation models with orders of magnitude less data. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 573–583. Springer (2025) 20 T. Duboudin, X. Fontaine, E. Andrier et al. 21. Kömen, J., de Jong, E.D., Hense, J., Marienwald, H., Dippel, J., Naumann, P., Marcus, E., Ruff, L., Alber, M., Teuwen, J., et al.: Towards robust foundation models for digital pathology. arXiv preprint arXiv:2507.17845 (2025) 22. Kynkäänniemi, T., Karras, T., Laine, S., Lehtinen, J., Aila, T.: Improved precision and recall metric for assessing generative models. Advances in neural information processing systems (2019) 23. Leng, X., Singh, J., Hou, Y., Xing, Z., Xie, S., Zheng, L.: Repa-e: Unlocking vae for end-to-end tuning of latent diffusion transformers. In: Proceedings of the IEEE/CVF International Conference on Computer Vision (2025) 24. Li, B., Li, Y., Eliceiri, K.W.: Dual-stream multiple instance learning network for whole slide image classification with self-supervised contrastive learning. In: Pro-ceedings of the IEEE/CVF conference on computer vision and pattern recognition (2021) 25. Lipman, Y., Chen, R.T., Ben-Hamu, H., Nickel, M., Le, M.: Flow matching for generative modeling. arXiv preprint arXiv:2210.02747 (2022) 26. Liu, X., Gong, C., Liu, Q.: Flow straight and fast: Learning to generate and transfer data with rectified flow. arXiv preprint arXiv:2209.03003 (2022) 27. Lonsdale, J., Thomas, J., Salvatore, M., Phillips, R., Lo, E., Shad, S., Hasz, R., Walters, G., Garcia, F., Young, N., et al.: The genotype-tissue expression (gtex) project. Nature genetics (2013) 28. Lu, M.Y., Chen, B., Williamson, D.F., Chen, R.J., Liang, I., Ding, T., Jaume, G., Odintsov, I., Le, L.P., Gerber, G., et al.: A visual-language foundation model for computational pathology. Nature medicine (2024) 29. Ma, N., Goldstein, M., Albergo, M.S., Boffi, N.M., Vanden-Eijnden, E., Xie, S.: Sit: Exploring flow and diffusion-based generative models with scalable interpolant transformers. In: European Conference on Computer Vision (2024) 30. Nechaev, D., Pchelnikov, A., Ivanova, E.: Spider: a comprehensive multi-organ supervised pathology dataset and baseline models. arXiv preprint arXiv:2503.02876 (2025) 31. Neidlinger, P., El Nahhas, O.S., Muti, H.S., Lenz, T., Hoffmeister, M., Brenner, H., van Treeck, M., Langer, R., Dislich, B., Behrens, H.M., et al.: Benchmark-ing foundation models as feature extractors for weakly supervised computational pathology. Nature biomedical engineering (2025) 32. Oquab, M., Darcet, T., Moutakanni, T., Vo, H., Szafraniec, M., Khalidov, V., Fernandez, P., Haziza, D., Massa, F., El-Nouby, A., et al.: Dinov2: Learning robust visual features without supervision. Transactions on Machine Learning Research Journal (2024) 33. Parmar, G., Zhang, R., Zhu, J.Y.: On aliased resizing and surprising subtleties in gan evaluation. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (2022) 34. Peebles, W., Xie, S.: Scalable diffusion models with transformers. In: Proceedings of the IEEE/CVF international conference on computer vision (2023) 35. Raffals, L.E., Saha, S., Bewtra, M., Norris, C., Dobes, A., Heller, C., O’Charoen, S., Fehlmann, T., et al.: The development and initial findings of a study of a prospective adult research cohort with inflammatory bowel disease (sparc ibd). Inflammatory Bowel Diseases (2021) 36. Rombach, R., Blattmann, A., Lorenz, D., Esser, P., Ommer, B.: High-resolution image synthesis with latent diffusion models. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition (2022) CytoSyn: a Foundation Diffusion Model for Histopathology - Tech Report 21 37. Saillard, C., Jenatton, R., Llinares-López, F., Mariet, Z., Cahané, D., Durand, E., Vert, J.P.: H-optimus-0 (2024), https://github.com/bioptimus/releases/tree/ main/models/h-optimus/v0 38. Shen, Y., Luo, Y., Shen, D., Ke, J.: Randstainna: Learning stain-agnostic fea-tures from histology slides by bridging stain augmentation and normalization. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 212–221. Springer (2022) 39. Sohl-Dickstein, J., Weiss, E., Maheswaranathan, N., Ganguli, S.: Deep unsuper-vised learning using nonequilibrium thermodynamics. In: International conference on machine learning (2015) 40. Song, Y., Ermon, S.: Generative modeling by estimating gradients of the data distribution. Advances in neural information processing systems (2019) 41. Song, Y., Sohl-Dickstein, J., Kingma, D.P., Kumar, A., Ermon, S., Poole, B.: Score-based generative modeling through stochastic differential equations. arXiv preprint arXiv:2011.13456 (2020) 42. Szegedy, C., Vanhoucke, V., Ioffe, S., Shlens, J., Wojna, Z.: Rethinking the incep-tion architecture for computer vision. In: Proceedings of the IEEE conference on computer vision and pattern recognition (2016) 43. Thiringer, E., Gustafsson, F.K., Eriksson, K.L., Rantalainen, M.: Scanner-induced domain shifts undermine the robustness of pathology foundation models. arXiv preprint arXiv:2601.04163 (2026) 44. Tsai, C.C., Chen, Y.C., Lu, C.S.: Test-time stain adaptation with diffusion mod-els for histopathology image classification. In: European Conference on Computer Vision (2024) 45. Weinstein, J.N., Collisson, E.A., Mills, G.B., Shaw, K.R., Ozenberger, B.A., Ellrott, K., Shmulevich, I., Sander, C., Stuart, J.M.: The cancer genome atlas pan-cancer analysis project. Nature genetics (2013) 46. Yellapragada, S., Graikos, A., Li, Z., Triaridis, K., Belagali, V., Kapse, S., Nandi, T.N., Madduri, R.K., Prasanna, P., et al.: Pixcell: A generative foundation model for digital histopathology images. arXiv preprint arXiv:2506.05127 (2025) 47. Yellapragada, S., Graikos, A., Triaridis, K., Prasanna, P., Gupta, R., Saltz, J., Samaras, D.: Zoomldm: Latent diffusion model for multi-scale image generation. In: Proceedings of the Computer Vision and Pattern Recognition Conference (CVPR) (2025) 48. Yu, S., Kwak, S., Jang, H., Jeong, J., Huang, J., Shin, J., Xie, S.: Representation alignment for generation: Training diffusion transformers is easier than you think. In: 13th International Conference on Learning Representations, ICLR 2025 (2025) 49. Zhou, J., Wei, C., Wang, H., Shen, W., Xie, C., Yuille, A., Kong, T.: Image BERT pre-training with online tokenizer. In: International Conference on Learning Rep-resentations (2022) 50. Žigutyt˙ e, L., Lenz, T., Han, T., Hewitt, K.J., Reitsam, N.G., Foersch, S., Carrero, Z.I., Unger, M., Pearson, A.T., Truhn, D., et al.: Counterfactual diffusion models for interpretable morphology-based explanations of artificial intelligence models in pathology. bioRxiv (2025) 51. Zimmermann, E., Vorontsov, E., Viret, J., Casson, A., Zelechowski, M., Shaikovski, G., Tenenholtz, N., Hall, J., Klimstra, D., Yousfi, R., et al.: Virchow2: Scal-ing self-supervised mixed magnification models in pathology. arXiv preprint arXiv:2408.00738 (2024)

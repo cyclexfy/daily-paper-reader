@@ -1,0 +1,869 @@
+Title: Beyond Attention Heatmaps: How to Get Better Explanations for Multiple Instance Learning Models in Histopathology
+
+URL Source: https://arxiv.org/pdf/2603.08328v1
+
+Published Time: Tue, 10 Mar 2026 02:25:59 GMT
+
+Number of Pages: 45
+
+Markdown Content:
+# Beyond Attention Heatmaps: How to Get Better Explanations for Multiple Instance Learning Models in Histopathology 
+
+Mina Jamshidi Idaji 1,2,∗,† Julius Hense 1,2,∗ Tom Neuh¨ auser 1,2 Augustin Krause 2
+
+Yanqing Luo 2 Oliver Eberle 1,2 Thomas Schnake 3,4,5 Laure Ciernik 1,2
+
+Farnoush Rezaei Jafari 1,2 Reza Vahidimajd 6 Jonas Dippel 1,2,7 Christoph Walz 8
+
+Frederick Klauschen 8,9,10 Andreas Mock 8,9 Klaus-Robert M ¨ uller 1,2,11 ,12 1Berlin Institute for the Foundations of Learning and Data, Berlin, Germany 
+
+> 2
+
+Machine Learning Group, Technische Universit¨ at Berlin, Berlin, Germany  
+
+> 3
+
+Department of Chemistry, Chemical Physics Theory Group, University of Toronto, Canada  
+
+> 4
+
+Vector Institute for Artificial Intelligence, Toronto, Canada  
+
+> 5
+
+Acceleration Consortium, University of Toronto, Canada 
+
+> 6
+
+Department of Computer Science and Engineering, The Chinese University of Hong Kong 
+
+> 7
+
+Aignostics GmbH, Berlin, Germany 
+
+> 8
+
+Institute of Pathology, Ludwig Maximilian University, Munich, Germany 
+
+> 9
+
+German Cancer Research Center, Heidelberg, and German Cancer Consortium, Munich, Germany 
+
+> 10
+
+Institute of Pathology, Charit´ e Universit¨ atsmedizin, Berlin, Germany 
+
+> 11
+
+Department of Artificial Intelligence, Korea University, Seoul, Korea 
+
+> 12
+
+Max-Planck Institute for Informatics, Saarbr¨ ucken, Germany 
+
+> ∗
+
+Equal contribution †mina.jamshidi.idaji@tu-berlin.de 
+
+## Abstract 
+
+Multiple instance learning (MIL) has enabled substantial progress in computa-tional histopathology, where a large amount of patches from gigapixel whole slide images are aggregated into slide-level predictions. Heatmaps are widely used to validate MIL models and to discover tissue biomarkers. Yet, the validity of these heatmaps has barely been investigated. In this work, we introduce a general framework for evaluating the quality of MIL heatmaps without requiring addi-tional labels. We conduct a large-scale benchmark experiment to assess six expla-nation methods across histopathology task types (classification, regression, sur-vival), MIL model architectures (Attention-, Transformer-, Mamba-based), and patch encoder backbones (UNI2, Virchow2). Our results show that explanation quality mostly depends on MIL model architecture and task type, with pertur-bation (“Single”), layer-wise relevance propagation (LRP), and integrated gradi-ents (IG) consistently outperforming attention-based and gradient-based saliency heatmaps, which often fail to reflect model decision mechanisms. We further demonstrate the advanced capabilities of the best-performing explanation meth-ods: (i) We provide a proof-of-concept that MIL heatmaps of a bulk gene ex-pression prediction model can be correlated with spatial transcriptomics for bi-ological validation, and (ii) showcase the discovery of distinct model strategies for predicting human papillomavirus (HPV) infection from head and neck cancer slides. Our work highlights the importance of validating MIL heatmaps and es-tablishes that improved explainability can enable more reliable model validation and yield biological insights, making a case for a broader adoption of explain-able AI in digital pathology. Our code is provided in a public GitHub repository: 
+
+https://github.com/bifold-pathomics/xMIL/tree/xmil-journal .
+
+Preprint. 
+
+> arXiv:2603.08328v1 [cs.CV] 9 Mar 2026
+
+## 1 Introduction 
+
+Medical machine learning (ML) models frequently operate on heterogeneous and high-dimensional patient input data where only a subset of the available information is relevant to a prediction task. Computational histopathology exemplifies this setting: ML models must identify and aggregate predictive features from gigapixel digital whole slide images (WSIs), which are typically partitioned into thousands of patches, each representing small, potentially informative tissue regions. This setup is often approached via multiple instance learning (MIL), a popular weakly supervised learning framework in which a label is predicted from a bag of unlabeled instances [1, 2, 3, 4, 5, 6]. MIL models can learn to detect diseases [7, 8] or classify tumor subtypes [9, 10], aiming to support pathologists in their routine diagnostic workflows. They have further demonstrated remarkable suc-cess at tasks that even human pathologists cannot perform reliably due to a lack of commonly known histopathological markers associated with the target. Notable examples include the prediction of clinically relevant molecular biomarkers directly from whole slide images [11, 12] such as homolo-gous recombination deficiency (HRD) [13, 14, 15]), micro-satellite instability (MSI) [1, 16, 17, 18] or genetic alterations [19, 20]. Other studies predicted clinical outcomes like survival [21, 22], often from both WSIs and high-dimensional molecular profiles [23, 24, 25]. Recently, MIL has also been used for survival modeling from spatial transcriptomics data [26]. To expose which features in the input data are relevant, the MIL model prediction can be mapped back into a spatial heatmap that highlights important areas in the slide. Such heatmaps have been used for model validation, i.e., to confirm that the ML model uses tissue features that correspond to known biological patterns and the expectations of human experts [7, 9, 27, 28, 29]. This is of profound importance in histopathology, where models operating in high-stakes environments are prone to relying on artifacts, staining differences, or demographic confounders instead of biological signal [30, 31, 32, 33, 34, 35, 36, 37]. Furthermore, heatmaps can enable biomarker discovery, i.e., to uncover previously unknown associations between highlighted features and the prediction target [38, 39, 40, 41, 42, 43]. For example, they can reveal a morphological pattern present in a subgroup of cancer patients predictive of higher survival risk [44]. Another example is the study by [45], which used heatmaps to identify human-interpretable histopathological markers of TGF β-CAF, a gene expression signature associated with immunotherapy treatment response. MIL heatmaps can be computed via various methods (referred to as explanation methods ). The most common approach is to extract attention heatmaps directly from the attention values of the model, which are readily available in most MIL architectures [46, 47, 48, 3, 10, 6, 49]. Aside from attention heatmaps, previous works used integrated gradients [44, 38, 29, 50], layer-wise relevance propagation [51, 52, 53], or perturbation-based methods [54, 18]. Others designed intrinsically interpretable MIL model architectures, where heatmaps can be directly extracted from the prediction scores of the MIL model [55] (more related work in Section A). Although heatmaps are widely used in MIL, their validity and quality are typically not evaluated. Specifically, it remains unclear how to assess whether MIL heatmaps capture the model strategy and how to systematically compare explanation methods. Yet, the need for heatmap evaluation and explanation method comparison is pressing. First, various works have reported conceptual and prac-tical limitations of attention heatmaps in accurately reflecting model predictions [56, 57, 55, 58]. Second, reliance on unvalidated visualizations may lead to confirmation bias, where AI practition-ers or medical experts interpret heatmaps in ways that align with their expectations, regardless of whether the explanation faithfully reflects the model output [59]. Third, different explanation meth-ods can also yield substantially different heatmaps [60, 61, 62]. However, the current literature lacks guidance on when to apply which explanation method. To address this gap, we present a framework to systematically evaluate heatmaps and compare expla-nation methods in multiple instance learning, and conduct a large-scale benchmarking study across a wide range of histopathology tasks and model architectures. Specifically, our work makes the following contributions: • We present patch flipping as a practical approach for assessing the faithfulness of MIL heatmaps to the model strategy and provide statistical measures for principled explanation method comparison. Our evaluation framework is model-agnostic and does not require any extra annotations (Section 3.3). 2• Previous works mostly apply a selected explanation method in the context of a specific application. In contrast, we implement six explanation methods (attention-, perturbation-, and gradient-based) across task types (classification, regression, and survival) and MIL ar-chitectures (Attention-, Transformer-, and Mamba-based) (Section 3.2). We conduct large-scale experimental comparisons on ten histopathology datasets, revealing that (1) attention heatmaps are unfaithful to the model strategy in almost all cases, (2) the best explanation method depends mostly on task type and architecture, and (3) a group of explanation meth-ods consistently outperformed the others: Single, LRP, and IG (Section 4). • We demonstrate advanced capabilities of the best-performing explanation methods in two practical use cases. First, we establish that heatmaps of a bulk gene expression prediction model can correlate with ground-truth spatial transcriptomics expression, encompassing a novel way of biologically validating MIL models for biomarker prediction (Section 5). Second, we combine LRP heatmaps with interpretable tissue features to discover distinct model strategies for predicting human papillomavirus (HPV) infection from head and neck cancer slides (Section 6). Our work significantly extends our previous conference paper [51]. Regarding our methodology, we generalized the explanation and evaluation methods to be applicable to any task type and added sta-tistical tools for principled explanation method comparison. We further considerably expanded the conceptual and experimental scope by including regression and survival tasks, Mamba-based MIL, six new evaluation datasets, and two practical use cases. Whereas the conference paper introduced xMIL-LRP and formalized the xMIL framework, this manuscript establishes a unified evaluation and selection framework for MIL explanations across architectures and clinical endpoints. 
+
+## 2 Background: Multiple instance learning (MIL) 
+
+In this section, we provide a brief overview of the relevant MIL background. 
+
+2.1 MIL formulations 
+
+In MIL, a sample is represented by a bag of instances X = {x1, · · · , xN } with a bag label y, where 
+
+xn ∈ RD is the feature vector representing the n-th instance. The number of instances per bag N
+
+may vary across samples. The associated bag-level label y reflects a target outcome for the entire bag. In the original binary formulation [2, 3, 4], it is assumed that binary instance labels yn ∈ { 0, 1}
+
+exist but are not necessarily known, and the binary bag label is 1 if and only if at least one instance label is 1, i.e., y = max n{yn}.Modern MIL applications in histopathology extend this to multi-class classification (y ∈{1, . . . , C }), multi-label settings ( y ∈ { 0, 1}C ), survival prediction (where y encodes time-to-event and censoring), and regression tasks ( y ∈ R). To reflect the complexities of real-world histopathol-ogy tasks, we previously introduced explainable MIL (xMIL, [51]), a more general XAI-based formulation of MIL. Unlike classical MIL formulations, xMIL is not restricted to a specific label structure, but instead assumes that there is some hidden bag-level aggregation function A(X) = y
+
+of arbitrary shape, where y may be categorical, continuous, or time-to-event. In this work, we adopt the general xMIL formulation. 
+
+2.2 MIL pipelines 
+
+MIL pipelines in histopathology typically consist of three components as illustrated in Figure 1-a: a patch encoder extracting embeddings for each patch (=instance) of a whole slide image (=bag), an aggregation model fusing the patch embeddings into a slide embedding, and a task-specific predic-tion head inferring the final slide-level model prediction. Each model is then trained by optimizing a task-specific loss function. In the following, we describe these components in detail. 
+
+2.2.1 Patch encoder 
+
+The patch encoder module can range from predefined, hand-crafted feature extractors to pretrained deep neural network backbones, including domain-specific foundation models. In histopathology, foundation models have become powerful feature extractors suitable for a wide range of tasks [63, 3Whole Slide Image Patches  
+
+> ...
+> Patch Embeddings
+> ...
+> Model Prediction Slide Embedding
+> Preprocessing Task head Aggregation Patch encoder
+> Explanation Method
+> Heatmap Patch Scores
+> Regression Survival Classification Grad2 GxI Attention LRP Single IG Virchow2 UNI2 TransMIL MambaMIL AttentionMIL
+
+ab Classification Head  
+
+> Class logits Class 1 Class M
+> FNN  .. ...
+> Regression Head
+> FNN
+> Regression score
+> Survival Head
+> Hazard probabilities Survival probabilities Risk score
+> FNN
+
+Figure 1: Overview of our explanation pipeline for multiple instance learning (MIL) . a Block diagram of a general MIL approach to make predictions directly from whole slide images, and to obtain heatmaps to interpret the model predictions. The explanation methods produce patch-wise scores by explaining (only) the task head and the aggregation model, but not the patch encoder. In this work, we assess six explanation methods in the context of two patch encoders, three aggrega-tion model architectures, and three types of prediction heads. b Composition of the task heads. In the survival head, the discrete-time model predicts hazard probabilities {hk} for survival time in-tervals k = 1 , · · · , K , and subsequently aggregates them into a patient risk score. See Section B for details. σ = sigmoid function; FNN = feedforward neural network. 64, 65, 66, 67]. The weights of the backbone are often frozen, allowing for a more efficient training of the aggregation block. Optionally, the backbone can be finetuned. In this work, we considered the recent UNI2 1 [64] and Virchow2 [68] foundation models as feature extractors, which have achieved competitive results in previous performance and robustness benchmarks [69, 70, 71, 72, 35, 73, 74]. 
+
+2.2.2 Aggregation 
+
+For the aggregation model (or MIL model), we include three types of widely used architectures, which we consider prototypical MIL models: Attention MIL, Transformer-based MIL, and Mamba-based MIL. In Attention MIL (AttnMIL) [3], a popular MIL model in histopathology [15, 75, 10, 76], a bag embedding is computed as an attention-weighted average of instance-level embeddings. In Transformer-based MIL (TransMIL 2), instances are treated as tokens and passed through self-attention layers of Transformer blocks, modeling arbitrary pairwise interactions between the in-stances [77, 6]. Several studies in digital histopathology have adopted Transformer-based models for various prediction tasks [23, 78, 76, 18]. As an alternative to Transformer-based MIL, [79] pro-posed MambaMIL, allowing linear scaling in sequence length without resorting to approximations of self-attention. Instance-level embeddings are first processed by a Mamba layer [80], which mod-els interactions between instances, and then aggregated by attention pooling to obtain a bag-level 
+
+> 1
+
+https://huggingface.co/MahmoodLab/UNI2-h 
+
+> 2
+
+The original Transformer-based MIL model proposed in [6] is also referred to as TransMIL. Here, for brevity, we refer to general Transformer-based MIL as TransMIL, although it may differ in part from the orig-inal architecture proposed by [6]. 
+
+4representation. All of these aggregation models can compute non-linear feature interactions between the instance information, which makes the derivation of meaningful explanations non-trivial. Numerous variations of the original AttnMIL, TransMIL, and MambaMIL architectures have been proposed (see Section A). In this work, we focus on explaining prototypical architectures, expecting that our insights will transfer to such variations. 
+
+2.2.3 Task head 
+
+MIL has been used in almost all types of machine learning tasks on WSI images, including clas-sification, regression [15, 75], and survival prediction [23, 21]. Each task requires a task-specific prediction head (overview in Figure 1-b), which also demands task-specific adaptations in the ex-planation methods (see below). For classification, a shallow feedforward neural network (FNN) — often just a linear layer — is used to map the bag representation to the class logits. In regression, the FNN outputs a single node for predicting the continuous target. In a survival prediction task, each sample is accompanied by a continuous target defining the event time (overall survival time, disease-free survival time, relapse time, etc.) as well as a binary censorship variable, which defines whether the event is observed for this sample. We follow a discrete-time survival modeling where the time span is divided into 
+
+K time intervals, since it enables effective model training even with small batch sizes [23, 81]. Given a bag of instances X associated with the discretized event time T , the discrete-time survival probabilities are modeled as Sk = fsurvival (k | X) = P (T > k | X) = Qku=1 (1 − hu), where 
+
+hk = fhazard (k | X) = P (T = k | T ≥ k, X ) is the hazard function and is modeled via a MIL model with a linear head with K outputs connected to sigmoid functions. The final output of a MIL survival model is a risk score r = − PKk=1 fsurvival (k | X). In Section B, we provide a more detailed description of the above-mentioned discrete-time survival modeling, comparing it to the Cox proportional hazards model [82, 83] and details of the log-likelihood cost function for training such a survival model [81]. 
+
+## 3 Methods 
+
+3.1 Overview 
+
+Before discussing the methodological details, we provide a high-level overview of the evaluation framework proposed in this work. One of the central objectives of this study is to show how to identify the most reliable method for explaining the predictions of a MIL model. Figure 2 outlines our proposed evaluation pipeline: (1) The process begins with training and evaluating a MIL model for a specific prediction task—classification, regression, or survival (Section 2.2). 3 (2) For each whole-slide image (WSI), slide-level heatmaps are generated using multiple explanation methods (Section 3.2). Each heatmap is flattened into an explanation score vector over the patches and (3) evaluated using a patch-flipping perturbation test (Section 3.3): patches are progressively removed based on ascending and descending orderings of their relevance scores, the model predictions are recomputed for the modified bags of patches, and the area between the resulting perturbation curves is calculated as the evaluation score (higher values indicate more faithful heatmaps). (4) This score is computed per slide and heatmap, enabling cohort-level statistical comparison of heatmaps via effect size and rank-based analyses (Section 3.3). (5) Based on these comparisons, the best-suited method is selected, and its heatmaps can then be used for qualitative or quantitative downstream analyses, e.g., model validation and generating insights into the model strategy and the underlying biology. 
+
+3.2 Explaining multiple instance learning 
+
+Explaining a MIL model involves assigning an explanation score to each instance within a bag. In histopathology, where instances correspond to patches extracted from WSIs, these explanation scores can be spatially arranged to form a heatmap overlaid on the original slide (see Figure 1-a). Note that only explaining the task head and the aggregation model is sufficient to obtain instance-level explanation scores; the patch encoder can be ignored (unless more fine-grained, pixel-level   
+
+> 3We emphasize that in this work, we do not focus on how to train good MIL models, but on the explana-tion of these models. For this, we only require MIL models that achieve a reasonable predictive performance.
+
+5Figure 2: Overview of the evaluation framework for comparing heatmaps and explanation methods in multiple instance learning (MIL) .heatmaps are desired). Formally, for an aggregation model f and a bag X = {x1, . . . , xN } ⊂ RD ,a heatmap is an ordered set H = {ϵ1, . . . , ϵ N } ⊂ R which is linked to the bag. That is, there is a heatmapping function Hf : X → H, such that Hf (xn|X) = ϵn. Note that the explanation score (or heatmap score) ϵn depends on the whole bag X, i.e., it is context-sensitive. The xMIL framework from our previous work [51] formally integrates explanation scores into MIL and formulates desiderata for explanation heatmaps. Specifically, heatmaps should be context-sensitive , meaning patch relevance depends on both local features and their relations to other patches. They must distinguish positive from negative evidence , showing whether regions support or contra-dict the prediction. Finally, they should preserve ordering , with higher scores reflecting stronger contributions to the decision. 
+
+3.2.1 Explanation methods 
+
+In this section, we provide a brief overview of the six explanation methods we employed in this work. These methods cover frequent practices for explaining MIL models in previous works on histopathology applications as well as in XAI research in general. We provide more details in Section C. 
+
+Attention heatmaps (Attn) represent the area a MIL model focuses on to make a prediction. The attention heatmap scores are always positive and consist of either the raw attention weights (as in AttnMIL and MambaMIL) or an aggregated version [84] if multiple attention blocks are used (as in Transformer-based MIL). 
+
+Gradient-based methods are another family of XAI methods and utilize gradient information to derive feature relevance scores. We use Integrated Gradients (IG) [85] as a more sophisticated method, as well as Gradient × Input (G ×I) [86, 87, 88] and saliency maps of squared gradients 
+
+(Grad2) as more naive baselines. 6Perturbation-based methods estimate instance importance by systematically modifying the input bag and measuring the effect on the model output. We adopt the single-instance approach (referred to as Single ), where the model prediction for a bag consisting of a single instance is used as an explanation score for this instance [54]. 
+
+Layer-wise relevance propagation (LRP , [89, 90, 91]) backpropagates the model’s output relevance to individual patches by redistributing prediction evidence through the network based on relevance conservation rules (see Section C.2 for details). [51] have adapted LRP to MIL models. 
+
+3.2.2 Task-specific explanations 
+
+The task type (classification, regression, or survival) and the corresponding structure of the MIL model task head (see Section 2.2) influence how explanations can be computed and what information the resulting heatmaps provide. 
+
+Classification Classification models predict a score for each of the potential classes. This en-ables computing a class-specific explanation, measuring which areas in the slide are evidence for or against a particular class. Attention heatmaps highlight focus regions of the MIL model without dis-tinguishing which class these regions are associated with. However, all other explanation methods produce class-specific heatmaps. For gradient-based methods and LRP, the backpropagation starts from one of the model logits. For Single, changes in the softmax score of the selected class are measured. 
+
+Regression The output of regression MIL models is a real-valued score estimating a continuous target. For a heatmap to be meaningful in this context, [92] argued that a user-defined reference value is required: the heatmap then indicates which areas in the slide are evidence for a prediction score higher or lower than the reference value. The reference value can be derived from the train-ing data (e.g., the median score) or chosen from expert knowledge. For instance, the homologous recombination deficiency (HRD) biomarker has a clinically validated cutoff of 42 [15, 14]. For computing heatmaps, we adopt the retraining strategy introduced by [92], i.e., (re-)training the MIL regression model to predict the difference between the target and the reference value and explaining this difference prediction. Subsequently, we use the predicted difference score as the starting point for backpropagation in gradient-based methods and LRP, and for observing changes in perturbation-based methods. This approach also affects attention heatmaps: after retraining, they highlight the focus areas of the MIL model to decide whether the prediction score is higher or lower than the reference value. 
+
+Survival For discrete-time survival models, we aim to explain the risk score (see Section 2.2 and Equation 5 of the supplementary material). In this context, heatmaps outline regions providing evi-dence for high survival risk or low survival risk; specifically, higher or lower survival risk than the model-inherent reference hazard at hk = 0 .5 for all the time intervals; i.e., 50% survival chance per survival time interval (see B.1 for details). We use the risk score as the starting point for back-propagation in gradient-based methods, and for observing changes in perturbation-based methods. For LRP, we developed a composite explanation approach. We first apply Gradient × Input to the risk score with respect to the model logits before the sigmoid ( lk · ∂r/l k), which yields a relevance vector of size K corresponding to the hazard logits. This relevance vector is then propagated back to the input patches using the LRP rules (see Section 3.2.1). Notice that for attention heatmaps, it is conceptually unclear how the focus areas correspond to the predicted survival risk. 
+
+3.3 Evaluating MIL explanations 
+
+To assess how accurately a heatmap reflects the model prediction, we adapted the concept of faith-fulness from XAI research to the MIL setting [93, 51, 62]. The original idea of a faithfulness ex-periment is to iteratively occlude features in the input based on their explanation score ranking and measure the resulting change in the model prediction. Crucially, this occlusion should not cause the input to go out of distribution, which makes the choice of inpainting method essential (i.e., how to replace an occluded feature). We argue that this challenge does not arise in MIL: since a MIL model naturally handles varying bag sizes, patches can simply be removed from the bag without creating an out-of-distribution scenario. Therefore, we progressively remove patches from a bag and record 7Figure 3: The patch flipping procedure . Patches are sorted based on their heatmap scores either in ascending or descending order. They are then grouped into 100 mini-bags. The mini-bags are removed progressively from the main bag of patches, and the remaining patches are fed into the model. Two perturbation curves (model prediction vs. dropped fraction) are formed for the two orderings. A larger area under the curve (AUC) of the ascending (Asc.) curve is desired, whereas a smaller AUC of the descending (Desc.) curve is better. Therefore, the area between the two curves (called Symmetric Relevance Gain–SRG) quantifies the faithfulness of the heatmap. A larger SRG indicates a more faithful heatmap. the resulting model predictions to compute an evaluation metric that quantifies the heatmap quality (referred to as patch flipping ). Notably, this evaluation framework does not require any ground truth knowledge and can always be employed to assess how well a heatmap reflects the model output in any specific application. 
+
+3.3.1 Patch flipping 
+
+Figure 3 visualizes the patch flipping procedure. Given a bag X = {x1, · · · , xN } and a heatmap function H that produces explanation scores for the instances in X, i.e., H(xn) = ϵn, we first rank the patches using a ranking function π and then partition them into 100 ordered sets Eπ =(Eπ 
+
+> 1
+
+, · · · , E π
+
+> 100
+
+). Eπi contains all patches whose ranked scores fall between the (100 − i)-th and 
+
+(100 − i + 1) -th percentiles of the ranked explanation scores {π(ϵn)}. For example, Eπ 
+
+> 1
+
+is the set of top 1% of patches according to the ranking π.Following the region perturbation strategy introduced by [62] and [93], we progressively exclude the patches based on the chosen ordering π. Starting from Eπ 
+
+> 1
+
+and moving sequentially to Eπ
+
+> 100
+
+,we remove each partition and monitor the model’s output. Formally, the perturbation procedure is defined as: Xπ 
+
+> 0
+
+= XXπm =
+
+> 100
+
+[
+
+> i=m+1
+
+Eπi , m = 1 , · · · , 100 (1) For m = 100 , all patches are removed and therefore, X(100) is an empty set, for which we pass an array of zeros to the model. 8To comprehensively assess the effect of explanation score ordering, we perform this partitioning for two orderings: once with the explanation scores sorted in descending order (most relevant to least relevant) and once in ascending order (least relevant to most relevant). Using the perturbed bags, defined in Equation 1, we can construct a curve f (Xπi ) vs. i, for each ordering π. The area under this perturbation curve (AUPC) is then computed as: AUPC (X, H, π ) = 1100 
+
+> 100
+
+X
+
+> m=0
+
+f (Xπm) (2) where f is the model’s function (aggregation model + task head). For a faithful heatmap H, we expect a rapid change in model output when the most relevant patches are removed first; therefore, a low AUPC (X, H, π = descending ) is desired. Conversely, when the least relevant patches are removed first, the model output should change more slowly, implying that a higher AUPC (X, H, π = ascending ) is preferred. Consequently, [93] define the Symmetric Relevance Gain (SRG) as a metric for evaluating heatmap quality, which captures the gap between these two perturbation curves: SRG (X, H) = AUPC (π = ascending ) − AUPC (π = descending ) (3) A larger value for SRG indicates a more faithful heatmap. In the above equation, AUPC (π) denotes the shorthand notation for AUPC (X, H, π ) for brevity. 
+
+3.3.2 Statistical comparison of explanation methods 
+
+The patch flipping analysis results in one SRG score for each heatmap. For an aggregated faith-fulness comparison between explanation methods across a whole test cohort of WSIs, we propose two complementary analyses, as described below. In both cases, we adopt a within-subject exper-imental design, where each slide provides SRG scores for multiple explanation methods (repeated measurements). 
+
+Pairwise comparisons We perform a pairwise comparison between explanation methods, allow-ing us to quantify performance gaps. This approach enables us to group methods with similar levels of faithfulness. We test the pairwise differences among the explanation methods within each experi-mental configuration using Wilcoxon’s signed rank test. We report the p-values (FDR corrected) and test’s effect size [94]. With this approach, we are able to aggregate the effect sizes across different experimental settings. The sign of the effect size indicates whether the first method yields higher SRG scores than the sec-ond (positive sign) or lower (negative sign). As an inferential statistical tool, we adopt conventional thresholds used for Cohen’s d ( |r| < 0.2: negligible; 0.2–0 .5: weak to moderate; > 0.5: strong, with r referring to the effect size). To verify that our conclusions are not driven by a specific effect size definition, we additionally repeat all aggregated pairwise analyses using a robust standardized median based on the median absolute deviation (median/MAD) (see Section E). 
+
+Rank-based comparisons To accentuate fine-grained differences between explanation methods for method selection, we additionally adopt a within-subject ranking strategy. For each slide, we assign a rank to each explanation method according to its SRG score (highest SRG = rank 1, lowest SRG = last rank). In our experiments, the maximum rank can be seven (six methods + random baseline). We then average these rank scores across all slides in the test set, resulting in a Mean Rank Score (MRS) per explanation method. A lower MRS for an explanation method indicates that it was ranked better on average for all slides, independent of the effective differences across expla-nation methods. The MRS allows us to identify subtle but consistent quality differences between the heatmaps, even if they are small in absolute effect size. Compared to pairwise statistical tests with continuous effect sizes, the rank-based approach discretizes the differences among the explanation methods and, therefore, provides a more straightforward selection approach. 9a Classification b Regression            
+
+> Non-tumor 239 (59.9%) Tumor 160 (40.1%) LUSC 478 (50.0%) LUAD 478 (50.0%) Negative 370 (89.8%) Positive 42 (10.2%) No mutation 226 (48.0%) With mutation 245 (52.0%)
+> UNI2 Virchow2 TransMIL Attention MIL MambaMIL TransMIL Attention MIL MambaMIL TransMIL Attention MIL MambaMIL TransMIL Attention MIL MambaMIL
+
+CAMELYON16 tumor detection BRCA AURKA expression prediction BRCA GBMLGG KIRC COADREAD NSCLC subtyping HNSCC HPV prediction LUAD TP53 mutation               
+
+> TransMIL Attention MIL MambaMIL
+> UNI2 Virchow2
+> TransMIL Attention MIL MambaMIL TransMIL Attention MIL MambaMIL TransMIL Attention MIL MambaMIL TransMIL Attention MIL MambaMIL
+> UNI2 Virchow2 TransMIL Attention MIL MambaMIL
+> c Survival modeling
+
+BRCA HRD prediction    
+
+> HRD difference to clinical reference (42)
+> Overall survival (months) Overall survival (months) Overall survival (months) Overall survival (months) AURKA expression Count Count Count Count  Count Spearman correlation Count AUROC AUROC AUROC AUROC C-Index C-Index C-Index C-Index Spearman correlation
+
+Figure 4: Datasets and model performances. The bar plots in each panel show the mean test performance over the cross-validation folds with the error bars depicting the standard deviations (see Tables 2 and 3 for numerical model performance results). For the classification tasks in panel (a), the ratio of the cases in each class is depicted. In panels (b) and (c), the endpoint target’s his-tograms are illustrated. 
+
+## 4 Large-scale evaluation of MIL heatmaps 
+
+4.1 Experimental design 
+
+We designed a repeated-measures experimental study to evaluate the faithfulness of the heatmaps of six explanation methods (see Section 3.2.1) across a wide range of histopathology applications and MIL pipelines. Specifically, we considered three predictive task types: classification, regression, and survival analysis. For each task type, multiple datasets were used, covering various practically relevant use cases and levels of difficulty (overview in Figure 4, details in Section D). We extracted patches at 20x magnification from WSI tissue regions and derived patch-level feature vectors from the (frozen) UNI2 and Virchow2 foundation models. We trained AttnMIL, TransMIL, and MambaMIL models (see Section 2.2) using hyper-parameter optimization and a 5-fold cross-validation scheme. We applied the best-performing model checkpoints to held-out test sets, and computed heatmaps for all explanation methods on all test set slides. For each heatmap, we then conducted a patch flipping experiment (see Section 3.3) and used the resulting SRG scores to com-pare the faithfulness of the explanation methods as described in Section 3.3.2. Experimental details are provided in Section D. 10 (1) Regression, AttnMIL Prediction: 1.79 (Label: 2.0) Single LRP Attn    
+
+> (2) Survival, TransMIL Risk Score: -0.63 (Label: 21.22) Single LRP Attn
+> (1) Regression, BRCA HRD, AttnMIL, UNI2 Distributions
+> -10 -20 -30 -40 40 30 20 010 LRP IG Single Attn GxI Grad2 Rand
+> SRG
+> Pairwise Differences 1.5
+> 0.5 0.2
+> 0.0
+> -0.2
+> -0.5 -1.5
+> MRS
+> Ranking
+
+a (2) Survival, KIRC OS, TransMIL, Virchow2 1.5  
+
+> 0.5 0.2
+> 0.0
+> -0.2
+> -0.5 -1.5
+> MRS
+> Ranking
+> 43201-1 -2 -3 -4 LRP IG Single Attn GxI Grad2 Rand SRG
+> Distributions Pairwise Differences
+
+bcd
+
+> LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand
+
+Figure 5: Comparison of explanation methods for two example settings . a/b Faithfulness comparison from three complementary perspectives: ( Left ) The distribution of Symmetric Rele-vance Gain (SRG) faithfulness scores per explanation method computed for each slide in the test set. ( Center ) Wilcoxon’s signed-rank test effect sizes comparing SRG scores between explana-tion methods for each slide in the test set. Colors and marker sizes indicate effect size magnitude as shown on the colorbar. Triangle, square, and circle markers are used to denote the negligible (< 0.2), weak to moderate ( 0.2 − 0.5), and moderate to strong ( ≥ 0.5) effect sizes. These ef-fect size scores assess the magnitude of the faithfulness differences between explanation methods. (Right ) Mean Rank Score (MRS) per explanation method (vertical axis). Lower averaged MRS = better position in the faithfulness ranking . c/d Heatmaps for example slides from the two experi-mental settings. For LRP, values greater/lower than zero indicate evidence for/against the model prediction (visualized by shades of red/blue). Single and Attention (Attn) have no natural boundary between positive and negative evidence, but only provide an ordering (visualized by shades of red). In the HRD regression task, however, the 0 value for Single may be interpreted as such a boundary; therefore, we visualize this heatmap using a red/blue color scheme as well. 
+
+4.2 Model performances 
+
+In this work, our objective is not to compare model performance with prior studies but to evaluate the explanation methods themselves. Consequently, small differences in model performances are not central to our analysis, as a sufficiently well-performing model is adequate for our purposes. Since our evaluation tasks covered different levels of difficulty, the mean model performances varied strongly between tasks (Figure 4, Tables 2, 3). In CAMELYON tumor detection, for example, almost perfect AUCs were reached (0.97-1.00), whereas LUAD TP53 mutation prediction AUCs only ranged from 0.62-0.71. The performance differences between backbones and MIL models were mostly small and often negligible. TransMIL sometimes yielded considerably better results (e.g., in LUAD TP53 classification, BRCA survival prediction), showcasing its high performance potential. At the same time, MambaMIL and TransMIL sometimes reached considerably lower performance than AttnMIL, likely due to higher sensitivity to (suboptimal) hyperparameter choices. 11 4.3 Comparison of MIL heatmaps in example use cases 
+
+Our heatmap evaluation framework (Section 3.3) enables a quantitative comparison of explanation methods. Notably, which explanation method performs best depends on many factors, including the dataset and the MIL model. In this section, we demonstrate our methodology for explanation method comparison in two selected applications. We consider two experimental settings: (1) an AttnMIL regression model with a UNI2 backbone predicting HRD in TCGA BRCA (Spearman correlation: 
+
+0.63 ± 0.03 ), and (2) a TransMIL model with Virchow2 backbone predicting overall survival in TCGA KIRC (C-Index: 0.70 ± 0.03 ). First, we visualized the SRG scores for all test set slide heatmaps per explanation method (Fig. 5-a/b, left). In both settings, the heatmaps of Single, LRP, IG, and G ×I achieved SRG scores much higher than random for almost all slides. In contrast, Attn and Grad2 heatmaps were not more faithful than random in many cases. The SRG score distributions of Single, LRP, IG, and G ×I had similar appearances, respectively. To understand whether the faithfulness differences between the explanation methods were substan-tial, we analyzed the Wilcoxon’s signed rank test’s effect sizes between the methods (Figure 5-a/b, center). In the AttnMIL regression model, Single and LRP performed better than all other methods with a moderate to strong effect size. The differences between those methods, however, were negligible. In the TransMIL survival model, LRP was better than Single (weak to moderate effect size) and IG (moderate to strong effect size). The three methods were better than G ×I, Attn, Grad2, Random with moderate to strong effect sizes. These results could be reproduced using a robust standardized median based on the median absolute deviation (median/MAD; see Section E). In addition, to understand the consistency of faithfulness differences across slides, we conducted a ranking-based analysis (Figure 5-a/b, right). Though SRG score differences were small (see above), Single consistently outperformed LRP in the AttnMIL regression setting (MRS: 1.5 vs. 2.1), while LRP consistently outperformed Single and IG in the TransMIL survival setting (MRS: 1.4 vs. 2.3). Consequently, in terms of faithfulness, Single and LRP were the most recommendable methods for the AttnMIL regression model for BRCA HRD with UNI2 backbone, with Single performing slightly better. For the TransMIL overall survival model with Virchow2 backbone for KIRC, LRP performed best with a significant margin over the other explanation methods. We present example heatmaps for both experimental settings in Figure 5-c/d. For the AttnMIL-based BRCA HRD prediction, both Single and LRP highlighted the same parts of the tumor area to provide evidence in favor of an HRD expression above the clinical reference value of 42 (see Section D). LRP additionally separated the remaining slide into a smaller area with contradicting evidence (lower HRD expression) and a larger area of irrelevant features; in the Single heatmap, in contrast, these areas were not distinguishable. We note that, depending on the application, the ability to distinguish irrelevant from contradicting evidence may be an important advantage of LRP over perturbation-based methods. The Attention (Attn) heatmap generally highlighted similar structures as the other heatmaps, but did not make a difference between positive and negative evidence. This exemplifies an important conceptual shortcoming of Attn — it is impossible to recognize which tissue features are associated with higher and which with lower HRD expression. For the TransMIL-based overall survival prediction in KIRC, Single and LRP also identified similar areas to be evidence of high risk, though with different scaling (color intensities). The Attn heatmap marked considerably different structures, suggesting that it may not be informative in this case. We note that faithfulness may not be the only selection criterion: LRP is computationally more efficient than IG, while IG is arguably easier to implement and agnostic of the model architecture. LRP additionally divides evidence into positive and negative contributions, which Single cannot do in many cases. Ultimately, our examples show that selecting an explanation method depends on the requirements of the specific application. Yet, faithfulness analysis via patch flipping provides a valuable quantitative evaluation criterion to this end. 
+
+4.4 Comparison of explanation methods across experimental settings 
+
+In addition to the two exemplary experimental settings presented above, we compared the explana-tion methods across our 60 experimental settings, i.e., ten datasets with three task types (classifica-tion, regression, survival), two patch encoder backbones (UNI2, Virchow2), and three aggregation models (AttnMIL, MambaMIL, TransMIL). Specifically, we aggregated the faithfulness results from different perspectives, enabling us to identify overall trends and recommendations. 12 Task Type Backbone MIL Model 1234567MRS Single LRP IG GxI Attn Grad2 Rand Overall Classification Regression Survival UNI2 Virchow2 AttnMIL MambaMIL TransMIL      
+
+> Virchow2 LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand Overall Classification Regression Survival AttnMIL MambaMIL TransMIL
+> ≥1.5 0.5 0.2 0.0 -0.2 -0.5
+> ≤-1.5
+> LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand
+
+a b
+
+> Wilcoxon's effect size
+
+Figure 6: Comparisons of explanation methods aggregated across experimental settings .
+
+a Pairwise Wilcoxon signed-rank effect sizes comparing SRG scores between explanation meth-ods, averaged over various experimental settings. “Overall” considers the mean effect size across all experimental settings, “Classification” the mean over all classification experiments, etc. The filling colors and marker sizes indicate effect size magnitude as shown on the colorbar. Triangle, square, and circle markers are used to denote the negligible ( < 0.2), weak to moderate ( 0.2 − 0.5), and moderate to strong ( ≥ 0.5) effect sizes. Notably, two consistent groups emerge: LRP, IG, Sin-gle vs. Attn, G ×I, Grad2, Rand, with the first group generally outperforming the second. All ag-gregated comparisons were additionally replicated using a robust median/MAD effect size, and non-significant pairwise comparisons after FDR correction are reported separately in Section E. 
+
+b Mean Rank Score (MRS) per explanation method (vertical axis), averaged across selected MIL pipeline settings (horizontal axis). Lower averaged MRS = better position in the faithfulness rank-ing .First, we analyzed the aggregated pairwise Wilcoxon’s signed rank test’s effect sizes between the explanation methods (Figure 6-a). Figure 6-a demonstrates a consistent grouping of methods: LRP, IG, Single versus Attn, G ×I, Grad2, Rand. The first group outperforms the second with strong effect sizes, while within-group differences are only moderate to weak, indicating broadly similar levels of faithfulness. This observation is replicable using a standardized median as a statistical measure of paired differences (see Section E). Importantly, Attention heatmaps are found almost always substantially less faithful than LRP, IG, and Single, with strong negative effect sizes. This pattern is consistent across almost all MIL models, prediction tasks, and backbones. Notably, the Random (Rand) baseline clusters with Grad2, G ×I, and Attn in all cases, raising questions about their added value in those contexts. In classification tasks, IG performs worse than LRP and Single, whereas Attention appears more competitive than in other settings. Similarly, in AttnMIL, G ×I gets closer to LRP (without a sta-tistical significance). This suggests that for simpler tasks and architectures, simpler explanation methods may approach the performance of more sophisticated ones. In regression tasks and Mam-baMIL, Single is clearly the best-performing method, differing with moderate to strong effect sizes from LRP and IG. In contrast, in survival prediction, Single shows weak and moderate differences to LRP and IG, respectively. For the Transformer-based architecture, LRP is the best-performing method, with moderate to strong differences to Single and IG. Second, we analyzed the aggregated rankings of the explanation methods (Figure 6-b), which iden-tify consistent faithfulness differences between methods, even if they are small in effect size. Across all experimental settings (“Overall”), Single performed best on average (1.8 MRS), closely followed by LRP (2.1 MRS). IG still performed competitively (2.8 MRS). G ×I, Attention, and Grad2 were clearly worse (4.4-5.9 MRS) than the other methods, which is in accordance with the effect size analysis presented previously. Similar rankings were observed for the foundation model backbones UNI2 and Virchow2. In classification tasks, Single and LRP achieved comparable faithfulness ranks, while IG was considerably worse. In regression and survival tasks, however, the Single method out-performed LRP and IG. The choice of the MIL model had the most notable influence on the ranking of the explanation methods. While Single excelled for AttnMIL and MambaMIL, LRP was consis-tently the best method for TransMIL. 13 Figure 7: Proof-of-concept for spatial mapping of bulk gene expression using explanation heatmaps of a regression MIL model . a Experimental pipeline. Whole-slide H&E images are subdivided into cutouts, from which patch-level feature vectors are extracted. For each cutout, pseudo-bulk gene expression targets are derived by aggregating spatial transcriptomics (ST) mea-surements spatially aligned to the same region. Model explanation methods are then applied to obtain patch-level relevance scores, which are then realigned to build a WSI-level heatmap and compared against the original spatial gene expression. b Example heatmaps for gene FASN on a slide, shown alongside the corresponding ST ground truth. Heatmaps indicate the patch-level model-attributed relevance for predicting bulk expression. c Pearson correlation coefficients be-tween patch scores derived from explanation heatmaps and the corresponding ST ground truth. Results are shown for four explanation methods: Layer-wise Relevance Propagation (LRP), Inte-grated Gradients (IG), Single, and Attention. Individual slides are indicated by distinct symbols on the violin plots. Overall, our large-scale faithfulness analysis reinforced the notion that the best explanation method depends on the experimental setting. At the same time, we observed that Single, LRP, and IG were considerably and consistently more faithful than Attention and other methods. Between Single, LRP, and IG, faithfulness differences were often (but not always) negligible. 
+
+## 5 Use case 1: Validating heatmaps with biological ground-truth data 
+
+In the previous section, we showed that explanation methods such as Single, LRP, and IG produce heatmaps that are consistently and substantially more faithful to MIL model predictions than other methods, particularly attention heatmaps. In this section, we investigate whether these heatmaps also convey biologically meaningful information. This question is also relevant from a model validation perspective: it remains unclear how much signal can be predicted from histology alone, making it essential to exclude shortcut learning. To this end, we assess whether attribution heatmaps ex-hibit spatial concordance with independently measured biological ground truth rather than reflecting spurious associations. As a proof-of-concept , we designed a novel validation experiment to assess whether explanation methods can map (bulk) molecular biomarker predictions to spatial signals. We used a dataset of H&E-stained whole slide images paired with spatial transcriptomics (ST) data, and trained a MIL regression model to predict pseudo-bulk gene expression. We hypothesized that the attribution heatmaps of the MIL model would reflect the spatial distribution of gene expression, as the MIL model aggregates spatial evidence contributing to the slide-level gene expression pre-diction. We evaluated this hypothesis by measuring correlations between heatmap scores and ST ground truth expression. 
+
+5.1 Experimental setup 
+
+Figure 7-a shows the experimental pipeline. We used a subset of four WSIs from four human breast cancer cases in the HEST-1k dataset [71]. In HEST-1k, ST measurements are spatially registered 14 to pre-extracted H&E patches of the same tissue, yielding a gene expression vector per patch. Due to the limited number of slides, we augmented the data by subdividing each slide into multiple non-overlapping regions, referred to as cutouts , each covering up to 10 × 10 patch area on the tesselated slide. As prediction targets, we selected two exemplary genes (FASN, ERBB2) from the top 50 highly variable genes. Selection criteria were: (1) non-zero expression in at least 10% of ST spots, and (2) feasibility of training a well-performing pseudo-bulk prediction model. Pseudo-bulk expression for each cutout was obtained by normalizing spot-level expression values and aggregating them via sum pooling across patches within the cutout. Each cutout was treated as a bag of patches, with the pseudo-bulk expression serving as the bag-level label. For evaluation, we trained models on cutouts of three slides and tested on the cutouts of the remaining slide. We trained TransMIL regression models with a Virchow2 backbone to predict the pseudo-bulk gene expression from the H&E patches inside the cutout (details on training and model selection in Sec-tion F). For the cutouts of the held-out slide, we generated heatmaps using LRP, IG, Single, and Attention. Afterwards, cutout-level heatmaps were reassembled into full-slide heatmaps. We quan-tified the biological relevance of the explanation heatmaps by computing the Pearson correlations between the patch-level heatmap scores and their corresponding ground-truth gene expression val-ues from the ST data. Note that the original spot-level ST expressions were never seen by the MIL model: the model was trained to predict the pseudo-bulk expressions. 
+
+5.2 Results 
+
+We evaluated regression performance by correlating cutout-level predictions with pseudo-bulk labels on the validation set. The average model performance across the cross-validation folds were Pearson correlations of 0.80 for FASN and 0.75 for ERBB2. These results confirm that (pseudo-)bulk gene expressions can be predicted from H&E regions with reasonable performance. Figure 7-b shows example heatmaps for FASN alongside its corresponding ST ground truth. The Attention heatmap is noisy and fails to highlight regions of high FASN expression. This observa-tion does not contradict the overall model performance, as attention values are known to emphasize the features that are necessary but not sufficient for the final model prediction [55]. In the same panel, the heatmap depicting the Single attributions closely matches the spatial distribution of ST measurements, capturing fine-grained regional differences across the slide. This suggests that the MIL model learned biologically relevant features corresponding to FASN expression and that Sin-gle effectively exposes them. Similar patterns are observed for most other (but not all) slides and explanation methods (see Figures 11, 12). Figure 7-c shows the Pearson correlations for all slides, explanation methods, and genes. Across both genes, Attention heatmaps consistently exhibit lower Pearson correlations with ST ground truth than LRP, IG, and Single. For FASN, LRP, IG, and Single achieve strong Pearson correlations (0.54-0.78) on three of four slides; on the remaining slide, IG and Single achieve moderate correlations, while LRP does not. For ERBB2, two slides show medium to high correlations (0.37-0.64), one slide shows moderate alignment (0.29-0.35), and one exhibits weak correlations (0.15-0.16). Overall, these experiments showcase that more faithful heatmaps can provide biologically meaning-ful spatial signals in complex molecular biomarker prediction tasks. We anticipate useful potential implications: First, assessing MIL heatmaps through matched spatial transcriptomics could enable a novel approach to validating molecular biomarker prediction MIL models. So far, such MIL models could only be evaluated based on their prediction performance; adding a spatial transcriptomics as-sessment before clinical deployment could increase trust. Second, after validation, heatmaps could be created for large data cohorts (for which ST is too expensive) to guide clinicians or researchers in systematically identifying tissue regions of high or low gene expression. 
+
+## 6 Use case 2: Systematic discovery of distinct model strategies 
+
+After validating the potential of Single, LRP, and IG to produce faithful and biologically meaningful heatmaps, we now showcase how such heatmaps can be combined with human-interpretable fea-tures to identify and group connections between input patterns and prediction targets. Traditionally, heatmap analysis relies exclusively on qualitative visual inspection by a pathologist, which is labo-rious and prone to confirmation bias. Instead, we present a quantitative approach to complement 15 Figure 8: Histological analysis of HPV heatmaps for discovery . a We extract the most relevant heatmap regions (=top 10% LRP patch scores) and characterize them by computing interpretable and quantifiable histological features. b The cell composition of the most relevant regions deter-mined via CellViT++ [95] and tissue compartment segmentation exposes clusters among HPV-positive slides. See also Figure 14 for a 2D scatter matrix of the five most relevant features. The samples in panels c-f are marked. c-f Example heatmaps and relevant histological features for HPV-positive prediction, consisting of a thumbnail of the most relevant regions (top row) and a selected zoomed-in slide region (middle row) with CellViT-annotated neoplastic (red) and inflam-matory cells (blue) (bottom row). the visual inspection (similar to [45, 42, 43]). Specifically, we extract the most relevant heatmap regions and characterize them by computing histological features such as cell counts, nuclei sizes, or tissue organization (Figure 8-a). This translates heatmaps into quantitative, human-interpretable histological profiles associated with the predicted target, which may point to biological mechanisms or confounding correlations. 
+
+6.1 Experimental setup 
+
+We revisit HPV prediction in head and neck squamous cell carcinoma (HNSCC), using a TransMIL model with Virchow2 backbone (AUROC 0.90 ± 0.04 , see Section D.1 and Figure 4-a). This task 16 is particularly well-suited for discovery: although certain histological features of HPV-positivity are known (i.e., smaller tumor cells with hyperchromatic nuclei and dense lymphocyte infiltration), the diagnostic gold standard remains immunohistochemistry (p16) and/or molecular testing [96, 97]. This suggests that additional, yet unknown histological indicators may exist. For a basic tissue characterization, we first segmented each slide into tumor, border, and non-tumor compartments using a patch classification model from [52] (see Section G for details). We then applied CellViT++ [98, 95] to segment all cells of the slide and classify them as Neoplastic, In-flammatory, Connective, Epithelial, or Dead. We then defined the region of interest (ROI) as the patches with the highest explanation scores (top 10% LRP scores); i.e., regions most relevant to HPV-positivity. We refer to this ROI as the High-LRP 10% (HL10) region. Consequently, for each cell type-compartment combination, we computed the proportion of cells within the ROI. This approach yields a simple morphological profile per slide that quantifies the visual features the model uses as evidence for HPV-positivity. 
+
+6.2 Results 
+
+We first examined how much each histological feature was relevant to HPV-positivity according to the model’s prediction strategy (i.e., what is the share of each cell type-compartment combina-tion in HL10, see Figure 13). Across all HPV-positive samples in the HNSCC dataset, the HL10 region was predominantly composed of neoplastic cells in the tumor compartment (mean ± std.: 
+
+51 .42% ± 27 .69% ), inflammatory cells in the tumor compartment ( 17 .78% ± 16 .18% ), inflam-matory cells in the nontumor compartment ( 4.94% ± 12 .42% ) and connective cells in the tumor (9.46% ± 6.5% ) and nontumor compartment ( 3.77% ± 7.9% ). The other cell types and the border region contributed substantially smaller shares. In order to understand different model strategies, we clustered the HPV-positive slides using the extracted morphological profile into five clusters (Agglomerative Clustering, number of clusters selected based on the maximum average Silhouette Coefficient). We denote the first four clusters as groups G1 , G2 , G3 , G4 ), suggesting that the model relied on different histological markers that it associates with HPV-positivity. The fifth cluster was a single-member cluster, which we marked as an outlier. We then compared the HL10-based histolog-ical profiles across HPV-positive slides to identify potentially different model prediction strategies. The share of connective cells within the HL10 region was consistently low and mostly homoge-neous across HPV positive samples (see Figure 14). In contrast, the relative amounts of neoplastic and inflammatory cells revealed distinct patterns of cell profiles (Figures 8-b and 14). 
+
+G1 In group G1, the HL10 region was characterized by an exceptionally high proportion of intra-tumoral inflammatory cells (HL10 share: 43 .83 ±14 .06% ), resulting in a histological profile distinct from the other samples. A pathological inspection of the heatmaps by AM confirmed pronounced lymphocyte infiltration in tumor areas for samples in this group, a known marker of HPV-positivity (example in Figure 8-c). 
+
+G2 In group G2, the HL10 regions showed a high share of inflammatory cells in the nontumor compartment. Notably, all slides in this group originated from the tonsil (Figure 8-b). This may indicate that the model recognized an HPV infection in this group by learning the primary anatomical side of tumors harboring an HPV infection (i.e., tonsil and oropharynx) (example in Figure 8-d). 
+
+G3 In contrast, group G3 was dominated by neoplastic cells ( 73 .60% ± 10 .24% ) combined with a low inflammatory cell content ( 11 .01% ± 6.26% ) in the tumor compartment. Many of the slides in this group were correctly classified as HPV-positive (Figure 8-b). Interestingly, for five HPV-positive slides in this group, pathological inspection of the whole slide did not identify any typical signs of HPV-positivity. Instead, we observed typical characteristics of HPV-negative tumors, such as lower to no lymphocyte infiltration in the tumor areas as well as keratinization (examples in Figure 8-e,f). 
+
+This could suggest that the model identified histological patterns predictive of HPV-positivity that were not recognized by the pathologist. 
+
+G4 In group G4, none of the three investigated features were strongly pronounced within HL10, suggesting that additional analyses or further features would be needed to develop a better under-standing of the model strategy for these samples. 17 Overall, we demonstrated a proof-of-concept that overlaying well-performing heat-maps with quan-tifiable morphological features enables the identification of different model strategies and supports hypothesis generation about biological associations to the prediction target. Furthermore, this XAI-driven approach can help identify model failure modes. We anticipate that such an analysis can yield significantly more nuanced and robust results when using more fine-grained morphological features (such as [45]) or larger data cohorts with a specific discovery target. 
+
+## 7 Discussion 
+
+MIL heatmaps are widely used in computational pathology for model validation, hypothesis gen-eration, and biological discovery. They are often presented as evidence that a model focuses on morphologically meaningful regions, and are considered a standard component of end-to-end MIL pipelines for whole-slide image prediction [1]. Despite their central role, heatmap evaluation is commonly based on qualitative expert inspection, and different studies adopt heterogeneous expla-nation methods without a principled rationale for method selection. As a result, there is a lack of established guidelines for choosing or validating explanation techniques in MIL settings. Prior work has argued that clinically meaningful explanations must satisfy quantitative criteria of truthfulness and informative plausibility when interpreting AI models on medical images [99]. However, sys-tematic methods for assessing heatmap quality or selecting appropriate explanation techniques in histopathology MIL remain scarce. 
+
+We posit that the first step in evaluating heatmaps should move beyond expert visual assessment and focus on whether a heatmap technically reflects the model’s output. To this end, we propose a method-agnostic, data-driven heatmap evaluation framework that operates without additional la-bels. Through extensive experiments, we apply this framework to benchmark six explanation meth-ods across a first-of-its-kind, large-scale experimental design, including major prediction task types (classification, regression, survival), backbones (Virchow2, UNI2), and MIL model architectures (Attention, Transformer, Mamba). The results show that task type and model architecture are the primary factors in selecting the best explanation method, and that attention heatmaps are rarely competitive with input perturbation (“Single”), LRP, and IG. Finally, we demonstrate that well-performing MIL explanation methods enable new applications and analyses. In two novel proof-of-concept use cases, we employed heatmaps for validating bulk biomarker prediction models through spatial transcriptomics and to identify sample groupings with distinct prediction strategies for gen-erating biological hypotheses. We highlight that our analysis of pairwise effect sizes and faithfulness rankings reveals a robust grouping of explanation methods: LRP, IG, and Single consistently outperform Attention, G ×I, Grad2 across MIL models, task types, and backbones. Attention heatmaps, in particular, do not differ much from the random baseline in multiple cases. This is a notable observation given that the Attention heatmap is used very frequently as an “explanation” for black-box MIL models. Impor-tantly, these results remained stable under two different effect size definitions and when examining the statistical significance of the pairwise statistical tests. From our observations, we derive the following practical recommendations: 1. For Transformer-based MIL models, LRP is generally the most appropriate explanation method. 2. Single is likely to be the most faithful method for Attention- and Mamba-based MIL mod-els, particularly in regression and survival tasks. 3. IG may serve as an attractive alternative in cases where the two better methods, Single and LRP, come with high implementation effort. IG is available from toolboxes like Captum [100] and can be easily adapted to MIL models. These recommendations provide a useful starting point for narrowing the search space of explanation methods. However, the optimal choice may still depend on the specific application. Therefore, we recommend systematically evaluating multiple explanation methods for each use case. We anticipate that our work will support the community in generating more reliable and interpretable heatmaps and structuring heatmap selection decision-making, thereby expanding the possibilities for model validation, contributing to overcoming the currently limited clinical adoption of machine 18 learning in digital pathology. This is particularly relevant for validating promising biomarker pre-diction models (e.g., [19, 18]), a task that has traditionally required assembling large validation cohorts. Furthermore, heatmaps of bulk omics prediction models may enable cheap spatial anal-yses for omics data at scale. While recent work has shown the great potential of ML-generated virtual spatial omics for discovery [101, 102, 103, 104], these approaches require training data of ground-truth spatial omics data. In contrast, our heatmap-based approach only requires training a MIL model to predict bulk omics targets, allowing for spatial analyses where no spatial omics data are available. We note that in concurrent work, a heatmap-based spatial mapping of pathway ac-tivities in head and neck tumor slides enabled the identification of a novel phenotype associated with disease recurrence [52]. Finally, improved heatmaps may enable a novel way to discover tar-getable morphological patterns in patient subgroups associated with clinical endpoints, potentially informing drug discovery research and improving patient outcomes. Several aspects of this work offer opportunities for further development. First, the explanation and evaluation methods considered here capture only first-order contributions, and therefore cannot ex-plicitly model feature interactions that the MIL model may exploit for prediction. Extending higher-order explanation techniques [105, 106, 107] to the MIL setting could reveal previously unknown biological interactions among morphological features. Second, the XAI community has proposed further desirable properties for explanations beyond faithfulness, such as robustness to perturba-tions or contrastivity relative to targets that did not occur [60, 99, 108, 61]. In the context of MIL heatmaps, it would be particularly valuable to additionally assess whether the magnitude of expla-nation scores reflects the actual influence of each patch on the prediction in terms of the output unit, such as HRD score or survival risk [109]. Third, we did not assess inherently interpretable MIL models such as additive MIL [55]. While these methods can provide insightful heatmaps [45], the post-hoc explanation methods examined in this work are more versatile as they do not constrain the underlying model architecture, which may be crucial for achieving competitive performance in practical applications. Finally, although this study focuses on histopathology, the explanation and evaluation approaches directly transfer to other domains and use cases, particularly in radiology, single-cell and spatial molecular data, and multimodal fusion models, where explanations could uncover modality-specific and shared patterns associated with patient outcome. 
+
+## Code and data availability 
+
+Our code for reproducing our results and implementation of the used methods is made publicly accessible at https://github.com/bifold-pathomics/xMIL/tree/xmil-journal . Datasets used in this work are public datasets described and cited in Section D.1. 
+
+## Declaration of competing interest 
+
+F.K. and K.R.M. are co-founders and J.D. is an employee of Aignostics GmbH, which develops AI algorithms for pathology. The other authors have no competing interests to declare that are relevant to the content of this article. 
+
+## CRediT authorship contribution statement 
+
+Mina Jamshidi Idaji & Julius Hense: Conceptualization, Methodology, Software, Validation, Data Curation, Investigation, Formal analysis, Visualization, Project administration, Writing – Orig-inal Draft, Supervision. Tom Neuh¨ auser: Methodology, Software, Validation, Investigation, Writ-ing – Original Draft. Augustin Krause: Methodology, Software, Validation, Investigation, Data Curation, Visualization, Writing - Original Draft. Oliver Eberle & Thomas Schnake: Conceptu-alization, Methodology. Yanqing Luo: Software, Investigation, Data Curation. Farnoush Rezaei Jafari & Reza Vahidimajd & Laure Ciernik & Jonas Dippel: Software. Christoph Walz: In-vestigation. Andreas Mock: Data Curation, Investigation, Writing - Original Draft. Klaus-Robert M ¨ uller: Supervision, Funding acquisition. All authors: Writing – Review & Editing. 19 Acknowledgements 
+
+We thank Simon Leszek for the fruitful discussions on explaining regression models. We thank Mag-dalena Gippert for the discussions on statistical aspects of the study. We also thank David Drexlin for his feedback on the manuscript. The results shown here are in part based upon data generated by the TCGA Research Network: https://www.cancer.gov/tcga. This work was in part supported by the German Ministry for Education and Research (BMBF) under Grants 01IS14013A-E, 01GQ1115, 01GQ0850, 01IS18025A, 031L0207D, 01IS18037A, and BIFOLD24B and by the Institute of Infor-mation & Communications Technology Planning & Evaluation (IITP) grants funded by the Korea government (MSIT) (No. 2019-0-00079, Artificial Intelligence Graduate School Program, Korea University and No. 2022-0-00984, Development of Artificial Intelligence Technology for Personal-ized Plug-and-Play Explanation and Verification of Explanation). Thomas Schnake is a postdoctoral fellow at the University of Toronto in the Eric and Wendy Schmidt AI in Science Postdoctoral Fel-lowship Program, a program of Schmidt Sciences. 20 Supplementary 
+
+This supplementary material provides methodological details, experimental specifications, and ad-ditional analyses supporting the main manuscript. It includes: (A) An extended review of multiple instance learning (MIL) architectures and interpretability methods; (B) Detailed formulations related to the survival models implemented in the manuscript; (C) Comprehensive descriptions and mathe-matical derivations of all explanation methods, including LRP rules; (D) Full experimental settings covering datasets, preprocessing, foundation models, training protocols, hyperparameter grids, and performance results; (E) Statistical analyses details and results related to Section 4.4 of the main paper; (F) Additional experiments and figures for Section 5 of the main manuscript; and (G) Details of the analyses related to Section 6 of the main paper. Some parts of this supplementary are shared with the appendix of [51]. 
+
+## A Related work 
+
+A.1 MIL model architectures 
+
+In this section, we review popular multiple instance learning model architectures. We do not provide an exhaustive review due to the myriad of available literature, but instead focus on representative examples. Traditional multiple instance learning models in histopathology relied on computing pooling patch-level prediction scores. [3] introduced attention-based pooling, allowing a model to learn slide representations by dynamically weighting instances. This architecture has been extended into var-ious directions, e.g., by adding multi-class attention [10], multi-scale mechanisms [110], low-rank attention [111], kernel-based self-attention [77], patch representation clustering [112], and changes to the training algorithm [13, 113, 114]. Moving towards Transformer-based MIL models, [6] proposed the TransMIL architecture, which outperformed previous methods by a large margin. Again, several other Transformer-based models have been proposed, e.g., with restrictions in the self-attention mechanism for efficiency and smooth-ness [115, 78, 116], a regional Transformer for feature re-embedding [117], or removal of positional encodings [18, 76]. Recent works propose to adopt state-space models to multiple instance learning [118]. A popular representative is MambaMIL [79], which models patch representations as an input sequence for a Mamba layer [80]. Alternative MIL architectures are built on graphs to model spatial relationships between patches [119, 44, 120]. Other works investigate how to conduct zero- or few-shot learning using language-alignment in MIL [121, 122]. Various studies have benchmarked MIL model architectures in differ-ent contexts [96, 123, 76, 124]. Yet, which architecture performs best arguably depends on various factors, including dataset, prediction task, and feature extractor. 
+
+A.2 MIL model interpretability 
+
+Interpretability or explainability is an omnipresent topic in multiple instance learning and histopathology. It is often approached through patch or instance attributions. The most common way to obtain such attributions is to extract model-internal attention scores to create attention heatmaps. This was initially introduced by [3] for the Attention MIL architecture and later extended to other MIL approaches such as multi-class attention [10] and Transformers [84, 6]. Various methods have been proposed to improve the original attention heatmaps. Some suggest modifications in the model architecture or training process to enhance the quality of the attention heatmaps [115, 48, 78, 125, 49] or combine attention with additional model outputs such as patch prediction scores [126, 47, 127, 18]. Other authors highlight the shortcomings of attention heatmaps and instead resort to other XAI-based attribution methods. A popular choice is the gradient-based Integrated Gradients (IG) approach [44, 38, 29, 50]. Recent works adopt propagation-based methods such as Layer-wise Relevance Propagation (LRP) [51, 52, 53]. Furthermore, [54] proposed bag per-turbation mechanisms, i.e., deriving patch attribution scores from observing changes in the model output when patches are added or dropped, similar to SHAP [128]. [55] introduced Additive MIL, an 21 inherently interpretable additive reformulation of the original Attention MIL architecture. Similarly, some authors developed model architectures that simultaneously produce patch and slide predic-tions, e.g., to obtain a disease area segmentation in addition to the disease classification [129, 130]. Heatmaps are frequently used for model validation, i.e., to confirm that focus areas of the MIL model concur with the expectations of pathologists. Examples include applications in disease detection and classification [131, 27, 9, 28, 132, 133], biomarker prediction [75, 18], and survival prediction [134, 29]. [7] overlaid attention heatmaps with spatially registered IHC stains to quantitatively confirm that their MIL model for screening Barrett’s esophagus focuses on the presence of goblet cells, a known indication of the disease. Beyond model validation, MIL heatmaps have been used for the discovery of novel histological markers associated with relevant clinical endpoints. [42] and [43] connected attention heatmaps and patch prediction scores with interpretable cell classification features to identify histological mark-ers of inflammatory bowel diseases (IBDs). [44] employed IG heatmaps to find histopathological prognostic markers in clear cell renal cell carcinoma, and [38] to detect diagnostic histopathological features of primary brain tumor subtypes. [45] trained an Additive MIL model to predict TGF β-CAF, a gene expression signature associated with immunotherapy treatment response, and overlaid the heatmaps with 297 human-interpretable tissue features to discover morphological markers of this transcription mechanism. Few studies focus on evaluating and comparing heatmaps. [135] and [129] provided theoretical analyses of the potential of heatmaps to classify patches under traditional MIL assumptions [2, 3, 4], and [129] and [130] conducted experimental assessments in this regard. [55] and [136] further compared Attention MIL and Additive MIL on tumor detection and TP53 biomarker prediction tasks. [53] assessed gradient- and propagation-based explanation methods in the context of a pixel-level attribution task. Our work substantially differs from the existing literature: 1. First, most existing application works use a chosen explanation method without validating the quality of the heatmaps. In contrast, we emphasize the evaluation step and propose a framework to assess and compare heatmap quality to select the explanation method best-suited for the specific application at hand. 2. Second, while most papers focus on a single selected explanation method in the context of a specific experimental configuration with a fixed MIL architecture and a chosen dataset, we consider six MIL explanation methods across a wide range of experimental settings, e.g., backbones, MIL model architectures, and prediction tasks. This allows us to derive general insights beyond the limits of a specific application. 
+
+## B Preliminaries on survival modeling 
+
+B.1 Details on survival modeling 
+
+One of the most popular modeling approaches is the Cox proportional hazards (CPH) model [83, 137], where the patient hazard is modeled as an exponential linear function of the outcome of a neural network as h(t|x) = h0(t) exp( f (x)) with f (x) ∈ R being the regression-like output of a neural network representing an overall patient log-risk score, and h0(t) a baseline hazard. The neural network is commonly trained with the Cox partial log-likelihood, which pushes the model to assign hazard scores that correctly rank the patients according to their survival time. To achieve this, it requires comparing multiple patient samples in a mini-batch [23, 83]. When training MIL models on patient data with a typically large number of patches per slide, this approach is problematic, as the mini-batch size is substantially limited due to memory and computational restrictions. In practice, Transformer-based MIL models are frequently trained with batch size 1 [23, 18, 76]. Therefore, we consider a popular alternative approach of discrete-time survival models [23, 81]. In this setting, the survival period is divided into a fixed number of non-overlapping intervals T1 = [ t0, t 1), . . . , T K =[tK−1, t K ) (we use K = 4 intervals and hereafter refer to this number). Each patient’s event time is assigned to a discrete interval. The aggregated bag embedding is first mapped by a linear layer with sigmoid activation to the hazard probabilities {hk = σ(f (X)k)}k ⊂ (0 , 1) representing the discrete hazard probabilities for the pre-defined time intervals indexed with k. These logits are then passed 22 through a survival head, which computes the final risk score r by combining the hazard probabilities and survival function as 
+
+Sk =
+
+> k
+
+Y
+
+> j=1
+
+(1 − hj ) (4) 
+
+r = −
+
+> K
+
+X
+
+> k=1
+
+Sk (5) where Sk represents the predicted probability that the patient survives interval k. This survival head structure is illustrated in Figure 1-b. This formulation allows for training a model to assign survival interval risks per individual patient instead of comparing samples at training time (as required in the Cox partial log-likelihood). The discrete-time survival model is commonly optimized via its log-likelihood [23, 81], which does not require comparing multiple samples and hence also works for small or single-sample mini-batches. 
+
+B.2 Survival cost function 
+
+Assume our observed data for the i-th patient is in the form of (Xi, c i, y i) where Xi is the bag of instances, ci is the censorship status ( ci = 1 means censored data), and yi ∈ { 1, . . . , K } is the discretized event time as described in the previous section. Additionally, we denote the random variable for the event time as Ti. For the sake of simplifying the notation, we drop the index i.The probability of experiencing the event in interval k given survival up to k is fhazard (k | X) = 
+
+P (T = k | T ≥ k, X ). The probability of surviving beyond interval k is then: 
+
+fsurvival (k | X) = P (T > k | X) = 
+
+> k
+
+Y
+
+> u=1
+
+1 − fhazard (u | X) (6) Then, the log-likelihood for this patient is [81]: 
+
+L = − c · log fsurvival (y) − (1 − c) log fsurvival (y − 1) + log fhazard (y) (7) To increase the influence of uncensored cases, we add a weighting factor [23]: 
+
+Ltotal = (1 − β)L + βL uncensored 
+
+Luncensored = −(1 − c) log fsurvival (y − 1) + log fhazard (y) (8) This formulation ensures that both censored and uncensored patients contribute appropriately to the loss while placing greater emphasis on fully observed survival times. 
+
+## C Explanation methods 
+
+C.1 Details of the methods Attention heatmaps In Attention MIL (AttnMIL), the attention score assigned to each instance represents its contribution to the bag-level prediction. In Transformer-based MIL models, self-attention matrices are computed at each layer, and the attention scores from the class token to the instance tokens are extracted. To aggregate information across layers, attention rollout [84] is often used, which recursively combines the attention matrices. Formally, given that the attention heads deliver self-attention vectors Alh ∈ R(K+1) ×(K+1) for each head h and Transformer layer l, recalling that the first token is the class token. Mean pooling is often used for fusing the self-attention matrices of different heads, i.e., Al = Alh h. The attention scores from the class token to the instance tokens can be used as attribution scores, i.e., Al
+
+> (1 ,2:)
+
+.Alternatively, for a model with L Transformer layers, attention rollout combines {Al}Ll=1 as ˜A =
+
+QLl=1 ˇAl where ˇAl = 0 .5Al + 0 .5I, with I being the identity matrix. Then, similar to the layer-wise attention scores, the heatmap is defined as the attention rollout of the class token to the instances, i.e., ˜A(1 ,2:) .23 The direct interpretability of attention scores is insufficient to faithfully reflect the model predictions [56, 57, 58]. Moreover, they cannot distinguish between positive, negative, or class-wise evidence [51, 55]. 
+
+Gradient-based methods While not frequent, Integrated Gradients (IG) is the most used gradient-based method in the histopathology MIL literature [44, 38, 29, 50]. IG [85] computes the gradients of the model’s output with respect to the input, integrated over a path from a baseline to the actual input. The baseline is typically set to zero, and so we do. The explanation score of the k-th instance is computed as P 
+
+> d
+
+IG (xkd ), where the relevance score of the d-th feature of the k-th instance IG (xkd )
+
+is computed as IG (xkd ) = xkd ·
+
+Z 1
+
+> α=0
+
+f (αX)
+
+∂x kd 
+
+dα, (9) where f is the model and X is the K × D feature matrix of the bag with the instance feature vectors on its rows. We used the implementation of IG available in Captum [100] with the internal batch size set to the number of instances in a bag. Gradient × Input (G ×I) [86, 88] is a common baseline method in XAI literature. The G ×I heatmap score of the k-th instance is defined as hk = ∇xk f (X)T xk, where ∇xk f (X) ∈ RD is the gradient of the model output with respect to the k-th instance features xk ∈ RD .
+
+Perturbation-based methods Perturbation-based methods, building on model-agnostic ap-proaches like SHAP [128], perturb bag instances and compute importance scores from the resulting change in the model prediction. [54] proposed and evaluated multiple perturbation-based meth-ods of different complexity. The “Single” method passes bags of single patches Xk = {xk} for 
+
+k = 1 , . . . , K through the model and uses the outcome f (xk) as explanation score. “One removed” drops single patches, i.e., constructs bags ˇXk = X\xk for k = 1 , . . . , K and defines the difference to the original prediction score f (X) − f ( ˇXk) as explanation. The “combined” approach takes the mean of these two scores. As these methods cannot account for patch interactions, [54] also propose an algorithm to sample coalitions of patches to be perturbed, called MILLI. Some of these approaches come with high computational complexity. The linear “Single” and “one removed” methods require K forward passes per bag. While “Single” only passes small bags through the model, which speeds up computation, “one removed” requires K passes with almost full bag size. MILLI scales quadratically with the number of instances [54]. In histopathology, where bags typically contain more than 1,000 and frequently more than 10,000 instances, quadratic runtime is practically infeasible. 
+
+Layerwise Relevance Propagation (LRP) LRP [89, 36, 87, 90, 91] explains neural network pre-dictions by redistributing the output’s relevance back through the network to the input features. The redistribution follows a relevance conservation principle, where the total relevance of each layer is preserved as it propagates backward. If r(l) 
+
+> j
+
+denotes the relevance of neuron j in layer l, conserva-tion means that P 
+
+> j
+
+r(l1) 
+
+> j
+
+= P 
+
+> i
+
+r(l2) 
+
+> i
+
+holds for any two layers l1 and l2. As a general principle, LRP posits 
+
+r(l) 
+
+> i
+
+= X
+
+> j
+
+qij 
+
+P 
+
+> i′
+
+qi′j
+
+· r(l+1)  
+
+> j
+
+, (10) with qij being the contribution of neuron i of layer l relevance r(l+1)  
+
+> j
+
+. There are “propagation rules” for various layer types [87, 90] that specify qij for different setups. For the attention mechanism, as a core component of many MIL architectures, we employ the AH-rule introduced by [56]. In a general attention mechanism, let zk = [ zkd ]d be the embedding vector of the k-th token and pkj the attention score between tokens k and j. The output vector of the attention module is yj = P 
+
+> k
+
+pkj zk. The AH-rule of LRP treats attention scores as a constant weighting matrix during the backpropagation pass of LRP. If R(yjd ) is the relevance of the d-th dimension of yj = [ yjd ]d, the AH-rule computes the relevance of the d-th feature of zk as: 
+
+R(zkd ) = X
+
+> j
+
+zkd pkj 
+
+P 
+
+> i
+
+zid pij 
+
+R(yjd ). (11) 24 This formulation can be directly applied to AttnMIL, and also adapted to a QKV attention block in a transformer, where zk is the embedding associated with the value representation. For Mamba layers, we follow [138]. In Mamba models, the relevance conservation property is vi-olated in three components: the SiLU activation function, the selective SSM, and the multiplicative gate. To restore the conservation property in the relevance propagation pass, we perform a locally linear expansion of these components by treating certain quantities as constants. For the SiLU acti-vation function, we treat the sigmoid factor as constant, for the selective SSM, we treat the parameter matrices as constants and for the multiplicative gate, we treat half of the factors as constant. Under the expansion, the components can be treated as linear layers and relevance propagation for linear layers can be applied. We further implement the LRP-ϵ rule for linear layers followed by ReLU activation function [87], as well as the LN-rule to address the break of conservation in layer norm [56]. At the instance-level, LRP assigns each instance xk = [ xkd ]d ∈ RD a relevance vector rk = [ rkd ]d
+
+with rkd = R(xkd ) = r(0)  
+
+> kd
+
+being the relevance score of the d-th feature of xk. We define the instance-wise relevance score as an estimate for the evidence score of the instance as hk = P 
+
+> d
+
+rkd .
+
+C.2 LRP rules Feed forward neural network . The following generic rule holds for propagating relevance through linear layers followed by ReLU [90]: 
+
+r(l) 
+
+> i
+
+= X
+
+> j
+
+aj ρ(wij )
+
+ϵ + P 
+
+> i′
+
+ai′ ρ(wi′j ) · r(l+1)  
+
+> j
+
+, (12) where aj is the activation of neuron j in layer l, wij the weight from neuron i of layer l to neuron 
+
+j of layer l + 1 , ϵ a stabilizing term to prevent numerical instabilities, and ρ(wij ) a modification of the weights of the linear layer. For example, if ρ(wij ) = wij + γmax (wij , 0) , then Equation 12 is called LRP-γ rule. For γ = 0 , this equation is called LRP-ϵ rule. 
+
+LayerNorm . Assume zk is the embedding of the k-th token and yk = LayerNorm (zk) as: 
+
+yk = zk − E{z}
+
+std {z} + ϵ , (13) where E {z} and std {z} are the expected values and standard deviation of the tokens. For propagating relevance through LayerNorm, [56] suggested the LN-rule as the following: 
+
+R(zkd ) = X
+
+> j
+
+zkd (δkj − 1 
+
+> N
+
+)
+
+P 
+
+> i
+
+zid (δij − 1 
+
+> N
+
+) R(yjd ), (14) where δkj =
+
+1, if k = j
+
+0, otherwise and zkd is the d-th dimension of zk and R(zkd ) is the relevance assigned to it. In practice, LN-rule is implemented by detaching std {z} and handling it as a constant. 
+
+SiLU activation function . The SiLU activation function yi = xi · σ(xi) is locally linear expanded by treating σ(xi) as constant. The resulting rule for the SiLU activation function is 
+
+R(xi) = R(yi) (15) 
+
+Selective SSM . The selective SSM 
+
+h(t) = A(t)h(t−1) + B(t)x(t) (16) 
+
+y(t) = C(t)h(t−1) (17) 25 is locally linear expanded by treating A, B and C as constants. The resulting rules for the selective SSM are 
+
+R
+
+
+
+h(t−1) 
+
+> i
+
+
+
+= X
+
+> j
+
+h(t−1) 
+
+> i
+
+C(t−1)  h(t−1)  
+
+> ji
+
+P 
+
+> i′
+
+h(t−1) 
+
+> i′
+
+C(t−1)  h(t−1)  
+
+> ji ′
+
+R
+
+
+
+y(t−1) 
+
+> j
+
+
+
++ X
+
+> j
+
+h(t−1) 
+
+> i
+
+A(t)  x(t) 
+
+> ji
+
+P 
+
+> i′
+
+x(t)
+
+> i′
+
+A(t)  x(t)  
+
+> ji ′
+
++ P 
+
+> i′′
+
+x(t)
+
+> i′′
+
+B(t)  x(t) 
+
+> ji ′′
+
+R
+
+
+
+h(t)
+
+> j
+
+ (18) 
+
+R
+
+
+
+x(t)
+
+> i
+
+
+
+= X
+
+> j
+
+x(t)
+
+> i
+
+B(t)  x(t) 
+
+> ji
+
+P 
+
+> i′
+
+x(t)
+
+> i′
+
+B(t)  x(t)  
+
+> ji ′
+
++ P 
+
+> i′′
+
+h(t−1) 
+
+> i′′
+
+A(t)  x(t) 
+
+> ji ′′
+
+R
+
+
+
+h(t)
+
+> j
+
+
+
+(19) 
+
+Multiplicative Gate . The multiplicative gate y = zA · zB is locally linear expanded by treating half of za · zB as constant. The resulting rules for the multiplicative gate is 
+
+R([ zA]i) = 0 .5 · R (yi) (20) 
+
+R([ zB ]i) = 0 .5 · R (yi) (21) 
+
+## D Details of the large-scale evaluation experiments 
+
+D.1 Datasets and prediction tasks 
+
+We consider all three common machine learning tasks in digital histopathology, namely classifica-tion, regression, and survival prediction. 
+
+Classification For the classification task, we include datasets that cover tumor detection, disease subtyping, and biomarker prediction. • The first task is a tumor detection task using the CAMELYON16 [139], which consists of 400 sentinel lymph node slides, of which 160 carry to-be-recognized metastatic lesions of different sizes. The goal is to distinguish tumor-containing slides from normal tissue. • The second task focuses on disease subtyping using TCGA NSCLC (abbreviated as NSCLC), which includes 529 slides with lung adenocarcinoma (LUAD) and 512 with lung squamous cell carcinoma (LUSC). The objective is to classify these two non-small cell lung cancer (NSCLC) subtypes. • The third task involves biomarker prediction using TCGA HNSC. This dataset comprises 433 slides of head and neck squamous cell carcinoma (HNSC), 43 of which are positive for human papillomavirus (HPV) infection, confirmed via additional testing [97]. HPV infection is an important biomarker for prognosis and treatment planning [96]. The task is to predict HPV status directly from the H&E slides. This challenging task, referred to as HNSC HPV throughout the paper, is characterized by label imbalances and a subtle predictive signature. • The fourth task is another biomarker prediction, this time using TCGA LUAD. This dataset contains 529 lung adenocarcinoma (LUAD) slides, 263 of which show a TP53 mutation– one of the most common mutations in cancer. In lung cancer, TP53 mutations are associated with poorer prognosis and resistance to therapy [140]. Prior studies have shown that TP53 status is predictable from LUAD histology slides [141, 142]. The task is abbreviated as LUAD TP53 hereafter. 
+
+Regression For the regression task, we used the TCGA BRCA dataset and trained MIL regression models to predict two continuous targets, including gene expression as well as biomarker prediction. • In the first task, the model was trained to predict the expression level of AURKA, measured in fragments per kilobase million with upper-quartile normalization (FPKM-UQ), obtained from the UCSC Xena Browser [143]. A total of 1,081 patients had the gene expression 26 value available. Prior work of [144] shows that AURKA expression can be inferred from H&E slides, achieving a Spearman correlation of 0.66 on the TCGA BRCA internal test set. Here, we used the raw FPKM-UQ values to train a regression model. This approach implicitly assumes a reference value of zero, corresponding to the absence of detectable gene expression. • The second task involved predicting homologous recombination deficiency (HRD) scores from H&E slides of TCGA BRCA cohort. HRD is considered a predictive pan-cancer biomarker that may help identify patients who could benefit from PARP inhibitor (PARPi) therapy. However, HRD testing remains technically complex despite its clinical importance [14]. Prediction of HRD scores using Attention MIL regression models has been shown to be feasible [15], reporting a Pearson’s correlation of 0.53 in this dataset. We obtained the HRD values for the TCGA BRCA cohort from the supplementary data provided by [14]. A total of 1,026 cases had available HRD measurements. A clinical reference value of 42 is used for classifying a test to HRD+ and HRD-. We used this reference value to predict the difference of measured HRD to the reference value. This way, we adapt the methodology in [92] for explaining regression models. The heatmaps of such a model would show how the patches contribute to the sample to move towards HRD+ and HRD-. 
+
+Survival Four different datasets from TCGA have been used for predicting overall survival, i.e., for cancers of the breast (BRCA), the kidney (KIRC), the brain (GBM & LGG), and the colorectal region (COAD & READ). Survival data were available for at least 537 (KIRC) and up to 1,096 (BRCA) patients. Overall survival has frequently been predicted on these datasets, and they have served as a benchmark for (multimodal) aggregation models (see, e.g., [23, 134, 145, 24]), in which unimodal histopathology MIL models frequently achieved C-Index scores between 0.55 and 0.8.
+
+D.2 H&E slides preprocessing 
+
+We extracted patches from the slides of 256 × 256 pixels without overlap at 20x magnification (0.5 microns per pixel) using OpenSlide 4. We identified and excluded background patches via Otsu’s method [146] on slide thumbnails and applied a patch-level minimum standard deviation of 8. 
+
+D.3 Foundation models 
+
+To investigate whether using different feature extractors impacts MIL explanations, we included two state-of-the-art models, namely UNI2-h 5 [64] and Virchow2 [68] in our experiments. Both models were pre-trained on a massive number of slides (UNI2-h: 350K slides, Virchow2: 3.1M slides) and consistently ranked among the best-performing models in various patch-level and slide-level prediction tasks [69, 72, 71, 74]. Virchow2 was also found to be one of the foundation models most robust to technical variations (e.g., staining and scanner differences) [35], which can be crucial to obtain biologically meaningful heatmaps from multi-hospital training data. 
+
+D.4 Model training/testing and model selection 
+
+We used a 5-fold cross-validation scheme with patient-level splitting, with a hyperparameter grid of the models trained in this work are reported in D.5. In this cross-validation scheme, the dataset was split into five partitions. For each of the five it-erations, one partition was used as the test set, the next (cyclically) as the validation set, and the remaining three as the training set. Each fold was therefore used exactly once for validation and once for testing, which means that validation and test sets overlap across iterations. Therefore, to avoid data leakage, hyperparameter selection was performed independently within each iteration, using only that iteration’s validation set — resulting in potentially different hyperparameters for each fold. For training, we sampled bags of 2,048 patches per slide and passed their feature representations through the MIL model. For validation and testing, we simultaneously exposed all patches of a 
+
+> 4https://openslide.org/
+> 5https://huggingface.co/MahmoodLab/UNI2-h
+
+27 slide to the model to avoid sampling biases and statistical instabilities. The checkpoint with the best performance metric on the validation set was saved during the training process. 
+
+Task-specific cost functions For classification tasks, we use the standard cross-entropy loss be-tween the predicted class logits and the ground-truth label. For regression tasks, the mean squared error is used to measure the difference between the predicted and true continuous target values. For survival prediction, we use a discrete-time log-likelihood loss as detailed in B.2. 
+
+Performance metrics For classification, regression, and survival prediction models, we used the area under the receiver operating characteristic curve (AUROC), Spearman correlation, and C-Index as the performance metrics, respectively. 
+
+D.5 Hyperparameter grids 
+
+All the hyperparameter grids for all the models trained in this work are presented in Table 1. 
+
+Task Model Hyperparameter Grid 
+
+Classification TransMIL train bag size= {2048 }, batch size= {5}, lr= {2e-4, 2e-3}, wd= {0, 0.01 }, dropouts= {(0, 0, 0), (0.5, 0.5, 0.2) },opt= {SGD }, epochs=200, warmup=0 AttnMIL train bag size=2048, batch size=32, lr= {0.002, 0.0002 },wd= {0, 0.01 }, dropouts= {0, 0.5 }, opt=SGD, epochs=1000, warmup=0 MambaMIL train bag size= {2048 }, batch size= {5}, lr= {2e-4, 2e-3 },wd= {0,0.01 },opt= {SGD }, epochs=200, warmup=0 Regression TransMIL train bag size= {2048 }, batch size= {8}, lr= {1e-6, 1e-5, 1e-4}, wd= {0.01, 0.1 }, dropouts= {(0.2, 0.5, 0.2), (0.5, 0.75, 0.5) }, opt= {SGD, Adam }, epochs=300, warmup=5 AttnMIL train bag size= {2048 }, batch size= {32 }, lr= {2e-5, 2e-4 },wd= {0.01, 0.1 }, dropouts= {0.2, 0.75 }, opt= {SGD, Adam },epochs=150, warmup=5 MambaMIL train bag size= {2048 }, batch size= {5}, lr= {1e-6, 1e-5, 1e-4}, wd= {0, 0.01 }, opt= {SGD }, epochs=200, warmup=0 Survival TransMIL train bag size=2048, batch size=5, lr= {0.002, 0.0002 },wd= {0, 0.01 }, dropouts= {(0, 0, 0), (0.5, 0.5, 0.2) },opt=SGD, epochs=200, warmup=0 AttnMIL train bag size=2048, batch size=32, lr= {0.002, 0.0002 },wd= {0, 0.01 }, dropouts= {0, 0.5 }, opt=SGD, epochs=1000, warmup=0 MambaMIL train bag size= {2048 }, batch size= {5}, lr= {2e-4, 2e-3 },wd= {0, 0.01 }, opt= {SGD }, epochs=200, warmup=0 HEST-Regression TransMIL batch size= {32 }, lr= {0.001, 0.0001, 0.00001 }, wd= {0.001, 0.01, 0.1 }, dropouts= {(0, 0.25, 0.5, 0.75), (0, 0.25, 0.5, 0.75), (0, 0.2, 0.4, 0.6) }, opt= {SGD }
+
+Table 1: Hyperparameter grids for all models trained in this work 28 D.6 Model performance tables                                 
+
+> Classification Regression Survival CAMELYON NSCLC HPV TP53 AURKA HRD BRCA GBMLGG KIRC COADREAD TransMIL 1.00(0.00) 0.97(0.02) 0.90(0.04) 0.71(0.05) 0.66(0.02) 0.62(0.02) 0.65(0.08) 0.74(0.04) 0.70(0.03) 0.63(0.06) AttnMIL 1.00(0.00) 0.98(0.01) 0.92(0.04) 0.68(0.07) 0.69(0.03) 0.60(0.02) 0.62(0.05) 0.76(0.04) 0.71(0.03) 0.61(0.07) MambaMIL 0.97(0.03) 0.90(0.04) 0.89(0.03) 0.63(0.08) 0.65(0.03) 0.60(0.03) 0.59(0.05) 0.76(0.12) 0.68(0.06) 0.64(0.06)
+
+Table 2: Performance results for the models in faithfulness experiments, with backbone Virchow2. The numbers are mean (std) of the performance over the cross-validation folds.                                 
+
+> Classification Regression Survival CAMELYON NSCLC HPV TP53 AURKA HRD BRCA GBMLGG KIRC COADREAD TransMIL 1.00(0.00) 0.98(0.01) 0.92(0.04) 0.68(0.08) 0.66(0.03) 0.62(0.05) 0.65(0.07) 0.75(0.04) 0.71(0.06) 0.62(0.08) AttnMIL 1.00(0.00) 0.97(0.02) 0.92(0.04) 0.65(0.07) 0.69(0.03) 0.63(0.03) 0.58(0.05) 0.75(0.03) 0.71(0.04) 0.58(0.06) MambaMIL 0.98(0.02) 0.86(0.03) 0.88(0.04) 0.62(0.07) 0.66(0.04) 0.61(0.04) 0.62(0.06) 0.75(0.12) 0.71(0.07) 0.62(0.09)
+
+Table 3: Performance results for the models in faithfulness experiments, with backbone UNI2. The numbers are mean (std) of the performance over the cross-validation folds. 
+
+## E Details of statistical analyses 
+
+We assess the pairwise differences of explanation methods using Wilcoxon’s signed-rank test. We compute the effect size using the following equation [94]: 
+
+r = z
+
+√n (22) 
+
+z = W + − μσ (23) 
+
+μ = n(n + 1) 4 (24) 
+
+σ = pn(n + 1)(2 n + 1)24 (25) where n is the number of non-zero paired differences, W + is the sum of positive ranks of the paired differences. We performed 21 pairwise statistical tests for each experimental configuration (corresponding to all method pairs), resulting in 1,260 tests in total across all configurations. After FDR correction for controlling for multiple comparisons, we used 0.05 as the significance level. Figure 9 depicts all individual experimental configurations in which at least one non-significant pairwise Wilcoxon signed-rank test existed after FDR correction. Nearly all non-significant cases occur within either of the groups {Single, LRP, IG } and {Attention, G×I, Grad2, Random }. Two configurations deviate from this pattern, both corresponding to CAMELYON16 tumor detection experiments: panel 4 is for AttnMIL, and panel 7 is for MambaMIL. In the AttnMIL panel (4), {IG, Attn, Grad2, GI } show no significant differences, whereas in the MambaMIL panel (7), {IG, Attn, Grad2 } are not significantly different in their faithfulness. These observations are consistent with the inferential results reported in Section 4.4 and Figure 6, which indicate reduced separability between explanation methods for simpler tasks and architectures. To assess the robustness of the pairwise faithfulness comparisons to the choice of effect size met-ric, we replicated all aggregated analyses discussed in Section 4.4 and Figure 6 using an alternative standardized measure of paired differences (Figure 10), namely the standardized median defined as median( d)/(1 .4826 · MAD( d)) , with d being the paired differences. We abbreviate it as me-dian/MAD. In addition, we reproduced the center panels of Figure 5a–b using the median/MAD effect size instead of Wilcoxon’s signed-rank effect size. Across all aggregation levels (task type, MIL architecture, backbone, and overall), the median/MAD results closely match the patterns observed with Wilcoxon’s signed-rank effect size. In particular, 29 LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand Figure 9: Experimental configurations with at least one non-significant pairwise faithfulness differences after multiple comparison correction. Each panel corresponds to one experimen-tal configuration (dataset × task × backbone × MIL architecture) in which at least one pairwise Wilcoxon signed-rank test between explanation methods was non-significant after FDR correction (α = 0 .05 ). Cells indicate method pairs, and the red color marks the pairs for which no statisti-cally significant difference in SRG faithfulness was detected. Most non-significant comparisons occur within the two groups {Single, LRP, IG } and {Attention, G×I, Grad2, Random }. Only two configurations in panels 4 and 7 (both CAMELYON16 tumor detection experiments) exhibit non-significant differences across groups, consistent with the simplicity of the task and the aggregation-level results reported in Section 4.4. Virchow2 LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand Overall Classification Regression Survival AttnMIL MambaMIL TransMIL 
+
+≥1.5 0.5 0.2 0.0 -0.2 -0.5 
+
+≤-1.5 
+
+LRP IG Single Attn GxI Grad2 Rand LRP IG Single Attn GxI Grad2 Rand Median/MAD effect size 
+
+Figure 5-a Figure 5-b 
+
+Figure 10: Pairwise median/MAD-based comparison of SRG scores between explanation methods, averaged over various experimental factors. This figure corresponds to Figure 6. The filling colors indicate the magnitude of median/MAD as shown on the colorbar. Triangle, square, and circle markers are used to denote the negligible ( < 0.2), weak to moderate ( 0.2 − 0.5), and moderate to strong ( ≥ 0.5) effect sizes. the consistent grouping of explanation methods {Single, LRP, IG } versus {Attention, G×I, Grad2, Random } and the relative ordering within these groups remained stable. Overall, these supplementary analyses demonstrate that the reported faithfulness comparisons are robust to the choice of effect size definition and do not depend on a specific scale normalization. 
+
+## F Details for spatial transcriptomics validation experiment 
+
+HEST-1k is a publicly available dataset comprising 1,229 paired H&E WSI and spatial transcrip-tomics (ST) samples derived from two species [71]. For each pair, the ST data were spatially reg-30 istered to the corresponding H&E slide. In this study, experiments were conducted on the subset defined as the breast cancer task in the original publication, which consists of four H&E–ST pairs obtained from four independent patients. All slides were formalin-fixed, paraffin-embedded (FFPE) tissue sections profiled using the Xenium pipeline (v1). To ensure patient-level separation and avoid data leakage, a four-fold cross-validation scheme was implemented, with each fold corresponding to one patient (i.e., one slide). We trained a TransMIL-based regression framework using a Virchow2 backbone using the pipelines described in other sec-tions. Hyperparameters were optimized via grid search (see Table F). For downstream visualization, heatmaps were generated from the checkpoint achieving the lowest validation loss within each fold. 
+
+Figure 11: Ground truth and heatmaps for the ERBB2 prediction model in Section 5 . The ground-truth spatial transcriptomics and the heatmaps for the four explanation methods used in the ST validation study presented in Section 5. 31 Figure 12: Ground truth and heatmaps for the FASN prediction model in Section 5 . The ground-truth spatial transcriptomics and the heatmaps for the four explanation methods used in the ST validation study presented in Section 5. 
+
+## G Details for head and neck cancer discovery analysis 
+
+For tissue compartment segmentation, we use the same approach as in [52]. Specifically, we apply a patch classification model distinguishing between tumor and non-tumor patches. The model is a lightweight classifier on top of RudolfV foundation model features. It was trained on pixel-level tumor region annotations for 60 slides and validated with 15 slides from a proprietary head and neck cancer cohort from LMU Munich (see [52] for details). To increase spatial consistency, a neighbourhood smoothing algorithm is applied to the patch prediction scores. Border patches were determined via a specified border width of two patches distance from any predicted tumor patch. 32 Figure 13: Most relevant features for HPV prediction in TCGA HNSC . Mean and standard deviation of the cell type shares per tissue compartment in the top-10% heatmap regions across all HPV positive samples. 33 Prediction score Groups G3 G1 G2 G4 Outlier Figure 14: Comparison of histological feature profiles for HPV prediction in TCGA HNSC .Scatter matrix displaying the distribution of cell type shares per tissue compartment in the HL10 regions across all HPV positive samples for five selected histological features. The prediction scores indicate the model prediction for these samples (closer to 1 = higher HPV-positive likeli-hood). The cluster markers represent the clusters revealed with Agglomerative Clustering. See also Figure 8-b. 34 References 
+
+[1] Omar SM El Nahhas, Marko van Treeck, Georg W¨ olflein, Michaela Unger, Marta Ligero, Tim Lenz, Sophia J Wagner, Katherine J Hewitt, Firas Khader, Sebastian Foersch, et al. From whole-slide image to biomarker prediction: end-to-end weakly supervised deep learning in computational pathology. Nature Protocols , 20(1):293–316, 2025. [2] Thomas G. Dietterich, Richard H. Lathrop, and Tom´ as Lozano-P´ erez. Solving the multiple instance problem with axis-parallel rectangles. Artificial Intelligence , 89(1):31–71, 1997. [3] Maximilian Ilse, Jakub Tomczak, and Max Welling. Attention-based deep multiple instance learning. In International Conference on Machine Learning , pages 2127–2136. PMLR, 2018. [4] Oded Maron and Tom´ as Lozano-P´ erez. A framework for multiple-instance learning. Ad-vances in Neural Information Processing Systems , 10, 1997. [5] Johnathan Pocock, Simon Graham, Quoc Dang Vu, Mostafa Jahanifar, Srijay Deshpande, Giorgos Hadjigeorghiou, Adam Shephard, Raja Muhammad Saad Bashir, Mohsin Bilal, Wenqi Lu, et al. Tiatoolbox as an end-to-end library for advanced tissue image analytics. 
+
+Communications Medicine , 2(1):120, 2022. [6] Zhuchen Shao, Hao Bian, Yang Chen, Yifeng Wang, Jian Zhang, Xiangyang Ji, et al. Trans-mil: Transformer based correlated multiple instance learning for whole slide image classifi-cation. Advances in Neural Information Processing Systems , 34:2136–2147, 2021. [7] Kenza Bouzid, Harshita Sharma, Sarah Killcoyne, Daniel C Castro, Anton Schwaighofer, Max Ilse, Valentina Salvatelli, Ozan Oktay, Sumanth Murthy, Lucas Bordeaux, et al. En-abling large-scale screening of barrett’s esophagus using weakly supervised deep learning in histopathology. Nature Communications , 15(1):2026, 2024. [8] Gabriele Campanella, Matthew G Hanna, Luke Geneslaw, Allen Miraflor, Vitor Werneck Krauss Silva, Klaus J Busam, Edi Brogi, Victor E Reuter, David S Klimstra, and Thomas J Fuchs. Clinical-grade computational pathology using weakly supervised deep learning on whole slide images. Nature Medicine , 25(8):1301–1309, 2019. [9] Julien Calderaro, Narmin Ghaffari Laleh, Qinghe Zeng, Pascale Maille, Loetitia Favre, Ana¨ ıs Pujals, Christophe Klein, C´ eline Bazille, Lara R Heij, Arnaud Uguen, et al. Deep learning-based phenotyping reclassifies combined hepatocellular-cholangiocarcinoma. Nature Com-munications , 14(1):8290, 2023. [10] Ming Y Lu, Drew FK Williamson, Tiffany Y Chen, Richard J Chen, Matteo Barbieri, and Faisal Mahmood. Data-efficient and weakly supervised computational pathology on whole-slide images. Nature Biomedical Engineering , 5(6):555–570, 2021. [11] Salim Arslan, Julian Schmidt, Cher Bass, Debapriya Mehrotra, Andre Geraldes, Shikha Sing-hal, Julius Hense, Xiusi Li, Pandu Raharja-Liu, Oscar Maiques, et al. A systematic pan-cancer study on deep learning-based prediction of multi-omic biomarkers from routine pathology images. Communications Medicine , 4(1):48, 2024. [12] Amelie Echle, Niklas Timon Rindtorff, Titus Josef Brinker, Tom Luedde, Alexander Thomas Pearson, and Jakob Nikolas Kather. Deep learning in cancer pathology: a new generation of clinical biomarkers. British Journal of Cancer , 124(4):686–696, 2021. [13] Yoni Schirris, Efstratios Gavves, Iris Nederlof, Hugo Mark Horlings, and Jonas Teuwen. Deepsmile: Contrastive self-supervised pre-training benefits msi and hrd classification di-rectly from h&e whole-slide images in colorectal and breast cancer. Medical Image Analysis ,79:102464, 2022. [14] Chiara Maria Lavinia Loeffler, Omar SM El Nahhas, Hannah Sophie Muti, Zunamys I Car-rero, Tobias Seibel, Marko van Treeck, Didem Cifci, Marco Gustav, Kevin Bretz, Nadine T Gaisa, et al. Prediction of homologous recombination deficiency from routine histology with attention-based multiple instance learning in nine different tumor types. BMC Biology ,22(1):225, 2024. 35 [15] Omar SM El Nahhas, Chiara ML Loeffler, Zunamys I Carrero, Marko van Treeck, Fiona R Kolbinger, Katherine J Hewitt, Hannah S Muti, Mara Graziani, Qinghe Zeng, Julien Calder-aro, et al. Regression-based deep-learning predicts molecular biomarkers from pathology slides. Nature Communications , 15(1):1253, 2024. [16] Jan Moritz Niehues, Philip Quirke, Nicholas P West, Heike I Grabsch, Marko van Treeck, Yoni Schirris, Gregory P Veldhuizen, Gordon GA Hutchins, Susan D Richman, Sebastian Foersch, et al. Generalizable biomarker prediction from cancer pathology slides with self-supervised deep learning: A retrospective multi-centric study. Cell Reports Medicine , 4(4), 2023. [17] Charlie Saillard, R´ emy Dubois, Oussama Tchita, Nicolas Loiseau, Thierry Garcia, Aur´ elie Adriansen, S´ everine Carpentier, Joelle Reyre, Diana Enea, Katharina von Loga, et al. Vali-dation of msintuit as an ai-based pre-screening tool for msi detection from colorectal cancer histology slides. Nature Communications , 14(1):6695, 2023. [18] Sophia J Wagner, Daniel Reisenb¨ uchler, Nicholas P West, Jan Moritz Niehues, Jiefu Zhu, Se-bastian Foersch, Gregory Patrick Veldhuizen, Philip Quirke, Heike I Grabsch, Piet A van den Brandt, et al. Transformer-based biomarker prediction from colorectal cancer histology: A large-scale multicentric study. Cancer Cell , 41(9):1650–1661, 2023. [19] Gabriele Campanella, Neeraj Kumar, Swaraj Nanda, Siddharth Singi, Eugene Fluder, Ricky Kwan, Silke Muehlstedt, Nicole Pfarr, Peter J Sch¨ uffler, Ida H¨ aggstr¨ om, et al. Real-world deployment of a fine-tuned pathology foundation model for lung cancer biomarker detection. 
+
+Nature Medicine , 31(9):3002–3010, 2025. [20] Jakob Nikolas Kather, Lara R Heij, Heike I Grabsch, Chiara Loeffler, Amelie Echle, Han-nah Sophie Muti, Jeremias Krause, Jan M Niehues, Kai AJ Sommer, Peter Bankhead, et al. Pan-cancer image-based detection of clinically actionable genetic alterations. Nature Cancer ,1(8):789–799, 2020. [21] Pei Liu, Luping Ji, Feng Ye, and Bo Fu. Advmil: Adversarial multiple instance learning for the survival analysis on whole-slide images. Medical Image Analysis , 91:103020, 2024. [22] Ole-Johan Skrede, Sepp De Raedt, Andreas Kleppe, Tarjei S Hveem, Knut Liestøl, John Maddison, Hanne A Askautrud, Manohar Pradhan, John Arne Nesheim, Fritz Albregtsen, et al. Deep learning for prediction of colorectal cancer outcome: a discovery and validation study. The Lancet , 395(10221):350–360, 2020. [23] Richard J. Chen, Ming Y. Lu, Wei-Hung Weng, Tiffany Y. Chen, Drew F.K. Williamson, Trevor Manz, Maha Shady, and Faisal Mahmood. Multimodal co-attention transformer for survival prediction in gigapixel whole slide images. In Proceedings of the IEEE/CVF Inter-national Conference on Computer Vision (ICCV) , pages 4015–4025, October 2021. [24] Aniek Eijpe, Soufyan Lakbir, Melis Erdal Cesur, Sara P Oliveira, Sanne Abeln, and Wilson Silva. Disentangled and interpretable multimodal attention fusion for cancer survival pre-diction. In International Conference on Medical Image Computing and Computer-Assisted Intervention , pages 117–127. Springer, 2025. [25] Guillaume Jaume, Anurag Vaidya, Richard J Chen, Drew FK Williamson, Paul Pu Liang, and Faisal Mahmood. Modeling dense multimodal interactions between biological pathways and histology for survival prediction. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 11579–11590, 2024. [26] Simon Grouard, Christian Esposito, Jean El Khoury, Val´ erie Ducret, C´ eline Thiriez, Lo¨ ıc Herpin, Ana¨ ıs Chossegros, Caroline Hoffmann, Quentin Bayard, Genevieve Robin, Nicole Tay, Esther Baena, MOSAIC Consortium, Eric Durand, Almudena Espin Perez, and Lucas Fidon. Multiple instance learning with spatial transcriptomics for interpretable patient-level predictions: application in glioblastoma. bioRxiv , 2025. [27] Ming Y Lu, Tiffany Y Chen, Drew FK Williamson, Melissa Zhao, Maha Shady, Jana Lipkova, and Faisal Mahmood. Ai-based pathology predicts origins for cancers of unknown primary. 
+
+Nature , 594(7861):106–110, 2021. 36 [28] Rui Jiang, Xiaoxu Yin, Pengshuai Yang, Lingchao Cheng, Juan Hu, Jiao Yang, Ying Wang, Xiaodan Fu, Li Shang, Liling Li, et al. A transformer-based weakly supervised computational pathology method for clinical-grade diagnosis and molecular marker discovery of gliomas. 
+
+Nature Machine Intelligence , 6(8):876–891, 2024. [29] Andrew H Song, Mane Williams, Drew FK Williamson, Sarah SL Chow, Guillaume Jaume, Gan Gao, Andrew Zhang, Bowen Chen, Alexander S Baras, Robert Serafin, et al. Analysis of 3d pathology samples using weakly supervised ai. Cell , 187(10):2502–2520, 2024. [30] Sidney Bender, Christopher J Anders, Pattarawat Chormai, Heike Antje Marxfeld, Jan Her-rmann, and Gr´ egoire Montavon. Towards fixing clever-hans predictors with counterfactual knowledge distillation. In Proceedings of the IEEE/CVF International Conference on Com-puter Vision , pages 2607–2615, 2023. [31] Miriam H¨ agele, Philipp Seegerer, Sebastian Lapuschkin, Michael Bockmayr, Wojciech Samek, Frederick Klauschen, Klaus-Robert M¨ uller, and Alexander Binder. Resolving chal-lenges in deep learning-based analyses of histopathological images using explanation meth-ods. Scientific Reports , 10(1):6423, 2020. [32] Frederick M Howard, James Dolezal, Sara Kochanny, Jefree Schulte, Heather Chen, Lara Heij, Dezheng Huo, Rita Nanda, Olufunmilayo I Olopade, Jakob N Kather, et al. The impact of site-specific digital histology signatures on deep learning model accuracy and bias. Nature Communications , 12(1):4423, 2021. [33] Jacob Kauffmann, Jonas Dippel, Lukas Ruff, Wojciech Samek, Klaus-Robert M¨ uller, and Gr´ egoire Montavon. Explainable ai reveals clever hans effects in unsupervised learning mod-els. Nature Machine Intelligence , 7(3):412–422, 2025. [34] Jonah K¨ omen, Hannah Marienwald, Jonas Dippel, and Julius Hense. Do histopathological foundation models eliminate batch effects? a comparative study. In Advancements In Medical Foundation Models: Explainability, Robustness, Security, and Beyond , 2024. [35] Jonah K¨ omen, Edwin D de Jong, Julius Hense, Hannah Marienwald, Jonas Dippel, Philip Naumann, Eric Marcus, Lukas Ruff, Maximilian Alber, Jonas Teuwen, et al. Towards robust foundation models for digital pathology. arXiv preprint arXiv:2507.17845 , 2025. [36] Sebastian Lapuschkin, Stephan W¨ aldchen, Alexander Binder, Gr´ egoire Montavon, Wojciech Samek, and Klaus-Robert M¨ uller. Unmasking clever hans predictors and assessing what machines really learn. Nature Communications , 10(1):1096, 2019. [37] Anurag Vaidya, Richard J Chen, Drew FK Williamson, Andrew H Song, Guillaume Jaume, Yuzhe Yang, Thomas Hartvigsen, Emma C Dyer, Ming Y Lu, Jana Lipkova, et al. De-mographic bias in misdiagnosis by computational pathology models. Nature Medicine ,30(4):1174–1190, 2024. [38] Zhongxiao Li, Yuwei Cong, Xin Chen, Jiping Qi, Jingxian Sun, Tao Yan, He Yang, Junsi Liu, Enzhou Lu, Lixiang Wang, et al. Vision transformer-based weakly supervised histopatholog-ical image analysis of primary brain tumors. IScience , 26(1), 2023. [39] Frederick Klauschen, Jonas Dippel, Philipp Keyl, Philipp Jurmeister, Michael Bockmayr, Andreas Mock, Oliver Buchstab, Maximilian Alber, Lukas Ruff, Gr´ egoire Montavon, and Klaus-Robert M¨ uller. Toward explainable artificial intelligence for precision pathology. An-nual Review of Pathology: Mechanisms of Disease , 19:541—-570, 2024. [40] Philipp Keyl, Michael Bockmayr, Daniel Heim, Gabriel Dernbach, Gr´ egoire Montavon, Klaus-Robert M¨ uller, and Frederick Klauschen. Patient-level proteomic network prediction by explainable artificial intelligence. npj Precision Oncology , 6(1):35, 2022. [41] Julius Keyl, Philipp Keyl, Gr´ egoire Montavon, Ren´ e Hosch, Alexander Brehmer, Liliana Mochmann, Philipp Jurmeister, Gabriel Dernbach, Moon Kim, Sven Koitka, et al. Decoding pan-cancer treatment outcomes using multimodal real-world data and explainable artificial intelligence. Nature Cancer , 6(2):307–322, 2025. 37 [42] Ricardo Mokhtari, Azam Hamidinekoo, Daniel James Sutton, Arthur Lewis, Bastian Anger-mann, Ulf Gehrmann, P˚ al Lundin, Hibret Adissu, Junmei Cairns, Jessica Neisen, Emon Khan, Daniel Marks, Nia Khachapuridze, Talha Qaiser, and Nikolay Burlutskiy. Interpretable histopathology-based prediction of disease relevant features in inflammatory bowel disease biopsies using weakly-supervised deep learning. In Medical Imaging with Deep Learning ,volume 227 of Proceedings of Machine Learning Research , pages 479–495, 10–12 Jul 2024. [43] Thalyssa Baiocco-Rodrigues, Antoine Olivier, Reda Belbahri, Thomas Duboudin, Pierre-Antoine Bannier, Benjamin Adjadj, Katharina Von Loga, Nathan Noiry, Maxime Touzot, and Hector Roux de Bezieux. Imilia: interpretable multiple instance learning for inflammation prediction in ibd from h&e whole slide images. arXiv preprint arXiv:2512.13440 , 2025. [44] Yongju Lee, Jeong Hwan Park, Sohee Oh, Kyoungseob Shin, Jiyu Sun, Minsun Jung, Cheol Lee, Hyojin Kim, Jin-Haeng Chung, Kyung Chul Moon, et al. Derivation of prognostic contextual histopathological features from whole-slide images of tumours via graph deep learning. Nature Biomedical Engineering , pages 1–15, 2022. [45] Miles Markey, Juhyun Kim, Zvi Goldstein, Ylaine Gerardin, Jacqueline Brosnan-Cashman, Syed Ashar Javed, Dinkar Juyal, Harshith Pagidela, Limin Yu, Bahar Rahsepar, et al. Spatial mapping of gene signatures in hematoxylin and eosin-stained images: A proof of concept for interpretable predictions using additive multiple instance learning. Modern Pathology , 38(8), 2025. [46] Kevin M Boehm, Omar SM El Nahhas, Antonio Marra, Michele Waters, Justin Jee, Lior Braunstein, Nikolaus Schultz, Pier Selenica, Hannah Y Wen, Britta Weigelt, et al. Multi-modal histopathologic models stratify hormone receptor-positive early breast cancer. Nature Communications , 16(1):2106, 2025. [47] Linghan Cai, Shenjin Huang, Ye Zhang, Jinpeng Lu, and Yongbing Zhang. Attrimil: Re-visiting attention-based multiple instance learning for whole-slide pathological image clas-sification from a perspective of instance attributes. Medical Image Analysis , 103:103631, 2025. [48] Ruining Deng, Can Cui, Lucas W. Remedios, Shunxing Bao, R. Michael Womick, Sophie Chiron, Jia Li, Joseph T. Roland, Ken S. Lau, Qi Liu, Keith T. Wilson, Yaohong Wang, Lori A. Coburn, Bennett A. Landman, and Yuankai Huo. Cross-scale multi-instance learning for pathological image diagnosis. Medical Image Analysis , 94:103124, 2024. [49] Jiangbo Shi, Chen Li, Tieliang Gong, and Huazhu Fu. E2-mil: An explainable and evidential multiple instance learning framework for whole slide image classification. Medical Image Analysis , 97:103294, 2024. [50] Anh Mai Vu, Tuan L Vo, Ngoc Lam Quang Bui, Nam Nguyen Le Binh, Akash Awasthi, Huy Quoc Vo, Thanh-Huy Nguyen, Zhu Han, Chandra Mohan, and Hien Van Nguyen. Con-trastive integrated gradients: A feature attribution-based method for explaining whole slide image classification. arXiv preprint arXiv:2511.08464 , 2025. [51] Julius Hense, Mina Jamshidi Idaji, Oliver Eberle, Thomas Schnake, Jonas Dippel, Laure Ciernik, Oliver Buchstab, Andreas Mock, Frederick Klauschen, and Klaus Robert Muller. xMIL: Insightful explanations for multiple instance learning in histopathology. In The Thirty-eighth Annual Conference on Neural Information Processing Systems , 2024. [52] Julius Hense, Mina Jamshidi Idaji, Laure Ciernik, Jonas Dippel, Fatma Ersan, Maximilian Knebel, Ada Pusztai, Andrea Sendelhofert, Oliver Buchstab, Stefan Fr¨ ohling, et al. Digital spatial pathway mapping reveals prognostic tumor states in head and neck cancer. bioRxiv ,pages 2025–11, 2025. [53] Ario Sadafi, Oleksandra Adonkina, Ashkan Khakzar, Peter Lienemann, Rudolf Matthias Hehr, Daniel Rueckert, Nassir Navab, and Carsten Marr. Pixel-level explanation of multi-ple instance learning models in biomedical single cell images. In International Conference on Information Processing in Medical Imaging , pages 170–182. Springer, 2023. 38 [54] Joseph Early, Christine Evers, and Sarvapali Ramchurn. Model agnostic interpretability for multiple instance learning. In International Conference on Learning Representations , 2022. [55] Syed Ashar Javed, Dinkar Juyal, Harshith Padigela, Amaro Taylor-Weiner, Limin Yu, and Aa-ditya Prakash. Additive mil: Intrinsically interpretable multiple instance learning for pathol-ogy. Advances in Neural Information Processing Systems , 35:20689–20702, 2022. [56] Ameen Ali, Thomas Schnake, Oliver Eberle, Gr´ egoire Montavon, Klaus-Robert M¨ uller, and Lior Wolf. Xai for transformers: Better explanations through conservative propagation. In 
+
+International Conference on Machine Learning , pages 435–451. PMLR, 2022. [57] Sarthak Jain and Byron C. Wallace. Attention is not Explanation. In Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies , pages 3543–3556, Minneapolis, Minnesota, June 2019. [58] Sarah Wiegreffe and Yuval Pinter. Attention is not not explanation. In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP) , pages 11–20, Hong Kong, China, 2019. [59] Mohammad Naiseh, Dena Al-Thani, Nan Jiang, and Raian Ali. How the different explanation classes impact trust calibration: The case of clinical decision support systems. International Journal of Human-Computer Studies , 169:102941, 2023. [60] Anna Hedstr¨ om, Leander Weber, Daniel Krakowczyk, Dilyara Bareeva, Franz Motzkus, Wo-jciech Samek, Sebastian Lapuschkin, and Marina M-C H¨ ohne. Quantus: An explainable ai toolkit for responsible evaluation of neural network explanations and beyond. Journal of Machine Learning Research , 24(34):1–11, 2023. [61] Meike Nauta, Jan Trienes, Shreyasi Pathak, Elisa Nguyen, Michelle Peters, Yasmin Schmitt, J¨ org Schl¨ otterer, Maurice Van Keulen, and Christin Seifert. From anecdotal evidence to quantitative evaluation methods: A systematic review on evaluating explainable ai. ACM Computing Surveys , 55(13s):1–42, 2023. [62] Wojciech Samek, Alexander Binder, Gr´ egoire Montavon, Sebastian Lapuschkin, and Klaus-Robert M¨ uller. Evaluating the visualization of what a deep neural network has learned. IEEE Transactions on Neural Networks and Learning Systems , 28(11):2660–2673, 2016. [63] Maximilian Alber, Timo Milbich, Alexandra Carpen-Amarie, Stephan Tietz, Jonas Dippel, Lukas Muttenthaler, Beatriz Perez Cancer, Alessandro Benetti, Panos Korfiatis, Elias Eulig, et al. Atlas 2-foundation models for clinical deployment. arXiv preprint arXiv:2601.05148 ,2026. [64] Richard J Chen, Tong Ding, Ming Y Lu, Drew FK Williamson, Guillaume Jaume, Andrew H Song, Bowen Chen, Andrew Zhang, Daniel Shao, Muhammad Shaban, et al. Towards a general-purpose foundation model for computational pathology. Nature Medicine , 30(3):850– 862, 2024. [65] Jonas Dippel, Barbara Feulner, Tobias Winterhoff, Simon Schallenberg, Gabriel Dernbach, Andreas Kunft, Stephan Tietz, Philipp Jurmeister, David Horst, Lukas Ruff, et al. Rudolfv: A foundation model by pathologists for pathologists. arXiv preprint arXiv:2401.04079 , 2024. [66] Eugene Vorontsov, Alican Bozkurt, Adam Casson, George Shaikovski, Michal Zelechowski, Kristen Severson, Eric Zimmermann, James Hall, Neil Tenenholtz, Nicolo Fusi, et al. A foun-dation model for clinical-grade computational pathology and rare cancers detection. Nature Medicine , pages 1–12, 2024. [67] Xiyue Wang, Sen Yang, Jun Zhang, Minghui Wang, Jing Zhang, Wei Yang, Junzhou Huang, and Xiao Han. Transformer-based unsupervised contrastive learning for histopathological image classification. Medical Image Analysis , 81, 2022. 39 [68] Eric Zimmermann, Eugene Vorontsov, Julian Viret, Adam Casson, Michal Zelechowski, George Shaikovski, Neil Tenenholtz, James Hall, David Klimstra, Razik Yousfi, et al. Vir-chow2: Scaling self-supervised mixed magnification models in pathology. arXiv preprint arXiv:2408.00738 , 2024. [69] Gabriele Campanella, Shengjia Chen, Manbir Singh, Ruchika Verma, Silke Muehlstedt, Jen-nifer Zeng, Aryeh Stock, Matt Croken, Brandon Veremis, Abdulkadir Elmas, et al. A clinical benchmark of public self-supervised pathology foundation models. Nature Communications ,16(1):3640, 2025. [70] Alexandre Filiot, Nicolas Dop, Oussama Tchita, Auriane Riou, R´ emy Dubois, Thomas Peeters, Daria Valter, Marin Scalbert, Charlie Saillard, Genevi` eve Robin, et al. Distilling foundation models for robust and efficient models in digital pathology. In International Con-ference on Medical Image Computing and Computer-Assisted Intervention , pages 162–172. Springer, 2025. [71] Guillaume Jaume, Paul Doucet, Andrew Song, Ming Yang Lu, Cristina Almagro P´ erez, Sophia Wagner, Anurag Vaidya, Richard Chen, Drew Williamson, Ahrong Kim, et al. HEST-1k: A dataset for spatial transcriptomics and histology image analysis. Advances in Neural Information Processing Systems , 37:53798–53833, 2024. [72] kaiko.ai, Ioannis Gatopoulos, Nicolas K¨ anzig, Roman Moser, and Sebastian Ot´ alora. eva: Evaluation framework for pathology foundation models. In Medical Imaging with Deep Learning , 2024. [73] Alexander M¨ ollers, Julius Hense, Florian Schulz, Timo Milbich, Maximilian Alber, and Lukas Ruff. Mind the gap: Continuous magnification sampling for pathology foundation models. arXiv preprint arXiv:2601.02198 , 2026. [74] Peter Neidlinger, Omar SM El Nahhas, Hannah Sophie Muti, Tim Lenz, Michael Hoffmeis-ter, Hermann Brenner, Marko van Treeck, Rupert Langer, Bastian Dislich, Hans Michael Behrens, et al. Benchmarking foundation models as feature extractors for weakly supervised computational pathology. Nature Biomedical Engineering , 2025. [75] Mara Graziani, Niccol` o Marini, Nicolas Deutschmann, Nikita Janakarajan, Henning M¨ uller, and Mar´ ıa Rodr´ ıguez Mart´ ınez. Attention-based interpretable regression of gene expression in histology. In Interpretability of Machine Intelligence in Medical Image Computing , pages 44–60, Cham, 2022. [76] Daniel Shao, Richard J. Chen, Andrew H. Song, Joel Runevic, Ming Y. Lu, Tong Ding, and Faisal Mahmood. Do multiple instance learning models transfer? In Forty-second Interna-tional Conference on Machine Learning , 2025. [77] Dawid Rymarczyk, Adriana Borowa, Jacek Tabor, and Bartosz Zieli´ nski. Kernel self-attention for weakly-supervised image classification using deep multiple instance learning. In 2021 IEEE Winter Conference on Applications of Computer Vision (WACV) , pages 1720– 1729, 2021. [78] Olga Fourkioti, Matt De Vries, and Chris Bakal. CAMIL: Context-aware multiple instance learning for cancer detection and subtyping in whole slide images. In The Twelfth Interna-tional Conference on Learning Representations , 2024. [79] Shu Yang, Yihui Wang, and Hao Chen. MambaMIL: Enhancing long sequence modeling with sequence reordering in computational pathology. In International Conference on Medical Image Computing and Computer-Assisted Intervention , pages 296–306. Springer, 2024. [80] Albert Gu and Tri Dao. Mamba: Linear-time sequence modeling with selective state spaces. In First Conference on Language Modeling , 2024. [81] Shekoufeh Gorgi Zadeh and Matthias Schmid. Bias in cross-entropy-based training of deep survival networks. IEEE transactions on pattern analysis and machine intelligence ,43(9):3126–3137, 2020. 40 [82] David R Cox. Regression models and life-tables. Journal of the Royal Statistical Society: Series B (Methodological) , 34(2):187–202, 1972. [83] Jared L Katzman, Uri Shaham, Alexander Cloninger, Jonathan Bates, Tingting Jiang, and Yu-val Kluger. Deepsurv: personalized treatment recommender system using a cox proportional hazards deep neural network. BMC medical research methodology , 18(1):24, 2018. [84] Samira Abnar and Willem Zuidema. Quantifying attention flow in transformers. In Dan Jurafsky, Joyce Chai, Natalie Schluter, and Joel Tetreault, editors, Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics , pages 4190–4197, Online, July 2020. [85] Mukund Sundararajan, Ankur Taly, and Qiqi Yan. Axiomatic attribution for deep networks. In International Conference on Machine Learning , pages 3319–3328. PMLR, 2017. [86] David Baehrens, Timon Schroeter, Stefan Harmeling, Motoaki Kawanabe, Katja Hansen, and Klaus-Robert M¨ uller. How to explain individual classification decisions. The Journal of Machine Learning Research , 11:1803–1831, 2010. [87] Gr´ egoire Montavon, Wojciech Samek, and Klaus-Robert M¨ uller. Methods for interpreting and understanding deep neural networks. Digital Signal Processing , 73:1–15, 2018. [88] Avanti Shrikumar, Peyton Greenside, and Anshul Kundaje. Learning important features through propagating activation differences. In Proceedings of the 34th International Con-ference on Machine Learning - Volume 70 , ICML’17, page 3145–3153, 2017. [89] Sebastian Bach, Alexander Binder, Gr´ egoire Montavon, Frederick Klauschen, Klaus-Robert M¨ uller, and Wojciech Samek. On pixel-wise explanations for non-linear classifier decisions by layer-wise relevance propagation. PLoS ONE , 10(7), 07 2015. [90] Gr´ egoire Montavon, Alexander Binder, Sebastian Lapuschkin, Wojciech Samek, and Klaus-Robert M¨ uller. Layer-wise relevance propagation: an overview. Explainable AI: interpreting, explaining and visualizing deep learning , pages 193–209, 2019. [91] Wojciech Samek, Gr´ egoire Montavon, Sebastian Lapuschkin, Christopher J. Anders, and Klaus-Robert M¨ uller. Explaining deep neural networks and beyond: A review of methods and applications. Proceedings of the IEEE , 109(3):247–278, 2021. [92] Simon Letzgus, Patrick Wagner, Jonas Lederer, Wojciech Samek, Klaus-Robert M¨ uller, and Gr´ egoire Montavon. Toward explainable artificial intelligence for regression models: Amethodological perspective. IEEE Signal Processing Magazine , 39(4):40–58, 2022. [93] Stefan Bluecher, Johanna Vielhaben, and Nils Strodthoff. Decoupling pixel flipping and occlusion strategy for consistent XAI benchmarks. Transactions on Machine Learning Re-search , 2024. [94] Kandethody M. Ramachandran and Chris P. Tsokos. Chapter 12 - nonparametric statistics. In Kandethody M. Ramachandran and Chris P. Tsokos, editors, Mathematical Statistics with Applications in R (Third Edition) , pages 491–530. Third edition edition, 2021. [95] Fabian H¨ orst, Moritz Rempe, Helmut Becker, Lukas Heine, Julius Keyl, and Jens Kleesiek. Cellvit++: Energy-efficient and adaptive cell segmentation and classification using founda-tion models. arXiv preprint arXiv:2501.05269 , 2025. [96] Mohsin Bilal, Robert Jewsbury, Ruoyu Wang, Hammam M AlGhamdi, Amina Asif, Mark Eastwood, and Nasir Rajpoot. An aggregation of aggregation methods in computational pathology. Medical Image Analysis , 2023. [97] Joshua D Campbell, Christina Yau, Reanne Bowlby, Yuexin Liu, Kevin Brennan, Huihui Fan, Alison M Taylor, Chen Wang, Vonn Walter, Rehan Akbani, et al. Genomic, pathway network, and immunologic features distinguishing squamous carcinomas. Cell Reports , 23(1):194– 212, 2018. 41 [98] Fabian H¨ orst, Moritz Rempe, Lukas Heine, Constantin Seibold, Julius Keyl, Giulia Baldini, Selma Ugurel, Jens Siveke, Barbara Gr¨ unwald, Jan Egger, et al. Cellvit: Vision transformers for precise cell segmentation and classification. Medical Image Analysis , 94:103143, 2024. [99] Weina Jin, Xiaoxiao Li, Mostafa Fatehi, and Ghassan Hamarneh. Guidelines and evaluation of clinical explainable ai in medical image analysis. Medical Image Analysis , 84:102684, 2023. [100] Narine Kokhlikyan, Vivek Miglani, Miguel Martin, Edward Wang, Bilal Alsallakh, Jonathan Reynolds, Alexander Melnikov, Natalia Kliushkina, Carlos Araya, Siqi Yan, et al. Cap-tum: A unified and generic model interpretability library for pytorch. arXiv preprint arXiv:2009.07896 , 2020. [101] Pascal Kl¨ ockner, Jos´ e Teixeira, Diana Montezuma, Jo˜ ao Fraga, Hugo M Horlings, Jaime S Cardoso, and Sara P Oliveira. H&e to ihc virtual staining methods in breast cancer: an overview and benchmarking. npj Digital Medicine , 8(1):384, 2025. [102] Zhe Li, Yuchen Li, Jinxi Xiang, Xiyue Wang, Sen Yang, Xiaoming Zhang, Feyisope Eweje, Yijiang Chen, Xiangde Luo, Yuanyuan Li, et al. Ai-enabled virtual spatial proteomics from histopathology for interpretable biomarker discovery in lung cancer. Nature Medicine ,32(1):231–244, 2026. [103] Benoˆ ıt Schmauch, Lo¨ ıc Herpin, Antoine Olivier, Thomas Duboudin, R´ emy Dubois, Lucie Gillet, Alexandre Filiot, Jean-Baptiste Schiratti, Valentina Di Proietto, Delphine Le Corre, et al. A deep learning-based multiscale integration of spatial omics with tumor morphology. 
+
+Nature Communications , 16(1):11674, 2025. [104] Jeya Maria Jose Valanarasu, Hanwen Xu, Naoto Usuyama, Chanwoo Kim, Cliff Wong, Pe-niel Argaw, Racheli Ben Shimol, Angela Crabtree, Kevin Matlock, Alexandra Q Bartlett, et al. Multimodal ai generates virtual population for tumor microenvironment modeling. 
+
+Cell , 189(2), 2025. [105] Oliver Eberle, Jochen B¨ uttner, Florian Kr¨ autli, Klaus-Robert M¨ uller, Matteo Valleriani, and Gr´ egoire Montavon. Building and interpreting deep similarity models. IEEE Transactions on Pattern Analysis and Machine Intelligence , 44(3):1149–1161, 2020. [106] Thomas Schnake, Oliver Eberle, Jonas Lederer, Shinichi Nakajima, Kristof T Sch¨ utt, Klaus-Robert M¨ uller, and Gr´ egoire Montavon. Higher-order explanations of graph neural net-works via relevant walks. IEEE Transactions on Pattern Analysis and Machine Intelligence ,44(11):7581–7596, 2021. [107] Thomas Schnake, Farnoush Rezaei Jafari, Jonas Lederer, Ping Xiong, Shinichi Naka-jima, Stefan Gugler, Gregoire Montavon, and Klaus-Robert Mueller. Towards symbolic xai—explanation through human understandable logical relationships between features. In-formation Fusion , 118:102923, 2025. [108] Lukas Klein, Carsten L¨ uth, Udo Schlegel, Till Bungert, Mennatallah El-Assady, and Paul J¨ ager. Navigating the maze of explainable ai: A systematic approach to evaluating methods and metrics. Advances in Neural Information Processing Systems , 37:67106–67146, 2024. [109] Marco Ancona, Enea Ceolini, Cengiz ¨ Oztireli, and Markus Gross. Towards better under-standing of gradient-based attribution methods for deep neural networks. In International Conference on Learning Representations , 2018. [110] Bin Li, Yin Li, and Kevin W Eliceiri. Dual-stream multiple instance learning network for whole slide image classification with self-supervised contrastive learning. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 14318–14328, 2021. [111] Jinxi Xiang and Jun Zhang. Exploring low-rank property in multiple instance learning for whole slide image classification. In The Eleventh International Conference on Learning Rep-resentations , 2023. 42 [112] Yash Sharma, Aman Shrivastava, Lubaina Ehsan, Christopher A Moskaluk, Sana Syed, and Donald Brown. Cluster-to-conquer: A framework for end-to-end multi-instance learning for whole slide image classification. In Medical Imaging with Deep Learning , pages 682–698. PMLR, 2021. [113] Jiawei Yang, Hanbo Chen, Yu Zhao, Fan Yang, Yao Zhang, Lei He, and Jianhua Yao. Remix: A general and efficient framework for multiple instance learning based whole slide image classification. In International Conference on Medical Image Computing and Computer-Assisted Intervention , pages 35–45. Springer, 2022. [114] Hongrun Zhang, Yanda Meng, Yitian Zhao, Yihong Qiao, Xiaoyun Yang, Sarah E Coupland, and Yalin Zheng. Dtfd-mil: Double-tier feature distillation multiple instance learning for histopathology whole slide image classification. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 18802–18812, 2022. [115] Francisco M Castro-Mac´ ıas, Pablo Morales- ´ Alvarez, Yunan Wu, Rafael Molina, and Agge-los K Katsaggelos. Sm: enhanced localization in multiple instance learning for medical imag-ing classification. Advances in Neural Information Processing Systems , 37:77494–77524, 2024. [116] Honglin Li, Yunlong Zhang, Pingyi Chen, Zhongyi Shui, Chenglu Zhu, and Lin Yang. Re-thinking transformer for long contextual histopathology whole slide image analysis. Advances in Neural Information Processing Systems , 37:101498–101528, 2024. [117] Wenhao Tang, Fengtao Zhou, Sheng Huang, Xiang Zhu, Yi Zhang, and Bo Liu. Feature re-embedding: Towards foundation model-level performance in computational pathology. In 
+
+Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 11343–11352, 2024. [118] Leo Fillioux, Joseph Boyd, Maria Vakalopoulou, Paul-Henry Courn` ede, and Stergios Christodoulidis. Structured state space models for multiple instance learning in digital pathol-ogy. In International Conference on Medical Image Computing and Computer-Assisted In-tervention , pages 594–604. Springer, 2023. [119] Roozbeh Bazargani, Ladan Fazli, Martin Gleave, Larry Goldenberg, Ali Bashashati, and Sep-timiu Salcudean. Multi-scale relational graph convolutional network for multiple instance learning in histopathology images. Medical Image Analysis , 96:103197, 2024. [120] Jiawen Li, Yuxuan Chen, Hongbo Chu, Qiehe Sun, Tian Guan, Anjia Han, and Yonghong He. Dynamic graph representation with knowledge-aware attention for histopathology whole slide image analysis. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 11323–11332, 2024. [121] Ming Y. Lu, Bowen Chen, Andrew Zhang, Drew F. K. Williamson, Richard J. Chen, Tong Ding, Long Phi Le, Yung-Sung Chuang, and Faisal Mahmood. Visual language pre-trained multiple instance zero-shot transfer for histopathology images. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , pages 19764– 19775, June 2023. [122] Pablo Meseguer, Roc´ ıo del Amor, and Valery Naranjo. Mil-adapter: Coupling multiple in-stance learning and vision-language adapters for few-shot slide-level classification. Medical Image Analysis , 110:103964, 2026. [123] Narmin Ghaffari Laleh, Hannah Sophie Muti, Chiara Maria Lavinia Loeffler, Amelie Echle, Oliver Lester Saldanha, Faisal Mahmood, Ming Y. Lu, Christian Trautwein, Rupert Langer, Bastian Dislich, Roman D. Buelow, Heike Irmgard Grabsch, Hermann Brenner, Jenny Chang-Claude, Elizabeth Alwers, Titus J. Brinker, Firas Khader, Daniel Truhn, Nadine T. Gaisa, Peter Boor, Michael Hoffmeister, Volkmar Schulz, and Jakob Nikolas Kather. Benchmarking weakly-supervised deep learning pipelines for whole slide classification in computational pathology. Medical Image Analysis , 79:102474, 2022. 43 [124] Hongming Xu, Mingkang Wang, Duanbo Shi, Huamin Qin, Yunpeng Zhang, Zaiyi Liu, Anant Madabhushi, Peng Gao, Fengyu Cong, and Cheng Lu. When multiple instance learning meets foundation models: Advancing histological whole slide image analysis. Medical Image Analysis , 101:103456, 2025. [125] Yang Hu, Korsuk Sirinukunwattana, Bin Li, Kezia Gaitskell, Enric Domingo, Willem Bon-naff´ e, Marta Wojciechowska, Ruby Wood, Nasullah Khalid Alham, Stefano Malacrino, et al. Self-interactive learning: Fusion and evolution of multi-scale histomorphology features for molecular traits prediction in computational pathology. Medical Image Analysis , 101:103437, 2025. [126] Willem Bonnaff´ e, CRUK Group, Freddie Hamdy, Yang Hu, Ian Mills, Jens Rittscher, Clare Verrill, and Dan J Woodcock. Beyond attention: deriving biologically inter-pretable insights from weakly-supervised multiple-instance learning models. arXiv preprint arXiv:2309.03925 , 2023. [127] Abhinav Sharma, Bojing Liu, and Mattias Rantalainen. A method for spatial interpretation of weakly supervised deep learning models in computational pathology. Scientific Reports ,15(1):19804, 2025. [128] Scott M Lundberg and Su-In Lee. A unified approach to interpreting model predictions. 
+
+Advances in Neural Information Processing Systems , 30, 2017. [129] Zeyu Gao, Anyu Mao, Yuxing Dong, Hannah Clayton, Jialun Wu, Jiashuai Liu, ChunBao Wang, Kai He, Tieliang Gong, Chen Li, and Mireia Crispin-Ortuzar. Smmile enables accurate spatial quantification in digital pathology using multiple-instance learning. Nature Cancer ,6:2025–2041, 2025. [130] Chenshen Huang, Haoyun Xia, Xi Xiao, Hong Chen, Yiqing Jiang, Yahui Lyu, Zhizhan Ni, Tianyang Wang, Ning Wang, and Qi Huang. Geometric multi-instance learning for weakly supervised gastric cancer segmentation. npj Digital Medicine , 2026. [131] Jana Lipkova, Tiffany Y Chen, Ming Y Lu, Richard J Chen, Maha Shady, Mane Williams, Jingwen Wang, Zahra Noor, Richard N Mitchell, Mehmet Turan, et al. Deep learning-enabled assessment of cardiac allograft rejection from endomyocardial biopsies. Nature Medicine ,28(3):575–582, 2022. [132] Yu Kurata, Imari Mimura, Satoshi Kodera, Hiroyuki Abe, Daisuke Yamada, Haruki Kume, Tetsuo Ushiku, Tetsuhiro Tanaka, Norihiko Takeda, and Masaomi Nangaku. Multiple in-stance learning using pathology foundation models effectively predicts kidney disease diag-nosis and clinical classification. Scientific Reports , 15(1):35298, 2025. [133] Abdullah Tauqeer, Amir Asif, and Ali Sadeghi-Naini. Detection, localization, and staging of breast cancer lymph node metastasis in digital pathology whole slide images using selective neighborhood attention-based deep learning. Scientific Reports , 15(1):37847, 2025. [134] Richard J Chen, Ming Y Lu, Drew FK Williamson, Tiffany Y Chen, Jana Lipkova, Zahra Noor, Muhammad Shaban, Maha Shady, Mane Williams, Bumjin Joo, et al. Pan-cancer in-tegrative histology-genomic analysis via multimodal deep learning. Cancer Cell , 40(8):865– 878, 2022. [135] Jaeseok Jang and Hyuk-Yoon Kwon. Are multiple instance learning algorithms learnable for instances? Advances in Neural Information Processing Systems , 37:10575–10612, 2024. [136] Martim Afonso, Praphulla M.S. Bhawsar, Monjoy Saha, Jonas S. Almeida, and Arlindo L. Oliveira. Multiple instance learning for wsi: A comparative analysis of attention-based ap-proaches. Journal of Pathology Informatics , 15:100403, 2024. [137] Ross L. Prentice. Introduction to Cox (1972) Regression Models and Life-Tables , pages 519– 526. New York, NY, 1992. [138] Farnoush Rezaei Jafari, Gr´ egoire Montavon, Klaus Robert Muller, and Oliver Eberle. Mam-baLRP: Explaining selective state space sequence models. In The Thirty-eighth Annual Con-ference on Neural Information Processing Systems , 2024. 44 [139] Babak Ehteshami Bejnordi, Mitko Veta, Paul Johannes Van Diest, Bram Van Ginneken, Nico Karssemeijer, Geert Litjens, Jeroen AWM Van Der Laak, Meyke Hermsen, Quirine F Man-son, Maschenka Balkenhol, et al. Diagnostic assessment of deep learning algorithms for de-tection of lymph node metastases in women with breast cancer. JAMA , 318(22):2199–2210, 2017. [140] Akira Mogi, Hiroyuki Kuwano, et al. Tp53 mutations in nonsmall cell lung cancer. BioMed Research International , 2011, 2011. [141] Nicolas Coudray, Paolo Santiago Ocampo, Theodore Sakellaropoulos, Navneet Narula, Matija Snuderl, David Feny¨ o, Andre L Moreira, Narges Razavian, and Aristotelis Tsirigos. Classification and mutation prediction from non–small cell lung cancer histopathology im-ages using deep learning. Nature Medicine , 24(10):1559–1567, 2018. [142] Yanan Wang, Nicolas Coudray, Yun Zhao, Fuyi Li, Changyuan Hu, Yao-Zhong Zhang, Seiya Imoto, Aristotelis Tsirigos, Geoffrey I Webb, Roger J Daly, et al. Heal: an automated deep learning framework for cancer histopathology image analysis. Bioinformatics , 37(22):4291– 4295, 2021. [143] Mary J Goldman, Brian Craft, Mim Hastie, Kristupas Repeˇ cka, Fran McDade, Akhil Kamath, Ayan Banerjee, Yunhai Luo, Dave Rogers, Angela N Brooks, et al. Visualizing and interpret-ing cancer genomics data via the xena platform. Nature biotechnology , 38(6):675–678, 2020. [144] Yinxi Wang, Kimmo Kartasalo, Philippe Weitz, Balazs Acs, Masi Valkonen, Christer Lars-son, Pekka Ruusuvuori, Johan Hartman, and Mattias Rantalainen. Predicting molecular phe-notypes from histopathology images: a transcriptome-wide expression–morphology analysis in breast cancer. Cancer research , 81(19):5115–5126, 2021. [145] Andrew H. Song, Richard J. Chen, Guillaume Jaume, Anurag Jayant Vaidya, Alexander Baras, and Faisal Mahmood. Multimodal prototyping for cancer survival prediction. In Ruslan Salakhutdinov, Zico Kolter, Katherine Heller, Adrian Weller, Nuria Oliver, Jonathan Scarlett, and Felix Berkenkamp, editors, Proceedings of the 41st International Conference on Machine Learning , volume 235 of Proceedings of Machine Learning Research , pages 46050–46073, 21–27 Jul 2024. [146] Nobuyuki Otsu et al. A threshold selection method from gray-level histograms. Automatica ,11(285-296):23–27, 1975. 45

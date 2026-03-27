@@ -1,0 +1,168 @@
+Title: Histopathology Image Normalization via Latent Manifold Compaction
+
+URL Source: https://arxiv.org/pdf/2602.24251v1
+
+Published Time: Mon, 02 Mar 2026 02:15:32 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# Histopathology Image Normalization via Latent Manifold Compaction 
+
+Xiaolong Zhang 1, Jianwei Zhang 2, Selim Sevim 1, Emek Demir 1, Ece Eksi 1, and Xubo Song 1⋆ 
+
+> 1
+
+Knight Cancer Institute, Oregon Health and Science University, Oregon, USA  
+
+> 2
+
+Brenden-Colson Center for Pancreatic Care, Oregon Health and Science University, Oregon, USA 
+
+Abstract. Batch effects arising from technical variations in histopathol-ogy staining protocols, scanners, and acquisition pipelines pose a persis-tent challenge for computational pathology, hindering cross-batch gener-alization and limiting reliable deployment of models across clinical sites. In this work, we introduce Latent Manifold Compaction (LMC) ,an unsupervised representation learning framework that performs im-age harmonization by learning batch-invariant embeddings from a single source dataset through explicit compaction of stain-induced latent man-ifolds. This allows LMC to generalize to target domain data unseen dur-ing training. Evaluated on three challenging public and in-house bench-marks, LMC substantially reduces batch-induced separations across mul-tiple datasets and consistently outperforms state-of-the-art normaliza-tion methods in downstream cross-batch classification and detection tasks, enabling superior generalization. 
+
+Keywords: Stain normalization · Cross-batch generalization · Latent normalization · Representation learning · Digital pathology. 
+
+# 1 Introduction 
+
+Digitized histopathology has become integral to modern clinical workflows and enables machine learning models for disease diagnosis, grading, and prognosis. However, these models often fail to generalize across cohorts, research projects, and institutions due to batch effects : systematic variability in slide appearance and feature distributions caused by non-biological technical factors such as tissue processing, staining protocols, and scanner configurations [6, 17]. Such variability introduces spurious correlations that degrade model performance on unseen data and hinder the integration of multi-source datasets, posing a major barrier to deploying reliable pathology AI systems. To mitigate batch effects in hematoxylin and eosin (H&E) histopathology images, a wide range of normalization techniques have been proposed. Clas-sical stain normalization methods align pixel-level color statistics across im- 
+
+> ⋆
+
+Corresponding author. songx@ohsu.edu  
+
+> arXiv:2602.24251v1 [cs.LG] 27 Feb 2026 2F. Author et al.
+
+ages [23, 20]. While computationally efficient, these approaches primarily ad-just global color distributions and may suppress subtle but important biologi-cal signals. More recent deep learning approaches—including adversarial style transfer [24, 14, 31], contrastive stain normalization [15, 8], stain-aware domain adaptation [18, 26, 22], and diffusion-based methods [25, 11, 12]—provide greater modeling capacity and flexibility for correcting stain-related variability. However, most existing methods require access to target-domain data and, in many cases, additional label supervision, which is often infeasible in real-world clinical settings. Unlike natural image deployment scenarios, adapting models with target-site pathology data is constrained by privacy regulations, annota-tion costs, and institutional data-sharing barriers. Moreover, pre-analytical and preprocessing workflows (such as staining protocols and scanner calibration) are often opaque or poorly documented, making technical variability difficult to model explicitly. As a result, models trained on a single dataset often de-grade when deployed as is , limiting the aggregation and reuse of multi-source datasets [1, 10, 27]. More fundamentally, many existing approaches operate at the image level, focusing on harmonizing visual appearance rather than address-ing variability in the representation space used by predictive models. As a result, residual batch effects may persist in learned embeddings even after visual nor-malization. In addition, many methods are tightly coupled to specific architec-tures or downstream tasks, limiting their use as general-purpose preprocessing modules. Recent studies further show that pathology foundation models remain sensitive to site-specific batch effects, leading to biased cross-batch predictions even with large-scale pretrained encoders [13]. These limitations highlight the need for approaches that explicitly mitigate batch effects in representation space with strong single source generalizability. In this work, we present an H&E normalization method that directly ad-dresses batch effects in learned latent space and enables single-source general-ization. We observe that non-biological variations in H&E images manifest as global intensity shifts in H and E stains individually without changing morphol-ogy. Given a single source batch, varying H and E intensities of each image can induce a local 2D manifold in the high dimensional latent space, which captures all possible unseen stain variations corresponding to the same underlying tissue content. Explicitly compacting this manifold to a single point will enforce all varied versions of an image to produce the same embedding, and thus achieving generalized stain-invariant representation while preserving biologically meaning-ful structure. Therefore, we propose Latent Manifold Compaction (LMC) ,an unsupervised batch-invariant representation learning framework using data from a single source batch. LMC leverages principled H&E stain space augmen-tations to generate the manifold that reflects real world staining variability and employs a contrastive objective to compact stain variant views into a unified invariant latent representation. Once trained, the resulting encoder can be com-bined with a task specific prediction head learned on source data and deployed directly on unseen datasets, enabling reliable cross-batch prediction without re-quiring access to target domain data. We evaluate LMC on three benchmarks Latent Manifold Compaction 3
+
+that emphasize cross-batch generalization [1, 19, 24], where models are trained exclusively on a single source dataset and tested on distinct target datasets acquired under different staining conditions. LMC consistently reduces batch-induced separation and achieves superior cross-batch performance compared to state-of-the-art normalization methods. 
+
+# 2 Method 
+
+By design, stain normalization is achieved by first generating the manifold for each image by varying H and E intensities which captures all possible stain vari-ations corresponding to the same underlying tissue content. Explicitly compact-ing this manifold to a single point can then produce generalized stain-invariant representations while preserving biologically meaningful structure. 
+
+2.1 Stain-Induced Manifold Generation 
+
+To generate the stain-induced manifold for a histopathology image, we produce multiple stain-augmented views of the image, as illustrated in Figure 1(a). Specif-ically, a H&E image in RGB space is first deconvolved into the H and E chan-nels by singular value decomposition (SVD), which is performed on the optical density (OD) matrix of the image to identify the principal eigenvectors corre-sponding to hematoxylin (H) and eosin (E), thereby defining the H&E space. Then the H and E components are scaled with parameters αH and αE respec-tively, to reflect the stain variation. We choose αH and αE from a uniform range of [0.5,2.0] that empirically cover the range of stain variation in the real world to populate the manifold. The resulting augmented image is obtained by re-constructing the RGB from the perturbed H&E space. These controlled stain perturbations to histopathology images reflect variability observed in practice and produce diverse yet biologically consistent stain variants. 
+
+2.2 Manifold Compaction in Latent Space 
+
+The principled objective is to compact the stain-induced latent manifold toward a single semantically meaningful representation, as shown in Figure 1(a). This is done by training an encoder such that the embeddings of any pairs of points on the manifold to be close. Given an input image x, we denote the two indepen-dently stain-augmented views as x1 and x2, as shown in Figure 1(b). An encoder 
+
+fθ (·) maps each view into a latent representation: 
+
+z1 = fθ (x1), z2 = fθ (x2). (1) To efficiently compact stain-induced latent manifolds while avoiding reliance on large batch sizes or memory banks [21, 4, 9], training instability handling [3], and carefully tuned regularization [7, 5], we employ a correlation-based con-trastive objective that enforces invariance between paired representations while 4 F. Author et al.   
+
+> Fig. 1. (a) Manifold generated by varying H and E intensities of each image induces a local 2D manifold in latent space. All points on the manifold are compacted to a single point Zn, which is a stain-invariant representation that reduces batch effects while preserving biological structure. (b) LMC applies H&E stain-space augmentations, encodes paired views with a Vision Transformer (ViT) backbone, and enforces batch-invariant representations using a contrastive loss.
+
+reducing redundancy across embedding dimensions [29]. Specifically, for a mini-batch of paired representations, we compute the cross-correlation matrix between corresponding latent dimensions and optimize an objective that (i) encourages strong alignment along the diagonal and (ii) suppresses off-diagonal correlations. The resulting objective function is expressed as: 
+
+L ≜ X
+
+> i
+
+(1 − Cii )2 + λ X
+
+> i
+
+X 
+
+> j̸=i
+
+C2 
+
+> ij
+
+, (2) where λ is a hyperparameter that balances the two loss terms and is set to 0.005 based on empirical tuning. Cij is the cross-correlation matrix between paired latent representations z1 and z2 (in Figure 1(b)) for one batch of training inputs: 
+
+Cij ≜
+
+P 
+
+> b
+
+zb 
+
+> 1,i
+
+zb
+
+> 2,j
+
+qP
+
+> b
+
+ zb
+
+> 1,i
+
+2 qP
+
+> b
+
+ zb
+
+> 2,j
+
+2 , (3) where b indexes samples in a training batch and i, j index the dimensions of latent representations. The first term of Eq. 2 enforces invariance by driving the diagonal elements of the cross-correlation matrix toward one, ensuring that paired stain-variant views map to highly aligned embeddings. The second term promotes redundancy reduction by suppressing off-diagonal correlations, encouraging different latent dimensions to encode complementary information. Together, these effects com-pact stain induced latent manifolds into stable, low redundancy representations that preserve biological semantics while removing stain dependent variation. Latent Manifold Compaction 5
+
+Notably, this formulation achieves invariance without explicit negative sam-ples, which is desirable in histopathology where distinct tissue patches may ex-hibit highly similar morphology [16]. By avoiding instance discrimination based repulsion [21, 4, 9], LMC maintains meaningful semantic proximity for similar image patches while enforcing stain invariance. 
+
+# 3 Experiments 
+
+We evaluate LMC on three clinically relevant benchmarks that exhibit substan-tial batch effects due to differences in staining protocols, scanners, and acquisi-tion settings. In all experiments, the encoder is trained exclusively on a single source dataset and evaluated on one or more unseen target datasets, reflecting realistic deployment scenarios. 
+
+3.1 Experimental Settings 
+
+ViT Backbone and Training. A lightweight ViT with 5.5 million parameters is adopted as the LMC encoder, which contains 12 transformer encoder blocks, 3 multi-attention heads, with residual connections and an embedding dimension of 192. During training, we adopt a staged learning-rate schedule consisting of an initial warm-up phase, followed by a stable training stage with learning rate 1e-4, and a final annealing phase in which the learning rate is gradually reduced to 1e-7. The model is optimized using the AdamW optimizer with a weight decay of 0.01 and a batch size of 32 on an NVIDIA A40. Once trained, the encoder can be directly used as a feature extractor for downstream tasks on unseen datasets. 
+
+Baselines. We compare LMC against Unnormalized case, classical Macenko stain normalization [20], and the most recent diffusion-based normalization method 
+
+StainFuser [12] as baselines in our evaluations. 
+
+3.2 Tumor Metastasis Classification 
+
+Dataset and Setup. We use the public Camelyon16 dataset, which contains an-notated H&E whole-slide images (WSIs) from two institutions: 249 WSIs from Radboud University Medical Center (RAD) and 150 WSIs from University Med-ical Center Utrecht (UNI) [19]. The task is to classify metastatic (tumor) tissues from non-metastatic (normal) breast cancer images across different datasets. The LMC encoder is trained using 353,858 unlabeled 256 ×256 patches extracted from RAD WSIs only. For downstream evaluation, a classifier is trained on publicly available labeled RAD patches and tested directly on UNI patches [24], without any access to UNI data during training. 6 F. Author et al.   
+
+> Fig. 2. Camelyon16 visualization and quantification of batch separation results. (a-d) Qualitative UMAPs. (e) Quantitative batch separations measured by CFD and W2.
+> ⃝-Normal, △-Tumor.
+
+Results. Figure 2 presents UMAP visualizations of latent representations under different normalization strategies, together with quantitative measurements of residual batch separation between RAD and UNI using the Wasserstein-2 (W2) distance and Cross-Fusion Distance (CFD) [30], which quantify batch separation in latent space and provide interpretable measures of batch effects. All latent representations corresponding to compared methods are extracted using patho-logical foundation model Virchow [28]. Without normalization, RAD and UNI form clearly separated clusters, indicating pronounced batch effects. Macenko normalization moderately reduces this separation while preserving intrinsic bi-ological meanings, with normal (circle symbols) and tumor (triangle symbols) samples occupying distinct regions in the UMAP. StainFuser further decreases overall batch separation; however, the distinction between tumor and normal classes becomes less pronounced. In contrast, LMC produces substantially overlapping latent distributions with minimal residual separation, reflected by the lowest CFD and W2 values for both normal and tumor classes as well as overall. Importantly, LMC maintains clear distinction between normal and tumor classes while effectively aligning cor-responding classes across sites. These findings indicate that LMC most effectively mitigates batch-induced separations while preserving class-discriminative bio-logical structure, thereby promoting stronger and more meaningful cross-batch generalization among the compared normalization methods. Cross-batch classification ROC curves and AUC results are shown in Figure 3, together with results from previously reported methods in the literature [24]. LMC achieves the highest cross-dataset AUC, outperforming both classical and deep learning–based normalization approaches and indicating improved decision-boundary transfer under realistic deployment conditions. Latent Manifold Compaction 7 
+
+> Fig. 3. Camelyon16 RAD-trained Model Cross-batch Test (on UNI): ROC and AUC. Our model (solid black line) achieves the best AUC among all compared methods.
+
+3.3 Prostate Multi-class Gleason Grading 
+
+Dataset and Setup. We evaluate multi-class generalization on in-house prostate cancer datasets collected under two different clinical workflows: a needle biopsy bio-repository (BR) dataset comprising 102 patient WSIs and a prostatectomy bio-library (BL) dataset comprising 18 patient WSIs. Both datasets are manually annotated by expert pathologists, with labeled prostate tissue classes including benign, Gleason grade 3 (G3), and multiple Gleason grade 4 (G4) subtypes, with class frequencies ranging from approximately 44.3% for benign to 0.77% for rare G4-glomeruloid subtype patterns. The LMC encoder is trained on 237,940 unlabeled 256 ×256 patches extracted exclusively from BR WSIs. For downstream evaluation, a multi-class classifier is trained using BR’s 18,043 labeled tissue patches, without access to BL data during training, and evaluated directly on BL’s 12,112 labeled patches. 
+
+Results. Cross-batch multi-class classification results are presented in Table 1. While all normalization methods improve performance relative to the unnor-malized baseline, LMC achieves the highest overall accuracy and consistently outperforms all competing methods across multiple classes and Gleason pat-terns. These results demonstrate that LMC remains effective even in the presence of substantial differences in tissue preparation and staining protocols between datasets. 
+
+3.4 Mitotic Figure Detection 
+
+Dataset and Setup. We use Mitosis Domain Generalization (MIDOG) 2021 chal-lenge dataset [2], from which we use 150 annotated WSIs: 50 acquired with an Aperio ScanScope CS2 (ACS), 50 with a Hamamatsu S360 (HS), and 50 with a Hamamatsu XR (HXR) scanner. The LMC encoder is trained using 206,752 unlabeled 256 ×256 patches extracted from ACS WSIs only. A classifier is then 8 F. Author et al.                                  
+
+> Table 1. BR-trained Model Cross-batch Test (on BL) Accuracy (by Class)
+> Classes Unnormalized Macenko StainFuser LMC
+> G3 0.1% 57.8% 2.5% 58.0%
+> G4-cribriform subtype 0.0% 3.6% 0.0% 30.6%
+> G4-poorly formed subtype 99.9 %37.3% 79.7% 54.3% G4-fused subtype 0.0% 0.0% 1.4% 17.4%
+> G4-glomeruloid subtype 0.0% 0.0% 0.0% 5.6%
+> Benign 0.9% 12.6% 65.4 %44.3% Overall 10.8% 25.4% 29.1% 45.7%
+
+trained on labeled ACS (665 mitotic and 893 hard negative) patches, and evalu-ated on labeled HS (562 mitotic and 1,029 hard negative) and HXR (438 mitotic and 704 hard negative) patches. 
+
+Results. Table 2 reports F1 scores of cross-batch test on HS and HXR for mi-tosis detection. All normalization methods improve performance relative to the unnormalized baseline, though to varying extents. Macenko and the most re-cent method StainFuser achieve moderate gains, with average F1 scores of 0.482 and 0.439, respectively, whereas LMC achieves the highest F1 scores on both HS (0.600) and HXR (0.651), resulting in the best average performance (0.626). These results demonstrate substantially stronger cross-batch generalization of LMC for mitosis detection under heterogeneous acquisition conditions commonly encountered in clinical practice.                 
+
+> Table 2. MIDOG21 ACS-trained Model Cross-batch Test (on HS & HXR) F1 Scores
+> Method HS HXR Average Unnormalized 0.294 0.443 0.369 Macenko 0.453 0.511 0.482 StainFuser 0.418 0.460 0.439 LMC 0.600 0.651 0.626
+
+# 4 Conclusion 
+
+We proposed Latent Manifold Compaction (LMC), an unsupervised representa-tion learning framework that mitigates batch effects in computational pathology by explicitly compacting stain-induced manifolds in latent space. Trained on a single source dataset, LMC learns batch-invariant representations that gener-alize effectively to unseen datasets without requiring access to target-domain data. This yields a task-agnostic, patch-wise, feature-level harmonization mech-anism that is naturally compatible with a wide range of downstream models and Latent Manifold Compaction 9
+
+training regimes. Evaluations on three public and in-house benchmarks demon-strate that LMC consistently reduces batch-induced separation and outperforms both classical and deep learning–based stain normalization methods in cross-batch tasks. Importantly, these evaluations reflect realistic deployment settings in which models trained on a single source site are applied directly to previ-ously unseen target sites. Future work will explore extending LMC beyond H&E histopathology to other imaging modalities, scaling to larger foundation models, and validating its effectiveness across broader clinical tasks. 
+
+# References 
+
+1. Aubreville, M., Bertram, C., Veta, M., Klopfleisch, R., Stathonikos, N., Breininger, K., ter Hoeve, N., Ciompi, F., Maier, A.: Quantifying the scanner-induced domain gap in mitosis detection. arXiv preprint arXiv:2103.16515 (2021) 2. Aubreville, M., Stathonikos, N., Bertram, C.A., Klopfleisch, R., Ter Hoeve, N., Ciompi, F., Wilm, F., Marzahl, C., Donovan, T.A., Maier, A., et al.: Mitosis do-main generalization in histopathology images—the midog challenge. Medical Image Analysis 84 , 102699 (2023) 3. Bardes, A., Ponce, J., LeCun, Y.: Vicreg: Variance-invariance-covariance regular-ization for self-supervised learning. arXiv preprint arXiv:2105.04906 (2021) 4. Chen, T., Kornblith, S., Norouzi, M., Hinton, G.: A simple framework for con-trastive learning of visual representations. In: International conference on machine learning. pp. 1597–1607. PmLR (2020) 5. Chen, X., He, K.: Exploring simple siamese representation learning. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 15750–15758 (2021) 6. Gindra, R.H., Boushehri, S.S., Wagner, S.J., Tran, M., Winter, D.J.E., Schn-abel, J.A., Saur, D., Marr, C., Peng, T.: Image analysis: Understanding and mitigating batch effects in histopathology. Trillium Pathology (2025), https://api.semanticscholar.org/CorpusID:279106245 7. Grill, J.B., Strub, F., Altché, F., Tallec, C., Richemond, P., Buchatskaya, E., Do-ersch, C., Avila Pires, B., Guo, Z., Gheshlaghi Azar, M., et al.: Bootstrap your own latent-a new approach to self-supervised learning. Advances in neural information processing systems 33 , 21271–21284 (2020) 8. Gutiérrez Pérez, J.C., Otero Baguer, D., Maass, P.: Staincut: stain normalization with contrastive learning. Journal of Imaging 8(7), 202 (2022) 9. He, K., Fan, H., Wu, Y., Xie, S., Girshick, R.: Momentum contrast for unsupervised visual representation learning. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 9729–9738 (2020) 10. Howard, F.M., Dolezal, J., Kochanny, S., Schulte, J., Chen, H., Heij, L., Huo, D., Nanda, R., Olopade, O.I., Kather, J.N., et al.: The impact of site-specific digital histology signatures on deep learning model accuracy and bias. Nature communications 12 (1), 4423 (2021) 11. Jeong, J., Kim, K.D., Nam, Y., Cho, C.E., Go, H., Kim, N.: Stain normalization using score-based diffusion model through stain separation and overlapped moving window patch strategies. Computers in Biology and Medicine 152 , 106335 (2023) 12. Jewsbury, R., Wang, R., Bhalerao, A., Rajpoot, N., Vu, Q.D.: Stainfuser: Control-ling diffusion for faster neural style transfer in multi-gigapixel histology images. arXiv preprint arXiv:2403.09302 (2024) 10 F. Author et al. 13. de Jong, E.D., Marcus, E., Teuwen, J.: Current pathology foundation models are unrobust to medical center differences. arXiv preprint arXiv:2501.18055 (2025) 14. Kang, H., Luo, D., Feng, W., Zeng, S., Quan, T., Hu, J., Liu, X.: Stainnet: a fast and robust stain normalization network. Frontiers in Medicine 8, 746307 (2021) 15. Ke, J., Shen, Y., Liang, X., Shen, D.: Contrastive learning based stain normaliza-tion across multiple tumor in histopathology. In: International Conference on Med-ical Image Computing and Computer-Assisted Intervention. pp. 571–580. Springer (2021) 16. Kothari, S., Phan, J.H., Osunkoya, A.O., Wang, M.D.: Biological interpretation of morphological patterns in histopathological whole-slide images. In: Proceedings of the ACM conference on bioinformatics, computational biology and biomedicine. pp. 218–225 (2012) 17. Kothari, S., Phan, J.H., Stokes, T.H., Osunkoya, A.O., Young, A.N., Wang, M.D.: Removing batch effects from histopathological images for enhanced cancer diagno-sis. IEEE journal of biomedical and health informatics 18 (3), 765–772 (2013) 18. Lafarge, M.W., Pluim, J.P., Eppenhof, K.A., Veta, M.: Learning domain-invariant representations of histological images. Frontiers in medicine 6, 162 (2019) 19. Litjens, G., Bandi, P., Ehteshami Bejnordi, B., Geessink, O., Balkenhol, M., Bult, P., Halilovic, A., Hermsen, M., Van de Loo, R., Vogels, R., et al.: 1399 h&e-stained sentinel lymph node sections of breast cancer patients: the camelyon dataset. Gi-gaScience 7(6), giy065 (2018) 20. Macenko, M., Niethammer, M., Marron, J.S., Borland, D., Woosley, J.T., Guan, X., Schmitt, C., Thomas, N.E.: A method for normalizing histology slides for quan-titative analysis. In: 2009 IEEE international symposium on biomedical imaging: from nano to macro. pp. 1107–1110. IEEE (2009) 21. Oord, A.v.d., Li, Y., Vinyals, O.: Representation learning with contrastive predic-tive coding. arXiv preprint arXiv:1807.03748 (2018) 22. Otálora, S., Atzori, M., Andrearczyk, V., Khan, A., Müller, H.: Staining invari-ant features for improving generalization of deep convolutional neural networks in computational pathology. Frontiers in bioengineering and biotechnology 7, 198 (2019) 23. Reinhard, E., Adhikhmin, M., Gooch, B., Shirley, P.: Color transfer between im-ages. IEEE Computer graphics and applications 21 (5), 34–41 (2002) 24. Shaban, M.T., Baur, C., Navab, N., Albarqouni, S.: Staingan: Stain style trans-fer for digital histological images. In: 2019 Ieee 16th international symposium on biomedical imaging (Isbi 2019). pp. 953–956. IEEE (2019) 25. Shen, Y., Ke, J.: Staindiff: Transfer stain styles of histology images with denois-ing diffusion probabilistic models and self-ensemble. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 549–559. Springer (2023) 26. Tiard, A., Wong, A., Ho, D.J., Wu, Y., Nof, E., Goh, A.C., Soatto, S., Nadeem, S.: Stain-invariant self supervised learning for histopathology image analysis. arXiv preprint arXiv:2211.07590 (2022) 27. Tosta, T.A.A., de Faria, P.R., Neves, L.A., do Nascimento, M.Z.: Computational normalization of h&e-stained histological images: Progress, challenges and future potential. Artificial intelligence in medicine 95 , 118–132 (2019) 28. Vorontsov, E., Bozkurt, A., Casson, A., Shaikovski, G., Zelechowski, M., Sever-son, K., Zimmermann, E., Hall, J., Tenenholtz, N., Fusi, N., et al.: A foundation model for clinical-grade computational pathology and rare cancers detection. Na-ture medicine 30 (10), 2924–2935 (2024) Latent Manifold Compaction 11 29. Zbontar, J., Jing, L., Misra, I., LeCun, Y., Deny, S.: Barlow twins: Self-supervised learning via redundancy reduction. In: International conference on machine learn-ing. pp. 12310–12320. PMLR (2021) 30. Zhang, X., Zhang, J., Song, X.: Cross-fusion distance: A novel metric for measuring fusion and separability between data groups in representation space. arXiv preprint arXiv:2601.22036 (2026) 31. Zhu, J.Y., Park, T., Isola, P., Efros, A.A.: Unpaired image-to-image translation using cycle-consistent adversarial networks. In: Proceedings of the IEEE interna-tional conference on computer vision. pp. 2223–2232 (2017)

@@ -1,0 +1,252 @@
+Title: WSI-INR: Implicit Neural Representations for Lesion Segmentation in Whole-Slide Images
+
+URL Source: https://arxiv.org/pdf/2603.03749v1
+
+Published Time: Thu, 05 Mar 2026 01:34:22 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# WSI-INR: Implicit Neural Representations for Lesion Segmentation in Whole-Slide Images 
+
+Yunheng Wu 1, Wenqi Huang 2,3, Liangyi Wang 1,Masahiro Oda 4,1, Yuichiro Hayashi 1,Daniel Rueckert 2,3,5,6, and Kensaku Mori 1,4,7 
+
+> 1
+
+Graduate School of Informatics, Nagoya University, Nagoya, Japan 
+
+yunhengwu@mori.m.is.nagoya-u.ac.jp; kensaku@is.nagoya-u.ac.jp  
+
+> 2
+
+Chair for AI in Healthcare and Medicine, Technical University of Munich (TUM) and TUM University Hospital, Munich, Germany  
+
+> 3
+
+School of Computation and Information Technology, Technical University of Munich, Munich, Germany  
+
+> 4
+
+Information Technology Center, Nagoya University, Nagoya, Japan  
+
+> 5
+
+Munich Center for Machine Learning, Technical University of Munich, Munich, Germany  
+
+> 6
+
+Department of Computing, Imperial College London, London, United Kingdom  
+
+> 7
+
+Research Center for Medical Bigdata, National Institute of Informatics, Tokyo, Japan 
+
+Abstract. Whole-slide images (WSIs) are fundamental for computa-tional pathology, where accurate lesion segmentation is critical for clinical decision making. Existing methods partition WSIs into discrete patches, disrupting spatial continuity and treating multi-resolution views as inde-pendent samples, which leads to spatially fragmented segmentation and reduced robustness to resolution variations. To address the issues, we propose WSI-INR, a novel patch-free framework based on Implicit Neu-ral Representations (INRs). WSI-INR models the WSI as a continuous implicit function mapping spatial coordinates directly to tissue seman-tics features, outputting segmentation results while preserving intrinsic spatial information across the entire slide. In the WSI-INR, we incor-porate multi-resolution hash grid encoding to regard different resolu-tion levels as varying sampling densities of the same continuous tissue, achieving a consistent feature representation across resolutions. In ad-dition, by jointly training a shared INR decoder, WSI-INR can capture general priors across different cases. Experimental results showed that WSI-INR maintains robust segmentation performance across resolutions; at Base/4, our resolution-specific optimization improves Dice score by +26.11%, while U-Net and TransUNet decrease by 54.28% and 36.18%, respectively. Crucially, this work enables INRs to segment highly hetero-geneous pathological lesions beyond structurally consistent anatomical tissues, offering a fresh perspective for pathological analysis. 
+
+Keywords: Implicit Neural Representation · Whole-Slide Image · Le-sion Segmentation · Digital Pathology  
+
+> arXiv:2603.03749v1 [cs.CV] 4 Mar 2026 2Yunheng Wu et al.
+
+## 1 Introduction 
+
+Whole-slide images (WSIs) are a core data modality in digital pathology, ac-quired by scanning entire tissue slides at high magnification and stored in a multi-resolution pyramid structure [7,21,2,19,10,1]. A large-scale high-resolution WSI preserves tissue architecture and cellular morphology across multiple spa-tial scales, enabling lesion segmentation to automatically localize lesions and assist diagnosis [10,1]. However, the level of resolution makes direct compu-tation on a whole slide impractical. Therefore, most existing methods tile a WSI into a large set of patches (Fig. 1-(a)), converting whole-slide modeling to the processing of discrete patches. This leads to two key issues: (1) WSIs are divided into patches, breaking the spatial continuity of tissue structures. Each patch is encoded independently, and the global structure is typically ap-proximated only through subsequent feature aggregation [2,12,28] or attention mechanisms [25,2,19]. However, such a discretized representation establishes cor-relations merely at the feature level and does not directly model global spatial information, making it difficult for the model to capture the true spatial infor-mation of lesions. (2) In pathological diagnosis, pathologists examine the same spatial location at multiple resolutions. In addition, WSIs acquired at different institutions may have different sampling densities due to variations in scan-ners. In practical applications, storage capacity constraints may require models to be trained at one resolution but deployed at another. Existing patch-based methods treat WSIs at different resolutions as independent samples and rely on multi-scale feature fusion [4,18]. However, different WSI resolutions represent multi-scale observations of the same tissue rather than different tissues. Patches at the same spatial coordinate share identical pixel size but differ in physical field of view and visual features. Independent training makes the model treat sampling-scale variations as semantic differences, leading to fragmented struc-tures during cross-resolution inference (Fig. 1-(d)). Moreover, using patches from multiple resolutions significantly increases computational cost and training time. As a different modeling framework, implicit neural representations (INRs) model images as continuous functions and learn a mapping from spatial co-ordinates to latent representations [6,15,27]. INRs have shown advantages in modeling anatomical structures. In cardiac and brain MRI segmentation tasks with stable anatomy, prior work introduces subject-specific latent representa-tions [23,22] or meta-learning strategies [26], enabling a shared implicit network to generalize to unseen subjects without explicit encoding. The success of these methods relies on structural consistency of anatomy. However, whether INRs can represent highly diverse pathological regions without well-defined structural pat-terns remains unclear. Unlike anatomical structures, WSIs lack a unified struc-tural template and exhibit substantial structural variations in tissue, making INR formulations relying solely on point-wise coordinate inputs without model-ing local spatial relationships insufficient for capturing complex tissue patterns. Although some INR methods enhance coordinate representations by enriched encodings [24,13], they adopt global, fixed schemes that overlook local spatial Implicit Neural Representations for Lesion Segmentation in WSI 3Model           
+
+> Input
+> (Patch)
+> WSI Prediction (WSI)
+> Prediction
+> (Patch)
+> Patch -based Framework
+> Model (x,y )
+> Inference -time optimization
+> Output after
+> optimization
+> WSI Prediction (WSI)
+> Input
+> (Coordinate)
+> Our Framework
+> 2×downsampling
+> 2×downsampling
+> 2×lower
+> sampling density
+> 2×lower
+> sampling density
+> Grid
+> Size ：128
+> 1×
+> 2×
+> 4×
+> Grid
+> Size ：64
+> Grid
+> Size ：32
+> (a) (b)
+> (c) (d)
+> WSI Resolution Pyramid Multi -resolution Hash Encoding
+
+Fig. 1. (a) Patch-based methods. (b) Our WSI-INR. (c) WSI resolution pyramid and multi-resolution hash encoding. (d) Patches across resolutions exhibit inconsistent rep-resentations. Visualization of U-Net bottleneck features trained on a WSI dataset. 
+
+structure, limiting their ability to model structural heterogeneity in WSIs. Multi-resolution hash grid coordinate encodings introduce learnable local feature tables that enable spatially adaptive allocation of representational capacity, making them well suited for capturing local structural variations in WSIs [16,9]. Based on the above analysis, we propose WSI-INR, a patch-free WSI learning framework based on INR . Instead of treating a WSI as a set of discrete patches, WSI-INR models each WSI as a continuous function that maps spatial coordinates to image features and segmentation probabilities (Fig. 1-(b)). Specifically, (1) WSI-INR directly predicts segmentation from spatial co-ordinates, preserving spatial information across the whole slide. (2) To address cross-resolution inconsistency, we introduce a multi-resolution hash grid encod-ing. Since the hash grid encoding performs multi-density spatial sampling of the same tissue, naturally matching the multi-resolution structure of the WSI pyramid, it enables consistent feature representations across different resolu-tions, thereby achieving more stable cross-scale segmentation (See Fig. 1-(c)). (3) WSI-INR employs a shared decoder trained across multiple WSIs, enabling the model to learn shared morphological priors and generalize to unseen WSIs. 
+
+Our contributions can be summarized as follows: (1) We propose WSI-INR, which models a WSI as a continuous implicit representation. (2) WSI-INR models different resolutions as varying sampling densities of a single continu-ous function, enabling robust segmentation across resolutions. (3) Experimental results show that WSI-INR achieves superior robustness in cross-resolution pre-diction compared to classical patch-based methods. (4) We show that INRs can effectively segment pathological regions, not only structured anatomical regions. 4 Yunheng Wu et al. Decoder 𝑓 𝜃 Hash encoding 𝐸 𝝓 𝒊 Coordinate 𝐱 𝒊                             
+
+> 𝒌
+> Reconstruction head 𝑓 rec
+> Segmentation head 𝑓 seg
+> Rec loss
+> Seg loss
+> Inference -Time Optimization
+> Learnable Frozen
+> Feature vector 𝐳 i
+> 𝒌
+> Inference
+> Decoder 𝑓 𝜃 Hash encoding 𝐸 𝝓 𝒊 Coordinate 𝐱 𝒊
+> 𝒌
+> Reconstruction head 𝑓 rec
+> Segmentation head 𝑓 seg Feature vector 𝐳 i
+> 𝒌
+> Training (step1)
+> Training (step2)
+> Decoder 𝑓 𝜃
+> Hash encoding 𝐸 𝝓 𝒊 Coordinate 𝐱 𝒊
+> 𝒌
+> Reconstruction head 𝑓 rec
+> Segmentation head 𝑓 seg
+> Rec loss
+> Decoder 𝑓 𝜃 Hash encoding 𝐸 𝝓 𝒊 Coordinate 𝐱 𝒊
+> 𝒌
+> Reconstruction head 𝑓 rec
+> Segmentation head 𝑓 seg Feature vector 𝐳 i
+> 𝒌 Prediction
+> Feature vector 𝐳 i
+> 𝒌
+
+Fig. 2. Workflow of our WSI-INR. Training: We first optimize the decoder, reconstruc-tion head and hash encoding by minimizing the reconstruction loss. These modules are frozen, and only the segmentation head is trained. Inference: For each unseen WSI, network parameters remain fixed, while the hash encoding is optimized via the recon-struction loss. The final segmentation is obtained from the optimized representation. 
+
+## 2 Method 
+
+WSI-INR Overview. In WSI-INR, for the j-th sampled local coordinate region on the i-th WSI, denoted as N (x ji ) ⊂ [0 , 1] 2, the dense coordinates within a neighborhood are encoded to hash feature 
+
+n
+
+z ki = Eϕi (x ki ) x ki ∈ N (x ji )
+
+o
+
+, z ki ∈
+
+Rdz . The feature vector z ki is fed into a shared decoder fθ which is formulated as fθ : Rdz → Rdh , h ji = fθ (z ki ). The h ki ∈ Rdh denotes the intermediate representation and dz and dh are the feature dimensions. Finally, the vectors 
+
+hi,k are fed into the reconstruction head f rec and the segmentation head fseg .
+
+Model Architecture Details. Multi-resolution Hash Encoding. We adopt multi-resolution hash encoding [16] to encode continuous spatial coordinates, which has been shown to effectively enhance the capacity of implicit models in repre-senting details and multi-resolution features [16,9]. In addition, WSIs naturally contain multi-scale structural patterns, the hash grid representation provides an excellent match to the intrinsic pyramid structure of WSIs, enabling the model to simultaneously capture fine-grained textures and large-scale tissue structure (See Fig. 1-(c)). We adopt a WSI-specific hash encoding Eϕi for each slide, since the spatial arrangement of tissue differs across WSIs. The encoding consists of 
+
+L grid levels, where the resolution of the l-th level is Rl = R0 · s l, with R0 the base resolution and s the per-level scale factor. At each level l, the coordinate xji
+
+is scaled to resolution Rl and its K=2 d surrounding grid vertices are identified. When the vertex count exceeds the hash table capacity T , vertices are mapped to entries via a spatial hash function h : Z2 → { 0, . . . , T −1}, introducing colli-sions whose gradients average out during training. This effectively allocates more representational capacity to structurally complex regions while compressing ho-mogeneous backgrounds, which is particularly suited to WSIs where informative structures are spatially sparse. The encoded feature at level l is: 
+
+e ji,l =
+
+KX
+
+k=1 
+
+w(l)
+
+k (xji ) T(l)h(vk), (1) Implicit Neural Representations for Lesion Segmentation in WSI 5
+
+where T(l) ∈ RT ×F is the learnable hash table, w(l) 
+
+> k
+
+the interpolation weight and F denotes the number of feature dimensions per level, and vk is the k-th neighboring vertex. The final encoding concatenates all levels: 
+
+zji =
+
+> L
+
+M
+
+> l=1
+
+e ji,l , zji ∈ Rdz , d z = L × F. (2) 
+
+Dual-branch Decoder. Given the encoded hash feature vectors z ji , we adopt a shared decoder [9,20] that captures both local spatial structures and global func-tionality relationships to map coordinate-based features into a unified implicit feature space . The decoder consists of two complementary branches: (1) a CNN branch that processes the encoded coordinate features to explicitly model lo-cal spatial continuity and neighborhood-level patterns, thereby capturing fine-grained tissue structures; and (2) an MLP branch that operates point-wise while capturing global spatial relationships through its implicit representation. The outputs of the two branches are fused at the feature level to form a unified implicit representation. This fused feature integrates local spatial constraints with global functional modeling capability, resulting in the final representation as h ki = Decoder( z ki ).
+
+Reconstruction and Segmentation Heads. Both the reconstruction and seg-mentation heads adopt a dilated residual architecture composed of residual blocks with progressively increasing dilation rates to enlarge the receptive field. On the fused implicit representation vector h ji , a reconstruction head predicts image intensity from coordinates to regularize appearance modeling, while a segmentation head outputs lesion and background probabilities as follows: 
+
+ˆs ki = fseg (h ki ) ∈ [0 , 1] 2, ˆr ki = frec (h ki ) ∈ [0 , 1] 3. (3) 
+
+Training. As shown in Fig. 2, we propose a two-step training strategy. This is because when reconstruction and segmentation are jointly optimized from the beginning, the segmentation objective quickly dominates, leading to short-cut learning that amplifies inter-class differences without capturing true tissue structures. Although the segmentation loss decreases rapidly, the model fails to learn meaningful lesion–normal representations. Therefore, we first learn a sta-ble implicit image representation and then introduce segmentation supervision. This allows the segmentation head to learn discriminative features within a se-mantically structured feature space for accurate lesion segmentation. In step 1, the encoder parameters ϕ, decoder parameters θ, and reconstruction head are optimized while the segmentation head is frozen. The model is supervised by the reconstruction loss (Mean Squared Error) as follows: 
+
+Lstage1 = Lrec 
+
+ frec (x ki ), I(x ki ) . (4) where I(x ki ) denotes the image intensity. This stage establishes an implicit WSI representation to model continuous appearance and spatial structures from WSIs. In step 2, where all learned components are frozen and only the segmen-tation head is optimized by binary cross-entropy (BCE) and Dice [14] loss: 
+
+Lstage2 = LBCE 
+
+ fseg (x ki ), S(x ki ) + LDice 
+
+ fseg (x ki ), S(x ki ) . (5) 6 Yunheng Wu et al. U-Net (Patch -based)  WSI -INR (Ours)  Ground Truth      
+
+> Base Resolution Base /2 Base /4
+> Overlay: Ori WSIs & Seg Results Overlay: Rec Results & Seg Results Overlay: Ori WSIs & Seg GTs
+> TransU Net (Patch -based)
+> Overlay: Ori WSIs & Seg Results
+
+Fig. 3. We compare our WSI-INR with U-Net and TransUNet across multi resolutions, while all models are trained at a single base resolution. For WSI-INR, we adopt base-resolution optimization. U-Net performs well at training resolution, but U-Net and TransUNet degrade at lower resolutions, with fragmented predictions (black arrows). 
+
+where S(x ki ) denotes segmentation labels. 
+
+Inference-time Optimization (ITO) and Inference. During the ITO stage, an unseen WSI requires optimizing its corresponding hash encoding. We freeze all global network and optimize only the hash encoding specific to the target WSI, allowing the model to adapt to it using the reconstruction objective with-out any segmentation supervision, consistent with the ITO protocol. This process preserves the global network parameters while enabling the hash grid to rapidly adapt to the texture and structural characteristics of the new slide, while re-taining the semantic priors learned by the shared decoder during training. The optimization objective is the same as in Eq. 4. After completing ITO, we per-form dense prediction over the entire WSI by querying spatial coordinates in the continuous domain at the desired resolution and forwarding them through the network to obtain segmentation results. 
+
+## 3 Experiments 
+
+Dataset and Metrics. We conduct experiments on an H&E-stained WSI datasets for breast cancer lymph node metastasis detection, CAMELYON16 [5,11]. Train-ing is performed on the 39 WSIs containing macro-metastases in CAMELYON16. For evaluation, we use 22 WSIs with macro-metastases from the official CAME-LYON16 test set. We follow [23] to use Dice as the evaluation metric. 
+
+Implementation Details. Our method is implemented using PyTorch [17] and the TinyCUDA-NN framework [16]. Input coordinates are normalized to the con-tinuous domain [0 , 1] 2 while preserving the aspect ratio of each WSI, and pixel intensities are normalized to the range [0 , 1] . The multi-resolution hash grid con-tains L = 21 levels with a base resolution R0=16 and a per-level scale factor Implicit Neural Representations for Lesion Segmentation in WSI 7
+
+Table 1. Segmentation performance on CAMELYON16 across resolutions evaluated by Dice score. Models are trained at the base resolution (Base) and evaluated at the same resolution as well as two other unseen resolutions in training (Base/2 and /4). Values in red denote the performance change relative to the results at the base resolution.                
+
+> Method Resolution: Base Resolution: Base/2 Resolution: Base/4
+> U-Net [18] 0.4858 0.2418 (-50.23%) 0.2221 (-54.28%) TransUNet [3] 0.1534 0.1146 (-25.29%) 0.0979 (-36.18%)
+> Ours (Base-resolution opt) 0.2417 0.1664 (-31.15%) 0.1683 (-30.37%) Ours (Resolution-specific opt) 0.2417 0.2333 (-3.48%) 0.3048 (+26.11%)
+
+s=1.5. Each level maintains a hash table of size T = 2 21 with a feature dimen-sion of F = 2 . The model is trained for 200 epochs, with the first 100 epochs dedicated to reconstruction and the remaining epochs used for segmentation. We use the Adam optimizer [8] with a learning rate of 1 × 10 −5. The batch size is set to 1, and each batch samples dense spatial coordinates within a 1024 × 1024 win-dow of WSIs. Our method is implemented on NVIDIA A100 GPUs, and the total training time is about 20 hours. For each WSI, we perform ITO with a maximum of 20 epochs at the base resolution. Resolution-specific optimization follows the same configuration at their respective resolutions. ITO adopts a dual-criterion dynamic early-stopping strategy with Exponential Moving Average (EMA). Op-timization stops when MSE < 0.002; after a 5-epoch warm-up, it terminates if the current MSE exceeds the historical minimum by 30%. EMA parameters are maintained throughout optimization, and EMA weights are used for final inference to ensure stable and smooth predictions. The inference model contains 42.3M parameters. The processed WSIs range from 5,376–9,984 × 5,152–13,856 pixels, with an average total ITO and inference time of 6.12 minutes per WSI. 
+
+## 4 Experimental Results and Discussion 
+
+WSI Segmentation Cross-resolution Evaluation. We evaluate WSI-INR on the CAMELYON16 dataset under cross-resolution testing settings, compar-ing it with classical patch-based methods (U-Net [18] and TransUNet [3]). All methods are trained at a high base resolution and directly evaluated at the base scale and lower scales (Base/2 and Base/4). We also set a resolution-specific optimization, where ITO is performed independently at each target resolution. As shown in Table 1, patch-based methods exhibit clear performance degrada-tion across resolutions, indicating sensitivity to resolution changes. In contrast, WSI-INR maintains stable performance, benefiting from its continuous represen-tation that accommodates spatial sampling variations. Under resolution-specific optimization, WSI-INR outperforms TransUNet and achieves performance close to U-Net at Base/2 and Base/4. Despite multi-scale designs, U-Net and Tran-sUNet remain sensitive to resolution shifts and produce spatially discontinuous predictions (Fig. 3), whereas WSI-INR preserves structural continuity. 8 Yunheng Wu et al. 
+
+Table 2. Ablation study for coordinate encoding on CAMELYON16. Models are trained at base resolution and evaluated at the same resolution and other resolutions.                                  
+
+> Method Resolution: Base Resolution: Base/2 Resolution: Base/4
+> w/o encoding 0.0000 0.0000 0.0000 w/ NeRF positional encoding [13] 0.0901 0.0901 0.0901
+> w/ hash grid encoding 0.2417 0.1664 0.1683 High Level Hash Grid (dense sampling) Low Level Hash Grid (sparse sampling)
+> Full Hash Grid Ground Truth
+> (a) (b) (c) (d) (e)
+> (a) (b) (c) (d) (e)
+> (a) (b) (c) (d) (e)
+> (a) (b) (c) (d) (e)
+> Dice: 0.0136 Dice: 0.2585
+> Dice: 0.5750
+
+Fig. 4. We visualize the reconstruction and segmentation results under three settings: high-level only (dense sampling), low-level only, and the full hash grid. Columns: (a) global reconstruction, (b) zoomed-in local patch, (c) frequency spectrum (FFT) of local patch, (d) global segmentation prediction, and (e) local segmentation mask. 
+
+Analysis of Multi-Resolution Hash Encoding. We analyze the effect of encoding by comparing models without encoding, with NeRF positional encod-ing [13], and with hash grid encoding. The experimental results in Table 2 show that models without any encoding, or those using fixed and scale-coupled po-sitional encodings like NeRF positional encoding, struggle to handle the high heterogeneity and complex structural patterns of WSIs, leading to poor recon-struction and lesion segmentation. As shown in Fig. 4, during ITO we decouple the high- and low-level hash components to analyze their roles. High-level hash (dense sampling) captures high-frequency details but lacks spatial coherence, leading to segmentation failure. Low-level only preserves global structures but misses fine details such as cells. The full hash grid integrates both, achieving high-fidelity reconstruction and strong segmentation performance. These results indicate that segmentation performance depends on reconstruction quality, as the segmentation head relies on the learned implicit representation. 
+
+## 5 Conclusion 
+
+In this work, we propose WSI-INR, a patch-free framework for WSI lesion segmentation. By modeling the WSI as a continuous implicit function, WSI-INR directly predicts segmentation from spatial coordinates while preserving global spatial continuity. Multi-resolution encoding treats different resolutions as varying sampling densities of a shared latent function, enabling robust cross-Implicit Neural Representations for Lesion Segmentation in WSI 9
+
+resolution performance. Significantly, we extend the segmentation capability of INRs from structurally consistent anatomical structures to highly heterogeneous pathological lesions. Although limitations remain in modeling micro-scale lesion regions and in generalizing across multi-center datasets, we believe that WSI-INR provides a scalable framework for continuous representation and multi-scale modeling in computational pathology. Future work will further expand WSI-INR to additional WSI analysis tasks and improve cross-institutional generalization. 
+
+## Acknowledgements 
+
+This work was funded by the JST Moonshot R&D Grant Numbers JPMJMS2033, Yunheng Wu were supported by the Nagoya University CIBoG WISE program from MEXT. 
+
+## References 
+
+1. Brixtel, R., Bougleux, S., Lézoray, O., et al.: Whole slide image quality in digital pathology: review and perspectives. IEEE Access 10 , 131005–131035 (2022) 2. Campanella, G., Hanna, M.G., Geneslaw, L., et al.: Clinical-grade computational pathology using weakly supervised deep learning on whole slide images. Nature Medicine 25 (8), 1301–1309 (2019) 3. Chen, J., Mei, J., Li, X., et al.: Transunet: Rethinking the u-net architecture design for medical image segmentation through the lens of transformers. Medical Image Analysis 97 , 103280 (2024) 4. Das, K., Karri, S.P.K., Roy, A.G., Chatterjee, J., Sheet, D.: Classifying histopathol-ogy whole-slides using fusion of decisions from deep convolutional network on a collection of random multi-views at multi-magnification. In: 2017 IEEE 14th In-ternational Symposium on Biomedical Imaging. pp. 1024–1027. IEEE (2017) 5. Ehteshami Bejnordi, B., Veta, M., Johannes van Diest, P., Van Ginneken, B., Karssemeijer, N., Litjens, G., Van Der Laak, J.A., consortium, C., Hermsen, M., Manson, Q.F., et al.: Diagnostic assessment of deep learning algorithms for de-tection of lymph node metastases in women with breast cancer. JAMA 318 (22), 2199–2210 (2017) 6. Essakine, A., Cheng, Y., Cheng, C.W., Zhang, L., Deng, Z., Zhu, L., Schönlieb, C.B., Aviles-Rivero, A.I.: Where do we stand with implicit neural representations? a technical and performance survey. arXiv preprint arXiv:2411.03688 (2024) 7. Farahani, N., Parwani, A.V., Pantanowitz, L.: Whole slide imaging in pathology: advantages, limitations, and emerging perspectives. Pathology and Laboratory Medicine International pp. 23–33 (2015) 8. Kingma, D.P.: Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 (2014) 9. Lee, D., Park, C., Lee, S., et al.: Convolutional implicit neural representation of pathology whole-slide images. In: International Conference on Medical Image Com-puting and Computer-Assisted Intervention. pp. 191–200. Springer (2024) 10. Li, X., Li, C., Rahaman, M.M., Sun, H., Li, X., Wu, J., Yao, Y., Grzegorzek, M.: A comprehensive review of computer-aided whole-slide image analysis: from datasets to feature extraction, segmentation, classification and detection approaches. Arti-ficial Intelligence Review 55 (6), 4809–4878 (2022) 10 Yunheng Wu et al. 11. Litjens, G., Bandi, P., Ehteshami Bejnordi, B., et al.: 1399 h&e-stained sentinel lymph node sections of breast cancer patients: the camelyon dataset. GigaScience 
+
+7(6), giy065 (2018) 12. Lu, M.Y., Williamson, D.F., Chen, T.Y., Chen, R.J., Barbieri, M., Mahmood, F.: Data-efficient and weakly supervised computational pathology on whole-slide images. Nature Biomedical Engineering 5(6), 555–570 (2021) 13. Mildenhall, B., Srinivasan, P.P., Tancik, M., Barron, J.T., Ramamoorthi, R., Ng, R.: Nerf: Representing scenes as neural radiance fields for view synthesis. Commu-nications of the ACM 65 (1), 99–106 (2021) 14. Milletari, F., Navab, N., Ahmadi, S.A.: V-Net: Fully convolutional neural networks for volumetric medical image segmentation. In: 2016 Fourth International Confer-ence on 3D Vision (3DV). pp. 565–571. Ieee (2016) 15. Molaei, A., Aminimehr, A., Tavakoli, A., Kazerouni, A., Azad, B., Azad, R., Mer-hof, D.: Implicit neural representation in medical imaging: A comparative survey. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 2381–2391 (2023) 16. Müller, T., Evans, A., Schied, C., et al.: Instant neural graphics primitives with a multiresolution hash encoding. ACM Transactions on Graphics 41 (4), 1–15 (2022) 17. Paszke, A., Gross, S., Massa, F., Lerer, A., Bradbury, J., Chanan, G., Killeen, T., Lin, Z., Gimelshein, N., Antiga, L., et al.: Pytorch: An imperative style, high-performance deep learning library. Advances in neural information processing sys-tems 32 (2019) 18. Ronneberger, O., Fischer, P., Brox, T.: U-Net: Convolutional networks for biomedi-cal image segmentation. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 234–241. Springer (2015) 19. Shao, Z., Bian, H., Chen, Y., Wang, Y., Zhang, J., Ji, X., et al.: Transmil: Trans-former based correlated multiple instance learning for whole slide image classifica-tion. Advances in Neural Information Processing Systems 34 , 2136–2147 (2021) 20. Sitzmann, V., Martel, J., Bergman, A., Lindell, D., Wetzstein, G.: Implicit neural representations with periodic activation functions. Advances in Neural Information Processing Systems 33 , 7462–7473 (2020) 21. Srinidhi, C.L., Ciga, O., Martel, A.L.: Deep neural network models for computa-tional histopathology: A survey. Medical Image Analysis 67 , 101813 (2021) 22. Stolt-Ansó, N., Dannecker, M., Jia, S., McGinnis, J., Rueckert, D.: NISF++: Geometrically-grounded implicit representations of 3D+ time cardiac function from 2d short-and long-axis mr views. In: Medical Imaging with Deep Learning (2026) 23. Stolt-Ansó, N., McGinnis, J., Pan, J., Hammernik, K., Rueckert, D.: Nisf: Neural implicit segmentation functions. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 734–744. Springer (2023) 24. Tancik, M., Srinivasan, P., Mildenhall, B., Fridovich-Keil, S., Raghavan, N., Sing-hal, U., Ramamoorthi, R., Barron, J., Ng, R.: Fourier features let networks learn high frequency functions in low dimensional domains. Advances in Neural Infor-mation Processing Systems 33 , 7537–7547 (2020) 25. Tokunaga, H., Teramoto, Y., et al.: Adaptive weighting multi-field-of-view cnn for semantic segmentation in pathology. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 12597–12606 (2019) 26. Vyas, K., Veeraraghavan, A., Balakrishnan, G.: Fit pixels, get labels: Meta-learned implicit networks for image segmentation. In: International Conference on Medi-cal Image Computing and Computer-Assisted Intervention. pp. 194–203. Springer (2025) Implicit Neural Representations for Lesion Segmentation in WSI 11 27. Wolterink, J.M., Zwienenberg, J.C., Brune, C.: Implicit neural representations for deformable image registration. In: International Conference on Medical Imaging with Deep Learning. pp. 1349–1359. PMLR (2022) 28. Xu, G., Song, Z., Sun, Z., Ku, C., Yang, Z., Liu, C., Wang, S., Ma, J., Xu, W.: Camel: A weakly supervised learning framework for histopathology image segmen-tation. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 10682–10691 (2019)

@@ -1,0 +1,453 @@
+Title: NuNext: Reframing Nucleus Detection as Next-Point Detection
+
+URL Source: https://arxiv.org/pdf/2603.07098v1
+
+Published Time: Tue, 10 Mar 2026 00:35:53 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# NuNext: Reframing Nucleus Detection as Next-Point Detection 
+
+Zhongyi Shui 1,2,6⋆, Honglin Li 1,2*, Xiaozhong Ji 3, Ye Zhang 4, Zijiang Yang 5,Chenglu Zhu 2, Yuxuan Sun 1,2, Kai Yao 1, Conghui He 6, and Cheng Tan 6,† 
+
+> 1
+
+Zhejiang University 2 Westlake University 3 Nanjing University  
+
+> 4
+
+Harbin Institute of Technology 5 University of Science and Technology Beijing  
+
+> 6
+
+Shanghai Artificial Intelligence Laboratory 
+
+shuizhongyi@zju.edu.cn 
+
+> †
+
+Corresponding Author 
+
+Abstract. Nucleus detection in histopathology is pivotal for a wide range of clinical applications. Existing approaches either regress nuclear proxy maps that require complex post-processing, or employ dense an-chors or queries that introduce severe foreground-background imbalance. In this work, we reformulate nucleus detection as next-point predic-tion, wherein a multimodal large language model is developed to directly output foreground nucleus centroids from the input image. The model is trained in two stages. In the supervised learning stage, we propose spatial-aware soft supervision to relax strict centroid matching and a chain-of-visual-thought strategy to incorporate visual priors that facil-itate coordinate prediction. In the reinforcement fine-tuning stage, we design distribution matching reward, low-variance group filtering, and fine-grained advantage shaping to further improve the model’s detection quality. Extensive experiments on nine widely used benchmarks demon-strate the superiority of our method. Code will be released soon. 
+
+Keywords: Nucleus Detection · Nucleus Instance Segmentation · Rein-forcement Learning 
+
+## 1 Introduction 
+
+Nucleus detection is a fundamental task in computational pathology (CPath), underpinning a broad spectrum of downstream analyses of whole slide images (WSIs) such as cell counting [13], tumor microenvironment characterization [45] and spatial analysis of cellular organization [22]. These analyse facilitate numer-ous clinically relevant applications including cancer subtyping [4], grading [2], staging [65], prognosis assessment [65], and treatment planning [8]. Consequently, developing precise and generalizable nucleus detection algorithms has attracted increasing attention in the CPath community [15, 19, 51, 69]. Mainstream nucleus detection approaches follow a bottom-up workflow [15, 19,42,55,57,66,69], as shown in Fig. 1 (a). They train a regression model to pre-dict a nuclear probability map along with several auxiliary maps, which are then  
+
+> ⋆
+
+Equal contribution   
+
+> arXiv:2603.07098v1 [cs.CV] 7 Mar 2026 2Z. Shui et al.
+> Fig. 1: Pipeline comparison between nucleus detection paradigms. (a) Density map-based methods require complicated post-processing, which is hyper-parameter sensitive and vulnerable to noise. (b) Anchor-based and (c) query-based methods suffer from se-vere foreground-background imbalance, as the majority of anchors/queries are assigned to background. The histogram shows the foreground proportion across the large-scale PanNuke dataset, which is below 4.5% for over 90% of images. (d) Our proposed NuNext circumvents these issues by directly predicting nuclei coordinates.
+
+processed through hand-crafted post-processing to separate individual instances during inference. Despite significant progress, this paradigm suffers from sub-stantial engineering overhead: the auxiliary maps rely on careful manual design with task-specific domain knowledge, and the inference pipelines involve numer-ous hand-tuned hyper-parameters that are highly sensitive to data characteris-tics. To address these, [52, 54, 64] identify nuclei instances directly by refining and classifying predefined anchor points on the input image, and query-based methods [20, 36, 43] further replace predefined anchors with learnable object queries. However, both lines of methods rely on a large number of candidate anchors or queries to ensure adequate coverage in densely packed regions, which inevitably introduces substantial redundancy in sparse areas and leads to severe foreground-background imbalance, as illustrated in Fig. 1 (b) and (c). In this work, we propose NuNext, which tokenizes continuous nuclear coor-dinates into discrete location tokens and reformulates nucleus detection as an autoregressive next-point prediction task (see Fig. 1 (d)). The model is trained in two stages. In the first stage, we perform supervised training with two key designs: a spatial-aware soft supervision strategy that relaxes strict centroid matching, and a chain-of-visual-thought technique that captures nucleus spatial information and provides visual priors for coordinate prediction. In the second NuNext: Reframing Nucleus Detection as Next-Point Detection 3
+
+stage, we transition from off-policy supervised learning to on-policy reinforce-ment fine-tuning, allowing the model to learn from its own sampling experi-ence. Specifically, we adopt Group Relative Policy Optimization (GRPO) [49] for optimization, where a distribution matching reward is introduced to esti-mate detection quality. Additionally, we propose two improvements to GRPO: a low-variance group filtering strategy to suppress noisy gradient signals, and a fine-grained advantage shaping mechanism that enables token-level credit assign-ment. Finally, we adapt NuNext to nucleus instance segmentation by integrating it with PromptNucSeg [51], and incorporate a task-guided reward into GRPO to improve the adaptation. Our contributions can be summarized as follows: 
+
+– We propose NuNext, which opens a new paradigm for nucleus detection through generative next-point prediction. 
+
+– We propose spatial-aware soft supervision and chain-of-visual-thought to boost coordinate prediction during supervised training. 
+
+– We tailor GRPO for nucleus detection with a distribution matching reward, and propose low-variance group filtering and fine-grained advantage shaping to further improve performance. 
+
+– Extensive experiments on nine challenging benchmarks demonstrate the ef-fectiveness and superior generalization of our proposed method. 
+
+## 2 Related Work 
+
+2.1 Nucleus Detection and Instance Segmentation 
+
+Existing methods for nucleus detection and instance segmentation can be broadly categorized into three paradigms: density-map based, anchor-based, and query-based. Density-map based methods first predict a nuclear probability map along with several auxiliary maps, and then group pixels into individual instances through meticulous post-processing. The design of auxiliary maps varies across methods. Specifically, CIA-Net [70] and TSFD-Net [21] predict nuclear contour maps. DIST [40], StarDist [46], HoVer-Net [15] and CellViT [18, 43] design nu-clear distance maps. The Cellpose series methods [41,55,56] predict gradient flow fields toward nucleus centers. FCIS [69] constructs four-color labeling maps, and Disco [57] adopts an adaptive coloring strategy that uses two colors for bipartite regions and a dedicated conflict color for topologically complex areas. Despite notable progress, these methods rely on hand-crafted post-processing pipelines that are parameter-sensitive and difficult to generalize, which presents a hurdle to their practical application. To address this issue, anchor-based methods [17, 31, 50, 52] directly identify nucleus instances by refining and classifying predefined anchor points or boxes. However, the anchor layout still requires careful manual design, and anchors must be densely placed to cover tightly packed regions, inevitably leading to severe foreground-background imbalance in sparse areas. Although query-based 4 Z. Shui et al. 
+
+methods such as AC-Former [20], CellNuc-DETR [43], and CellSAM [39] replace hand-crafted anchors with learnable object queries, they still require a large number of queries to avoid missing detections in crowded scenes, resulting in the same imbalance issue. Orthogonal to the above approaches, PromptNucSeg [51] decouples nucleus instance segmentation into two stages, first detecting nuclei centroids as point prompts, and then feeding them into SAM [25] to produce instance masks. This framework has demonstrated impressive performance in this field. 
+
+2.2 Multimodal Generative Foundation Models in Pathology 
+
+Current multimodal generative foundation models for computational pathol-ogy can be broadly categorized into three classes based on their input scale and reasoning scope: patch-level, slide-level, and omni-scale. At the patch level, Quilt-LLaVA [48], PathChat [37] and Patho-R1 [68] adapt general-purpose Mul-timodal Large Language Models (MLLMs) to pathological tile interpretation via instruction tuning with domain-specific data. These models facilitate tile-level captioning, visual question answering (VQA) and interactive dialogue. At the slide level, WsiCaption [5] and HistGen [16] focus on generating slide-level re-ports from gigapixel WSIs, while SlideChat [7] and WSI-LLaVA [32] extend the model’s capability to slide-level VQA and multi-turn conversations. At the omni-scale level, CPath-Omni [58] unifies a wide range of patch- and WSI-level tasks within a single framework. PathFinder [14] and CPathAgent [59] emulate the di-agnostic workflows of pathologists on WSIs by modeling multi-step navigation, providing more interpretable predictions. Overall, existing works mainly focus on high-level semantic interpretation of pathological images, leaving the potential of MLLMs for dense prediction in pathology largely underexplored. To the best of our knowledge, NuNext is the first to leverage MLLMs for nucleus detection, broadening the frontier of multimodal foundation models in computational pathology from semantic un-derstanding to fine-grained visual perception. 
+
+## 3 Method 
+
+3.1 Overview 
+
+In this work, we formulate nucleus detection as a next-point prediction task, where nucleus centroids are represented as discrete coordinate tokens and gen-erated autoregressively by an MLLM. The model is trained in two stages: super-vised fine-tuning (SFT) followed by reinforcement fine-tuning (RFT). We adopt Qwen2.5-VL-3B [3, 23] as our base model, and the overall training pipeline is depicted in Fig. 2. NuNext: Reframing Nucleus Detection as Next-Point Detection 5
+
+Fig. 2: The training pipeline of NuNext. (Left) In the SFT stage, the model is trained to generate nucleus coordinate tokens with chain-of-visual-thought (CoVT) to incorporate visual cues of nuclei regions, and spatial-aware soft supervision that credits spatially proximate predictions. (Right) In the RFT stage, multiple rollouts are sampled per input, verified for format correctness, and scored with distribution matching and task-guided rewards. The model is then optimized via GRPO with fine-grained advantage shaping (FGAS). 
+
+3.2 Coordinate Tokenization 
+
+We represent continuous image coordinates with K special coordinate tokens, which are appended to the original vocabulary of the language model. Specif-ically, we uniformly quantize the normalized spatial interval [0 , 1] into K bins and assign each bin index i ∈ { 0, . . . , K − 1} to a unique token. The same token vocabulary is shared for both the x- and y-axes. Given a nucleus with coordinate 
+
+(x, y ) in an image of width W and height H, we first normalize it as ˜x = x/W 
+
+and ˜y = y/H and then quantize each component to the nearest coordinate token: 
+
+tx = argmin 
+
+> i∈{ 0,...,K −1}
+
+˜x − i + 0 .5
+
+K
+
+ty = argmin 
+
+> i∈{ 0,...,K −1}
+
+˜y − i + 0 .5
+
+K
+
+(1) This transforms continuous coordinate regression problem into a bounded K-way classification task. For an image containing N nuclei, we apply this coor-dinate tokenization to each of them and concatenate the results into a token sequence T = ( tx 
+
+> 1
+
+, t y 
+
+> 1
+
+, t x 
+
+> 2
+
+, t y 
+
+> 2
+
+, . . . , t xN , t yN ), where coordinate pairs are separated by a comma token. For notational convenience, we reindex the sequence as 
+
+T = ( t1, t 2, . . . , t 2N ) hereafter. 6 Z. Shui et al. 
+
+3.3 Supervised Fine-tuning 
+
+In the supervised fine-tuning stage, we train the model for end-to-end nucleus detection. Given a training sample D = {(I, L, T )}, where I denotes the input image, L is the language instruction ( e.g ., “Point to nucleus. Output the coordi-nates in [x, y] format.”), and T represents the nuclei coordinate token sequence. We encode the image I into visual tokens V and the instruction L into prompt tokens Q, which are then concatenated and fed into a language model to pre-dict the coordinate token sequence. The model is optimized via the standard next-token prediction (NTP) loss [44]: 
+
+LNTP (θ) = −
+
+> |T |
+
+X
+
+> n=1
+
+log Pθ (tn | V , Q, T<n ) (2) in which θ denotes the model parameters, and T<n represents the sequence of all preceding coordinate tokens. Notably, we sort coordinates in T by raster-scan order, i.e ., from top to bottom and left to right. This strategy eliminates permutation ambiguity and provides consistent supervision for stable training. 
+
+Spatial-Aware Soft Supervision. While the next-token prediction objective in Eq. 2 is widely employed in autoregressive generative tasks, we argue that it neglects the underlying spatial structure of images and is inherently suboptimal for nucleus detection. Specifically, at each decoding step, the model is supervised with a one-hot label to maximize the likelihood of the exact target coordinate token while treating all other tokens as incorrect, even those spatially proximal to the ground truth. This limitation is further amplified by the implicit weighting mechanism of the NTP loss. To illustrate, we analyze the gradient of the per-token loss with respect to the logits. Let z denote the logit vector produced by the language model, where zi is the raw score for the i-th token in the vocabulary and 
+
+pi = softmax( z)i denotes its predicted probability. For simplicity, we consider only the K coordinate tokens in the vocabulary here. For a decoding step with ground-truth coordinate token tn ∈ { 0, . . . , K − 1}, the loss in Eq. 2 reduces to: 
+
+LNTP = − log ptn (3) Since ptn = eztn   
+
+> PK−1
+> k=0 ezk
+
+, the loss can be rewritten as: 
+
+LNTP = −ztn + log 
+
+> K−1
+
+X
+
+> k=0
+
+ezk . (4) Taking the derivative with respect to the logit zi:
+
+∂LNTP 
+
+∂z i
+
+= −1[i = tn] + ezi
+
+PK−1 
+
+> k=0
+
+ezk
+
+= pi − 1[i = tn], (5) where 1[i = tn] is an indicator function that equals 1 if i = tn and 0 otherwise. By distinguishing the cases i = tn and i̸ = tn, we obtain: 
+
+∂LNTP 
+
+∂z i
+
+=
+
+(
+
+pi − 1, i = tn,pi, i̸ = tn. (6) NuNext: Reframing Nucleus Detection as Next-Point Detection 7
+
+With gradient descent optimization [35], this reveals two asymmetric behaviors: for the target token ( i = tn), the gradient is negative and its magnitude 1 − pi
+
+decreases as the predicted probability increases, providing less encouragement once the model is already confident. In contrast, for non-target tokens ( i̸ = tn), the gradient is positive with magnitude pi, meaning that tokens with higher predicted probabilities receive stronger suppression. Due to the visual continu-ity of images, we empirically observed that the model tends to predict higher probabilities for tokens near the ground-truth coordinate than for distant ones in the early training stage. However, as analyzed above, with one-hot labels, higher predicted probabilities for non-target tokens lead to larger suppressive gradients, causing the model to penalize near-correct tokens more aggressively than distant ones. This hinders the model from exploiting the continuous nature of the coordinate space, making it easily trapped in local minima. To mitigate this issue, we reformulate the supervision signal by replacing the one-hot label with a Gaussian-smoothed soft distribution that incorporates ge-ometric relationships between coordinate tokens. For a ground-truth coordinate token tn ∈ { 0, . . . , K − 1}, the soft label over the K coordinate bins is defined as: 
+
+s(k | tn) = exp 
+
+
+
+− (k−tn)2
+
+> 2σ2
+
+PK−1 
+
+> j=0
+
+exp 
+
+
+
+− (j−tn)2
+
+> 2σ2
+
+ , (7) where σ controls the smoothing strength. The training objective in Eq. 2 then becomes: 
+
+LNTP (θ) = − 1
+
+|T | 
+
+> |T |
+
+X
+
+> n=1
+> K−1
+
+X
+
+> k=0
+
+s(k | tn) log Pθ (k | V , Q, T<n ) (8) 
+
+Chain-of-Visual-Thought. Chain-of-Thought (CoT) has demonstrated remark-able success in enhancing the capabilities of large language models on complex textual tasks [26,33,49,53,62]. However, its potential for dense visual perception tasks remains largely unexplored. In this work, we propose a Chain-of-Visual-Thought (CoVT) strategy that introduces intermediate visual reasoning into the nucleus detection pipeline. Specifically, we prepend a set of latent tokens H = ( h1, h 2, . . . , h L) to the original decoding sequence T . These tokens are first generated by the language model, and then serve as prompt tokens for a frozen SAM [25] to predict binary nuclei foreground mask ˆM = SAM( I, H). We supervise this mask prediction with a combination of binary cross-entropy and dice loss. 
+
+LCoVT = LBCE 
+
+ ˆM , M 
+
+
+
++ LDice 
+
+ ˆM , M 
+
+
+
+(9) in which M denotes the ground-truth mask. Since SAM is pre-trained to seg-ment objects at positions specified by its input prompts, we keep SAM frozen during training, such that minimizing LCoVT drives the latent tokens to capture nucleus location information. This provides visual priors that facilitate subse-quent coordinate prediction. The overall loss used in the supervised fine-tuning 8 Z. Shui et al. 
+
+stage is: 
+
+LSFT = LNTP + αLCoVT  (10) in which α is a weight term. 
+
+3.4 Reinforcement Fine-tuning 
+
+Despite the effectiveness of SFT, the model is trained off-policy where ground-truth tokens are provided at each step. This results in an exposure gap at inference time: the model autoregressively generates the coordinate sequence, where early prediction errors can accumulate and degrade subsequent outputs. To bridge this gap, we introduce a reinforcement fine-tuning (RFT) stage that optimizes the model on-policy from its own generated sequences. Since nucleus detection is naturally verifiable: the correctness of a detected nucleus can be validated by its distance to ground-truth annotations, we design a distribution matching reward function that evaluates the overall detection quality of each generated sequence, and optimize the model via Group Relative Policy Opti-mization (GRPO) [49]. 
+
+Preliminaries on GRPO. GRPO has demonstrated strong effectiveness across diverse tasks [23, 49, 53], it removes the need for a dedicated critic model in PPO [47] by directly computing advantages from reward comparison among G
+
+sampled solutions. Formally, let πθold and πθ denote the policy model (parame-terized by θ) before and after the update, respectively. For a question q sampled from a task dataset D, a group of G candidate solutions τi ∼ πθold (· | q) are sampled and evaluated with a reward function r(·). Building on the clipped sur-rogate objective of PPO, we write the objective J in an empirical expectation form: 
+
+JGRPO (θ) = Eq∼D ,{τi}Gi=1 ∼πθold (·| q)
+
+"
+
+1
+
+G
+
+> G
+
+X
+
+> i=1
+
+1
+
+|τi|
+
+> |τi|
+
+X
+
+> n=1
+
+min 
+
+ πθ (τi,n | q, τ i,<n )
+
+πθold (τi,n | q, τ i,<n ) Ai,
+
+clip 
+
+ πθ (τi,n | q, τ i,<n )
+
+πθold (τi,n | q, τ i,<n ) , 1−ϵ, 1+ ϵ
+
+
+
+Ai
+
+#
+
+(11) where ϵ = 0 .2 by default and clip (·) denotes the clipping operator for stability. We omit the Kullback–Leibler (KL) penalty for simplicity here. The normalized within-group reward then defines the advantage Ai of solution τi:
+
+Ai = r(τi) − mean  {r(τj )}Gj=1 
+
+
+
+std  {r(τj )}Gj=1 
+
+ (12) 
+
+Format check. During SFT, the model is trained to output nuclei coordinates in a structured format: (tx 
+
+> 1
+
+, t y 
+
+> 1
+
+, . . . , t xN , t yN ), establishing a parsing protocol for coordinate extraction. However, GRPO relies on high sampling temperature [44] to generate diverse rollouts, which often produces malformed outputs that lead to incorrect coordinate parsing and noisy reward signals. To deal with this, we NuNext: Reframing Nucleus Detection as Next-Point Detection 9
+
+Fig. 3: (Left) Motivation for low-variance group filtering: GRPO standardization can inflate advantages when within-group reward difference is negligible. (Right) Illustra-tion of FGAS. Predicted and ground-truth nuclei are first matched via the Hungarian algorithm, then validated against a distance threshold to determine true/false posi-tives. The resulting token-level labels are used to shape the sequence-level advantage, reducing the advantage for false positive tokens in rollouts with A > 0 and alleviating the penalty for true positive tokens when A < 0.
+
+verify the output format via regular expression matching and directly assign zero rewards to rollouts that fail the check. 
+
+Distribution matching reward. To evaluate the detection quality of each roll-out, we introduce a distribution matching reward. Specifically, we first extract coordinate tokens from each rollout τ and convert them back to image coordi-nates. Let ˆC = {ˆci} ˆNi=1 and C = {cj }Nj=1 denote the predicted and ground-truth nucleus centroids, respectively, and dij = ∥ˆci − cj ∥2 be the Euclidean distance. Then, we establish a one-to-one matching between ˆC and C by solving the follow-ing minimum-cost bipartite matching problem with Hungarian algorithm [27]: 
+
+π∗ = arg min  
+
+> π∈Π
+> min( ˆN ,N )
+
+X
+
+> i=1
+
+di,π (i) (13) where Π denotes the set of all valid assignments. With a pre-defined distance threshold r, we count true positives (TP) as: 
+
+TP =  
+
+> min( ˆN ,N )
+
+X
+
+> i=1
+
+Idi,π ∗(i) ≤ r (14) The number of false positives (FP) and false negatives (FN) are derived as: 
+
+FP = ˆN − TP , FN = N − TP  (15) We then compute recall and precision as follows: 
+
+Precision = TP TP + FP , Recall = TP TP + FN  (16) Finally, we calculate F1-score as the distribution matching reward: 
+
+rDM = 2 · Precision · Recall Precision + Recall  (17) 10 Z. Shui et al. 
+
+Low-Variance Group Filtering. In this study, we identify a potential issue in GRPO: the advantage standardization can amplify negligible reward differ-ences into strong gradient signals. To illustrate, assume a group size of 3. For the same input q, consider two groups G1 and G2 with rewards {0, 0.5, 1.0} and 
+
+{0.20 , 0.20 , 0.21 }, respectively. After GRPO standardization, the rollout with 
+
+r = 0 .21 in G2 receives the largest advantage across both groups, surpassing even those with higher rewards in G1, as illustrated in Fig. 3 (Left). This is because GRPO computes advantages through reward standardization, i.e ., subtracting the mean and dividing by the standard deviation, as shown in Eq. 12. When re-wards within a group are nearly identical, the small standard deviation amplifies negligible differences into disproportionately strong gradient signals, introducing noise into training. To address this, we dynamically filter out groups with reward standard deviation below a threshold δ during training. 
+
+Fine-grained Advantage Shaping. Common RL methods such as GRPO [49] and DAPO [67] rely on sequence-level rewards, where all tokens within a gener-ated rollout share the same advantage, as shown in Eq. 11. This leads to a credit assignment issue [60]: all tokens are equally encouraged or penalized regardless of their individual contribution to the final reward. In this work, we observe that unlike text tokens whose contribution is context-dependent and difficult to assess, each coordinate token in our task corresponds to an explicit spatial location and can be directly evaluated against the ground-truth annotations. Based on the matching result in Eq. 14, each predicted coordinate can be cate-gorized as either a true positive or a false positive. Intuitively, in a rollout with advantage A > 0, tokens corresponding to false positive coordinates should not receive the same encouragement as true positives, and conversely, in a rollout with advantage A < 0, true positive tokens should not be penalized as heavily as false positives. Motivated by this, we propose a fine-grained advantage shaping (FGAS) strategy to enable token-level credit assignment: 
+
+˜Ai,n =
+
+(
+
+β · Ai, if (Ai > 0 ∧ ˆcn ∈ FP) ∨ (Ai < 0 ∧ ˆcn ∈ TP) ,Ai, otherwise  (18) where β ∈ (0 , 1) is a decay factor. We then replace Ai with ˜Ai,n in the GRPO objective. The computation process of FGAS is illustrated in Fig. 3 (Right). 
+
+## 4 Adaption to Nucleus Instance Segmentation 
+
+Our model can be naturally extended to nucleus instance segmentation by inte-grating with PromptNucSeg [51], a two-stage pipeline where a detection model generates a point prompt for each nucleus and SAM then produces the corre-sponding instance mask. Although this pipeline has demonstrated strong per-formance on multiple benchmarks, we empirically observe that better detection does not necessarily lead to better instance segmentation. This is because de-tection only requires locating each nucleus within a certain distance threshold, NuNext: Reframing Nucleus Detection as Next-Point Detection 11 
+
+whereas segmentation quality is affected by the prompt position within the nu-cleus. Furthermore, in the original PromptNucSeg, the detection model is op-timized independently, receiving no feedback from downstream segmentation performance. To narrow this gap, for each rollout τ , we feed the extracted nuclei coordinates as point prompts into SAM to generate instance masks, and compute the instance segmentation metric Panoptic Quality (PQ) as an auxiliary task-guided reward. The overall reward used in the reinforcement fine-tuning stage is: 
+
+rRFT = rDM + γ r PQ  (19) in which γ balances the two reward terms. Since PQ is non-differentiable, by in-corporating it as a reward signal, RL enables direct optimization of the detection model toward end-task performance. Moreover, we observe that point prompts closer to the nucleus center generally yield higher-quality masks and thus higher PQ rewards. This in turn provides dense supervision that encourages more pre-cise localization for the detection model, creating a synergy between detection and segmentation. 
+
+## 5 Experiment 
+
+5.1 Experimental Settings Datasets. We train our model on the PanNuke dataset [11,12], the largest pan-cancer dataset for nuclei instance segmentation and classification. It contains 7,901 hematoxylin and eosin (H&E) stained images of size 256 ×256, covering 19 tissue types sampled from over 20,000 WSIs in TCGA [63]. The dataset provides detailed annotations for 189,744 nuclei categorized into five categories, and is divided into three folds. In this work, we utilize Fold 1 and Fold 2 for training and Fold 3 for internal validation, following [24]. For fair comparison, all baseline models are trained using the same data split. For external validation, we evaluate all methods on eight benchmarks across various tissue types and acquisition conditions: CPM-15 [61], CPM-17 [61], Cryonuseg [38], TNBC [40], BRCA-M2C [1], Kumar [28,29], GLySAC [9] and ConSeP [15]. A comprehensive introduction to these datasets is provided in the supplementary material. 
+
+Evaluation metrics. For nucleus detection, we employ F1-score as the evalua-tion metric. For nucleus instance segmentation, following previous works [15,19, 66], we adopt Aggregate Jaccard Index (AJI) and Panoptic Quality (PQ) as the evaluation metrics. PQ can be further decomposed into Detection Quality (DQ) and Segmentation Quality (SQ), providing more fine-grained evaluation. 
+
+Implementation details are available in the appendix. 
+
+5.2 Comparison with SOTA methods 
+
+We compare with state-of-the-art (SOTA) counterparts spanning three cate-gories: density-map based approaches ( i.e ., CellViT-H [18, 19]), anchor-based 12 Z. Shui et al. 
+
+Table 1: Performance comparison on PanNuke. The best and second-best PQ scores are highlighted in bold and underlined. Tissue Hover-Net CPP-Net PointNu-Net CellViT-H DPA-P2PNet Cell-DETR NuNext [15] [6] [66] [19] [51, 52] [43] (Ours) bPQ mPQ bPQ mPQ bPQ mPQ bPQ mPQ bPQ mPQ bPQ mPQ bPQ mPQ Adrenal 0.7007 0.4906 0.6932 0.4984 0.7219 0.5154 0.7105 0.5173 0.7300 0.5171 0.7301 0.5428 0.7417 0.5464 
+
+Bile Duct 0.6584 0.4497 0.6573 0.4493 0.6672 0.4627 0.6733 0.4777 0.6970 0.4908 0.6933 0.4805 0.6953 0.4897 Bladder 0.7068 0.5722 0.7030 0.5820 0.7370 0.6233 0.7069 0.5683 0.7289 0.5988 0.7335 0.6212 0.7505 0.6201 Breast 0.6595 0.5177 0.6686 0.5138 0.6688 0.5139 0.6775 0.5279 0.6874 0.5464 0.6831 0.5369 0.6925 0.5432 Cervix 0.6714 0.4743 0.6849 0.5133 0.6858 0.5126 0.6977 0.5202 0.7022 0.4924 0.7065 0.5168 0.7067 0.5318 
+
+Colon 0.5713 0.4243 0.5762 0.4356 0.5900 0.4594 0.6055 0.4606 0.6110 0.4771 0.6138 0.4792 0.6359 0.4969 
+
+Esophagus 0.6625 0.5288 0.6701 0.5423 0.6784 0.5534 0.6761 0.5474 0.6906 0.5763 0.7000 0.5720 0.7129 0.5876 
+
+Head & Neck 0.6078 0.4460 0.6396 0.4683 0.6451 0.4743 0.6499 0.4725 0.6580 0.4903 0.6593 0.4876 0.6859 0.5083 
+
+Kidney 0.6826 0.5237 0.6997 0.5374 0.6986 0.5466 0.7224 0.5711 0.7155 0.5711 0.7183 0.5756 0.7277 0.5911 
+
+Liver 0.7064 0.4933 0.7041 0.5054 0.7234 0.5269 0.7271 0.5229 0.7385 0.5291 0.7283 0.5460 0.7473 0.5425 Lung 0.6307 0.3933 0.6379 0.4320 0.6504 0.4295 0.6439 0.4375 0.6705 0.4454 0.6617 0.4389 0.6813 0.4654 
+
+Ovarian 0.6736 0.5358 0.6774 0.5536 0.6918 0.5543 0.6793 0.5566 0.7035 0.5469 0.6964 0.5739 0.7077 0.5805 
+
+Pancreatic 0.6562 0.4914 0.6707 0.4812 0.6742 0.5161 0.6846 0.5052 0.6814 0.4973 0.7006 0.5266 0.7005 0.5254 Prostate 0.6826 0.5368 0.6770 0.5363 0.6890 0.5290 0.7046 0.5510 0.7025 0.5398 0.7018 0.5563 0.7154 0.5719 
+
+Skin 0.6328 0.3934 0.6285 0.4276 0.6293 0.4273 0.6589 0.4409 0.6648 0.4471 0.6459 0.4416 0.6555 0.4292 Stomach 0.7047 0.4830 0.6932 0.4516 0.7171 0.4818 0.7218 0.5007 0.7259 0.4759 0.7150 0.4606 0.7314 0.5049 
+
+Testis 0.7028 0.5307 0.6818 0.4987 0.6983 0.5505 0.6937 0.5364 0.7136 0.5525 0.7100 0.5477 0.7230 0.5447 Thyroid 0.7128 0.4174 0.7038 0.4407 0.7119 0.4699 0.7156 0.4615 0.7385 0.4746 0.7407 0.4866 0.7600 0.4911 
+
+Uterus 0.6603 0.4647 0.6657 0.4546 0.6697 0.4585 0.6760 0.4666 0.6794 0.4958 0.6678 0.4654 0.6941 0.4886 Average 0.6676 0.4825 0.6701 0.4906 0.6815 0.5055 0.6856 0.5075 0.6968 0.5139 0.6951 0.5187 0.7087 0.5294 
+
+Table 2: Comparison of detection and instance segmentation performance across dif-ferent nuclear categories on the PanNuke dataset. Method Class Neoplastic Epithelial Inflammatory Connective Necrosis F1 PQ F1 PQ F1 PQ F1 PQ F1 PQ Hover-Net [15] 0.680 0.564 0.691 0.550 0.570 0.432 0.519 0.407 0.300 0.097 StarDist [15] 0.706 0.556 0.740 0.562 0.580 0.395 0.525 0.362 0.339 0.115 CPP-Net [15] 0.722 0.591 0.761 0.584 0.595 0.404 0.553 0.408 0.392 0.139 PointNu-Net [66] 0.715 0.592 0.753 0.587 0.585 0.427 0.543 0.412 0.378 0.138 SMILE [42] 0.667 0.536 0.667 0.496 0.567 0.425 0.499 0.384 0.293 0.088 CellViT-H [19] 0.723 0.595 0.765 0.596 0.593 0.422 0.547 0.428 0.380 0.144 DPA-P2PNet [51, 52] 0.726 0.609 0.755 0.593 0.600 0.443 0.564 0.444 0.416 0.169 FCIS [69] 0.681 0.560 0.716 0.547 0.580 0.437 0.544 0.414 0.386 0.128 CellNuc-DETR [31] 0.725 0.602 0.768 0.607 0.603 0.446 0.568 0.436 0.396 0.190 
+
+NuNext (Ours) 0.733 0.617 0.775 0.615 0.604 0.454 0.577 0.449 0.408 0.159 
+
+method (DPA-P2PNet [51,52]), and query-based method (CellNuc-DETR [43]). For methods that only output nuclei centroid coordinates, we adopt the same PromptNucSeg pipeline as ours to evaluate their instance segmentation perfor-mance. Tab. 1 shows the quantitative comparison on the PanNuke benchmark. Without additional techniques such as test-time augmentation [66], stain normal-ization [43], class-balanced sampling or adding an auxiliary tissue classification branch [18,19], our proposed model outperforms the best previous models by 1.19 bPQ and 1.07 mPQ. Moreover, we report the per-category detection and segmen-tation performance in Tab. 2. Overall, NuNext achieves the best performance across four out of five nuclear categories. Tab. 3 and Tab. 4 exhibit generalization performance on eight external validation benchmarks. NuNext achieves the best NuNext: Reframing Nucleus Detection as Next-Point Detection 13 
+
+Fig. 4: Qualitative comparison with SOTA methods. 
+
+Table 3: Generalization comparison on CPM-15, CPM-17, CryoNuSeg, and TNBC. The highest AJI and PQ scores are in bold while the second highest are underlined. Method Dataset CPM-15 CPM-17 CryoNuSeg TNBC AJI DQ SQ PQ AJI DQ SQ PQ AJI DQ SQ PQ AJI DQ SQ PQ Hover-Net [15] 0.631 0.764 0.820 0.629 0.715 0.864 0.812 0.703 0.459 0.597 0.763 0.458 0.652 0.813 0.803 0.653 StarDist [15] 0.588 0.745 0.768 0.577 0.658 0.842 0.770 0.650 0.514 0.653 0.746 0.490 0.654 0.829 0.774 0.643 CPP-Net [15] 0.601 0.757 0.778 0.593 0.674 0.856 0.785 0.673 0.517 0.650 0.757 0.494 0.665 0.844 0.782 0.663 PointNu-Net [66] 0.601 0.742 0.821 0.612 0.673 0.848 0.818 0.694 0.434 0.562 0.775 0.437 0.652 0.820 0.785 0.658 SMILE [42] 0.629 0.760 0.818 0.625 0.718 0.866 0.812 0.704 0.524 0.655 0.767 0.505 0.649 0.815 0.795 0.650 CellViT-H [19] 0.616 0.766 0.790 0.608 0.690 0.860 0.795 0.684 0.525 0.659 0.768 0.509 0.666 0.834 0.795 0.665 DPA-P2PNet [51, 52] 0.520 0.676 0.819 0.556 0.590 0.775 0.826 0.640 0.515 0.655 0.770 0.507 0.671 0.839 0.797 0.669 FICS [69] 0.640 0.777 0.788 0.616 0.701 0.848 0.811 0.689 0.481 0.601 0.764 0.461 0.688 0.835 0.799 0.668 CellNuc-DETR [43] 0.616 0.771 0.815 0.630 0.689 0.854 0.820 0.701 0.499 0.634 0.774 0.493 0.682 0.858 0.798 0.685 
+
+NuNext (Ours) 0.656 0.798 0.816 0.653 0.723 0.881 0.821 0.724 0.523 0.675 0.769 0.521 0.698 0.863 0.792 0.683 
+
+Table 4: Generalization comparison on BRCA-M2C, Kumar, GLySAC and CoNSeP. Method Dataset BRCA-M2C Kumar GLySAC CoNSeP AJI DQ SQ PQ AJI DQ SQ PQ AJI DQ SQ PQ AJI DQ SQ PQ Hover-Net [15] 0.702 0.787 0.877 0.692 0.642 0.80 0.786 0.630 0.586 0.746 0.744 0.560 0.533 0.670 0.766 0.515 StarDist [46] 0.680 0.805 0.849 0.685 0.623 0.802 0.758 0.609 0.570 0.743 0.720 0.539 0.478 0.601 0.715 0.433 CPP-Net [6] 0.706 0.826 0.870 0.720 0.637 0.818 0.767 0.629 0.577 0.752 0.725 0.550 0.524 0.664 0.726 0.485 PointNu-Net [66] 0.692 0.816 0.883 0.721 0.631 0.816 0.790 0.646 0.552 0.727 0.752 0.552 0.504 0.688 0.774 0.533 SMILE [42] 0.708 0.799 0.885 0.709 0.651 0.811 0.783 0.636 0.594 0.752 0.743 0.563 0.444 0.572 0.746 0.429 CellViT-H [19] 0.708 0.816 0.885 0.723 0.644 0.820 0.771 0.633 0.572 0.736 0.728 0.541 0.560 0.703 0.743 0.525 DPA-P2PNet [51, 52] 0.671 0.788 0.893 0.704 0.585 0.772 0.795 0.615 0.508 0.682 0.750 0.517 0.521 0.686 0.779 0.537 FICS [69] 0.714 0.806 0.885 0.714 0.622 0.780 0.786 0.614 0.587 0.743 0.759 0.568 0.492 0.650 0.772 0.504 CellNuc-DETR [43] 0.706 0.814 0.887 0.723 0.641 0.821 0.789 0.649 0.566 0.735 0.744 0.552 0.577 0.730 0.768 0.562 NuNext (Ours) 0.713 0.819 0.890 0.730 0.654 0.829 0.789 0.655 0.599 0.761 0.755 0.581 0.582 0.741 0.790 0.586 
+
+PQ scores on seven out of eight datasets and the second-best on the remaining one, demonstrating strong cross-domain generalizability. Notably, on GLySAC and CoNSeP, which feature dense nuclei distributions and diverse morphologies, NuNext surpasses all competitors by a clear margin. Fig. 4 presents qualitative comparison results with previous SOTA methods. More comparison results in-cluding model size, computational cost and inference efficiency are provided in the appendix. In brief, by leveraging vLLM [30] with PagedAttention for effi-cient KV-cache management, our model achieves inference speed comparable to existing methods. 14 Z. Shui et al.                                               
+
+> Table 5: Effect of our proposed modules. NSFT SASS CoVT GRPO LVGF FGAS TGR F1
+> 0.587
+> ✓0.812
+> ✓✓0.819
+> ✓✓✓0.822
+> ✓✓0.830
+> ✓✓✓✓0.835
+> ✓✓✓✓✓0.837
+> ✓✓✓✓✓0.838
+> ✓✓✓✓✓✓0.840
+> ✓✓✓✓✓✓✓0.842
+> Fig. 5: Similarity heatmap be-tween latent tokens and visual features. High-response regions align well with nuclei areas.
+
+5.3 Ablation Study 
+
+We investigate the impact of the proposed modules on the detection perfor-mance of NuNext on the validation set, including naive supervised fine-tuning (NSFT), spatial-aware soft supervision (SASS), chain-of-visual-thought (CoVT), GRPO with distribution matching reward, low-variance group filtering (LVGF), fine-grained advantage shaping (FGAS) and task-guided reward (TGR). The experimental results in Tab. 5 demonstrate that all the proposed modules con-tribute to the improvement of the model’s performance. Besides, we visualize the cosine similarity between latent token embeddings and visual features in Fig. 5. The heatmaps show high responses in nuclei regions, suggesting that the latent tokens capture the nuclear spatial distribution. This further validates the effectiveness of CoVT. Due to space limitation, more ablation studies such as hyper-paramter analysis are provided in the appendix. 
+
+## 6 Conclusion 
+
+In this paper, we present NuNext, a generative framework for end-to-end nucleus detection in histopathology images. Unlike previous approaches that rely on com-plex density map regression, anchor refinement, or query decoding, NuNext di-rectly outputs nucleus centroids via next-point prediction. A series of strategies, including spatial-aware soft supervision and fine-grained advantage shaping, are proposed to boost model performance. Extensive experiments across nine bench-marks demonstrate the superiority of our approach. 
+
+Limitation and future work. NuNext builds upon a large language model, leading to considerable storage overhead. We will apply quantization techniques [34] to reduce storage requirements while preserving detection performance. For future work, we aim to investigate two directions. (1) Scaling : Compared to prior nucleus detection paradigms, our method imposes minimal inductive bias [10], suggesting that it may benefit more from scaling. We plan to explore the scaling laws of NuNext with respect to data volume and model capacity. (2) 
+
+Open-vocabulary extension : Our architecture naturally supports vision-language NuNext: Reframing Nucleus Detection as Next-Point Detection 15 
+
+interaction, opening the door to open-vocabulary nucleus detection. To this end, we plan to jointly train NuNext on nucleus detection data with precise spatial localization annotations and histology image-caption data that provides rich visual descriptions of nuclear characteristics. 
+
+## References 
+
+1. Abousamra, S., Belinsky, D., Van Arnam, J., Allard, F., Yee, E., Gupta, R., Kurc, T., Samaras, D., Saltz, J., Chen, C.: Multi-class cell detection using spatial con-text representation. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 4005–4014 (2021) 11 2. Amgad, M., Atteya, L.A., Hussein, H., Mohammed, K.H., Hafiz, E., Elsebaie, M.A., Alhusseiny, A.M., AlMoslemany, M.A., Elmatboly, A.M., Pappalardo, P.A., et al.: Nucls: A scalable crowdsourcing approach and dataset for nucleus classification and segmentation in breast cancer. GigaScience 11 , giac037 (2022) 1 3. Bai, S., Chen, K., Liu, X., Wang, J., Ge, W., Song, S., Dang, K., Wang, P., Wang, S., Tang, J., et al.: Qwen2. 5-vl technical report. arXiv preprint arXiv:2502.13923 (2025) 4 4. Chan, T.H., Cendra, F.J., Ma, L., Yin, G., Yu, L.: Histopathology whole slide image analysis with heterogeneous graph representation learning. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 15661–15670 (2023) 1 5. Chen, P., Li, H., Zhu, C., Zheng, S., Shui, Z., Yang, L.: Wsicaption: Multiple instance generation of pathology reports for gigapixel whole-slide images. In: In-ternational Conference on Medical Image Computing and Computer-Assisted In-tervention. pp. 546–556. Springer (2024) 4 6. Chen, S., Ding, C., Liu, M., Cheng, J., Tao, D.: Cpp-net: Context-aware polygon proposal network for nucleus segmentation. IEEE Transactions on Image Process-ing 32 , 980–994 (2023) 12, 13 7. Chen, Y., Wang, G., Ji, Y., Li, Y., Ye, J., Li, T., Hu, M., Yu, R., Qiao, Y., He, J.: Slidechat: A large vision-language assistant for whole-slide pathology image understanding. In: Proceedings of the Computer Vision and Pattern Recognition Conference. pp. 5134–5143 (2025) 4 8. Diao, J.A., Wang, J.K., Chui, W.F., Mountain, V., Gullapally, S.C., Srinivasan, R., Mitchell, R.N., Glass, B., Hoffman, S., Rao, S.K., et al.: Human-interpretable image features derived from densely mapped cancer pathology slides predict diverse molecular phenotypes. Nature communications 12 (1), 1613 (2021) 1 9. Doan, T.N., Song, B., Vuong, T.T., Kim, K., Kwak, J.T.: Sonnet: A self-guided ordinal regression neural network for segmentation and classification of nuclei in large-scale multi-tissue histology images. IEEE Journal of Biomedical and Health Informatics 26 (7), 3218–3228 (2022) 11 10. Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., et al.: An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929 (2020) 14 11. Gamper, J., Koohbanani, N.A., Benes, K., Graham, S., Jahanifar, M., Khurram, S.A., Azam, A., Hewitt, K., Rajpoot, N.: Pannuke dataset extension, insights and baselines. arXiv preprint arXiv:2003.10778 (2020) 11 16 Z. Shui et al. 12. Gamper, J., Koohbanani, N.A., Benet, K., Khuram, A., Rajpoot, N.: Pannuke: an open pan-cancer histology dataset for nuclei instance segmentation and classi-fication. In: European Congress on Digital Pathology. pp. 11–19. Springer (2019) 11 13. Ghahremani, P., Li, Y., Kaufman, A., Vanguri, R., Greenwald, N., Angelo, M., Hollmann, T.J., Nadeem, S.: Deep learning-inferred multiplex immunofluorescence for immunohistochemical image quantification. Nature machine intelligence 4(4), 401–412 (2022) 1 14. Ghezloo, F., Seyfioglu, M.S., Soraki, R., Ikezogwo, W.O., Li, B., Vivekanandan, T., Elmore, J.G., Krishna, R., Shapiro, L.: Pathfinder: A multi-modal multi-agent system for medical diagnostic decision-making applied to histopathology. In: Pro-ceedings of the IEEE/CVF International Conference on Computer Vision (ICCV). pp. 23431–23441 (October 2025) 4 15. Graham, S., Vu, Q.D., Raza, S.E.A., Azam, A., Tsang, Y.W., Kwak, J.T., Rajpoot, N.: Hover-net: Simultaneous segmentation and classification of nuclei in multi-tissue histology images. Medical image analysis 58 , 101563 (2019) 1, 3, 11, 12, 13 16. Guo, Z., Ma, J., Xu, Y., Wang, Y., Wang, L., Chen, H.: Histgen: Histopathology report generation via local-global feature encoding and cross-modal context inter-action. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 189–199. Springer (2024) 4 17. He, K., Gkioxari, G., Dollár, P., Girshick, R.: Mask r-cnn. In: Proceedings of the IEEE international conference on computer vision. pp. 2961–2969 (2017) 3 18. Hörst, F., Rempe, M., Becker, H., Heine, L., Keyl, J., Kleesiek, J.: Cellvit++: Energy-efficient and adaptive cell segmentation and classification using foundation models. Computer Methods and Programs in Biomedicine p. 109206 (2026) 3, 11, 12 19. Hörst, F., Rempe, M., Heine, L., Seibold, C., Keyl, J., Baldini, G., Ugurel, S., Siveke, J., Grünwald, B., Egger, J., et al.: Cellvit: Vision transformers for precise cell segmentation and classification. Medical Image Analysis 94 , 103143 (2024) 1, 11, 12, 13 20. Huang, J., Li, H., Wan, X., Li, G.: Affine-consistent transformer for multi-class cell nuclei detection. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 21384–21393 (2023) 2, 4 21. Ilyas, T., Mannan, Z.I., Khan, A., Azam, S., Kim, H., De Boer, F.: Tsfd-net: Tis-sue specific feature distillation network for nuclei segmentation and classification. Neural Networks 151 , 1–15 (2022) 3 22. Jaume, G., Doucet, P., Song, A., Lu, M.Y., Almagro Pérez, C., Wagner, S., Vaidya, A., Chen, R., Williamson, D., Kim, A., et al.: Hest-1k: A dataset for spatial tran-scriptomics and histology image analysis. Advances in Neural Information Process-ing Systems 37 , 53798–53833 (2024) 1 23. Jiang, Q., Huo, J., Chen, X., Xiong, Y., Zeng, Z., Chen, Y., Ren, T., Yu, J., Zhang, L.: Detect anything via next point prediction. arXiv preprint arXiv:2510.12798 (2025) 4, 8 24. Jo, S., Lee, S.J., Lee, S., Hong, S., Seo, H., Kim, K.: Coin: Confidence score-guided distillation for annotation-free cell segmentation. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 20324–20335 (2025) 11 25. Kirillov, A., Mintun, E., Ravi, N., Mao, H., Rolland, C., Gustafson, L., Xiao, T., Whitehead, S., Berg, A.C., Lo, W.Y., et al.: Segment anything. In: Proceedings of the IEEE/CVF international conference on computer vision. pp. 4015–4026 (2023) 4, 7 NuNext: Reframing Nucleus Detection as Next-Point Detection 17 26. Kojima, T., Gu, S.S., Reid, M., Matsuo, Y., Iwasawa, Y.: Large language models are zero-shot reasoners. Advances in neural information processing systems 35 ,22199–22213 (2022) 7 27. Kuhn, H.W.: The hungarian method for the assignment problem. Naval research logistics quarterly 2(1-2), 83–97 (1955) 9 28. Kumar, N., Verma, R., Anand, D., Zhou, Y., Onder, O.F., Tsougenis, E., Chen, H., Heng, P.A., Li, J., Hu, Z., et al.: A multi-organ nucleus segmentation challenge. IEEE transactions on medical imaging 39 (5), 1380–1391 (2019) 11 29. Kumar, N., Verma, R., Sharma, S., Bhargava, S., Vahadane, A., Sethi, A.: A dataset and a technique for generalized nuclear segmentation for computational pathology. IEEE transactions on medical imaging 36 (7), 1550–1560 (2017) 11 30. Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu, C.H., Gonzalez, J.E., Zhang, H., Stoica, I.: Efficient memory management for large language model serv-ing with pagedattention. In: Proceedings of the ACM SIGOPS 29th Symposium on Operating Systems Principles (2023) 13 31. Li, B., Liu, Z., Zhang, S., Liu, X., Sun, C., Liu, J., Qiu, B., Tian, J.: Nuhtc: A hybrid task cascade for nuclei instance segmentation and classification. Medical Image Analysis p. 103595 (2025) 3, 12 32. Liang, Y., Lyu, X., Chen, W., Ding, M., Zhang, J., He, X., Wu, S., Xing, X., Yang, S., Wang, X., et al.: Wsi-llava: A multimodal large language model for whole slide image. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 22718–22727 (2025) 4 33. Lin, H., Liu, Z., Zhu, Y., Qin, C., Lin, J., Shang, X., He, C., Zhang, W., Wu, L.: Mmfinereason: Closing the multimodal reasoning gap via open data-centric methods. arXiv preprint arXiv:2601.21821 (2026) 7 34. Lin, J., Tang, J., Tang, H., Yang, S., Chen, W.M., Wang, W.C., Xiao, G., Dang, X., Gan, C., Han, S.: Awq: Activation-aware weight quantization for on-device llm compression and acceleration. Proceedings of machine learning and systems 6,87–100 (2024) 14 35. Loshchilov, I., Hutter, F.: Decoupled weight decay regularization. arXiv preprint arXiv:1711.05101 (2017) 7 36. Lou, W., Li, H., Li, G., Lou, X., Xiong, Y., Wan, X., Wu, X.: Instance-aware multi-task learning for nuclei segmentation. IEEE Transactions on Medical Imaging (2025) 2 37. Lu, M.Y., Chen, B., Williamson, D.F., Chen, R.J., Zhao, M., Chow, A.K., Ikemura, K., Kim, A., Pouli, D., Patel, A., et al.: A multimodal generative ai copilot for human pathology. Nature 634 (8033), 466–473 (2024) 4 38. Mahbod, A., Schaefer, G., Bancher, B., Löw, C., Dorffner, G., Ecker, R., Ellinger, I.: Cryonuseg: A dataset for nuclei instance segmentation of cryosectioned h&e-stained histological images. Computers in biology and medicine 132 , 104349 (2021) 11 39. Marks, M., Israel, U., Dilip, R., Li, Q., Yu, C., Laubscher, E., Iqbal, A., Pradhan, E., Ates, A., Abt, M., et al.: Cellsam: a foundation model for cell segmentation. Nature Methods pp. 1–9 (2025) 4 40. Naylor, P., Laé, M., Reyal, F., Walter, T.: Segmentation of nuclei in histopathology images by deep regression of the distance map. IEEE transactions on medical imaging 38 (2), 448–459 (2018) 3, 11 41. Pachitariu, M., Stringer, C.: Cellpose 2.0: how to train your own model. Nature methods 19 (12), 1634–1641 (2022) 3 18 Z. Shui et al. 42. Pan, X., Cheng, J., Hou, F., Lan, R., Lu, C., Li, L., Feng, Z., Wang, H., Liang, C., Liu, Z., et al.: Smile: Cost-sensitive multi-task learning for nuclear segmentation and classification with imbalanced annotations. Medical Image Analysis 88 , 102867 (2023) 1, 12, 13 43. Pina, O., Dorca, E., Vilaplana, V.: Cell nuclei detection and classification in whole slide images with transformers. arXiv preprint arXiv:2502.06307 (2025) 2, 3, 4, 12, 13 44. Radford, A., Narasimhan, K., Salimans, T., Sutskever, I., et al.: Improving lan-guage understanding by generative pre-training (2018) 6, 8 45. Rong, R., Sheng, H., Jin, K.W., Wu, F., Luo, D., Wen, Z., Tang, C., Yang, D.M., Jia, L., Amgad, M., et al.: A deep learning approach for histology-based nucleus segmentation and tumor microenvironment characterization. Modern Pathology 
+
+36 (8), 100196 (2023) 1 46. Schmidt, U., Weigert, M., Broaddus, C., Myers, G.: Cell detection with star-convex polygons. In: International conference on medical image computing and computer-assisted intervention. pp. 265–273. Springer (2018) 3, 13 47. Schulman, J., Wolski, F., Dhariwal, P., Radford, A., Klimov, O.: Proximal policy optimization algorithms. arXiv preprint arXiv:1707.06347 (2017) 8 48. Seyfioglu, M.S., Ikezogwo, W.O., Ghezloo, F., Krishna, R., Shapiro, L.: Quilt-llava: Visual instruction tuning by extracting localized narratives from open-source histopathology videos. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 13183–13192 (2024) 4 49. Shao, Z., Wang, P., Zhu, Q., Xu, R., Song, J., Bi, X., Zhang, H., Zhang, M., Li, Y., Wu, Y., et al.: Deepseekmath: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 (2024) 3, 7, 8, 10 50. Shui, Z., Guo, R., Li, H., Sun, Y., Zhang, Y., Zhu, C., Cai, J., Chen, P., Su, Y., Yang, L.: Towards effective and efficient context-aware nucleus detection in histopathology whole slide images. arXiv preprint arXiv:2503.05678 (2025) 3 51. Shui, Z., Zhang, Y., Yao, K., Zhu, C., Zheng, S., Li, J., Li, H., Sun, Y., Guo, R., Yang, L.: Unleashing the power of prompt-driven nucleus instance segmentation. In: European conference on computer vision. pp. 288–304. Springer (2024) 1, 3, 4, 10, 12, 13 52. Shui, Z., Zheng, S., Zhu, C., Zhang, S., Yu, X., Li, H., Li, J., Chen, P., Yang, L.: Dpa-p2pnet: deformable proposal-aware p2pnet for accurate point-based cell de-tection. In: Proceedings of the AAAI Conference on Artificial Intelligence. vol. 38, pp. 4864–4872 (2024) 2, 3, 12, 13 53. Song, Q., Li, H., Yu, Y., Zhou, H., Yang, L., Bai, S., She, Q., Huang, Z., Zhao, Y.: Codedance: A dynamic tool-integrated mllm for executable visual reasoning. arXiv preprint arXiv:2512.17312 (2025) 7, 8 54. Song, Q., Wang, C., Jiang, Z., Wang, Y., Tai, Y., Wang, C., Li, J., Huang, F., Wu, Y.: Rethinking counting and localization in crowds: A purely point-based frame-work. In: Proceedings of the IEEE/CVF international conference on computer vision. pp. 3365–3374 (2021) 2 55. Stringer, C., Pachitariu, M.: Cellpose3: one-click image restoration for improved cellular segmentation. Nature methods 22 (3), 592–599 (2025) 1, 3 56. Stringer, C., Wang, T., Michaelos, M., Pachitariu, M.: Cellpose: a generalist algo-rithm for cellular segmentation. Nature methods 18 (1), 100–106 (2021) 3 57. Sun, R., Yang, Y., Guo, K., Jiang, C., Xu, D., Liu, Z., Pan, T., Han, L., Jiang, X., Wei, W., et al.: Disco: Densely-overlapping cell instance segmentation via adjacency-aware collaborative coloring. arXiv preprint arXiv:2602.05420 (2026) 1, 3NuNext: Reframing Nucleus Detection as Next-Point Detection 19 58. Sun, Y., Si, Y., Zhu, C., Gong, X., Zhang, K., Chen, P., Zhang, Y., Shui, Z., Lin, T., Yang, L.: Cpath-omni: A unified multimodal foundation model for patch and whole slide image analysis in computational pathology. In: Proceedings of the Computer Vision and Pattern Recognition Conference. pp. 10360–10371 (2025) 4 59. Sun, Y., Si, Y., Zhu, C., Zhang, K., Shui, Z., Ding, B., Lin, T., Yang, L.: Cpathagent: An agent-based foundation model for interpretable high-resolution pathology image analysis mimicking pathologists’ diagnostic logic. arXiv preprint arXiv:2505.20510 (2025) 4 60. Sutton, R.S., Barto, A.G., et al.: Reinforcement learning: An introduction, vol. 1. MIT press Cambridge (1998) 10 61. Vu, Q.D., Graham, S., Kurc, T., To, M.N.N., Shaban, M., Qaiser, T., Koohbanani, N.A., Khurram, S.A., Kalpathy-Cramer, J., Zhao, T., et al.: Methods for segmen-tation and classification of digital microscopy tissue images. Frontiers in bioengi-neering and biotechnology 7, 53 (2019) 11 62. Wei, J., Wang, X., Schuurmans, D., Bosma, M., Xia, F., Chi, E., Le, Q.V., Zhou, D., et al.: Chain-of-thought prompting elicits reasoning in large language models. Advances in neural information processing systems 35 , 24824–24837 (2022) 7 63. Weinstein, J.N., Collisson, E.A., Mills, G.B., Shaw, K.R., Ozenberger, B.A., Ellrott, K., Shmulevich, I., Sander, C., Stuart, J.M.: The cancer genome atlas pan-cancer analysis project. Nature genetics 45 (10), 1113–1120 (2013) 11 64. Yang, Z., Chao, H., Zhao, B., Yang, Y., Zhang, Y., Fu, D., Zhang, J., Lu, L., Yan, K., Jin, D., et al.: Muse: Multi-scale dense self-distillation for nucleus detection and classification. arXiv preprint arXiv:2511.05170 (2025) 2 65. Yang, Z., Qiu, Z., Lin, T., Chao, H., Chang, W., Yang, Y., Zhang, Y., Jiao, W., Shen, Y., Liu, W., et al.: From histopathology images to cell clouds: Learning slide representations with hierarchical cell transformer. arXiv preprint arXiv:2412.16715 (2024) 1 66. Yao, K., Huang, K., Sun, J., Hussain, A.: Pointnu-net: Keypoint-assisted convolu-tional neural network for simultaneous multi-tissue histology nuclei segmentation and classification. IEEE Transactions on Emerging Topics in Computational Intel-ligence 8(1), 802–813 (2023) 1, 11, 12, 13 67. Yu, Q., Zhang, Z., Zhu, R., Yuan, Y., Zuo, X., YuYue, Dai, W., Fan, T., Liu, G., Liu, J., Liu, L., Liu, X., Lin, H., Lin, Z., Ma, B., Sheng, G., Tong, Y., Zhang, C., Zhang, M., Zhang, R., Zhang, W., Zhu, H., Zhu, J., Chen, J., Chen, J., Wang, C., Yu, H., Song, Y., Wei, X., Zhou, H., Liu, J., Ma, W.Y., Zhang, Y.Q., Yan, L., Wu, Y., Wang, M.: DAPO: An open-source LLM reinforcement learning system at scale. In: The Thirty-ninth Annual Conference on Neural Information Processing Systems (2025), https://openreview.net/forum?id=2a36EMSSTp 10 68. Zhang, W., Zhang, P., Guo, J., Cheng, T., Chen, J., Zhang, S., Zhang, Z., Yi, Y., Bu, H.: Patho-r1: A multimodal reinforcement learning-based pathology expert reasoner. arXiv preprint arXiv:2505.11404 (2025) 4 69. Zhang, Y., Zhou, Y., Wang, Y., Xiao, J., Wang, Z., Zhang, Y., Chen, J.: The four color theorem for cell instance segmentation. In: Singh, A., Fazel, M., Hsu, D., Lacoste-Julien, S., Berkenkamp, F., Maharaj, T., Wagstaff, K., Zhu, J. (eds.) Pro-ceedings of the 42nd International Conference on Machine Learning. Proceedings of Machine Learning Research, vol. 267, pp. 77194–77215. PMLR (13–19 Jul 2025) 1, 3, 12, 13 70. Zhou, Y., Onder, O.F., Dou, Q., Tsougenis, E., Chen, H., Heng, P.A.: Cia-net: Robust nuclei instance segmentation with contour-aware information aggregation. In: International conference on information processing in medical imaging. pp. 682–693. Springer (2019) 3

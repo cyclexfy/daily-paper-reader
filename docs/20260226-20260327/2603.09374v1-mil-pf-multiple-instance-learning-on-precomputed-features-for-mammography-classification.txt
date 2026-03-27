@@ -1,0 +1,249 @@
+Title: MIL-PF: Multiple Instance Learning on Precomputed Features for Mammography Classification
+
+URL Source: https://arxiv.org/pdf/2603.09374v1
+
+Published Time: Wed, 11 Mar 2026 00:51:48 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# MIL-PF: Multiple Instance Learning on Precomputed Features for Mammography Classification 
+
+Nikola Jovišić 1,2⋆, Milica Škipina 1,2,3, Nicola Dall’Asen 3,4,5, and Dubravko Ćulibrk 2 
+
+> 1
+
+Institute for AI R&D of Serbia, Serbia  
+
+> 2
+
+Faculty of Technical Sciences, University of Novi Sad, Serbia  
+
+> 3
+
+University of Trento, Italy  
+
+> 4
+
+University of Pisa, Italy  
+
+> 5
+
+Fondazione Bruno Kessler, Italy 
+
+Abstract. Modern foundation models provide highly expressive visual representations, yet adapting them to high-resolution medical imaging remains challenging due to limited annotations and weak supervision. Mammography, in particular, is characterized by large images, variable multi-view studies and predominantly breast-level labels, making end-to-end fine-tuning computationally expensive and often impractical. We propose Multiple Instance Learning on Precomputed Features (MIL-PF), a scalable framework that combines frozen foundation encoders with a lightweight MIL head for mammography classification. By precomput-ing the semantic representations and training only a small task-specific aggregation module (40k parameters), the method enables efficient ex-perimentation and adaptation without retraining large backbones. The architecture explicitly models the global tissue context and the sparse local lesion signals through attention-based aggregation. MIL-PF achieves state-of-the-art classification performance at clinical scale while substantially reducing training complexity. We release the code for full reproducibility. 
+
+Keywords: Breast Cancer · Multiple Instance Learning (MIL) · Frozen Encoders · Classification · Attention · Explainability 
+
+1 Introduction 
+
+Breast cancer is the most common malignancy and leading cause of cancer deaths in women [3]. The preferred screening and diagnostic method is mammography, and the analysis of mammograms requires considerable effort from radiologists, who have been increasingly relying on computer-aided diagnosis (CAD) [2]. Among the clinical imaging modalities, mammography stands out in terms of high spatial resolution (up to 4708 ×5844 pixels) [ 16 ] and, like many other medical domains, typically lacks the rich, pixel-level annotations or textual supervision  
+
+> ⋆
+
+Corresponding author: nikola.jovisic@ivi.ac.rs  
+
+> arXiv:2603.09374v1 [cs.CV] 10 Mar 2026 2N. Jovišić et al.
+
+of a scale required for many modern machine learning training paradigms. E.g., CLIP [ 15 ]-style training is limited not only by this lack of supervision, but also by the architectural constraints regarding the high-resolution inputs. Instead of training the encoders, we show that, even when completely frozen, the largest variant of pretrained DINOv2 [ 11 ] and MedSigLIP [ 17 ] generalize outstandingly well on the out-of-distribution mammography domain. As the experiments on the task-specific head of the network are thus conducted in a fixed representation space, the embeddings can be precomputed, massively saving on the total computation cost of the experiments. As large research laboratories continue releasing specialized encoders and the community focuses more on sustainable AI, we anticipate that this approach will become even more valuable, particularly for research groups with limited resources. To complete the pipeline, we frame the task using Multiple Instance Learning (MIL) . This allows us to adapt to realistic clinical scenarios where a single label is associated with a “bag” of instances (all views of a single breast). We explore this task in light of its hierarchical MIL structure, multiscale signal importance, and weakly-labeled regime. The architecture we propose for this task sits on top of the pretrained foundational encoder and consists of only ∼ 40 k
+
+trainable parameters, making clinical adoption easy. We evaluate MIL-PF on the mammography breast-level classification task (with visual explainability), but formalize a framework to make domain general-ization accessible. Our main contributions are as follows: 1. We formalize a class of mammography-motivated MIL problems and propose an architecture designed to address them. 2. We leverage recent advances in foundation vision models to revisit feature precomputing and frozen encoders as a principled design choice for MIL, showing that strong general backbones enable efficient and expressive pipelines without the need for end-to-end fine-tuning. 3. We validate the approach at clinical scale, demonstrate state-of-the-art performance on mammography classification benchmarks and provide code to enable full reproducibility. 
+
+2 Method 
+
+Multiple Instance Learning (MIL). In Multiple Instance Learning (MIL) [1,21,5], the dataset D is composed of T labeled bags, as defined in Eq. (1). 
+
+D = {(Si, y i)}Ti=1 , where Si = {I(n) 
+
+> i
+
+}Ni 
+
+> n=1
+
+and yi ∈ L (1) Each bag Si is a collection of Ni instances I(n) 
+
+> i
+
+. The label yi ∈ L is a bag-level label that applies to the entire bag Si; the labels for individual instances I(n) 
+
+> i
+
+are unknown. The learning task is to map each bag Si to its corresponding label yi.
+
+Problem formulation. We study a special case of MIL, which includes: 1. Nested hierarchy: Each instance I(n) 
+
+> i
+
+from a bag Si is a high-resolution image. This image, in turn, contains a variable number of sparsely distributed Regions of Interest (ROIs), {R(n)( k) 
+
+> i
+
+}. Crucially, these ROIs are not annotated. Title Suppressed Due to Excessive Length 3Global summary  
+
+> Local summary
+> Global embeddings
+> Tile embeddings
+> Label
+> Embeddings dataset Feature precomputing Head training
+> ROI candidates
+> Global views
+> Tiling
+> heuristic
+
+Fig. 1. The MIL-PF pipeline diagram, divided into distinct stages: Feature Precomput-ing producing Embeddings dataset E and Head Training using them. 
+
+2. Complementary streams: The images {I(n) 
+
+> i
+
+}n within a bag convey a comparable low-frequency signal (global stream), e.g. pertinent to general tissue structure, while substantial, fine-grained differences exist only at high resolution within their respective ROIs (local stream). 
+
+Embeddings dataset. MIL methods have traditionally been shown to have problems with backpropagation, especially with sparsely present task-relevant instances [ 5]. Multiscale reasoning, as required by our problem, hinders it further. Therefore, we first transform our data using a pretrained encoder. We assume the existence of an encoder, F, that is pretrained to expressively encode both full images I(n) 
+
+> i
+
+and high-resolution sub-regions, the tiles, in a zero-shot setting. Using this encoder, we generate two distinct sets of embeddings for each bag Si.First, we create a set of global embeddings, Gi, by applying the encoder to each full image in the bag, as in Eq. (2). 
+
+Gi = {F (I(n) 
+
+> i
+
+)}n (2) Second, to capture the local signals, we must extract features from the unannotated ROIs. We create candidates for these ROIs, {C(n)( k) 
+
+> i
+
+}M (n) 
+
+> i
+> k=1
+
+, by dividing each image I(n) 
+
+> i
+
+into a uniform grid of tiles. The heuristic H(n) 
+
+> i
+
+we use for selecting the tiles is taking all containing any breast tissue from the grid of encoder-input-sized tiles, discarding only the fully background ones. The tile size must be large enough to fit the expected ROI, but not larger than the maximum resolution the encoder supports. The number of tiles M (n) 
+
+> i
+
+may vary per image. We then create a single set of tile embeddings, Ti, by encoding all candidate tiles from all images in the bag and collecting them together, as in Eq. (3). 
+
+Ti = [ 
+
+> nM(n)
+> i
+
+[
+
+> k=1
+
+{F (C(n)( k) 
+
+> i
+
+)} (3) Finally, as defined in Eq. (4), we form a unified embeddings dataset, E, which consists of the global embeddings, the tile embeddings, and the corresponding 4 N. Jovišić et al. 
+
+bag label yi for each bag in our original dataset. 
+
+E = {(Gi, Ti, y i)}i (4) 
+
+MIL-PF Head. For simplicity, our model employs a late-fusion strategy of the two streams, as on Fig. 1. Even though learning complex interactions of the global Gi and the local Ti stream could in principle be useful, it is not crucial for our task. We define inference in Eq. (5). 
+
+ˆyi = hθ
+
+ concat  AGψ (Gi) , ATω (Ti) , (Gi, Ti, y i) ∈ E (5) 
+
+– AGψ and ATω are permutation-invariant aggregators with parameters ψ and ω
+
+that produce a single summary vector for the global and local embedding sets, respectively. Prior to actual pooling operations, they pass the embeddings through a small Multi-Layer Perceptron (MLP). As the encoder is frozen, this part does the actual processing of individual crops with respect to the task, and this is where the majority of the trainable parameters are. 
+
+– hθ is a final layer that maps the joint summary to a prediction ˆyi.The training objective minimizes the loss J (yi, ˆyi) with respect to (θ, ψ, ω ).A key advantage of this design is that the pretrained encoder F performs most of the heavy lifting. The MIL-PF module itself can therefore be lightweight with a low parameter count, focusing solely on correctly implementing the domain’s inductive biases. As shown in Section 3, this modularity provides numerous benefits: fast experiment iteration, drastically lower computational requirements and the ease of swapping encoders or inserting additional inductive biases. 
+
+Attention Pooling for Local Embeddings. A careful choice of the local aggregator ( ATω ) is necessary, as the task-relevant ROIs are sparse in the set Ti.Standard pooling methods are suboptimal for this task. Mean pooling fails, as the signal from a few important tiles is suppressed or “diluted” by the overwhelm-ing number of unimportant background tiles, and max pooling can only capture information from a single, most-salient tile, even if multiple ROIs are relevant for the bag-level prediction. An attention mechanism is therefore preferred. However, common candidates like self-attention are ill-suited, as they are designed to primarily model the interdependence between inputs, while we are interested just in attending to relevant tiles. Therefore, we employ a Perceiver-style cross-attention mechanism [ 6]as our local aggregator ATω . This approach uses a single, trainable latent vector 
+
+z that acts as a query. This latent query z attends to the set of all local tile embeddings from Ti, which are projected into Keys (K) and Values (V). The mechanism computes a weighted sum of the Values based on the query-key similarity ( softmax (zK T )V ), which “pulls” the most relevant information from the tile set into a single summary vector. This design is highly parameter-efficient, focusing the model’s capacity on learning the weights of the aggregators and the final head. In our experiments, we found that using a single latent query was sufficient and that adding more latents (as in the standard Perceiver) did not provide additional benefits for this task. Title Suppressed Due to Excessive Length 5
+
+3 Experiments and Results 
+
+3.1 Experimental Setup Datasets. We evaluate on one of the largest public mammography datasets, the EMBED Open Data, which contains data for ∼ 0.5M mammograms [ 7], representing highly diverse real-world clinical scenarios [ 20 ]. For comparison with other mammography approaches, we also evaluate on VinDr [ 9] and RSNA [ 10 ]. A bag Si is defined as a set of all views of a single breast in a given exam. We use breast-wise labels, as opposed to image-wise, because radiologists form reports considering all of the views together. Patient-wise reasoning, on the other hand, collapses ("max-pools") to the label of the more suspicious breast, losing valuable training signal. Lesions, defined as tissue changes that could be related to breast cancer, represent our Ri. Annotating ROIs is very hard to scale due to the cost and highly diverse pathologies. Even the weak case-level label assignment strategy (BI-RADS reports) is noisy and varies among radiologists. Therefore, for general malignancy risk modeling evaluation, we use BI-RADS 1 as negative, and BI-RADS 4, 5 and 6 as positive, across mixed clinical cohorts. The split choice varies widely in literature and this specific one minimizes noise and assures fair statistical comparison, while retaining principal clinical significance. Using solely BI-RADS 6 as the only actual ground truth is statistically unreliable, since those examples are scarce even in the largest datasets. 
+
+Metrics. The metrics used in the literature vary. We use AUC for class sep-arability; bACC to reflect performance regarding class inbalance; mAP for lesion detection; and Spec@Sens=0.9 , specificity at a threshold that yields a sensitivity of 0.9. We chose the last metric due to clinical relevance of sensitivity [14 ]; one is often concerned about how much specificity can be achieved with a high sensitivity constraint. We note it does not strictly correlate with AUC. 
+
+Implementation Details. We split the data 70%-10%-20% for train, validation and test sets, balanced for all used BI-RADS values proportionally, assuring no patient leakage across splits. The MLP part of the AG and AT consist of two layers followed by ReLU activations, the first layer projecting from embedding size to 16, and second from 16 to 8. The loss function used is Binary Cross-Entropy. For every experiment, all bags of each split of the whole embeddings dataset E,even for the large EMBED dataset, can fit in a single batch of our A100 40GB GPU and we train in such a setting, requiring ∼ 5-7 min for a single run of full MIL-PF head training and ∼ 2M FLOPS for a forward pass per breast. For classification, we do not use overlapping tiles, as we observed no improvement in performance. For the attention map computation we use 75% overlap at inference time. IoU threshold for mAP is 0.25. 
+
+Mutliple runs. Since the head training is inexpensive with the precomputed embeddings, we run 36 independent runs per each head training experiment. Although we observe some variance across runs (up to 2% AUC and 11% 6 N. Jovišić et al. 
+
+Spec@Sens=0.9), selecting the model with the highest validation AUC con-sistently yields near-maximal test performance. Thus, the results reflect a reliable optimization effect rather than a single fortunate run. 
+
+3.2 Encoder Selection 
+
+Training a simplified version of MIL-PF on EMBED BI-RADS task that relies just on max-pooling-based AG gives us a general overview of the backbone choices. As shown in Table 4. DINOv2 [ 11 ] and MedSigLIP [ 17 ] overperform other medical and general encoders, as well as the mammography-pretrained MammoCLIP [ 4], which does not generalize as well to a new dataset. 
+
+3.3 Comparison with the baselines 
+
+We compare MIL-PF against recent state-of-the-art models that address a similar task and have publicly available code for reproduction: Shen et al . [ 18 ], Pathak 
+
+et al . [ 12 ] and Mourão et al . [ 8]. As the competing models are not breast-level-aligned, we additionally evaluate the main competitor (Mourão et al .) using mean and max aggregation over multiple views. All the models were retrained on the same data splits as MIL-PF on VinDr, RSNA and EMBED for fair comparison. Table 1 and Table 2 show MIL-PF’s competitive or superior performance, especially on the largest scale and most diverse EMBED dataset. We do not attribute this advantage to any single component of our method by itself, but to a combination of factors: MIL-PF being the first in the literature to discover generalization properties of the general encoders to the mammography domain; this further enabling feature precomputing, fast iterative experimentation and multiple runs optimization; and finally resulting in a domain-aligned aggregation mechanism (ablated in Section 3.5) with inherent breast-wise modeling. 
+
+Table 1. Quantitative comparison of MIL-PF against SOTA baselines on VinDr and EMBED on BI-RADS-based malignancy. MIL-PF demonstrates superior performance, particularly on the large-scale, noisy EMBED dataset, highlighting its robustness.                                                                                                                   
+
+> VinDr EMBED Model/Paper # Trainable Params (M) Level AUC ↑bAcc ↑Spec@ Sens=0.9 ↑AUC ↑bAcc ↑Spec@ Sens=0.9 ↑
+> ES-Att side [12] 22.89 Case 0.786 0.749 0.193 0.836 0.668 0.558 SIL IL GMIC-ResNet18 [12] 22.49 Image 0.911 0.855 0.698 0.875 0.802 0.566 GMIC [18] 14.11 Image 0.899 0.826 0.690 0.816 0.736 0.380 FPN-AbMIL [8] 1.76 Image 0.920 0.844 0.720 0.802 0.740 0.367 FPN-SetTrans [8] 5.38 Image 0.908 0.827 0.670 0.794 0.728 0.364 FPN-AbMIL (mean) [8] 1.76 Breast 0.911 0.831 0.643 0.835 0.765 0.403 FPN-AbMIL (max) [8] 5.38 Breast 0.899 0.830 0.512 0.817 0.759 0.334 FPN-SetTrans (mean) [8] 1.76 Breast 0.900 0.811 0.559 0.835 0.767 0.451 FPN-SetTrans (max) [8] 5.38 Breast 0.887 0.776 0.595 0.813 0.728 0.388
+> MIL-PF (Ours, DINOv2) AT: max 0.05 Breast 0.882 0.811 0.712 0.905 0.833 0.703
+> MIL-PF (Ours, DINOv2) AT: attn 0.05 Breast 0.894 0.845 0.792 0.916 0.850 0.762 MIL-PF (Ours, MedSigLIP) AT: max 0.04 Breast 0.901 0.838 0.616 0.918 0.845 0.735
+> MIL-PF (Ours, MedSigLIP) AT: attn 0.04 Breast 0.911 0.850 0.683 0.914 0.843 0.746
+
+Title Suppressed Due to Excessive Length 7
+
+Table 2. Quantitative comparison of MIL-PF against SOTA baselines on the VinDr and RSNA datasets. MIL-PF demonstrates superior performance.                                                                                                                                                                 
+
+> VinDr - Mass VinDr - Calcification RSNA - Cancer Model/Paper # Trainable Params (M) Level AUC ↑bAcc ↑Spec@ Sens=0.9 ↑AUC ↑bAcc ↑Spec@ Sens=0.9 ↑AUC ↑bAcc ↑Spec@ Sens=0.9 ↑
+> ES-Att side [12] 22.89 Case 0.738 0.669 0.266 0.937 0.864 0.877 0.890 0.799 0.642 SIL IL GMIC-ResNet18 [12] 22.49 Image 0.772 0.703 0.307 0.953 0.886 0.886 0.899 0.754 0.684 GMIC [18] 14.11 Image 0.755 0.687 0.286 0.941 0.855 0.899 0.773 0.699 0.434 FPN-AbMIL [8] 1.76 Image 0.792 0.720 0.382 0.954 0.902 0.904 0.891 0.793 0.628 FPN-SetTrans [8] 5.38 Image 0.785 0.734 0.367 0.942 0.884 0.836 0.874 0.773 0.656 FPN-AbMIL (mean) [8] 1.76 Breast 0.808 0.757 0.387 0.962 0.913 0.916 0.914 0.826 0.687 FPN-AbMIL (max) [8] 5.38 Breast 0.797 0.683 0.332 0.958 0.899 0.911 0.902 0.785 0.664 FPN-SetTrans (mean) [8] 1.76 Breast 0.807 0.755 0.317 0.952 0.881 0.867 0.902 0.825 0.747 FPN-SetTrans (max) [8] 5.38 Breast 0.801 0.745 0.342 0.947 0.877 0.892 0.896 0.773 0.693
+> MIL-PF (Ours, DINOv2) AT: max 0.05 Breast 0.770 0.731 0.311 0.958 0.917 0.884 0.901 0.815 0.669
+> MIL-PF (Ours, DINOv2) AT: attn 0.05 Breast 0.800 0.736 0.419 0.967 0.930 0.931 0.923 0.828 0.709
+> MIL-PF (Ours, MedSigLIP) AT: max 0.04 Breast 0.778 0.720 0.408 0.967 0.907 0.861 0.925 0.830 0.733
+> MIL-PF (Ours, MedSigLIP) AT: attn 0.04 Breast 0.814 0.757 0.403 0.967 0.835 0.917 0.923 0.835 0.757
+
+3.4 Explainability Analysis 
+
+Table 3 reports detection performance across different lesion sizes (as defined in [ 8]). MIL-PF achieves competitive results for medium and large sizes, while mAP for small lesions remains low. However, qualitative results on randomly selected examples in Fig. 2 show that our models mostly struggle with reaching IoU@0.25 threshold, while consistently identifying the correct principal regions. We attribute this to the relatively large input tile sizes ( 448 × 448 / 518 × 518 ), which, while not hindering leading classification performance, affect detection resolution. We consider this a possibility for future enhancement. 
+
+Table 3. Comparison of proposed MIL-PF with FPN[ 8 ]. Detection performance is reported for all (mAP), small (mAP s), medium (mAP m) and large (mAP l) lesions. 
+
+Calcification Mass Model/Paper mAP ↑ mAP s ↑ mAP m ↑ mAP l ↑ mAP ↑ mAP s ↑ mAP m ↑ mAP l ↑
+
+FPN-AbMIL [8] 32.0 9.1 34.8 57.5 28.2 4.7 32.1 66.2 FPN-SetTrans [8] 37.4 18.8 39.5 62.2 24.3 3.0 28.0 73.2 MIL-PF (Ours, DINOv2) 24.4 0.4 22.5 94.44 16.3 0.1 15.9 62.8 
+
+MIL-PF (Ours, MedSigLIP) 38.4 1.2 52.5 84.9 14.1 0.1 11.3 58.4 
+
+3.5 Ablation Studies 
+
+To quantify the significance of each component of MIL-PF, we train differently configured MIL architectures. The results are shown in Table 4. The configurations containing AG use global features, the ones containing 
+
+AT use tile features, and the ones containing both, use both, as in full MIL-PF. The aggregations labeled with inf. only are only performed at the inference level, while for the training each image inherits its bag’s label. This simulates non-MIL approaches, but aggregation is still preserved at inference to preserve consistency. 8 N. Jovišić et al. 
+
+> Calcification Mass
+
+Fig. 2. Attention maps for masses and calcifications obtained by overlapping the MIL-PF’s local stream window. Ground truth is shown in green and predictions in red. 
+
+Table 4. Encoder selection (left) and ablation on aggregation types (right) on EMBED.                                                                                              
+
+> Model Resolution AUC ↑Spec@Sens=0.9 ↑
+> MammoCLIP [4] 1520 ×912 0.870 0.558 BiomedCLIP [22] 224 ×224 0.872 0.606 MedSigLIP [17] 448 ×448 0.897 0.691
+> RADDINO [13] 518 ×518 0.854 0.499 DINOv2 [11] ViT Giant 518 ×518 0.897 0.655 DINOv3 [19] ViT Huge+ 512 ×512 0.831 0.497 DINOv3 [19] ViT Huge+ 1024 ×1024 0.834 0.476
+> Aggregation DINOv2 ViT Giant MedSigLIP Global ( AG)Local ( AL) AUC ↑Spec@Sens=0.9 ↑AUC ↑Spec@Sens=0.9 ↑
+> mean (inf. only) — 0.871 0.627 0.870 0.619 mean —0.878 0.640 0.873 0.640 max (inf. only) —0.865 0.601 0.873 0.621 max —0.897 0.665 0.897 0.691 attn —0.896 0.668 0.899 0.676 —attn 0.892 0.662 0.899 0.713 max mean 0.901 0.705 0.902 0.672 max max 0.905 0.703 0.918 0.735 max attn 0.916 0.762 0.914 0.746
+
+We note that the difference between the full MIL-PF setup and naïve single instance learning (SIL) performed only on global views goes up to 5% for AUC and 14% for Spec@Sens=0.9, proving MIL-PF’s inductive biases correct and its capacity capable of leveraging powerful backbones. 
+
+4 Conclusion and Future Work 
+
+We introduced MIL-PF, a lightweight design for weakly-labeled mammography data that operates on features precomputed by frozen foundation models. Our key finding is that a powerful general-purpose encoder, combined with a small specialized ∼40k parameter task-specific head, yields state-of-the-art results on a large-scale clinical dataset. Results challenge the prevailing assumption that end-to-end fine-tuning or complex custom architectures are prerequisites for this task. This opens multiple venues for future research, including the integration of more complex inductive biases, such as prior patient exams or bilateral asymmetry impact, and the application to other high-resolution, weakly-labeled domains. Title Suppressed Due to Excessive Length 9
+
+References 
+
+1. Dietterich, T.G., Lathrop, R.H., Lozano-Pérez, T.: Solving the multiple instance problem with axis-parallel rectangles. Artificial intelligence (1997) 2. Doi, K.: Computer-aided diagnosis in medical imaging: historical review, current status and future potential. Computerized medical imaging and graphics (2007) 3. Ghoncheh, M., Pournamdar, Z., Salehiniya, H.: Incidence and mortality and epi-demiology of breast cancer in the world. Asian Pacific journal of cancer prevention (2016) 4. Ghosh, S., Poynton, C.B., Visweswaran, S., Batmanghelich, K.: Mammo-clip: A vision language foundation model to enhance data efficiency and robustness in mammography. arXiv preprint arXiv:2405.12255 (2024) 5. Ilse, M., Tomczak, J., Welling, M.: Attention-based deep multiple instance learning. In: International Conference on Machine Learning (ICML). PMLR (2018) 6. Jaegle, A., Gimeno, F., Brock, A., Vinyals, O., Zisserman, A., Carreira, J.: Perceiver: General perception with iterative attention. In: International Conference on Machine Learning (ICML) (2021) 7. Jeong, J.J., Vey, B.L., Bhimireddy, A., Kim, T., Santos, T., Correa, R., Dutt, R., Mosunjac, M., Oprea-Ilies, G., Smith, G., et al.: The emory breast imaging dataset (embed): A racially diverse, granular dataset of 3.4 million screening and diagnostic mammographic images. Radiology: Artificial Intelligence (2023) 8. Mourão, M., Nascimento, J.C., Santiago, C., Silveira, M.: Multi-scale attention-based multiple instance learning for breast cancer diagnosis. In: International Conference on Medical Image Computing and Computer-Assisted Intervention (MICCAI). Springer (2025) 9. Nguyen, H.T., Nguyen, H.Q., Pham, H.H., Lam, K., Le, L.T., Dao, M., Vu, V.: Vindr-mammo: A large-scale benchmark dataset for computer-aided diagnosis in full-field digital mammography. Scientific Data (2023) 10. of North America (RSNA), R.S.: Rsna screening mammography breast cancer detection (rsna-smbc) dataset (2024), accessed: January 26, 2024 11. Oquab, M., Darcet, T., Moutakanni, T., Vo, H., Szafraniec, M., Khalidov, V., Fernandez, P., Haziza, D., Massa, F., El-Nouby, A., et al.: Dinov2: Learning robust visual features without supervision. arXiv preprint arXiv:2304.07193 (2023) 12. Pathak, S., Schlötterer, J., Geerdink, J., Veltman, J., van Keulen, M., Strisciuglio, N., Seifert, C.: Breast cancer prediction using mammography exams for real hospital settings. Computers in Biology and Medicine (2025) 13. Pérez-García, F., Sharma, H., Bond-Taylor, S., Bouzid, K., Salvatelli, V., Ilse, M., Bannur, S., Castro, D.C., Schwaighofer, A., Lungren, M.P., et al.: Rad-dino: Exploring scalable medical image encoders beyond text supervision. arXiv preprint arXiv:2401.10815 (2024) 14. Petitti, D.B., Penhoet, E.E., Joy, J.E.: Saving women’s lives: strategies for improving breast cancer detection and diagnosis (2005) 15. Radford, A., Kim, J.W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., Sastry, G., Askell, A., Mishkin, P., Clark, J., et al.: Learning transferable visual models from natural language supervision. In: International conference on machine learning. pp. 8748–8763. PmLR (2021) 16. Rangarajan, K., Gupta, A., Dasgupta, S., Marri, U., Gupta, A.K., Hari, S., Baner-jee, S., Arora, C.: Ultra-high resolution, multi-scale, context-aware approach for detection of small cancers on mammography. Scientific reports (2022) 10 N. Jovišić et al. 17. Sellergren, A., Kazemzadeh, S., Jaroensri, T., Kiraly, A., Traverse, M., Kohlberger, T., Xu, S., Jamil, F., Hughes, C., Lau, C., et al.: Medgemma technical report. arXiv preprint arXiv:2507.05201 (2025) 18. Shen, Y., Wu, N., Phang, J., Park, J., Liu, K., Tyagi, S., Heacock, L., Kim, S.G., Moy, L., Cho, K., et al.: An interpretable classifier for high-resolution breast cancer screening images utilizing weakly supervised localization. Medical Image Analysis (2021) 19. Siméoni, O., Vo, H.V., Seitzer, M., Baldassarre, F., Oquab, M., Jose, C., Khali-dov, V., Szafraniec, M., Yi, S., Ramamonjisoa, M., et al.: Dinov3. arXiv preprint arXiv:2508.10104 (2025) 20. Woo, M., Zhang, L., Brown-Mulry, B., Hwang, I., Gichoya, J.W., Gastounioti, A., Banerjee, I., Seyyed-Kalantari, L., Trivedi, H.: Subgroup evaluation to understand performance gaps in deep learning-based classification of regions of interest on mammography. PLOS Digital Health (2025) 21. Zaheer, M., Kottur, S., Ravanbakhsh, S., Poczos, B., Salakhutdinov, R.R., Smola, A.J.: Deep sets. Advances in Neural Information Processing Systems (NeurIPS) (2017) 22. Zhang, S., Xu, Y., Usuyama, N., Xu, H., Bagga, J., Tinn, R., Preston, S., Rao, R., Wei, M., Valluri, N., et al.: Biomedclip: a multimodal biomedical foundation model pretrained from fifteen million scientific image-text pairs. arXiv preprint arXiv:2303.00915 (2023)

@@ -1,0 +1,310 @@
+Title: UNIStainNet: Foundation-Model-Guided Virtual Staining of H&E to IHC
+
+URL Source: https://arxiv.org/pdf/2603.12716v1
+
+Published Time: Mon, 16 Mar 2026 00:46:04 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+# UNIStainNet: Foundation-Model-Guided Virtual Staining of H&E to IHC 
+
+# Jillur Rahman Saurav 
+
+mxs2361@mavs.uta.edu Department of Computer Science, University of Texas at Arlington Arlington, Texas, USA 
+
+# Thuong Le Hoai Pham 
+
+tlp5359@mavs.uta.edu Department of Computer Science, University of Texas at Arlington Arlington, Texas, USA 
+
+# Pritam Mukherjee 
+
+pritam.mukherjee@stjude.org Department of Radiology, St. Jude Children’s Research Hospital Memphis, Tennessee, USA 
+
+# Paul Yi 
+
+paul.yi@stjude.org Department of Radiology, St. Jude Children’s Research Hospital Memphis, Tennessee, USA 
+
+# Brent A. Orr 
+
+brent.orr@stjude.org Department of Pathology, St. Jude Children’s Research Hospital Memphis, Tennessee, USA 
+
+# Jacob M. Luber 
+
+jacob.luber@stjude.org Department of Radiology, St. Jude Children’s Research Hospital Memphis, Tennessee, USA 
+
+## Abstract 
+
+Virtual immunohistochemistry (IHC) staining from hematoxylin and eosin (H&E) images can accelerate diagnostics by providing preliminary molecular insight directly from routine sections, reduc-ing the need for repeat sectioning when tissue is limited. Existing methods improve realism through contrastive objectives, prototype matching, or domain alignment, yet the generator itself receives no direct guidance from pathology foundation models. We present UNIStainNet, a SPADE-UNet conditioned on dense spatial tokens from a frozen pathology foundation model (UNI), providing tissue-level semantic guidance for stain translation. A misalignment-aware loss suite preserves stain quantification accu-racy, and learned stain embeddings enable a single model to serve multiple IHC markers simultaneously. On MIST, UNIStainNet achieves state-of-the-art distributional metrics on all four stains (HER2, Ki67, ER, PR) from a single uni-fied model, where prior methods typically train separate per-stain models. On BCI, it also achieves the best distributional metrics. A tissue-type stratified failure analysis reveals that remaining errors are systematic, concentrating in non-tumor tissue. Code is available at https://github.com/facevoid/UNIStainNet .
+
+## Keywords 
+
+virtual staining, computational pathology, image-to-image transla-tion, foundation models, immunohistochemistry 
+
+## 1 Introduction 
+
+Immunohistochemistry (IHC) staining is central to molecular profil-ing in cancer diagnostics, guiding treatment decisions for biomark-ers such as HER2, Ki67, ER, and PR in breast cancer [ 21 ]. However, IHC requires dedicated tissue sections, specialized reagents, and multi-day turnaround, and these resources are limited in many clin-ical settings and constrained by available tissue. Virtual staining, computationally generating IHC images from routinely available H&E slides, offers a complementary tool that can aid pathologists by providing rapid preliminary assessments, reducing tissue consump-tion, and enabling molecular screening where IHC infrastructure is unavailable [ 2, 10 , 19 ]. Beyond direct clinical use, virtually gener-ated IHC images can also serve as input to computer-aided diagnosis systems for automated biomarker scoring and quantification. A central difficulty in training virtual staining models is the lack of pixel-aligned ground truth. In standard clinical practice, H&E and IHC are performed on separate consecutive tissue sections that are stained and scanned independently. This introduces 10–50 px misalignment from morphological variation between cuts, tissue deformation during processing, and registration error, making pixel-level losses unreliable and complicating evaluation with metrics such as SSIM and PSNR [7, 8]. Existing methods have advanced generation quality through careful loss design and domain-specific feature engineering to han-dle these challenges [ 2 , 8, 19 ]. Contrastive objectives down-weight inconsistent regions [ 8], prototype matching avoids spatial corre-spondence [ 2 ], and domain alignment strategies reduce reliance on pixel-level supervision [ 19 ]. However, leveraging pathology foundation models as a direct conditioning signal for the genera-tor remains underexplored: one study [ 19 ] derives segmentation masks from UNI [ 3 ] embeddings, but the generator itself receives no foundation-model signal. Such models, trained on large-scale histopathology data, learn tissue representations that have proven effective across diverse pathology tasks [ 3], making them a nat-ural source of conditioning information for stain translation. To explore this direction, we present UNIStainNet with the following contributions: (1) Dense UNI spatial conditioning. A SPADE-UNet [ 13 ] gen-erator conditioned on spatial tokens from a frozen UNI [ 3 ]backbone via SPADE modulation at each decoder stage. (2) Misalignment-aware loss design. A loss suite designed to avoid pixel-level supervision: perceptual losses at reduced resolution, an unconditional discriminator, feature match-ing for texture statistics, and a DAB intensity loss for stain quantification. (3) Unified multi-stain generation. Learned stain embed-dings via FiLM modulation enable a single model to serve all four IHC markers. (4) Tissue-type stratified failure analysis. We provide the first systematic characterization of where generation fails, using zero-shot tissue classification to stratify errors by mor-phological context across both datasets.  
+
+> arXiv:2603.12716v1 [cs.CV] 13 Mar 2026 Preprint, , Saurav et al.
+
+We validate against leading published methods on two public benchmarks at the standard 512 ×512 crop protocol, achieving state-of-the-art distributional metrics on both MIST [ 8] and BCI [ 10 ]. The architecture extends to native 1024 ×1024 generation with minimal parameter overhead, improving stain accuracy on both datasets. 
+
+## 2 Related Work 2.1 H&E-to-IHC Virtual Staining 
+
+Virtual staining computationally generates IHC images from rou-tinely available H&E slides, reducing the cost and turnaround of chemical staining. Early approaches rely on paired pixel-level losses: the BCI benchmark introduced Pyramid Pix2Pix [ 10 ], which trains a multi-scale encoder-decoder with Gaussian-pyramid reconstruc-tion losses. However, pixel-level supervision is degraded by the spatial misalignment inherent in consecutive-section pairs, biasing generators toward blurry, spatially averaged outputs [7]. Subsequent GAN-based methods can be grouped by how they handle the misalignment challenge and inject domain knowledge. 
+
+Contrastive approaches relax the need for pixel-aligned supervision: CUT [ 12 ] introduces PatchNCE for patch-level correspondence, ASP [ 8] adds similarity-based down-weighting of inconsistent re-gions (and contributes the MIST multi-stain dataset), and ODA-GAN [ 19 ] disentangles expression- and morphology-dependent features via orthogonal projection with multi-layer MMD align-ment. Domain-knowledge approaches incorporate stain-specific pri-ors: PSPStain [ 2] uses Beer–Lambert-derived Focal Optical Density maps with prototype matching, TDKStain [ 14 ] integrates HER2-specific scoring criteria, and TA-GAN [ 6] enforces topology-aware consistency via graph neural networks. Optimal-transport approaches 
+
+such as SIM-GAN [ 4 ] mine supervised correspondences via Wasserstein-distance feature matching, and its successor USI-GAN [ 15 ] extends this to unbalanced self-information transport across the domain gap. These methods progressively layer multi-stage feature engineering on top of a shared CUT-derived ResNet generator. UNIStainNet takes a different route: rather than engineering supervision signals, we condition the generator directly on dense spatial tokens from a frozen pathology foundation model. Diffusion-based approaches have recently been applied to this task. PASB [ 16 ] formulates the translation as a Schrödinger Bridge optimal-transport problem and guides generation through an IRS-derived classification constraint and a reference-similarity refine-ment step at each denoising iteration. Star-Diff [ 9] frames virtual staining as a restoration problem, pairing a deterministic residual network with a stochastic denoising network for structural fidelity. Diffusion-based approaches involve iterative inference, whereas GAN-based methods (including UNIStainNet) require only one pass. 
+
+## 2.2 Foundation Models in Computational Pathology 
+
+Central to our approach is the use of pathology foundation models as a conditioning signal. These models, large vision transformers pretrained on millions of histology images, have demonstrated strong transfer across diverse downstream tasks. UNI [ 3 ], pre-trained on over 100 million histopathology images, produces 1024-dimensional patch tokens that encode tissue morphology. In the virtual staining literature, pathology foundation features have so far been used only for auxiliary purposes. ODA-GAN [ 19 ]feeds UNI embeddings through ABMIL and Grad-CAM to produce spatial masks that partition contrastive samples, but these features remain external to the generator. PASB [ 16 ] derives a classification-based pathological constraint from adjacent IHC sections, indepen-dent of the generative backbone. UNIStainNet is, to our knowledge, the first H&E-to-IHC method to condition the generator on dense spatial foundation model fea-tures, giving it access to tissue-level semantic context unavailable to methods that rely solely on pixel-space encoder features (Sec-tion 3.2). 
+
+## 2.3 Handling Consecutive-Section Misalignment 
+
+Datasets pairing H&E and IHC from consecutive tissue sections (BCI [ 10 ], MIST [ 8 ]) exhibit inherent spatial misalignment because the two stains are applied to adjacent, not identical, slices. Naïve application of pixel-level paired losses on such data causes the generator to absorb misalignment as part of the target distribution, producing spatially inconsistent outputs. Existing approaches mitigate this in several ways. ODA-GAN [ 19 ]reduces reliance on pixel correspondence through a contrastive-adversarial formulation with orthogonal feature decoupling, at the cost of discarding much of the paired supervision signal. ASP [ 8]measures per-patch agreement between generated and ground-truth embeddings and progressively suppresses the loss at locations where correspondence is low. PSPStain [ 2] replaces pixel-level align-ment with cross-image prototype matching, comparing aggregated tumor representations that are invariant to spatial shifts. UNIStainNet takes a different approach: every loss component is designed to tolerate misalignment while retaining paired supervi-sion. Perceptual losses operate at resolutions (128, 256 px) where the misalignment becomes sub-pixel; L1 is computed at 64 px. The dis-criminator is unconditional, since conditioning on misaligned pairs would cause it to learn spatial inconsistency as “real.” Structural supervision (edge loss) acts on the pixel-aligned H&E →generated axis rather than the misaligned H&E →IHC axis. This design pre-serves the benefits of paired training while avoiding the artifacts introduced by naïve pixel-level supervision. 
+
+## 3 Methodology 3.1 Overview 
+
+The generator translates an H&E input into an IHC output in a single forward pass, guided by three signals: dense spatial to-kens from a pretrained pathology model, structural edge maps, and a stain identity embedding. Formally, given an H&E image 
+
+xHE ∈ R3×512 ×512 , UNI spatial tokens U ∈ R32 ×32 ×1024 (Section 3.2), and a conditioning token 𝑦 , the model produces ˆxIHC = 𝐺 (xHE , U, 𝑦 ).The token 𝑦 encodes dataset-specific context: on BCI it represents the HER2 class ( 𝑦 ∈ { 0, 1+, 2+, 3+} ); on MIST it represents the tar-get stain type ( 𝑦 ∈ { HER2 , Ki67 , ER , PR }). In both cases, 𝑦 indexes into the same learnable embedding table and is injected via FiLM modulation (Section 3.3). The architecture has four components (Fig. 1): (1) a UNI feature processor that builds multi-scale conditioning maps from patch UNIStainNet: Foundation-Model-Guided Virtual Staining of H&E to IHC Preprint, , (b) SPADE+FiLM Block   
+
+> UNI spatial maps
+> Stain Embedding
+> (a) Overview
+> H&E→IHC Generator
+> High-Resolution UNI Feature Processing
+> Bottleneck
+> Self-Att
+> SPADE+FiLM
+> Decoder
+> UNI ViT-L/16
+> Feature
+> Processor
+> multi-scale map
+> Edge Encoder
+> Sobel features at each scale Discriminator
+> multi-scale
+> residual global features
+> H&E
+> Encoder
+> Stain Label:
+> HER2 - Ki67 -ER - PR
+> Generated IHC
+> Ground-Truth IHC
+> consecutive slide
+> H&E  Slide
+> UNI spatial maps
+> Edge maps
+> 4×4 sub-crops
+
+Figure 1: UNIStainNet architecture. (a) Overview: The H&E image is split into 4×4 sub-crops and processed by a frozen UNI ViT-L/16 to produce multi-scale spatial maps. A CNN encoder compresses the H&E input through a self-attention bottleneck; the SPADE+FiLM decoder then receives UNI spatial maps via SPADE modulation, edge features via concatenation, and a stain embedding via FiLM, with encoder skip connections preserving fine-grained detail. An unconditional multi-scale discriminator provides adversarial training. (b) SPADE+FiLM block detail: at each decoder stage, edge and skip features are concatenated and convolved, then modulated by UNI spatial maps (spatially-varying 𝛾 𝑠 , 𝛽 𝑠 ) and the stain embedding (channel-wise 𝛾 𝑐 , 𝛽 𝑐 ), combined additively after instance normalization. 
+
+tokens, (2) a multi-scale edge encoder for structural features from H&E, (3) a SPADE-UNet generator conditioned on UNI features (spatially) and class labels (channel-wise), and (4) an unconditional PatchGAN discriminator. 
+
+## 3.2 UNI Feature Extraction and Processing 
+
+We extract spatial features from a frozen UNI [ 3] ViT-L/16. Feeding the full 512 ×512 image as a single input would produce only 14 ×14 
+
+tokens at coarse spatial resolution. Instead, we divide the image into a 4×4 grid of sub-crops, pass each through UNI independently, and reassemble and average-pool the resulting tokens into a 32 ×32 
+
+grid ( 𝑁 =1,024 tokens of dimension 𝑑 =1,024 ). A lightweight processor P adapts these tokens for the decoder: 
+
+U(𝑠 ) = P𝑠 (U), 𝑠 ∈ { 32 , 64 , 128 , 256 } (1) Each token is projected from 𝑑 =1,024 to 512 dimensions and refined with residual convolutions at 32 ×32 . Learned transposed convo-lutions then produce resolution-matched maps for the remaining decoder stages. 
+
+## 3.3 SPADE-UNet Generator 
+
+The generator follows a UNet encoder-decoder with SPADE [ 13 ]conditioning. Five strided convolution blocks downsample H&E from 512 to 16 ×16 (3 → 64 → 128 → 256 → 512 → 512 ). The bottleneck applies residual blocks with self-attention for global context. Each decoder block receives upsampled features, the encoder skip connection, and edge features. After channel reduction, a SPADE block applies dual conditioning: 
+
+h′ = (𝜸 UNI + 𝜸 cls ) ⊙ ˆh + ( 𝜷 UNI + 𝜷 cls ) (2) where ˆh = IN (h) is instance-normalized. Spatial modulation 𝜸 UNI , 𝜷 UNI =
+
+Conv (LeakyReLU (Conv (U(𝑠 ) ))) provides spatially-varying scale and bias from tissue morphology. Channel modulation 𝜸 cls , 𝜷 cls =
+
+FiLM (e𝑦 ) from a learned conditioning embedding e𝑦 ∈ R64 controls overall staining identity and intensity (HER2 class on BCI, stain type on MIST). SPADE parameters are zero-initialized (ControlNet-style [ 22 ]), so spatial modulation has no effect at the start of train-ing and is learned gradually; FiLM parameters are initialized as 
+
+𝜸 cls =1, 𝜷 cls =0, providing identity channel modulation at initializa-tion. 
+
+Edge encoder. A lightweight multi-scale edge encoder concate-nates H&E RGB with Sobel gradient maps and extracts structural features at five scales ( 512 , 256 , 128 , 64 , 32 ) via two-layer CNNs. Edge features are concatenated with the corresponding skip connections, providing pixel-aligned structural priors. The final decoder out-put is concatenated with the original H&E input before the output convolution, forming an input skip connection that eases color mapping. Preprint, , Saurav et al. 
+
+## 3.4 Misalignment-Aware Loss Design 
+
+Both BCI [ 10 ] and MIST [ 8] pair H&E and IHC from consecutive tissue sections, introducing spatial misalignment between training pairs. However, because the generator produces output directly from the H&E input, the generated image and the input H&E are inherently pixel-aligned. We exploit this asymmetry in loss design. 
+
+Reconstruction (generated vs. real IHC).. All paired losses operate at resolutions where misalignment is negligible: 
+
+Lpercept = LPIPS 128 ( ˆx, xIHC ) + 0.5 · LPIPS 256 ( ˆx, xIHC ) (3) 
+
+LL1 = ∥ ˆx(64 ) − x(64 ) 
+
+> IHC
+
+∥1 (4) 
+
+Structure preservation (generated vs. H&E).. Since the output and H&E are pixel-aligned: 
+
+Ledge =∑︁  
+
+> 𝑠 ∈ { 512 ,256 }
+
+∥∇ Sobel ( ˆx(𝑠 ) ) − ∇ Sobel (x(𝑠 ) 
+
+> HE
+
+)∥ 1 (5) 
+
+Adversarial. We use a hinge adversarial loss with an uncondi-tional discriminator and 𝑅 1 gradient penalty, since a conditional discriminator on misaligned pairs learns spatial inconsistency as “real.” Feature matching provides misalignment-robust texture su-pervision: 
+
+LFM =∑︁ 
+
+> 𝑙
+
+∥𝐷 (𝑙 ) ( ˆx) − 𝐷 (𝑙 ) (xIHC )∥ 1 (6) 
+
+DAB stain losses. DAB intensity is extracted via Beer–Lambert color deconvolution [ 17 ]. LDAB matches the mean top-10% DAB intensity per image. 
+
+Total generator loss. 
+
+L𝐺 = Lpercept + 𝜆 L1 LL1 + 𝜆 edge Ledge 
+
++ L adv + 𝜆 FM LFM 
+
++ 𝜆 DAB LDAB 
+
+(7) with 𝜆 L1 =1.0, 𝜆 edge =0.5, 𝜆 FM =10 .0, 𝜆 DAB =0.2.
+
+## 3.5 Training Details 
+
+We use TTUR [ 5] with a 1,000-step linear warmup and delay adver-sarial training until step 2,000 to stabilize early generator learning. During training, conditioning signals are randomly dropped (class labels 10%, UNI features 10%, both 5%) to prevent the generator from relying on any single signal. We use EMA (decay 0.999) for the gen-erator at inference. Full hyperparameters are in the supplementary material (Section K). 
+
+## 4 Experiments 4.1 Experimental Setup 
+
+Datasets. We evaluate on two public consecutive-section bench-marks (Table 1). Both provide images at 1024 ×1024 native resolution; following prior work, we train on 512 ×512 random crops and eval-uate on deterministic crops. BCI provides WSI-level HER2 scores; MIST provides no HER2 grading labels, so the stain embedding encodes only the target marker identity. 
+
+Table 1: Dataset summary. Both datasets pair H&E and IHC from consecutive tissue sections. 
+
+Dataset Stain Train Test BCI [10] HER2 3,896 977 MIST [8] HER2 4,642 1,000 Ki67 4,361 1,000 ER 4,153 1,000 PR 4,139 1,000 
+
+Metrics. We evaluate image quality with FID [ 5 ], KID ×1k [ 1], and LPIPS [ 23 ]. SSIM [ 20 ] is included for comparability with prior work, but pixel-level metrics are unreliable under spatial misalign-ment [ 7 ]. For stain accuracy, we report Pearson-𝑟 between per-image DAB intensity scores (mean of top-10% pixels after color deconvolution [ 17 ]) and DAB KL divergence (mean per-pair KL between 256-bin histograms, following [ 19 ]). Additional clinical metrics are in the supplementary material. 
+
+Compared methods. We compare against ASP [ 8], ODA-GAN [ 19 ], SIM-GAN [ 4], PASB [ 16 ], and USI-GAN [ 15 ]. TDKStain [ 14 ] is ex-cluded as it does not report on these datasets; TA-GAN [ 6 ] uses resized 256 × 256 images rather than the standard 512 × 512 pro-tocol; PSPStain [ 2] is excluded from the MIST comparison (too few reported metrics) but included in BCI. All numbers are taken from the original published works; SIM-GAN trains on 512 ×512 re-sized images rather than crops. We emphasize that reported values for the same method on the same dataset can vary substantially across papers: ASP [ 8] reports FID 51.4 on MIST HER2, whereas re-evaluation by [ 19 ] yields 89.3 and by [ 7] yields 177, a >3× spread from differences in crop selection, preprocessing, and test splits. Stain accuracy metrics are even less standardized: related works use different formulations of optical density correlation (e.g. raw IoD difference vs. per-pixel Pearson-𝑟 vs. integrated density correlation), making cross-paper comparison unreliable. We therefore use image quality metrics (FID, KID, SSIM) for cross-method comparison, and reserve stain accuracy metrics (Pearson-𝑟 , DAB KL) for internal evaluations (ablation, resolution scaling) where all numbers come from the same pipeline. All MIST results use a single unified model serving four stains; BCI uses a dedicated HER2 model with identical architecture. We present results on MIST (Section 4.2), BCI (Section 4.3), unified vs. specialist comparison (Section 4.4), and higher resolution (Sec-tion 4.5). 
+
+## 4.2 Multi-Stain Results: MIST 
+
+Table 2 compares UNIStainNet against five recent methods spanning contrastive, domain-alignment, and optimal-transport objectives. UNIStainNet obtains the best FID and KID on all four stains from a single unified model, whereas compared methods typically train a separate model per stain. Per-image stain accuracy is consistent across all stains (Pearson-𝑟 > 0.92 , DAB KL < 0.19 ). A tissue-type stratified failure analysis (Section 4.6) shows that remaining errors concentrate in non-tumor tissue, with < 3% failure rate on UNIStainNet: Foundation-Model-Guided Virtual Staining of H&E to IHC Preprint, , 
+
+Figure 2: Unified multi-stain generation on MIST. Four ran-domly sampled validation images per stain (HER2, Ki67, ER, PR). Columns: H&E input, ground truth IHC, and UNIStain-Net output. A single model produces stain-specific expression patterns: membrane (HER2), punctate nuclear (Ki67), and diffuse nuclear (ER/PR). 
+
+invasive carcinoma. Per-stain specialist comparison is given in the supplementary material (Section B). Figure 2 illustrates the unified model’s outputs across all four stains: membrane-associated DAB for HER2, punctate nuclear dots for Ki67, and diffuse nuclear staining for ER/PR, all from a single set of weights. Figure 3 provides a side-by-side comparison on HER2. 
+
+## 4.3 Single-Stain Results: BCI 
+
+We next validate on BCI, a dataset with different tissue sources and known spatial misalignment from consecutive sections. UNIStain-Net leads on FID, KID, and SSIM among all compared methods (Table 3). Stain accuracy is also strong: DAB KL of 0.482 vs. 2.933 for ODA-GAN, the only other method to report this metric on BCI, while Pearson-𝑟 reaches 0.867. Per-class DAB quantification confirms correct HER2 grading ( 0 < 1+ < 2+ < 3+); details are pro-vided in the supplementary material. Figure 4 shows representative outputs across all four HER2 classes. 
+
+Figure 3: Representative qualitative comparison on MIST HER2. Additional randomly sampled comparisons are pro-vided in the supplementary material (Section D). 
+
+Figure 4: Qualitative comparison on BCI (one sample per HER2 class). Columns: H&E input, ground truth IHC, ASP [ 8 ], PSPStain [ 2], and UNIStainNet. Our method preserves tissue morphology and produces correctly graded DAB staining across all HER2 levels. 
+
+## 4.4 Unified vs. Per-Stain Specialists 
+
+A natural question is whether the unified model incurs a cost rela-tive to training separate per-stain specialists. Table 4 compares the unified model (42M trainable parameters, excluding the frozen UNI backbone) against four independently trained specialists (170M trainable total). The unified model achieves comparable FID (30.0 vs. 29.8) while reducing total parameters by 4×. Stain accuracy is comparable: the Preprint, , Saurav et al. 
+
+Table 2: Quantitative comparison on MIST (1,000 test images per stain). UNIStainNet uses a single unified model serving all four IHC markers via learned stain embeddings; compared methods typically train a separate model per stain. All numbers are taken from the original papers. Cells marked — indicate the metric or stain was not reported. Best and second best highlighted per column. 
+
+HER2 Ki67 ER PR Method FID ↓ KID ×1k ↓ SSIM ↑ FID ↓ KID ×1k ↓ SSIM ↑ FID ↓ KID ×1k ↓ SSIM ↑ FID ↓ KID ×1k ↓ SSIM ↑
+
+ODA-GAN [19] 68.0 8.6 0.189 — — — — — — — — —PASB [16] 46.0 21.0 0.274 — — — 40.5 21.6 0.254 — — —SIM-GAN [4] 39.6 — 0.154 31.6 — 0.182 34.6 — 0.176 36.1 — 0.183 ASP [8] 51.4 12.4 0.200 51.0 19.1 0.241 41.4 5.8 0.206 44.8 10.2 0.216 USI-GAN [15] 37.8 — 0.187 27.4 — 0.232 33.1 — 0.202 34.6 — 0.216 UNIStainNet (ours) 34.5 2.2 0.229 27.2 1.8 0.282 29.2 1.8 0.258 29.0 1.1 0.269 Table 3: Quantitative comparison on BCI test set (977 images). All numbers are taken from the original papers. †Evaluated on a 500-image test split. ‡As reported by [ 16 ]. Best and second best highlighted. 
+
+Method FID ↓ KID ×1k ↓ SSIM ↑
+
+ASP † [8] 65.1 9.9 0.503 ODA-GAN † [19] 59.3 10.1 0.473 PSPStain ‡ [2] 45.7 30.4 0.433 PASB [16] 43.6 9.6 0.426 UNIStainNet (ours) 34.6 6.5 0.541 Table 4: Unified model vs. per-stain specialists on MIST (macro-averaged across HER2, Ki67, ER, PR). The unified model matches specialist-level stain accuracy with 4× fewer total parameters. Per-stain breakdown in supplementary ma-terial (Section B).                   
+
+> Model #Models Train. Params Avg FID ↓Avg P-𝑟 ↑Avg DAB KL ↓
+> Per-stain specialists 4170M 29.8 0.930 0.171 Unified (dim 64) 142M 30.0 0.937 0.159
+
+unified model slightly outperforms specialists on Pearson-𝑟 (0.937 vs. 0.930) and DAB KL (0.159 vs. 0.171), though the differences are within typical run variance. We also tested a larger 256-dimensional stain embedding; results were comparable (Avg FID 30.4, Avg P-𝑟 
+
+0.937), indicating that the model is insensitive to embedding dimen-sionality and a compact 64-d representation suffices. Whether the learned stain embeddings capture biologically meaningful distinc-tions, not just aggregate statistics, is examined in the supplementary material (cross-stain generation in Section E, stain fingerprint anal-ysis in Section F). 
+
+## 4.5 Scalability to Higher Resolution 
+
+As a final test of architectural flexibility, we scale to native 1024 ×1024 
+
+generation by adding a single encoder/decoder level, increasing parameters by only 0.2% (42.56M → 42.65M). Table 5 compares 
+
+512 and 1024 models on both datasets. On MIST, the 1024 model 
+
+Table 5: 512 vs. 1024 generation. MIST values are macro-averaged across 4 stains (unified model). 1024 improves stain accuracy on both datasets with minimal parameter overhead. 
+
+Dataset Res. FID ↓ P-𝑟 ↑ DAB KL ↓
+
+MIST 512 30.0 0.937 0.159 
+
+1024 40.3 0.961 0.099 
+
+BCI 512 34.6 0.867 0.482 
+
+1024 34.1 0.892 0.392 
+
+improves stain accuracy (Pearson-𝑟 0.961 vs. 0.937 , DAB KL 0.099 vs. 
+
+0.159 ); FID is higher ( 40 .3 vs. 30 .0), consistent with FID sensitivity to resolution and sample size. On BCI, 1024 generation matches 512 
+
+image quality (FID 34 .1 vs. 34 .6) while improving stain accuracy (DAB KL 0.392 vs. 0.482 ). Per-stain metrics are in the supplementary material (Section C). 
+
+## 4.6 Failure Characterization 
+
+While aggregate metrics indicate strong overall performance, they can mask systematic failure modes. To understand where our model fails, we classify each 512 ×512 H&E test crop into seven breast tissue categories using CONCH [ 11 ] zero-shot classification (whole-image downsized to 224 ×224) and measure per-image DAB KL divergence across all 4,000 MIST test images and 977 BCI test images. Figure 5(a,b) stratifies our failure rate (DAB KL > 0.5) by tissue type on MIST (macro-averaged across four stains) and BCI. On invasive carcinoma, the most clinically relevant and prevalent tis-sue, only 2.1% of MIST crops and 12.5% of BCI crops exceed the failure threshold. Failure rates rise for non-tumor tissues: adipose (25.9% MIST, 27.6% BCI), necrosis (11.6% MIST, 44.4% BCI), and back-ground regions. BCI failure rates are higher overall due to stronger consecutive-section misalignment, but the tissue-type ranking is broadly consistent across both datasets. Failures concentrate in non-tumor tissue. Figure 5(c,d) illustrates representative cases from each dataset. A logistic classifier trained on frozen UNI CLS embeddings can predict failures across stains with AUC 0.72–0.85 (supplementary material, Section J), consistent with failures being tissue-dependent rather UNIStainNet: Foundation-Model-Guided Virtual Staining of H&E to IHC Preprint, , 
+
+Figure 5: Tissue-type stratified failure analysis via CONCH [ 11 ] zero-shot classification. (a,b) Failure rate and mean DAB KL by tissue type on MIST (4,000 images, 4 stains, macro-averaged) and BCI (977 images). (c,d) Representative examples: invasive carcinoma produces lower error, while adipose and necrotic regions produce higher error. 
+
+than random. In a deployment setting, such a predictor could serve as a preliminary quality flag to identify crops that may need manual review, though the moderate AUC suggests further development would be needed for reliable filtering. Figure 6 shows the four worst cases per stain on MIST; the corresponding BCI worst-case analysis is in the supplementary material (Section J). 
+
+## 4.7 Ablation Study 
+
+We ablate key components using the unified 4-stain model on MIST (Table 6). All variants share the same SPADE-UNet backbone, train-ing schedule (100 epochs), and 512 ×512 crop protocol; only the ablated component is removed. BCI ablations are reported in the supplementary material (Section I). We organize findings along three axes: the UNI conditioning signal, architectural choices, and loss components. Removing all spatial conditioning degrades every metric (FID 
+
+30 .0 → 40 .1, Pearson-𝑟 0.937 → 0.681 , DAB KL 0.159 → 0.669 ), confirming that dense spatial tokens are essential. Reducing UNI spatial resolution from 32 ×32 to 4×4 (CLS 4×4) raises FID to 33.7 while Pearson-𝑟 is essentially unchanged, indicating that dense spatial tokens improve image quality more than stain intensity on 
+
+512 ×512 crops. Replacing UNI with a general-purpose DINOv3 [ 18 ]backbone degrades stain accuracy (DAB KL +79%), confirming that pathology-specific pretraining matters; the full comparison is in supplementary Section H. For architectural choices, the discriminator is essential for image quality: without it, FID rises to 160.5 and DAB KL to 2.884, yet 
+
+Figure 6: Worst failure cases on MIST per stain, ranked by whole-image DAB KL divergence (top-4 per stain). Most failures occur in non-tumor tissue and where consecutive-section misalignment is more pronounced. Table 6: Ablation study on MIST (macro-averaged across 4 stains, unified model). Best and second best highlighted. 
+
+Config FID ↓ P-𝑟 ↑ DAB KL ↓
+
+Full model 30.0 0.937 0.159 
+
+− Edge encoder 31.7 0.939 0.162 
+
+− Feat. matching 29.9 0.932 0.171 
+
+− DAB loss 30.4 0.927 0.184 
+
+− LPIPS 31.4 0.931 0.189 CLS 4×4 33.7 0.938 0.150 
+
+− Discriminator 160.5 0.927 2.884 
+
+− UNI features 40.1 0.681 0.669 Pearson-𝑟 drops only modestly ( 0.937 → 0.927 ). Reconstruction losses alone learn the correct mean staining intensity, but the dis-criminator is responsible for realistic texture and distribution-level accuracy. The edge encoder is dataset-dependent: beneficial on Preprint, , Saurav et al. 
+
+MIST (FID 31.7 without it vs. 30.0), but negligible on BCI where consecutive-section misalignment limits edge reliability. Among individual loss components, LPIPS contributes moder-ately: removing it raises FID to 31.4 and degrades stain accuracy (Pearson-𝑟 0.937 → 0.931 , DAB KL 0.159 → 0.189 ). Feature match-ing presents a trade-off: FID is marginally better without it (29.9 vs. 30.0), but stain accuracy degrades (Pearson-𝑟 0.932 , DAB KL 0.171 ); it regularizes texture statistics toward realistic stain distributions at a slight cost to distributional diversity. The DAB intensity loss has a targeted effect on stain accuracy: DAB KL rises from 0.159 to 0.184 and Pearson-𝑟 drops from 0.937 to 0.927, while FID is essentially unchanged. 
+
+## 5 Conclusion 
+
+We have shown that conditioning a virtual staining generator on dense spatial tokens from a frozen pathology foundation model im-proves both image realism and stain quantification accuracy. Three design choices drive the effectiveness of UNIStainNet: (i) 32 ×32 
+
+UNI spatial tokens provide tissue-level semantic guidance at each decoder stage; (ii) a misalignment-aware loss suite combining multi-scale LPIPS, an unconditional discriminator, and DAB intensity su-pervision produces accurate stain quantification despite the spatial shifts inherent in consecutive-section training pairs; and (iii) FiLM-based stain conditioning enables a single model to serve four IHC markers, matching per-stain specialists on stain accuracy at 4×
+
+fewer total parameters. On MIST, the unified model achieves the best distributional met-rics across all four stains; on BCI, it also achieves the best distri-butional metrics. A tissue-type stratified failure analysis shows that remaining errors are systematic and concentrate in non-tumor tissue. The architecture scales to native 1024 × 1024 with only 0.2% additional parameters; on BCI, 1024 generation matches 512 image quality (FID 34.1 vs. 34.6) while improving stain accuracy, and on MIST, stain accuracy improves further (Pearson-𝑟 0.961 , DAB KL 0.099 ). All experiments use DAB-based IHC stains from two breast cancer datasets; generalization to other chromogens, tissue types, scanners, and study sites has not been tested, and as noted by [ 7], cross-site robustness remains largely unexplored in virtual staining. Whether these remaining gaps reflect data limitations or fundamental ambiguity in the H&E-to-IHC mapping, characterizing them systematically can help guide future efforts. Extending the stain embedding to unseen markers through few-shot conditioning and validating clinical utility through downstream diagnostic tasks such as automated HER2 scoring are natural next steps. 
+
+## References 
+
+[1] Mikołaj Bińkowski, Danica J Sutherland, Michael Arbel, and Arthur Gretton. 2018. Demystifying MMD GANs. In ICLR .[2] Fuqiang Chen, Ranran Zhang, Boyun Zheng, Yiwen Sun, Jiahui He, and Wenjian Qin. 2024. Pathological Semantics-Preserving Learning for H&E-to-IHC Virtual Staining. In International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 384–394. [3] Richard J Chen, Tong Ding, Ming Y Lu, Drew FK Williamson, Guillaume Jaume, Andrew H Song, Bowen Chen, Andrew Zhang, Daniel Shao, Muhammad Shaban, et al . 2024. Towards a General-Purpose Foundation Model for Computational Pathology. Nature Medicine 30 (2024), 850–862. [4] Xianchao Guan, Zheng Zhang, Yifeng Wang, Yueheng Li, and Yongbing Zhang. 2025. Supervised information mining from weakly paired images for breast IHC virtual staining. IEEE Transactions on Medical Imaging 44, 5 (2025), 2120–2130. [5] Martin Heusel, Hubert Ramsauer, Thomas Unterthiner, Bernhard Nessler, and Sepp Hochreiter. 2017. GANs Trained by a Two Time-Scale Update Rule Converge to a Local Nash Equilibrium. In NeurIPS .[6] Mingzhou Jiang, Jiaying Zhou, Nan Zeng, Mickael Li, Qijie Tang, Chao He, Huazhu Fu, and Honghui He. 2026. Topology-aware Pathological Consistency Matching for Weakly-Paired IHC Virtual Staining. arXiv preprint arXiv:2601.02806 
+
+(2026). [7] Pascal Klöckner, José Teixeira, Diana Montezuma, João Fraga, Hugo M Horlings, Jaime S Cardoso, and Sara P Oliveira. 2025. H&E to IHC virtual staining methods in breast cancer: an overview and benchmarking. Npj digital medicine 8, 1 (2025), 384. [8] Fangda Li, Zhiqiang Hu, Wen Chen, and Avinash Kak. 2023. Adaptive Supervised PatchNCE Loss for Learning H&E-to-IHC Stain Translation with Inconsistent Groundtruth Image Pairs. In International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 632–641. [9] Jingsong Liu, Xiaofeng Deng, Han Li, Azar Kazemi, Christian Grashei, Gesa Wilkens, Xin You, Tanja Groll, Nassir Navab, Carolin Mogler, et al . 2025. From Pixels to Pathology: Restoration Diffusion for Diagnostic-Consistent Virtual IHC. 
+
+Computers in Biology and Medicine 198 (2025), 111264. [10] Shengjie Liu, Chuang Zhu, Feng Xu, Xinyu Jia, Zhongyue Shi, and Mulan Jin. 2022. BCI: Breast Cancer Immunohistochemical Image Generation through Pyramid Pix2pix. CVPR Workshop on Computer Vision for Microscopy Image Analysis 
+
+(2022). [11] Ming Y Lu, Bowen Chen, Drew FK Williamson, Richard J Chen, Ivy Liang, Tong Ding, Guillaume Jaume, Igor Odintsov, Long Phi Le, Georg Gerber, et al . 2024. A visual-language foundation model for computational pathology. Nature Medicine 
+
+30 (2024), 863–874. [12] Taesung Park, Alexei A Efros, Richard Zhang, and Jun-Yan Zhu. 2020. Contrastive Learning for Unpaired Image-to-Image Translation. In ECCV . Springer, 319–345. [13] Taesung Park, Ming-Yu Liu, Ting-Chun Wang, and Jun-Yan Zhu. 2019. Semantic Image Synthesis with Spatially-Adaptive Normalization. In CVPR .[14] Qiong Peng, Weiping Lin, Yihuang Hu, Ailisi Bao, Chenyu Lian, Weiwei Wei, Meng Yue, Jingxin Liu, Lequan Yu, and Liansheng Wang. 2024. Advancing H&E-to-IHC virtual staining with task-specific domain knowledge for HER2 scoring. In International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 3–13. [15] Yue Peng, Bing Xiong, Fuqiang Chen, De Eybo, RanRan Zhang, Wanming Hu, Jing Cai, and Wenjian Qin. 2025. USIGAN: Unbalanced Self-Information Fea-ture Transport for Weakly Paired Image IHC Virtual Staining. arXiv preprint arXiv:2507.05843 (2025). [16] Fanhao Qiu, Yangyang Zhang, Zhen-Li Huang, Xiaofeng Zhu, and Zhengxia Wang. 2025. PASB: Pathology-Aware Schrödinger Bridge for Virtual Immunohis-tochemical Staining. Medical Image Analysis (2025), 103869. [17] Arnout C Ruifrok and Dennis A Johnston. 2001. Quantification of Histochemical Staining by Color Deconvolution. Analytical and Quantitative Cytology and Histology 23, 4 (2001), 291–299. [18] Oriane Siméoni, Huy V Vo, Maximilian Seitzer, Federico Baldassarre, Maxime Oquab, Cijo Jose, Vasil Khalidov, Marc Szafraniec, Seungeun Yi, Michaël Rama-monjisoa, et al. 2025. Dinov3. arXiv preprint arXiv:2508.10104 (2025). [19] Tong Wang, Mingkang Wang, Zhongze Wang, Hongkai Wang, Qi Xu, Fengyu Cong, and Hongming Xu. 2025. ODA-GAN: Orthogonal Decoupling Alignment GAN Assisted by Weakly-supervised Learning for Virtual Immunohistochemistry Staining. In CVPR . 25920–25929. [20] Zhou Wang, Alan C Bovik, Hamid R Sheikh, and Eero P Simoncelli. 2004. Im-age Quality Assessment: From Error Visibility to Structural Similarity. IEEE Transactions on Image Processing 13, 4 (2004), 600–612. [21] Antonio C Wolff, M Elizabeth Hale Hammond, Kimberly H Allison, Brittany E Harvey, Pamela B Mangu, John MS Bartlett, Michael Bilous, Ian O Ellis, Patrick Fitzgibbons, Wedad Hanna, et al . 2018. Human Epidermal Growth Factor Receptor 2 Testing in Breast Cancer: American Society of Clinical Oncology/College of American Pathologists Clinical Practice Guideline Focused Update. Archives of Pathology & Laboratory Medicine 142, 11 (2018), 1364–1382. [22] Lvmin Zhang, Anyi Rao, and Maneesh Agrawala. 2023. Adding Conditional Control to Text-to-Image Diffusion Models. In ICCV .[23] Richard Zhang, Phillip Isola, Alexei A Efros, Eli Shechtman, and Oliver Wang. 2018. The Unreasonable Effectiveness of Deep Features as a Perceptual Metric. In CVPR .

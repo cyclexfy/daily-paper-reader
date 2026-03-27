@@ -1,0 +1,368 @@
+Title: Act Like a Pathologist: Tissue-Aware Whole Slide Image Reasoning
+
+URL Source: https://arxiv.org/pdf/2603.00667v1
+
+Published Time: Tue, 03 Mar 2026 01:59:47 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+# Act Like a Pathologist: Tissue-Aware Whole Slide Image Reasoning 
+
+## Wentao Huang 1* Weimin Lyu 1 Peiliang Lou 2 Qingqiao Hu 1 Xiaoling Hu 3
+
+## Shahira Abousamra 4 Wenchao Han 2 Ruifeng Guo 2 Jiawei Zhou 1 Chao Chen 1 Chen Wang 21Stony Brook University, NY, USA 2Mayo Clinic, MN, USA 
+
+> 3
+
+## Massachusetts General Hospital and Harvard Medical School, MA, USA 
+
+> 4
+
+## Department of Biomedical Data Science, Stanford University, CA, USA 
+
+## Abstract 
+
+Computational pathology has advanced rapidly in re-cent years, driven by domain-specific image encoders and growing interest in using vision–language models to answer natural-language questions about diseases. Yet, the core problem behind pathology question-answering remains un-solved, considering that a gigapixel slide contains far more information than necessary for a given question. Pathol-ogists naturally navigate tissue and morphology complex-ity by scanning broadly, and zooming in selectively accord-ing to the clinical questions. Current models, in contrast, rely on uniform patch sampling or broad attention maps, often attending equally to irrelevant regions while over-looking key visual evidence. In this work, we try to bring models closer to how humans actually examine slides. We propose a question-guided, tissue-aware, and coarse-to-fine retrieval framework, HistoSelect, that consists of two key components: a group sampler that identifies question-relevant tissue regions, followed by a patch selector that retrieves the most informative patches within those regions. By selecting only the most informative patches, our method becomes significantly more efficient: reducing visual to-ken usage by 70% on average, while improving accuracy across three pathology QA tasks. Evaluated on 356,000 question–answer pairs, our approach outperforms existing methods and produces answers grounded in interpretable, pathologist-consistent regions. Our results suggest that bringing human-like search and attention patterns into WSI reasoning is a promising direction for building practical and reliable pathology VLMs. 
+
+## 1. Introduction 
+
+Histopathology image analysis plays a critical role in can-cer diagnosis and treatment planning [5, 25, 29]. A key data source in this domain is the Whole Slide Image (WSI), 
+
+> *Email: Wentao Huang (wenthuang@cs.stonybrook.edu).
+
+Figure 1. Illustration of our HistoSelect framework. (a) The base-line method feeds a large number of patches indiscriminately into the VLM, leading to high redundancy and question-irrelevance. 
+
+(b) Our question-guided tissue-aware selection method. The ques-tion guides the model to select a relevant and sparse subset of in-formative patches, which are then fed to the VLM for reasoning. 
+
+a giga-pixel digital scan that captures rich cellular and tis-sue morphology. The rapid development of computational pathology has enabled success in fundamental tasks, such as tumor subtype classification [17, 18, 31, 34, 37, 43, 44] and survival analysis [10, 35, 42, 45, 47]. With the emergence of multi-modal learning, more challenging tasks have been introduced. In Visual Question Answering (VQA) [9, 11, 16, 23, 36], models are required not only to predict a cor-rect answer, but also to produce clinically trustworthy and interpretable answers. To address the Pathology VQA task, the classic Mul-tiple Instance Learning (MIL) approaches [9, 17, 18, 26] are insufficient due to their lack of language understand-ing power. Recent Multimodal Large Language Model (MLLM) based approaches [11, 23, 33] convert WSI patches into visual tokens, which are then concatenated with the textual question tokens and fed into large language mod-els (LLMs) for multi-modal reasoning. While these ap-proaches have demonstrated competitive performance, they 1
+
+> arXiv:2603.00667v1 [cs.CV] 28 Feb 2026 Figure 2. Visualization and quantitative pre-analysis of patch relevance for a VQA sample (from TCGA-BRCA). (a) Reference WSI. (b) Tissue segmentation, with tumor region shown in red. (c) Patch-level relevance heatmap based on question-patch similarity. High-relevance regions (light region) align with the tumor region from (b). (d) F1 score comparison for retrieving tumor patches using different sampling methods. The question-guided (red) sampling strategy vastly outperforms question-agnostic methods like diversity sampling [4] (blue) and random sampling (gray), demonstrating the limited efficacy of non-guided selection.
+
+still suffer from two major limitations stemming from the nature of WSIs. The first challenge is the lack of attributable explainability. Although VQA models can generate tex-tual answers, most existing MLLM methods do not reveal 
+
+which patches or regions in the WSI support the prediction. This absence of localized, patch-level attribution results in a “black-box” behavior that undermines clinical trustworthi-ness, since pathologists cannot verify the model’s reasoning by inspecting the corresponding image evidence. The second challenge is the redundancy and question-irrelevance of patches. A single WSI can have tens of thou-sands of patches, many of which are irrelevant to the ques-tion, e.g., depicting background tissue, benign structures, or regions unrelated to the clinical decision. Meanwhile, patches from the same tissue type are often redundant; we do not need all of them to make the decision. Further-more, the strict token limits of current LLMs force exist-ing methods to adopt question-agnostic strategies such as non-selective sampling [11] or pooling [23]. This results in treating all patch tokens equally, which unnecessarily overwhelms the downstream LLM with question-irrelevant visual information and risks degrading the model’s perfor-mance. To address the aforementioned limitations, we take inspi-ration from how pathologists reason over WSIs. Rather than examining every region exhaustively, pathologists work in a tissue-aware manner: they first identify the tissue re-gions relevant to the clinical question and then zoom into a small set of critical patches for verification. Follow-ing this principle, we first establish a coarse-grained tis-sue context. In collaboration with expert pathologists, we define a set of K prompts describing fundamental tissue types, enabling a CLIP-like tissue segmentation that auto-matically assigns each WSI patch to a semantic category (Figure 2b). This step mirrors the initial stage of locat-ing diagnostically meaningful regions. We further quantita-tively validate fine-grained tissue region selection is guided by the question. By calculating the cosine similarity be-tween each patch embedding and the question embedding, we generate a patch-level relevance heatmap (Figure 2c), where lighter regions indicate high relevance to the tumor features specified by the question. A quantitative compar-ison (Figure 2d) shows that question-guided sampling dra-matically outperforms question-agnostic strategies (such as diversity sampling or random sampling) in retrieving rele-vant tumor patches. This validates our second key obser-vation: the necessity of a question-guided selection mech-anism to efficiently identify high-value information within gigapixel WSIs and lead to more accurate answers. Motivated by these observations, we introduce HistoSe-lect, a hierarchical, question-guided, and tissue-aware patch selection framework for the pathology VQA task, designed to mirror the coarse-to-fine diagnostic process of expert pathologists. As shown in Figure 1, we leverage the pathologist-defined prompts for fundamental tissue types and a pre-trained patch-level vision–language model [27] to partition the WSI into semantically coherent tissue groups. This provides the coarse-grained structure upon which our method operates. Building on this foundation, HistoSelect implements a two-stage selection mechanism grounded in the Information Bottleneck (IB) principle [39]. The first stage, the group sampler , evaluates how relevant each tis-sue type region (group) is to the input question and deter-mines the patch sampling rate from each tissue group. The second stage, the patch selector , ranks the patches within each active group by relevance to the question and selects the most informative ones according to the allocated token budget. Together, these modules emulate the pathologist’s workflow: first identify the meaningful regions, then zoom in on the key evidence. To ensure that the selected patches are both sparse and 
+
+sufficient for answering the question, we formulate the training objective using a dual-level compression loss en-forcing sparsity and relevance at both group- and patch-level. At both levels, we encourage the model to keep only what is necessary by penalizing the divergence between the learned selection probabilities and a dynamic prior de-rived from question–image similarity. This guides the selec-2tors toward semantically aligned evidence while preventing over-selection. By integrating this IB-driven objective with the VQA loss, HistoSelect produces a compact, question-aligned set of visual tokens that retains critical information and enhances interpretability. In summary, our contributions are: • We collaborate with pathologists to design a series of ba-sic tissue type prompts, enabling us to partition the WSIs into distinct tissue regions. • We introduce HistoSelect, a hierarchical, question-guided, and tissue-aware selection framework based on the IB theory, which effectively prunes question-irrelevant tokens to increase the proportion of question-relevant tokens fed into the LLM for reasoning, thereby enhancing the model’s interpretability. • We conduct a detailed pathologist evaluation to ensure that both our tissue segmentation and model selection re-sults align with the expectations of clinical pathologists. • We achieve state-of-the-art performance on two public datasets and one in-house dataset. 
+
+## 2. Related Work 
+
+Whole Slide Image Analysis. In real-world clinical prac-tice, histopathology is the gold standard for diagnosing can-cer and guiding treatment decisions [5, 25, 29]. The anal-ysis of giga-pixel whole slide images (WSIs) is typically performed in a weakly supervised setting due to their huge resolution and the difficulty of obtaining fine-grained patch-level labels [12]. The most common WSI analysis tasks are slide-level classification [17, 18, 31, 34, 37, 43, 44], which involves predicting tumor presence or subtype, and survival prediction [10, 35, 42, 45, 47], which estimates pa-tient mortality risk. To address these tasks, Multiple In-stance Learning (MIL) has emerged as the dominant frame-work [17, 18, 24, 30, 43, 48]. More recently, the field has advanced to Pathology Visual Question Answering (VQA) [11, 23, 33], which is a more challenging task. Unlike the aggregation-focused objective of MIL, VQA demands fine-grained reasoning to answer queries ranging from global morphology to the identification of specific cellular fea-tures. Pathology VQA benchmarks include patch-level datasets, such as Quilt-LLaVA [33], and slide-level datasets like SlideChat [11] and WSI-LLaVA [23]. In this work, we focus on developing a hierarchical token selection method for the slide-level VQA task. 
+
+Efficient Histopathology VQA. Efficiency in vision and multimodal domains has been explored at two levels. One direction focuses on token pruning , which reduces sequence length by discarding uninformative tokens, as in Dynam-icViT [32], DivPrune [4], and AIM [46]. The other direc-tion emphasizes token merging , which compresses a large set of visual tokens into a compact, fixed-size representa-tion for downstream reasoning. Examples include the Per-ceiver Resampler in Flamingo [2], the Q-Former in BLIP-2 [22], and ToMe [7]. In histopathology, where a sin-gle WSI can produce over 100,000 patches, such strategies have been adopted to manage computational cost. For in-stance, FOCUS [15] introduced knowledge-enhanced adap-tive compression for slide-level classification, PathVQ [21] applied vector quantization to construct a general-purpose WSI foundation model, and TCP-LLaVA [28] used learn-able compressed tokens for visual–text fusion. However, these methods primarily target efficiency and neglect inter-pretability: they optimize for redundancy reduction rather than clinical reasoning. In contrast, HistoSelect is explicitly 
+
+question-guided and designed to mimic how pathologists reason: selecting diagnostically relevant regions and criti-cal patches rather than blindly compressing visual tokens. This not only improves computational efficiency but also yields transparent, evidence-based selection that enhances explainability in WSI-VQA. 
+
+Information Bottleneck in Computational Pathology. 
+
+The Information Bottleneck (IB) principle [39] is an information-theoretic framework for learning, positing that an optimal model should learn a “bottleneck” representation that is maximally compressive of the input while retaining the maximum possible information about the downstream task [3]. Due to its natural ability to learn compact rep-resentations and mitigate redundancy, the IB principle has been widely adopted in deep learning as a tool for regular-ization, interpretability, and multimodal learning. Within the field of computational pathology, researchers have be-gun to leverage IB to address domain-specific challenges. For example, [20] proposed a variational IB-based fine-tuning strategy to learn task-specific features for WSI clas-sification. Concurrently, [45] employed prototypical IB and information disentanglement to tackle the massive redun-dancy issues present in multimodal cancer survival predic-tion. Despite its demonstrated potential in classification and survival analysis, to the best of our knowledge, the IB framework has not yet been explored for pathology VQA. This represents a significant gap, as the hierarchical and token-intensive nature of LLM-based VQA models, which must process a massive number of visual tokens from WSIs, presents a critical challenge of information redundancy and computational inefficiency that the IB principle is ideally suited to address. 
+
+## 3. Methods 
+
+Our HistoSelect framework is shown in Figure 3. It mainly consists of two core components designed to se-lect question-related patches for downstream multimodal reasoning. The first part is tissue segmentation, where the WSI is partitioned into distinct spatial regions correspond-ing to M different tissue types (e.g., tumor, stromal, lym-3Figure 3. Overview of HistoSelect. The framework operates in two stages: Tissue Segmentation partitions the WSI into M tissue types (e.g., tumor, stromal, lymphocyte) using pathologist-designed prompts. The Hierarchical Selector then uses the question feature to dynam-ically select the top K most relevant patch tokens, which are subsequently passed to the LLM for multi-modal answer generation. 
+
+phocyte, as illustrated) using pathologist-designed prompts. The second part is the hierarchical selector, which enhances model explainability and token efficiency by selecting patch tokens most relevant to the question. This hierarchical se-lector includes a group sampler and a patch selector, both taking the question embedding as input. The group sam-pler predicts the sampling rate for each tissue group, while the patch selector calculates a selection probability for ev-ery patch within the group. By ranking these probabilities, the selector extracts the top K most relevant patch tokens. Subsequently, the selected patch tokens and the question to-kens are passed to the LLM decoder for answer generation. We detail each component in the following sections. 
+
+Preliminaries. Given a WSI and a question Q, the WSI is initially divided into a collection of N non-overlapping patches. Each patch is encoded by a pretrained vision en-coder to produce a set of features X = {x1, x2, . . . , xN },where xi ∈ Rd is the d-dimensional feature vector for the 
+
+i-th patch. The question is encoded by a text encoder into a question feature q ∈ Rd. Furthermore, each patch i is associated with a distinct tissue label li, obtained from the tissue segmentation stage. The collection of all tissue labels is denoted as L = {l1, l 2, . . . , l N }, where li ∈ { 1, . . . , M }
+
+represents one of the M defined tissue types. 
+
+3.1. Tissue Segmentation 
+
+To identify the tissue regions relevant to the clinical ques-tion, we consult with expert pathologists. We design M
+
+general prompts, denoted as P = {p1, p 2, . . . , p M }, where each prompt Pj is designed to generally represent a key his-tological component within the WSI. Specifically, we uti-lize the visual encoder from CONCH [27] to obtain the patch features X = {x1, x2, . . . , xN }, and its text encoder to embed the M prompts into a feature space, yielding the tissue prompt features T = {t1, t2, . . . , tM }, where tj is the feature for prompt Pj . The tissue label li for patch i
+
+is determined by the highest cosine similarity between the patch feature xi and all prompt features tj :
+
+li = argmax  
+
+> j∈{ 1,...,M }
+
+ xi · tj
+
+∥xi∥ · ∥ tj ∥
+
+
+
+(1) The resulting set of labels L = {l1, l 2, . . . , l N } effec-tively partitions the WSI into M distinct tissue regions, which form the basis for the hierarchical selection process. 
+
+3.2. Group Sampler 
+
+The hierarchical selection process begins with the group sampler, which determines the importance of each tissue region relative to the input question. For each of the M
+
+tissue groups, we first compute a group prototype feature 
+
+gj by applying average pooling over all patch features xi
+
+belonging to that group j. Let Ij be the set of indices for patches belonging to tissue group j. The group prototype 
+
+gj is defined as: 
+
+gj = 1
+
+Nj
+
+X
+
+> i∈I j
+
+xi (2) where Nj is the total number of patches in group j. The group sampler Fgroup then predicts a sampling rate rj for 4group j, indicating the importance of this group. This pre-diction is based on the concatenation of the group proto-type gj and the question feature q, ensuring the sampling is context-aware. The sampling rate rj is constrained to (0 , 1) 
+
+using the sigmoid function σ(·):
+
+rj = σ (Fgroup ([ gj ; q])) (3) where the group sampler Fgroup is implemented with two linear layers, and rj dictates the proportion of patches to be sampled from group j.
+
+3.3. Patch Selector 
+
+The patch selector performs the final, fine-grained selec-tion of relevant patches within each tissue group. Similar to the group sampler, the selection mechanism is driven by the question context. For every patch i, the patch selector 
+
+Fpatch predicts a selection probability si. This prediction is based on the concatenation of the individual patch feature 
+
+xi and the question feature q:
+
+si = σ (Fpatch ([ xi; q])) (4) where si ∈ (0 , 1) is the predicted probability that patch i is relevant to question Q, and Fpatch is implemented with two linear layers. For each tissue group j, the number of patches to be selected kj is determined by multiplying the group’s predicted sampling rate rj by its total size Nj , followed by rounding up: 
+
+kj = ⌈rj · Nj ⌉ (5) Finally, we select the top kj features, denoted as Zj , from group j by ranking all features xi belonging to Ij based on their selection probability si. The complete set of selected patch features Z is the union of all selected features across the M groups: Z = SMj=1 Zj .
+
+3.4. IB for Patch Selection 
+
+Our learning objective is based on the IB theory [39], which seeks to learn a compressed representation Z of the in-put features X that retains maximal information about the ground truth answer Y. Given the question feature q, the IB principle aims to achieve the optimal trade-off between maximizing relevance between the selected features Z and the ground truth answer Y, and minimizing redundancy be-tween the selected features Z and the full input features X. This objective is formally written as: 
+
+LIB = I(Z, Y | q) − βI (Z, X | q) (6) where β is a Lagrangian multiplier balancing the trade-off between relevance and compression. Due to the in-tractability of calculating mutual information, we adopt the Variational Information Bottleneck (VIB) framework [39]. This method introduces variational distributions to provide a tractable lower bound on LIB . Specifically, we introduce the encoder pϕ(Z | X, q) (which models the patch selec-tion process) and the decoder pθ (Y | Z, q) (modeled by the LLM decoder). The resulting objective function is: 
+
+JIB = E
+
+> (X,q,Y)∼D
+
+"
+
+E
+
+> Z∼pϕ(Z|X,q)
+
+[log pθ (Y | Z, q)] 
+
+− βD KL (pϕ(Z | X, q) ∥ pprior (Z | q)) 
+
+# (7) We define the loss function to be minimized as Lfinal =
+
+−J IB . This loss is comprised of two fundamental terms: the VQA Loss LVQA , corresponding to the negative expected log-likelihood, and the total compression loss LKL , which corresponds to the weighted KL divergence term. 
+
+3.5. Loss Function and Implementation 
+
+To effectively apply the VIB principle to our hierarchical se-lection process, we interpret the total compression penalty 
+
+LKL in Equation (7) as a hierarchical decomposition. Since our selection pϕ(Z | X, Q) occurs in two stages, we heuris-tically decompose LKL into two weighted components, al-lowing us to independently regularize the output distribu-tion of the group sampler and the patch selector. This results in the final loss function: 
+
+Lfinal = LVQA + βg Lgroup + βpLpatch (8) where Lgroup and Lpatch are the compression loss terms de-rived from the group sampler and patch selector, respec-tively. βg and βp are hyperparameters controlling the trade-off for each stage. 
+
+VQA Loss. The VQA loss is the negative log-likelihood over the answer sequence: 
+
+LVQA = −
+
+> T
+
+X
+
+> t=1
+
+log pθ (yt | y<t , Z, q)
+
+where Y = {y1, . . . , y T } is the ground truth answer se-quence, and the total loss is averaged over the dataset D.
+
+Group-Level Compression Loss. Weighted by βg , this term regularizes the group sampler by minimizing the devi-ation of the predicted group sampling rate rj from a pseudo-prior parameter pgj . In this context, rj and pgj are interpreted as the parameters of two Bernoulli distributions. The loss is averaged over the M tissue groups: 
+
+Lgroup = 1
+
+M
+
+> M
+
+X
+
+> j=1
+
+DKL (B(rj ) ∥ B(pgj )) (9) In practice, the pseudo-prior parameter pgj is implemented as the cosine similarity between the group prototype gj and the question feature q.5Patch-Level Compression Loss. Weighted by βp, this term regularizes the patch selector by minimizing the deviation of the patch selection probability si from a pseudo-prior pa-rameter ppi . In this context, si and ppi are interpreted as the parameters of two Bernoulli distributions. The loss is aver-aged over the N patches: 
+
+Lpatch = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+DKL (B(si) ∥ B(ppi )) (10) Similarly, the pseudo-prior parameter ppi is the cosine simi-larity between the patch feature xi and the question feature 
+
+q. The KL divergence between two Bernoulli distributions with parameters π and p is defined as: 
+
+DKL (B(π) ∥ B(p)) = π log πp + (1 − π) log 1 − π
+
+1 − p (11) 
+
+3.6. Differentiable Hard Selection 
+
+During training, the model must sample discrete patches to compute LVQA , yet this sampling operation is non-differentiable. To overcome this, we adopt the Straight-Through Estimator (STE) [6]. Specifically, a hard binary mask is applied during the forward pass to select the top-kj
+
+features for each group j. During the backward pass, gra-dients are propagated directly through the soft probabilities (rj and si), bypassing the discrete sampling step. This tech-nique enables the entire pipeline, including both the group sampler and the patch selector, to be optimized end-to-end under the guidance of the VQA loss. 
+
+## 4. Experiments and Results 
+
+Datasets and Preprocessing. We conduct experiments on three slide-level VQA datasets, including two public bench-marks and one private dataset. The public datasets include 1) SlideBench-VQA [11] comprises 4,560 WSIs and 176K VQA pairs, spanning 31 different cancer types and covering three different scenarios: Microscopy, Diagnosis, and Clin-ical. 2) WSI-Bench [23] contains 9,850 WSIs and 180K VQA pairs, with scenarios focusing on Morphological anal-ysis, Diagnosis, and Treatment Planning. Finally, to assess the model’s generalizability and clinical robustness, we cu-rate a 3) Private Ovarian Dataset. This dataset consists of 375 WSIs and 375 corresponding VQA pairs annotated by pathologists, focusing on key diagnostic features of ovarian cancer, and is used as an independent test set. We followed the CLAM [26] methodology for patch-cutting and feature extraction, processing all patches to a size of 224 × 224 .
+
+Baselines. We compare our method with several state-of-the-art WSI-based MLLMs. These baselines include mod-els specifically designed for pathological and medical VQA tasks, such as Quilt-LLaVA [33], WSI-VQA [9], LLaVA-Med [19], and SlideChat [11], as well as models special-ized for WSI report generation, including MI-Gen [8] and Hist-Gen [14]. We also include the general-purpose MLLM GPT-4o as a non-specialized baseline. 
+
+Evaluation Metrics. For the answer selection of closed-ended tasks, we group the questions based on various clin-ical categories. Performance is evaluated using accuracy. For the open-ended answer generation tasks, we adopt text-generation metrics, including BLEU and ROUGE-L to measure semantic similarity between generated and refer-ence answers. Following WSI-LLaVA [23], we additionally employ two LLM-as-a-judge metrics: WSI-Precision (WSI-P), which evaluates the factual correctness of model re-sponses, and WSI-Relevance (WSI-R), which assesses how well each response aligns with the reference answer in a clinical context. 
+
+Implementation Details. Following SlideChat [11], we employ the CONCH encoder [27] to extract patch-level fea-tures and LongNet [13, 41] for slide-level features, utilizing Qwen2.5-7B-Instruct [38] as our LLM framework. We use the text encoder from CONCH to obtain question embed-dings. For all experiments, we adhere to the official data splits of SlideBench-VQA [11] and WSI-Bench [23]. Our training is conducted in two stages: the first stage trains the projector for modality alignment, while the second stage jointly fine-tunes the projector, the LLM (using LoRA), and our HistoSelect module. In the second stage, we use a learn-ing rate of 1e-4 and a batch size of 1. For the hyperparam-eters controlling our group sampler and patch selector, we employ a linear warmup schedule for the first 5000 itera-tions. During this warmup, the βg weight increases from 0 to 0.1, and the βp weight increases from 0 to 0.2, after which they are held constant. 
+
+4.1. Quantitative Results 
+
+Close-ended Selection Performance. Table 1 presents the close-ended VQA performance of our model against several state-of-the-art baselines across three benchmarks: SlideBench-VQA (TCGA), WSI-Bench (Close), and our In-house Ovarian dataset. We compare our WSI-based method against both thumbnail-based models (such as GPT-4o, Quilt-LLaVA) and other WSI-based models (such as SlideChat). The results clearly demonstrate that our model achieves the best performance across all tested categories, attaining an average score of 83.80% and significantly out-performing all other baseline methods. 
+
+Open-ended Generation Performance. To evaluate the model’s open-ended text generation capabilities, we con-ducted tests on the WSI-Bench benchmark, with results de-tailed in Table 2. We use BLEU (1-4) and ROUGE-L met-rics to assess the quality of “Report Generation” and WSI-P (Precision) and WSI-R (Recall) to evaluate the clinical cor-rectness in domain-specific (Morphology, Diagnosis, Treat-ment) VQA performance. The experimental results demon-strate the significant advantages of our model. For “Report 6Table 1. Close-ended VQA accuracy (%) across three benchmarks: SlideBench-VQA, WSI-Bench, and our In-house Ovarian dataset. Our method consistently achieves the highest accuracy across all task categories and obtains the best overall average performance.                                                         
+
+> SlideBench-VQA (TCGA) WSI-Bench (Close) In-house Ovarian Average Method Input Microscopy Diagnosis Clinical Morphology Diagnosis Treatment Diagnosis GPT-4o Thumbnail 39.24 24.12 44.67 47.07 53.06 87.50 —49.28 Quilt-LLaVA[33] Thumbnail 52.39 30.19 49.33 94.13 84.13 97.92 70.67 68.39 LLaVA-Med [19] Thumbnail 52.15 29.97 47.33 91.04 81.32 95.83 70.67 66.90 SlideChat [11] WSI 83.15 71.36 75.33 91.07 82.15 93.75 69.33 80.88 HistoSelect WSI 84.62 73.09 77.30 94.57 85.79 97.92 73.33 83.80
+
+Table 2. Open-ended VQA performance on the WSI-Bench benchmark. We evaluate two types of tasks: (1) Report Generation , and (2) domain-specific VQA (Morphology, Diagnosis, Treatment). Our method achieves the highest performance across all report-generation metrics and obtains the best results in 5 out of 6 domain-specific metrics.                                                                                            
+
+> WSI-Bench Report Generation Morphology Diagnosis Treatment Method BLEU-1 BLEU-2 BLEU-3 BLEU-4 ROUGE-L WSI-P WSI-R WSI-P WSI-R WSI-P WSI-R GPT-4o 0.202 0.069 0.030 0.016 0.132 0.220 0.204 0.472 0.457 0.513 0.704 WSI-VQA [9] 0.301 0.225 0.181 0.155 0.343 0.395 0.462 0.436 0.525 0.591 0.595 MI-Gen [8] 0.403 0.306 0.248 0.209 0.446 ——————Histo-Gen [14] 0.406 0.307 0.248 0.208 0.448 ——————Quilt-LLaVA [33] 0.421 0.316 0.257 0.216 0.455 0.453 0.484 0.521 0.552 0.751 0.807
+> SlideChat [11] 0.413 0.312 0.254 0.215 0.450 0.512 0.541 0.501 0.522 0.745 0.712 HistoSelect 0.431 0.324 0.262 0.221 0.463 0.538 0.589 0.542 0.587 0.766 0.801
+
+Generation,” our model achieves the highest scores across all five metrics, with its BLEU-4 (0.221) and ROUGE-L (0.463) scores notably surpassing other advanced models like Quilt-LLaVA and SlideChat. In the domain-specific VQA tasks, our model obtains the best results in 5 out of 6 metrics, proving its superior and well-balanced open-ended VQA capabilities. 
+
+4.2. Qualitative Result 
+
+Visualization. To intuitively demonstrate the effectiveness of our question-aware selection mechanism, we provide qualitative visualizations in Figure 4. The figure illustrates the model’s workflow, proceeding from (a) WSI to (b) the tissue segmentation mask, (c) a subset of candidate patches extracted from the tissue regions, and (d) the sparse set of question-relevant patches after our model’s selection. As shown, our method successfully filters out a large number of background and diagnostically irrelevant patches, allow-ing the model to focus its computation and attention on the most salient regions to answer the VQA query. 
+
+Pathologist’s Evaluation. To validate the practical utility and interpretability of our model from a clinical perspec-tive, we conducted a human evaluation survey with two in-dependent pathologists. We mainly evaluate the model in-terpretability and performance from two aspects, with a de-tailed survey in Appendix: 
+
+1. Tissue segmentation , we presented the pathologists with the original slide and our generated tissue mask. They were asked to rate the following on a 5-point Likert scale (1 = Strongly Disagree, 5 = Strongly Agree): • Q1: “How accurate is the tissue segmentation?” 
+
+2. Patch selection , we showed the pathologists the visu-alizations of patches before and after selection for a given question. They were asked to rate: • Q2.1: “Does the model filter out a lot of question-irrelevant patches?” • Q2.2: “Are the selected patches sufficient to answer the question?” The detailed average scores are presented in Table 3. We are encouraged to find that the average rating for all four questions exceeded 3.5. This strongly indicates that (1) pathologists find our tissue segmentation accurate, and (2) they confirm that our selection model effectively filters out irrelevant regions while preserving the necessary diagnostic information to answer the clinical question. 
+
+Table 3. Average scores from the pathologist evaluation survey.            
+
+> Category Question ID Avg. Score (P1) Avg. Score (P2) Tissue Seg. Q1 Accuracy 4.17 3.67 Patch Selection Q2.1 Question-relevant 4.80 3.87 Q2.2 Answer-relevant 4.67 3.73
+
+4.3. Ablation Studies 
+
+To validate the effectiveness of our proposed HistoSelect, we conduct a series of comprehensive ablation studies. We analyze three key aspects of our model: (1) the superior-ity of our learned selection mechanism against alternative strategies, (2) the contribution of each component in our hi-erarchical framework, and (3) the impact of the token bud-get on model performance. 
+
+Selection Mechanism. In Table 4, we first compare our full model against alternative selection baselines, all con-7Figure 4. Visualization tissue segmentation and selection process for tumor patches. (a) Original WSI. (b) Tissue segmentation mask. (c)Visualization of patches before selection (a randomly selected subset is shown for clarity). (d) Visualization of patches after selection. Compared to (c), the patches selected by our model in (d) significantly remove non-tumor patches, demonstrating an improved focus on informative tumor-related regions. Table 4. Selection Mechanism Ablation.              
+
+> Accuracy Morphology Diagnosis Treatment Random Sampling 88.84 78.02 91.67 DivPrune 90.01 80.99 93.75 Simple Similarity 92.22 81.98 93.75 Ours 94.57 85.79 97.92
+
+Table 5. Model Component Ablation Study.              
+
+> Accuracy Morphology Diagnosis Treatment Random Sampling 88.84 78.02 91.67 w/o Group Sampler 91.78 81.82 95.83 w/o Patch Selector 92.07 81.32 93.75 Ours 94.57 85.79 97.92
+
+Table 6. Ablation Study on # of Tokens.              
+
+> Accuracy Morphology Diagnosis Treatment 10k Tokens 94.12 85.12 97.92 5k Tokens 94.57 85.79 97.92
+> 2k Tokens 93.83 83.80 95.83 1k Tokens 91.19 82.15 95.83
+
+strained to the same token budget. The poor performance of random sampling serves as a lower bound, confirming that intelligent selection is critical. While the diversity-based method DivPrune [4] performs better, it still falls short of our model, indicating that selecting question-relevant patches is more important than simply selecting diverse ones. Most importantly, we evaluate a simple similarity baseline that replaces our learnable selectors ( Fgroup and 
+
+Fpatch ) with the non-learnable pseudo-prior parameters pgj
+
+and ppi (derived from cosine similarity) directly. Its inferior performance strongly validates our core hypothesis: an end-to-end learned policy, regularized by the IB objective, is es-sential for identifying the most salient visual evidence and significantly outperforms static, similarity-based heuristics. 
+
+Model Components. In Table 5, we dissect our hierar-chical architecture to understand the contribution of each component. The baseline model, which defaults to Ran-dom Sampling, yields the poorest results. Removing only the Patch Selector ( Fpatch ) forces the model to rely solely on coarse group selection, and the subsequent performance drop highlights the necessity of fine-grained selection for pinpointing critical patches. Conversely, removing the Group Sampler ( Fgroup ) degrades the model to a “flat” selec-tion mechanism, forcing the patch selector to search glob-ally across all N patches. Its poor performance relative to our full model confirms the benefit of our coarse-to-fine ap-proach, as the Group Sampler effectively narrows the search space. The superior performance of our full model demon-strates that the Group Sampler and the Patch Selector work synergistically. 
+
+Impact of Token Budget. In Table 6, we analyze the per-formance of HistoSelect under different token budget con-straints. We observe that performance steadily improves as the token count increases from 1k to 5k, indicating that more visual context is beneficial up to this point. However, the model achieves its peak performance at 5k tokens. No-tably, increasing the budget further to 10k tokens provides no additional performance gain and even shows a slight degradation, likely due to the introduction of redundant or noisy information. This result is significant: HistoSelect validates that a large portion of a WSI is redundant for a specific question, as it achieves its optimal accuracy by se-lecting a compact, sufficient subset of only 30% of the total patches. This translates to a 70% reduction in token com-putation while maximizing diagnostic accuracy. 
+
+## 5. Conclusion 
+
+In this work, we introduce a novel question-aware patch se-lection framework, HistoSelect, designed to overcome the issues of limited explainability and patch redundancy in cur-rent pathology VQA models. By mimicking the coarse-to-fine diagnostic strategy of human pathologists, HistoSelect efficiently prunes question-irrelevant patches, thereby in-creasing the signal-to-noise ratio for the downstream multi-modal LLM. This targeted selection process provides trans-8parent and attributable visual evidence for prediction. Ex-tensive experiments across diverse datasets, complemented by rigorous evaluations from practicing pathologists, con-firm that HistoSelect not only achieves state-of-the-art per-formance but also delivers the trustworthy, explainable rea-soning necessary to bridge the gap between automated anal-ysis and clinical adoption in computational pathology. 
+
+## References 
+
+[1] Streamlit. https://streamlit.io/ , 2025. 11 [2] Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech, Iain Barr, Yana Hasson, Karel Lenc, Arthur Mensch, Katherine Millican, Malcolm Reynolds, et al. Flamingo: a visual language model for few-shot learning. NeurIPS , 2022. 3[3] Alexander A Alemi, Ian Fischer, Joshua V Dillon, and Kevin Murphy. Deep variational information bottleneck. In ICLR ,2017. 3 [4] Saeed Ranjbar Alvar, Gursimran Singh, Mohammad Akbari, and Yong Zhang. Divprune: Diversity-based visual token pruning for large multimodal models. In CVPR , 2025. 2, 3, 8[5] Laura Barisoni, Kyle J Lafata, Stephen M Hewitt, Anant Madabhushi, and Ulysses GJ Balis. Digital pathology and computational image analysis in nephropathology. Nature Reviews Nephrology , 2020. 1, 3 [6] Yoshua Bengio, Nicholas L´ eonard, and Aaron Courville. Estimating or propagating gradients through stochastic neurons for conditional computation. arXiv preprint arXiv:1308.3432 , 2013. 6 [7] Daniel Bolya, Cheng-Yang Fu, Xiaoliang Dai, Peizhao Zhang, Christoph Feichtenhofer, and Judy Hoffman. Token merging: Your ViT but faster. In ICLR , 2023. 3 [8] Pingyi Chen, Honglin Li, Chenglu Zhu, Sunyi Zheng, Zhongyi Shui, and Lin Yang. Wsicaption: Multiple instance generation of pathology reports for gigapixel whole-slide im-ages. In MICCAI , 2024. 6, 7 [9] Pingyi Chen, Chenglu Zhu, Sunyi Zheng, Honglin Li, and Lin Yang. Wsi-vqa: Interpreting whole slide images by gen-erative visual question answering. In ECCV , 2024. 1, 6, 7 [10] Richard J Chen, Ming Y Lu, Wei-Hung Weng, Tiffany Y Chen, Drew FK Williamson, Trevor Manz, Maha Shady, and Faisal Mahmood. Multimodal co-attention transformer for survival prediction in gigapixel whole slide images. In ICCV ,2021. 1, 3 [11] Ying Chen, Guoan Wang, Yuanfeng Ji, Yanjun Li, Jin Ye, Tianbin Li, Ming Hu, Rongshan Yu, Yu Qiao, and Junjun He. Slidechat: A large vision-language assistant for whole-slide pathology image understanding. In CVPR , 2025. 1, 2, 3, 6, 7 [12] Thomas G Dietterich, Richard H Lathrop, and Tom´ as Lozano-P´ erez. Solving the multiple instance problem with axis-parallel rectangles. Artificial intelligence , 1997. 3 [13] Jiayu Ding, Shuming Ma, Li Dong, Xingxing Zhang, Shao-han Huang, Wenhui Wang, and Furu Wei. Longnet: Scaling transformers to 1,000,000,000 tokens. In ICLR , 2023. 6 [14] Zhengrui Guo, Jiabo Ma, Yingxue Xu, Yihui Wang, Lian-sheng Wang, and Hao Chen. Histgen: Histopathology re-port generation via local-global feature encoding and cross-modal context interaction. In MICCAI , 2024. 6, 7 [15] Zhengrui Guo, Conghao Xiong, Jiabo Ma, Qichen Sun, Lishuang Feng, Jinzhuo Wang, and Hao Chen. Focus: Knowledge-enhanced adaptive visual compression for few-shot whole slide image classification. In CVPR , 2025. 3 [16] Wisdom Ikezogwo, Saygin Seyfioglu, Fatemeh Ghezloo, Dylan Geva, Fatwir Sheikh Mohammed, Pavan Kumar Anand, Ranjay Krishna, and Linda Shapiro. Quilt-1m: One million image-text pairs for histopathology. NeurIPS , 2023. 1[17] Maximilian Ilse, Jakub Tomczak, and Max Welling. Attention-based deep multiple instance learning. In ICML ,2018. 1, 3 [18] Bin Li, Yin Li, and Kevin W Eliceiri. Dual-stream multi-ple instance learning network for whole slide image classi-fication with self-supervised contrastive learning. In CVPR ,2021. 1, 3 [19] Chunyuan Li, Cliff Wong, Sheng Zhang, Naoto Usuyama, Haotian Liu, Jianwei Yang, Tristan Naumann, Hoifung Poon, and Jianfeng Gao. Llava-med: Training a large language-and-vision assistant for biomedicine in one day. NeurIPS ,2023. 6, 7 [20] Honglin Li, Chenglu Zhu, Yunlong Zhang, Yuxuan Sun, Zhongyi Shui, Wenwei Kuang, Sunyi Zheng, and Lin Yang. Task-specific fine-tuning via variational information bottle-neck for weakly-supervised pathology whole slide image classification. In CVPR , 2023. 3 [21] Honglin Li, Zhongyi Shui, Yunlong Zhang, Chenglu Zhu, and Lin Yang. Pathvq: Reforming computational pathology foundation model for whole slide image analysis via vector quantization. In NeurIPS , 2025. 3 [22] Junnan Li, Dongxu Li, Silvio Savarese, and Steven Hoi. Blip-2: Bootstrapping language-image pre-training with frozen image encoders and large language models. In ICML ,2023. 3 [23] Yuci Liang, Xinheng Lyu, Wenting Chen, Meidan Ding, Jipeng Zhang, Xiangjian He, Song Wu, Xiaohan Xing, Sen Yang, Xiyue Wang, et al. Wsi-llava: a multimodal large lan-guage model for whole slide image. In ICCV , 2025. 1, 2, 3, 6, 12 [24] Tiancheng Lin, Zhimiao Yu, Hongyu Hu, Yi Xu, and Chang-Wen Chen. Interventional bag multi-instance learning on whole-slide pathological images. In CVPR , 2023. 3 [25] Ming Y Lu, Tiffany Y Chen, Drew FK Williamson, Melissa Zhao, Maha Shady, Jana Lipkova, and Faisal Mahmood. Ai-based pathology predicts origins for cancers of unknown pri-mary. Nature , 2021. 1, 3 [26] Ming Y Lu, Drew FK Williamson, Tiffany Y Chen, Richard J Chen, Matteo Barbieri, and Faisal Mahmood. Data-efficient and weakly supervised computational pathology on whole-slide images. Nature Biomedical Engineering , 2021. 1, 6 [27] Ming Y Lu, Bowen Chen, Drew FK Williamson, Richard J Chen, Ivy Liang, Tong Ding, Guillaume Jaume, Igor Odintsov, Long Phi Le, Georg Gerber, et al. A visual-
+
+9language foundation model for computational pathology. 
+
+Nature medicine , 2024. 2, 4, 6 [28] Weimin Lyu, Qingqiao Hu, Kehan Qi, Zhan Shi, Wentao Huang, Saumya Gupta, and Chao Chen. Efficient whole slide pathology vqa via token compression. arXiv preprint arXiv:2507.14497 , 2025. 3 [29] Muhammad Khalid Khan Niazi, Anil V Parwani, and Metin N Gurcan. Digital pathology and artificial intelli-gence. The lancet oncology , 2019. 1, 3 [30] Linhao Qu, Manning Wang, Zhijian Song, et al. Bi-directional weakly supervised knowledge distillation for whole slide image classification. In NeurIPS , 2022. 3 [31] Linhao Qu, Zhiwei Yang, Minghong Duan, Yingfan Ma, Shuo Wang, Manning Wang, and Zhijian Song. Boosting whole slide image classification from the perspectives of dis-tribution, correlation and magnification. In CVPR , 2023. 1, 3[32] Yongming Rao, Wenliang Zhao, Benlin Liu, Jiwen Lu, Jie Zhou, and Cho-Jui Hsieh. Dynamicvit: Efficient vision transformers with dynamic token sparsification. NeurIPS ,2021. 3 [33] Mehmet Saygin Seyfioglu, Wisdom O Ikezogwo, Fatemeh Ghezloo, Ranjay Krishna, and Linda Shapiro. Quilt-llava: Visual instruction tuning by extracting localized narratives from open-source histopathology videos. In CVPR , 2024. 1, 3, 6, 7 [34] Zhuchen Shao, Hao Bian, Yang Chen, Yifeng Wang, Jian Zhang, Xiangyang Ji, et al. Transmil: Transformer based correlated multiple instance learning for whole slide image classification. In NeurIPS , 2021. 1, 3 [35] Andrew H Song, Richard J Chen, Guillaume Jaume, Anurag J Vaidya, Alexander S Baras, and Faisal Mahmood. Multimodal prototyping for cancer survival prediction. In 
+
+ICML , 2024. 1, 3 [36] Yuxuan Sun, Hao Wu, Chenglu Zhu, Yixuan Si, Qizi Chen, Yunlong Zhang, Kai Zhang, Jingxiong Li, Jiatong Cai, Yuhan Wang, et al. Pathbench: Advancing the benchmark of large multimodal models for pathology image understanding at patch and whole slide level. TMI , 2025. 1 [37] Wenhao Tang, Sheng Huang, Xiaoxian Zhang, Fengtao Zhou, Yi Zhang, and Bo Liu. Multiple instance learning framework with masked hard instance mining for whole slide image classification. In CVPR , 2023. 1, 3 [38] Qwen Team et al. Qwen2 technical report. arXiv preprint arXiv:2407.10671 , 2024. 6 [39] Naftali Tishby, Fernando C Pereira, and William Bialek. The information bottleneck method. arXiv preprint physics/0004057 , 2000. 2, 3, 5 [40] Feng Xu, Chuang Zhu, Wenqi Tang, Ying Wang, Yu Zhang, Jie Li, Hongchuan Jiang, Zhongyue Shi, Jun Liu, and Mulan Jin. Predicting axillary lymph node metastasis in early breast cancer using deep learning on primary tumor biopsy slides. 
+
+Frontiers in oncology , 2021. 14 [41] Hanwen Xu, Naoto Usuyama, Jaspreet Bagga, Sheng Zhang, Rajesh Rao, Tristan Naumann, Cliff Wong, Zelalem Gero, Javier Gonz´ alez, Yu Gu, Yanbo Xu, Mu Wei, Wenhui Wang, Shuming Ma, Furu Wei, Jianwei Yang, Chunyuan Li, Jian-feng Gao, Jaylen Rosemon, Tucker Bower, Soohee Lee, Roshanthi Weerasinghe, Bill J. Wright, Ari Robicsek, Brian Piening, Carlo Bifulco, Sheng Wang, and Hoifung Poon. A whole-slide foundation model for digital pathology from real-world data. Nature , 2024. 6 [42] Yingxue Xu and Hao Chen. Multimodal optimal transport-based co-attention transformer with global structure consis-tency for survival prediction. In ICCV , 2023. 1, 3 [43] Hongrun Zhang, Yanda Meng, Yitian Zhao, Yihong Qiao, Xiaoyun Yang, Sarah E Coupland, and Yalin Zheng. Dtfd-mil: Double-tier feature distillation multiple instance learn-ing for histopathology whole slide image classification. In 
+
+CVPR , 2022. 1, 3 [44] Yunlong Zhang, Honglin Li, Yuxuan Sun, Sunyi Zheng, Chenglu Zhu, and Lin Yang. Attention-challenging multi-ple instance learning for whole slide image classification. In 
+
+ECCV , 2024. 1, 3 [45] Yilan Zhang, Yingxue Xu, Jianqi Chen, Fengying Xie, and Hao Chen. Prototypical information bottlenecking and dis-entangling for multimodal cancer survival prediction. In 
+
+ICLR , 2024. 1, 3 [46] Yiwu Zhong, Zhuoming Liu, Yin Li, and Liwei Wang. Aim: Adaptive inference of multi-modal llms via token merging and pruning. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 20180–20192, 2025. 3[47] Fengtao Zhou and Hao Chen. Cross-modal translation and alignment for survival analysis. In ICCV , 2023. 1, 3 [48] Wenhui Zhu, Xiwen Chen, Peijie Qiu, Aristeidis Sotiras, Abolfazl Razi, and Yalin Wang. Dgr-mil: Exploring diverse global representation in multiple instance learning for whole slide image classification. In ECCV , 2024. 3 
+
+10 Act Like a Pathologist: Tissue-Aware Whole Slide Image Reasoning 
+
+# — Supplementary Material — 
+
+In the supplementary material, we begin with the introduc-tion of our in-house ovarian dataset in Section 6, followed by a detailed description of the evaluation tools developed for pathologist evaluation in Section 7. Next, we provide additional qualitative results in Section 8. To further vali-date the effectiveness of our proposed method, an ablation study on different loss weights is provided in Section 9. Finally, we discuss the limitations of our method in Sec-tion 10. 
+
+## 6. In-house Ovarian Dataset 
+
+To demonstrate the generalizability of our proposed model, we curated a small-scale, in-house ovarian dataset. This dataset is compiled from WSIs of ovarian tissues and for-matted into question-answer pairs, focusing on distinct his-tological phenotypes visible within the WSIs. The dataset includes four primary diagnostic categories, based on the observed tumor morphology. In total, the dataset com-prises 375 question-answer pairs. The distribution of sam-ples across the four categories is as follows: endometri-oid ( n = 81 ), clear cell carcinoma ( n = 82 ), high grade serous carcinoma ( n = 123 ), and serous borderline carci-noma ( n = 89 ). A typical question within the dataset is structured as a multiple-choice classification task based on visual features observed in the WSI. An example is provided below: 
+
+Example Question-Answer Pair: Based on the observed features, what do you think is the correct histological classification of the tumor? (a) endometrioid (b) clear cell carcinoma (c) high grade serous carcinoma (d) serous borderline carcinoma 
+
+## 7. Evaluation Tool 
+
+To verify the reliability of our tissue segmentation and en-sure that the model selects question-relevant patches for in-ference, we developed an interactive survey tool based on Streamlit [1]. This evaluation is twofold: it primarily val-idates the accuracy of tissue segmentation, followed by an assessment of the patch selection performance. We detail these two components in the following sections. 
+
+Tissue Segmentation Verification. In the first part, we focus on the tissue segmentation results. As illustrated in Figure 5, the user interface features a side-by-side compar-ison view: the original WSI is displayed on the left, while the corresponding model-generated segmentation mask is shown on the right. To assist pathologists in interpreting the results, a color-coded legend is provided on the sidebar, mapping specific colors to tissue types (e.g., red for malig-nant tissue, yellow for stroma). Pathologists are asked to verify the alignment between the WSI and the mask using these visual cues. Based on their inspection, they rate the segmentation quality via a ra-dio button selection: • Q1: “How accurate is the tissue segmentation?” (1 = Strongly Disagree, 5 = Strongly Agree) After the user clicks “Submit Answer”, the tool automati-cally logs the feedback and advances to the next sample. 
+
+Patch Selection Assessment. In the second part, the tool adapts to evaluate the model’s coarse-to-fine selection ca-pability. As shown in Figure 6, we visualize the patches in both their “Before” and “After” selection states. To ensure sufficient diagnostic context for evaluation, the specific “Question” (highlighted in blue) and the “Ground Truth Answer” (highlighted in green) are explicitly dis-played below the images. Pathologists assess whether the model successfully removes irrelevant regions while retain-ing diagnostic information by answering the following: • Q2.1: “Does the model filter out a significant number of question-irrelevant patches?” • Q2.2: “Are the selected patches sufficient to answer the question?” To conduct a robust evaluation, we randomly sampled a to-tal of 30 cases, comprising 20 from the public dataset and 10 from the private dataset. Two independent pathologists were invited to perform the annotations using the developed tool. To ensure the reliability and objectivity of the assess-ment, we calculated the average scores from both annotators as the final metric for pathologist-based evaluation. 
+
+## 8. Additional Qualitative Results 
+
+To provide a more comprehensive evaluation of our pro-posed method, we present additional qualitative visualiza-tions in this section. Due to the page constraints of the main manuscript, we extend our analysis here to demon-strate the model’s performance across different data dis-tributions. Specifically, we visualize the effectiveness of our question-aware selection mechanism on both the public TCGA dataset and an in-house Ovarian dataset. These re-sults further validate that our method can consistently filter out background noise and diagnostically irrelevant patches, enabling the model to focus efficiently on the regions most related to the VQA query. 11 Figure 5. The user interface for the Tissue Segmentation Survey. The central area shows a side-by-side comparison of the original WSI and the tissue segmentation result. A detailed legend on the right clarifies the tissue classes, and the bottom section allows pathologists to submit their ratings. 
+
+8.1. Results on Public Dataset 
+
+Figure 7 showcases the visualization results on the public TCGA dataset from WSI-Bench [23]. Consistent with the findings in the main text, our model demonstrates strong generalization capabilities. It successfully identifies and retains key histological features required to answer the question while discarding a significant portion of irrele-vant and redundant patches, thereby ensuring that the down-stream reasoning is primarily driven by the most informa-tive patches. 
+
+8.2. Results on Private Dataset 
+
+To assess the robustness of our model in a real-world clini-cal setting, Figure 8 illustrates the selection process on our private ovarian dataset. Despite potential domain shifts such as variations in staining protocols and scanner properties compared to the public dataset, our question-aware selector maintains high precision. It effectively selects informative regions relevant to the query, verifying the method’s appli-cability to proprietary clinical workflows. 
+
+## 9. Ablation Study 
+
+In this section, we perform a detailed ablation study to an-alyze the impact of the weights βg and βp in our final loss function. These hyperparameters control the strength of the information bottleneck constraint at two hierarchical lev-els: the coarse-grained group sampler and the fine-grained 
+
+patch selector . By adjusting these weights, we aim to find the optimal trade-off between minimizing information re-dundancy and preserving question-relevant patches. 
+
+Impact of βg for the Group Sampler. Table 7 reports the model performance under different values of βg ∈{0, 0.1, 0.2, 0.3} while keeping βp fixed. We observe that when βg = 0 , the group sampler lacks the necessary regu-larization to filter out irrelevant tissue groups, leading to a lower signal-to-noise ratio and suboptimal performance. As 
+
+βg increases to 0.2, the model effectively suppresses back-ground noise at the group level, achieving the best overall accuracy across all tasks. However, further increasing βg
+
+to 0.3 results in a performance drop. This suggests that an overly aggressive penalty causes the sampler to excessively reduce the sampling rate of tissue groups that contain nec-essary contextual information. 
+
+Impact of βp for the Patch Selector. Table 8 examines the 12 Figure 6. The user interface for the Patch Selection Survey. The view visualizes the “Before” and “After” states of patch selection. Note that the input question and ground truth answer are displayed below the images to provide necessary context for the pathologists’ evaluation. 
+
+effect of the patch-level weight βp ∈ { 0, 0.05 , 0.10 , 0.15 }.Similar to the group level, setting βp = 0 tends to retain a large number of redundant patches, which introduces po-tential interference for the answer predictor. We find that setting βp = 0.10 yields the optimal balance, allowing the model to identify the most distinct and discriminative patches without losing critical information. Conversely, set-ting βp too high (e.g., 0.15 ) leads to over-pruning, where the model is penalized for retaining informative patches, caus-ing a loss of fine-grained details essential for accurate diag-nosis and treatment prediction.                
+
+> βgMorphology Diagnosis Treatment 091.78 81.82 95.83 0.1 93.39 84.13 95.83 0.2 94.57 85.79 97.92
+> 0.3 93.10 83.25 93.75
+
+Table 7. Ablation Study on the weight βg for the group sampler. 
+
+## 10. Limitation 
+
+While our proposed method demonstrates promising results and improved efficiency in histopathology VQA, we ac-knowledge several limitations that outline directions for fu-ture research. 13 Figure 7. Additional visualization of the selection process on the public WSI-Bench dataset. (a) Original WSI. (b) The tissue segmentation mask. (c) A visualization of candidate patches extracted from tissue regions prior to selection. (d) The sparse set of patches retained by our model. As observed in (d), the model effectively suppresses irrelevant regions, focusing the attention solely on the informative patches required for the VQA task. 
+
+Figure 8. Visualization of the selection process on the private Ovarian dataset. The figure follows the same pipeline as the main manuscript and Figure 7: (a) Original WSI. (b) Tissue segmentation mask. (c) Patches before selection. (d) Patches after selection. These results demonstrate the robustness of our method against domain shifts common in private clinical data. The model successfully filters out non-informative tissue, preserving only the regions essential for accurate question answering.                
+
+> βpMorphology Diagnosis Treatment 092.07 81.32 93.75 0.05 93.25 84.23 95.83 0.10 94.57 85.79 97.92
+> 0.15 93.83 83.74 95.83
+
+Table 8. Ablation study on the weight βp for the patch selector. 
+
+Evaluation on Other Datasets. Second, our current exper-imental validation primarily focuses on the TCGA dataset and our in-house private dataset. While this covers a signif-icant amount of variation, the heterogeneity of pathological data across different organs and scanning protocols is vast. To further verify the generalizability of our model, we in-tend to extend our training and testing to other large-scale public datasets, such as the BCNB (Early Breast Cancer Core-Needle Biopsy) [40] dataset. Evaluating on such di-verse cohorts will help ensure our method remains robust across different cancer subtypes and data distributions. 
+
+Lack of Explicit Textual Reasoning. Finally, while our method offers visual interpretability by highlighting the selected question-relevant patches, it does not currently generate explicit textual explanations justifying why these patches were selected. Providing a natural language ratio-nale alongside the final VQA answer would further enhance trust in clinical decision-support systems. We aim to ex-plore the integration of LLMs more deeply in future itera-tions to bridge this gap between visual attention and seman-tic reasoning. 14

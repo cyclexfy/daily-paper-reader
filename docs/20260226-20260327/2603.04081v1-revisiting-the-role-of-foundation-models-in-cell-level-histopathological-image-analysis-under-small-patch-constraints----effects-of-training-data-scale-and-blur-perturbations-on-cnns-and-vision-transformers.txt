@@ -1,0 +1,421 @@
+Title: Revisiting the Role of Foundation Models in Cell-Level Histopathological Image Analysis under Small-Patch Constraints -- Effects of Training Data Scale and Blur Perturbations on CNNs and Vision Transformers
+
+URL Source: https://arxiv.org/pdf/2603.04081v1
+
+Published Time: Thu, 05 Mar 2026 02:13:25 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# Revisiting the Role of Foundation Models in Cell-Level Histopathological Image Analysis under Small-Patch Constraints — Effects of Training Data Scale and Blur Perturbations on CNNs and Vision Transformers 
+
+## Hiroki Kagiyama a, Toru Nagasaka b,a ,∗, Yukari Adachi a, Takaaki Tachibana a, Ryota Ito a,Mitsugu Fujita c, Kimihiro Yamashita d,a and Yoshihiro Kakeji a
+
+> a
+
+Division of Gastrointestinal Surgery, Department of Surgery, Kobe University Graduate School of Medicine, 7-5-2 Kusunoki-cho, Chuo-ku,, Kobe 650-0017, Hyogo, Japan 
+
+> b
+
+Association of Medical Artificial Intelligence Curation, 505, Sakae Members Office Building, 4-16-8 Sakae, Naka-ku, Nagoya 460-0008, Aichi, Japan 
+
+> c
+
+Center for Medical Education and Clinical Training, Kindai University Faculty of Medicine, 1-14-1 Miharadai, Minami-ku, Sakai 590-0111, Osaka, Japan 
+
+> d
+
+Department of Biophysics, Kobe University Graduate School of Health Sciences, 7-10-2 Tomogaoka, Suma-ku, Kobe 654-0142, Hyogo, Japan 
+
+A R T I C L E I N F O 
+
+Keywords :deep learning pathology artificial intelligence cell-level image analysis small-patch foundation model vision transformer CNNs 
+
+A B S T R A C T 
+
+Background and objective: Cell-level pathological image analysis requires working with extremely small image patches (40 ×40 pixels), far below standard ImageNet resolutions. It remains unclear whether modern deep learning architectures and foundation models can learn robust and scalable representations under this constraint. We systematically evaluated architectural suitability and data-scale effects for small-patch cell classification. Methods: We analyzed 303 colorectal cancer spec-imens with CD103/CD8 immunostaining, generating 185,432 annotated cell images. Eight task-specific architectures were trained from scratch at multiple data scales (FlagLimit: 256–16,384 samples per class), and three foundation models were evaluated via linear probing and fine-tuning after resizing inputs to 224 ×224 pixels. Robustness to blur was assessed using pre- and post-resize Gaussian perturbations. Results: Task-specific models improved consistently with increasing data scale, whereas foundation models saturated at moderate sample sizes. A Vision Transformer optimized for small patches (CustomViT) achieved the highest accuracy, outperforming all foundation models with substantially lower inference cost. Blur robustness was comparable across architectures, with no qualitative advantage observed for foundation models. Conclusion: For cell-level classification under extreme spatial constraints, task-specific architectures are more effective and efficient than foundation models once sufficient training data are available. Higher clean accuracy does not imply superior robustness, and large pre-trained models offer limited benefit in the small-patch regime. 
+
+## 1. Introduction 
+
+In computer vision tasks, convolutional neural net-works (CNNs) have achieved remarkable success with stan-dardized input dimensions. Most state-of-the-art architec-tures—including VGG (Simonyan and Zisserman, 2015), ResNet (He, Zhang, Ren and Sun, 2016), and MobileNet (Sandler, Howard, Zhu, Zhmoginov and Chen, 2018; Howard, Sandler, Chu, Chen, Chen, Tan, Wang, Zhu, Pang, Va-sudevan et al., 2019)—were designed and evaluated using 224 ×224 pixel inputs for ImageNet classification. Even In-ception V3 (Szegedy, Vanhoucke, Ioffe, Shlens and Wojna, 2015), which uses a slightly larger 299 ×299 pixel input, maintains this paradigm of relatively large input dimensions. These specific dimensions became the de facto standard for three key reasons: first, these models were trained on Ima-geNet with these input sizes and their pre-trained weights are publicly available; second, performance benchmarks and comparisons across models are consistently reported at 
+
+> ∗
+
+Corresponding author  
+
+> kagiyama@med.kobe-u.ac.jp
+
+(H. Kagiyama); toru-ngy@umin.ac.jp 
+
+(T. Nagasaka) 
+
+> ORCID
+
+(s): 0009-0002-4322-4023 (T. Nagasaka) 
+
+> 1
+
+these dimensions; and third, transfer learning applications typically maintain these original input sizes to leverage the learned feature representations effectively. In digital pathology, the analysis of whole slide images (WSIs) typically employs a patch-based approach due to the gigapixel nature of these images. Standard practice involves extracting patches of 224 ×224 pixels or larger (commonly 400 ×400 to 500 ×500 pixels) from WSIs, which are then processed through CNNs (Meirelles, Kurc, Kong, Ferreira, Saltz and Teodoro, 2022; Srinidhi, Ciga and Martel, 2021). These patch sizes, often corresponding to approximately 50 ×50 𝜇𝑚 of tissue area, are designed to capture sufficient contextual information for accurate classification. This study presents a fundamentally different challenge: analyzing patches of merely 40 ×40 pixels, approximately 1/30 the area of standard ImageNet inputs. This extreme con-straint emerges from the practical requirement of single-cell level analysis in pathological diagnosis, where each patch may contain only one or a few cells. Unlike conventional approaches that leverage rich contextual information from larger tissue regions, our method must extract diagnostic features from minimal spatial information. 
+
+H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 1 of 13 
+
+> arXiv:2603.04081v1 [cs.CV] 4 Mar 2026 Cell-Level Histopathological Analysis under Small-Patch Constraints
+
+To systematically investigate this challenge, we im-plemented a comprehensive set of architectures spanning multiple design paradigms. These architectures are situated within the broader historical context of deep learning model evolution, as summarized in Figure 1. These include baseline models (MLP, CNN, ResNet) and modern architectures representing recent advances: Squeeze-and-Excitation Net-works (Hu, Shen, Albanie, Sun and Wu, 2019), which enhance channel interdependencies through adaptive re-calibration; EfficientNet (Tan and Le, 2020), which em-ploys compound scaling; Vision Transformer (Dosovitskiy, Beyer, Kolesnikov, Weissenborn, Zhai, Unterthiner, De-hghani, Minderer, Heigold, Gelly, Uszkoreit and Houlsby, 2021), which applies self-attention mechanisms; and Con-vNeXt (Liu, Mao, Wu, Feichtenhofer, Darrell and Xie, 2022), which modernizes ConvNets with transformer-inspired designs. Additionally, we evaluated foundation models through linear probing and fine-tuning to assess their transferability to small-patch learning.              
+
+> Fig. 1: Aschematic phylogenetic overview of major deep learning architectures. Early multilayer perceptrons gave rise to convolutional neural networks, which evolved through deeper residual designs and efficiency-oriented variants. In parallel, recurrent models led to attention-based transformers, from which Vision Transformer emerged as a direct adaptation to visual tasks. The diagram also illustrates how transformer design principles subsequently influenced modern convolutional architectures such as ConvNeXt, reflecting cross-paradigm convergence in recent model development.
+
+To our knowledge, no systematic study has compared these modern architectures under such extreme spatial con-straints in pathological image analysis. While existing litera-ture extensively covers various patch sizes for WSI analysis, the lower bound of viable patch dimensions and the archi-tectural characteristics that enable learning from minimal spatial information remain unexplored. This gap is particu-larly significant given that architectural designs and learned features optimized for 224 ×224 inputs may not translate effectively to such small scales. Meanwhile, the current trend in computer vision and medical imaging is to leverage large-scale foundation mod-els through fine-tuning or linear probing. This paradigm, however, presupposes that the input scale and visual features of the downstream task are compatible with those of the pretraining corpus. In our case, the 40 ×40 pixel patches used for cell-level pathology analysis lie far outside the scale regime for which ImageNet-pretrained models were opti-mized. Simply resizing such inputs to 224 ×224 either de-stroys fine morphological details or introduces artifacts that are irrelevant to the pretrained feature space. Consequently, the transferability of foundation model representations is severely limited, and training directly on domain-specific, low-resolution cell patches becomes indispensable. This work addresses three critical questions: First, can modern deep learning architectures learn meaningful repre-sentations from 40 ×40 pixel pathological images? Second, which architectural paradigms—convolutional, attention-based, or hybrid—are most suitable for such small inputs? Third, how do practical constraints such as blur and focus issues affect model performance at this scale? Through systematic experimentation with these architectures, we demonstrate that despite the severe spatial constraints, cer-tain architectural designs can achieve clinically relevant accuracy in cell classification tasks, with significant differ-ences in their effectiveness at this scale. Furthermore, our results provide an empirical perspective on the boundaries of foundation-model-based transfer learning in histopatho-logical image analysis. 
+
+## 2. Materials 
+
+2.1. Patients and Samples 
+
+This study included tissue specimens from 303 colorec-tal cancer patients who underwent biopsy or surgery, with or without neoadjuvant chemoradiotherapy. Both biopsy and surgical samples were formalin-fixed and paraffin-embedded, and were subjected to dual immunostaining for CD103 and CD8. The staining process was performed according to established protocols to ensure consistency and reliability (Tachibana, Nagasaka, Adachi, Kagiyama, Ito, Fujita, Yamashita and Kakeji, 2025; Ohno, Kuramitsu, Yamashita, Nagasaka, Haimoto and Fujita, 2024). 
+
+2.2. Data Annotation Methodology Using Cu-Cyto ® Viewer 
+
+Cell-level annotation was performed using the Cu-Cyto ®
+
+Viewer, a specialized annotation tool designed for precise cellular identification in histopathological images (Abe, Ya-mashita, Nagasaka, Fujita, Agawa, Ando, Mukoyama, Ya-mada, Miyake, Saito et al., 2023). The annotation work-flow employed a human-AI collaborative approach to ensure comprehensive cellular coverage and annotation accuracy across all tissue sections. The annotation protocol was essentially identical to that described in (Tachibana et al., 2025); therefore, only a brief   
+
+> H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 2 of 13 Cell-Level Histopathological Analysis under Small-Patch Constraints
+
+summary is provided here. Initially, a prototype AI model performed automated cell detection and placed preliminary annotation markers across the tissue sections. Subsequently, expert annotators systematically reviewed the AI-generated annotations using the Cu-Cyto ® Viewer interface, verifying markers for accuracy and adding markers for cells missed by the automated detection system. Annotation quality was maintained through a multi-stage verification protocol. Following the initial annotation refinement by expert annotators, a second expert annotator performed a double-check of the annotations, with a final review conducted by a pathologist to ensure the highest level of accuracy and reliability. Inter-annotator agreement was assessed through systematic comparison of overlapping annotation regions, ensuring consistent application of clas-sification criteria across all tissue sections. The Cu-Cyto ® Viewer platform recorded annotation metadata including marker coordinates and annotator iden-tification for traceability. This protocol required comprehen-sive cellular coverage, ensuring that every identifiable cell within the tissue section received appropriate classification markers, which serves as the basis for estimating true prior probabilities for cell classification. 
+
+2.3. Dataset Preparation and Sampling Strategy 
+
+To address class imbalance inherent in the original dataset and create balanced training sets suitable for deep learning, we implemented a systematic data selection and augmentation pipeline. The process consisted of class-balanced sampling and data augmentation through geomet-ric transformations. 
+
+2.3.1. Class-Balanced Sampling 
+
+The class-balanced sampling procedure used in this study was essentially identical to that described in (Tachibana et al., 2025); therefore, only a brief summary is provided here. Data selection was performed using a custom Python implementation that applies stratified sampling to achieve uniform class distribution. The sampling strategy was con-trolled by two key parameters: FlagLimit , which defines the maximum number of samples per class, and FlagMin , set to 5% of FlagLimit , which defines the minimum threshold for class inclusion. 
+
+2.3.2. Sampling Analysis and Validation 
+
+The effectiveness of the sampling strategy was evaluated through systematic analysis of the selection process across all seven FlagLimit conditions (256, 512, 1024, 2048, 4096, 8192, and 16384). From an original dataset of 185,432 sam-ples across 20 unique flags, the sampling process achieved substantial data reduction while maintaining class balance. 
+
+## 3. Methods 
+
+3.1. Dataset and Experimental Setup 
+
+Dataset details including patient cohorts, cell type classi-fications, and class-balanced sampling strategy are described in the Materials section. For all experiments, we used the balanced datasets generated at seven FlagLimit values (256, 512, 1024, 2048, 4096, 8192, and 16384). Each FlagLimit 
+
+value determines the maximum number of samples per class used for training, resulting in balanced datasets with varying total sizes depending on the number of classes meeting the inclusion threshold. Each dataset was randomly split into training (80%) and validation (20%) subsets using stratified sampling to maintain class balance. All models were eval-uated on the same fixed validation set for each FlagLimit 
+
+condition. 
+
+3.2. Data Augmentation 
+
+A common set of geometric transformations was applied exhaustively to every training sample: horizontal flip, ver-tical flip, and diagonal flip (transpose). These three trans-formations, combined with the original orientation, produce four copies of each sample, yielding a 4× expansion of the training set prior to any color- or pixel-domain augmenta-tion. In addition, five color-space transformations were intro-duced: (i) R-channel 𝛾 correction ( 𝛾 = 1 .2), applied to 20% of the original training samples; (ii) B-channel 𝛾 correction (𝛾 = 1.2), applied to 30%; (iii) full-channel (RGB) 𝛾 
+
+correction ( 𝛾 = 1 .2), applied to 50%; (iv) HSV saturation– value transformation ( 𝛼 𝑆 = 0.8, 𝛼 𝑉 = 1.1), applied to 20%; and (v) a combined HSV + B-channel transformation (𝛼 𝑆 = 0.7, 𝛼 𝑉 = 1.1, B 𝛾 = 1.3), applied to 20%. Each transformed subset was derived from the original (pre-geometric) training samples and subsequently subjected to the same fourfold geometric expansion, so the total dataset size after all augmentations is 4 × (1 + 0 .20 + 0 .30 + 0 .50 + 0.20 + 0 .20) = 4 × 2 .40 = 9 .6× the original sample count. 
+
+3.3. Task-Specific Model Architectures 
+
+To systematically evaluate the performance of mod-els trained from scratch under small-patch constraints, we implemented seven task-specific architectures representing diverse design paradigms. All models were designed or adapted for 40×40 pixel RGB inputs (3 channels) and trained using Adam optimizer with cross-entropy loss. 
+
+MLP. The Multi-Layer Perceptron consists of fully con-nected layers with hidden dimensions [4800, 1500, 800, 600] and tanh activation. Input images ( 40 × 40 × 3 = 4800 
+
+features) are flattened before processing. Input dropout (0.1) and hidden dropout (0.5) were applied during training. Total parameters: 3.37M. 
+
+CNN. The CNN comprises four convolutional blocks: Conv1 ( 3 × 3 , 48 channels), Conv2 ( 3 × 3 , 64 channels), Conv3 ( 3×3 , 128 channels), and Conv4 ( 3×3 , 128 channels), each followed by ReLU activation, 2 × 2 max pooling (stride 2), and dropout (0 for convolutional layers by default). The spatial dimension reduces from 40 × 40 → 20 × 20 →
+
+10 × 10 → 5 × 5 . Two fully connected layers (3200 → 512 
+
+→ 256) with tanh activation process the flattened features before the classification head. Input dropout: 0.1, hidden dropout: 0.5. Total parameters: 2.02M.   
+
+> H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 3 of 13 Cell-Level Histopathological Analysis under Small-Patch Constraints
+
+ResNet-D4. ResNet-D4 is a custom residual network with four blocks of progressively increasing channels (24 
+
+→ 48 → 64 → 128). Each block contains 1 residual unit by default (configurable based on total block count). Each residual unit consists of two 3 × 3 convolutional layers with ReLU activation and skip connections. After the first block, original RGB channels are concatenated with feature maps before transition to the second block. Fully connected layers (3200 → 512 → 256) with tanh activation precede the classification head. Input dropout: 0.1, hidden dropout: 0.5, convolutional dropout: 0. Total parameters: 2.27M. 
+
+NIN (Network-in-Network). NIN is a dual-pathway hy-brid architecture combining ResNet-D4 and MLP branches. The ResNet pathway uses the same structure as ResNet-D4 but with separate fully connected layers (3200 → 512 →
+
+256). The MLP pathway consists of layers with dimensions [4800, 1500, 800, 600], initialized with autoencoder-learned weights when available. Outputs from both pathways (256 + 600 = 856 features) are concatenated before the final classification layer. This design aims to leverage both spatial hierarchical features and global statistical patterns. Total parameters: 7.41M. 
+
+SE-ResNet-D4. SE-ResNet-D4 extends ResNet-D4 by inserting Squeeze-and-Excitation (SE) blocks at five strate-gic locations: after transitions to Block 3 (64 channels) and Block 4 (128 channels), at the end of Block 3 and Block 4, and after the final convolution. Each SE block performs channel-wise recalibration through global average pooling, two fully connected layers with reduction ratio 2 (e.g., 128 
+
+→ 64 → 128 for 128 channels), ReLU activation, SE dropout (0.1), and sigmoid gating. The base ResNet-D4 structure remains unchanged. Total parameters: 2.33M. 
+
+EfficientNet-B0. EfficientNet-B0 is adapted for 40 × 40 
+
+inputs. The stem uses 3 × 3 convolution (stride 1, padding 1) projecting to 32 channels. Seven MBConv stages with configuration [expansion ratio, output channels, number of blocks, stride]: [1, 16, 1, 1], [6, 24, 2, 2], [6, 40, 2, 2], [6, 80, 3, 2], [6, 112, 3, 1], [6, 192, 4, 2], [6, 320, 1, 1]. Each MBConv block employs expansion via 1 × 1 convolution, 
+
+3 × 3 depthwise separable convolution, SE block (reduction ratio 0.25, SE dropout 0.1), and 1 × 1 projection. The head uses 1 × 1 convolution to 1280 channels, global average pooling, and linear classifier. Batch normalization and SiLU activation are used throughout. Total parameters: 3.93M. Learning rate: 1 × 10 −4 .
+
+ConvNeXt-Tiny. ConvNeXt-Tiny is adapted with re-duced dimensions and kernel sizes. The stem uses 2 × 2 
+
+convolution (stride 2) projecting to 48 channels. Four stages with depths [2, 2, 6, 2] and channel dimensions [48, 96, 192, 384] employ ConvNeXt blocks. Each block contains: Layer-Norm, 5 × 5 depthwise convolution (reduced from standard 
+
+7 × 7 ), LayerNorm, 1 × 1 expansion to 4× channels, GELU activation, 1 × 1 projection back, and residual connection. Downsampling between stages uses LayerNorm followed by 
+
+2×2 strided convolution. Drop path rate: 0.2. Global average pooling precedes the classification head. Total parameters: 4.78M. Learning rate: 1 × 10 −4 , weight decay: 0.2. 
+
+CustomViT. CustomViT divides 40 × 40 images into 
+
+8 × 8 pixel patches, yielding 5 × 5 = 25 patch tokens. Each patch is linearly projected to 160-dimensional embeddings. A learnable class token and positional embeddings (160-dimensional) are added to the sequence. Six transformer blocks process the token sequence, each containing: Layer-Norm, multi-head self-attention (4 heads, 40 dimensions per head), residual connection, LayerNorm, MLP with hidden dimension 160 × 4 = 640 , GELU activation, and resid-ual connection. Dropout rate: 0.2 (applied after attention and MLP). The final class token output after LayerNorm feeds into the classification head. Weights initialized with truncated normal distribution (std=0.02). Total parameters: 1.89M. Learning rate: 1 × 10 −4 , weight decay: 0.01. All models were trained with batch size 512, using early stopping based on validation accuracy with patience of 10 epochs. Training epochs varied by architecture: 50 epochs for ResNet-based models (ResNet-D4, NIN, SE-ResNet-D4), 100 epochs for CNN, 30 epochs for MLP, 80 epochs for CustomViT, 60 epochs for ConvNeXt-Tiny, and 50 epochs for EfficientNet-B0. Input dropout (0.1) and hidden dropout (0.5) were applied to MLP, CNN, ResNet-D4, NIN, and SE-ResNet-D4 during training. 
+
+3.4. Foundation Models: Linear Probing and Fine-Tuning 
+
+Input Adaptation. To apply foundation models pre-trained on 224×224 images to our 40×40 cell patches, input images were resized to 224×224 using bicubic interpolation, maintaining the aspect ratio. 
+
+Linear Probing (LP). In linear probing, all pretrained backbone weights were frozen, and only the final classifica-tion head (a single linear layer projecting from the model’s feature dimension to the number of classes) was trained. The classification head was randomly initialized and trained for 50 epochs with learning rate 5 × 10 −4 , batch size 256, and Adam optimizer. 
+
+Fine-Tuning Last Layer (FT_last). For fine-tuning, we unfroze the final transformer block (for ViT-based models) or the final stage (for CNN-based models) along with the classification head, while keeping all earlier layers frozen. Training was performed for 50 epochs with learning rate 
+
+1 × 10 −4 , batch size 256, weight decay 0.01, and Adam optimizer. Table 1 summarizes the foundation models examined in this study. These models, ranging from convolutional to transformer-based architectures, were evaluated for cell-level classification via linear probing and fine-tuning under low-resolution constraints. 
+
+3.5. Optimal Learning Strategies by Dataset Scale. 
+
+The optimal training strategy for cell-level classification varies considerably depending on the number of available image patches (Table 2). When the dataset is extremely limited (fewer than 10 3 patches), Koohbanani et al. (2020) demonstrated that linear probing (LP) offers greater stabil-ity under limited annotations, whereas fine-tuning tends to   
+
+> H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 4 of 13
+
+Cell-Level Histopathological Analysis under Small-Patch Constraints 
+
+Table 1 
+
+Foundation models used for cell-level linear probing or fine-tuning                         
+
+> Model Architecture Type Input Size Pretraining Dataset Year Parameter Count (M) Reference / Source
+> ResNet-RS50 (Bello, Fedus, Du, Cubuk, Srinivas, Lin, Shlens and Zoph, 2021) Convolutional Neural Network (CNN) 224 × 224 ImageNet-1k 2021 33.7 timm/resnetrs50.tf_in1k
+> CTransPath (Wang, Yang, Zhang, Wang, Zhang, Yang, Huang and Han, 2022) Swin Transformer 224 × 224 15M histopathology tiles 2022 27.5 1aurent/swin_tiny_patch4_window7_224.CTransPath
+> UNI (Chen, Ding, Lu, Williamson, Jaume, Chen, Zhang, Shao, Song, Shaban et al., 2024) Vision Transformer (Hybrid) variable ( 224 –448 )Multi-domain (Histo + Natural) 2023 303.4 hf-hub:MahmoodLab/UNI
+
+Table 2 
+
+Empirically suggested optimal learning strategies by dataset scale in cell-level training          
+
+> Dataset Scale (Number of Patches) Representative Study Primary Observation Suggested Optimal Strategy
+> <1k patches Koohbanani, Unnikrishnan, Khurram, Krishnaswamy and Rajpoot (2020) (Self-Path) Self-supervised pretraining provides stable feature representations under limited annotations, while direct fine-tuning easily overfits. Although linear probing was not explicitly evaluated, it can be considered conceptually analogous to this feature-based approach.
+> Feature Extraction or Linear Probing
+> (frozen pretrained backbone) 1k–10k patches Rohit Chitnis, Liu, Dash, Tulsidas Verlekar, Di Ieva, Berkovsky, Vig and Srinivasan (2023) (CLAM / TransMIL) Demonstrates that partial adaptation of pre-trained models, such as domain-specific fine-tuning of feature extractors, substantially improves performance even with moderate data sizes.
+> Partial Fine-Tuning
+> (last-layer FT)
+> >10k patches Chen et al. (2024) (UNI, MahmoodLab) With large-scale datasets, full fine-tuning achieves the best generalization, and from-scratch training can also match or surpass it.
+> Full Fine-Tuning
+> or From-Scratch Training
+
+overfit due to insufficient diversity of training examples. In the intermediate range of approximately 10 3–10 4 patches, Rohit Chitnis et al. (2023) reported that partial fine-tuning, particularly of the last block or classifier head (“last-layer FT”), substantially improves downstream performance com-pared with pure LP. Finally, for large-scale datasets exceed-ing 10 4 patches, Chen et al. (2024) showed that full fine-tuning provides the highest generalization capability, and that training from scratch can achieve comparable or even su-perior performance when sufficient data are available. Taken together, these findings suggest that the optimal strategy shifts gradually from LP to full fine-tuning as the dataset size increases, with a transition region where partial fine-tuning is most beneficial. However, the applicability of these trends to small cell-level patches (e.g., 40 × 40 pixels) remains largely unex-plored. Most previous studies have focused on tile-level or region-level patches ( ≥ 224 × 224 pixels), while the behav-ior of foundation models under strong spatial downscaling and limited contextual information is still uncertain. In this study, we aim to systematically investigate the robustness and performance of multiple foundation models under such low-resolution, cell-level conditions, comparing linear prob-ing, partial fine-tuning, and from-scratch training within a unified evaluation framework. 
+
+3.6. Robustness to Blur 
+
+To assess robustness against image blur under low-resolution constraints, we evaluated two complementary corruption schemes that differ in the stage at which blur is introduced: (i) pre-resize blur , applied to the original-resolution image prior to downsampling, approximating optical defocus or limited depth-of-field effects during image acquisition; and (ii) post-resize blur , applied after resizing the image to 40 × 40 pixels, corresponding to digitally intro-duced degradation at the model input level. This distinction allows us to contrast blur effects that are physically plausible at the acquisition stage with synthetic perturbations com-monly used in robustness analyses. For both schemes, blur was implemented using an isotropic Gaussian filter. In the post-resize setting, Gaussian blur with standard deviation 𝜎 was applied directly to the resized 
+
+40 × 40 RGB image. In the pre-resize setting, to ensure comparability between the two schemes, the blur strength was adjusted to account for the difference in spatial res-olution between the original image and the resized patch. Specifically, if the resized image has spatial size 𝑆 (here 
+
+𝑆 = 40 ) and the original image has size 𝑆 0, the effective pre-resize blur standard deviation was defined as 
+
+𝜎 pre = 𝜎 × 𝑆 0
+
+𝑆 ,
+
+so that the spatial extent of blur is normalized when ex-pressed on the resized grid. This correction prevents reso-lution mismatch from artificially amplifying or attenuating the apparent effect of pre-resize blur. After blurring and resizing, all images were converted to channel-first tensors. To maintain consistency with the training pipeline, mean subtraction (whitening) was applied identically to clean and corrupted images. Whitening was performed only on the RGB channels using the mean image computed from the training set, while auxiliary component channels, when present, were left unchanged. This design isolates the impact of blur on visual information without introducing confounding normalization effects. Gaussian blurring was implemented using the ImageFilter. GaussianBlur function from the Python Imaging Library (PIL), ensuring deterministic and isotropic filtering. Blur severity was evaluated over a geometric progression 𝜎 ∈{0 .1, 0.2, 0.4, 0.8, 1.6} , corresponding to successive dou-bling of the blur scale. Performance degradation was quanti-fied relative to the clean baseline using accuracy and macro-F1 score. To summarize robustness trends across this range, we additionally analyzed the rate of performance degradation as a function of blur magnitude by estimating the drop slope with respect to log 2(1 + 𝜎 ). This representation reflects the multiplicative nature of blur severity and highlights the onset and acceleration of performance degradation observed in the results. 
+
+3.7. Evaluation Metrics 
+
+Model performance was evaluated using accuracy, macro-averaged precision, recall, and F1 score. Macro-averaging 
+
+H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 5 of 13 Cell-Level Histopathological Analysis under Small-Patch Constraints 
+
+computes metrics independently for each class and then averages them, treating all classes equally regardless of their support in the dataset. This approach is particularly appro-priate for balanced datasets and provides a fair assessment of model performance across all cell types. Inference time was measured as the average forward pass time per sample on a single GPU, computed over 400 inference runs with batch size 1 after model warm-up. 
+
+3.8. Implementation Details 
+
+All experiments were implemented in Python (v3.8) using NumPy, pandas, scikit-learn, matplotlib, and PyTorch (v1.7). Deep learning models were trained using the Adam optimizer with architecture-specific hyperparameters as de-scribed above. Random seeds were fixed (seed=42) for data splitting to ensure reproducibility. Computations were performed on a workstation equipped with an NVIDIA RTX 3060 GPU and 64 GB RAM. 
+
+## 4. Results 
+
+Inference performance 
+
+Table 3 summarizes the inference-time characteristics of task-specific and foundation models at a large training scale ( flag_limit = 4096). Task-specific models trained from scratch exhibited substantially lower inference latency and model size compared with foundation models. Among them, MLP, CNN, and ResNet achieved sub-millisecond inference times, while more expressive architectures such as CustomViT and ConvNeXt remained within a few mil-liseconds. In contrast, foundation models incurred markedly higher inference costs. For example, the UNI model re-quired approximately 25 ms per inference and over 1 GB of model storage, reflecting its substantially larger parameter count. Importantly, CustomViT achieved competitive or su-perior classification performance (Fig. 3) while maintaining an inference cost more than an order of magnitude lower than that of the largest foundation models, underscoring its suitability for large-scale patch-based analysis. The trade-off between inference speed and classification accuracy is visualized in Figure 2, which demonstrates that CustomViT occupies a uniquely favorable position in the accuracy-efficiency space, substantially outperforming both compact convolutional models and computationally expensive foun-dation models. 
+
+Classification performance 
+
+Figure 3 summarizes the scaling behavior of classi-fication performance as a function of training set size (flag_limit ). Foundation models achieved strong perfor-mance in the low-data regime, but showed limited im-provement as additional training data were introduced. In contrast, task-specific models exhibited heterogeneous scaling behaviors. Among them, CustomViT demonstrated consistent and monotonic performance gains, surpassing all foundation models at moderate data scales. Conventional convolutional architectures, including CNN, ResNet, and ConvNeXt, improved with increasing data but saturated 
+
+Table 3 
+
+Inference performance of task-specific and foundation models at large-scale training ( flag_limit = 4096). Model Stage Inference time (ms) Parameters (M) Model size (MB) MLP – 0.09 3.37 12.8 CNN – 0.27 2.02 7.7 ResNet – 0.64 2.27 8.7 NIN – 1.38 7.41 28.3 SE-ResNet – 1.08 2.33 8.9 EfficientNet – 5.08 3.93 15.1 CustomViT – 1.78 1.89 7.2 ConvNeXt – 3.15 4.78 18.3 ResNet-RS50 LP 6.83 33.7 128.7 ResNet-RS50 FT_last 7.13 33.7 128.7 CTransPath LP 5.17 27.5 106.1 CTransPath FT_last 6.35 27.5 106.1 UNI LP 24.54 303.4 1157.3 UNI FT_last 24.89 303.4 1157.3 
+
+Fig. 2: Trade-off between inference speed and classification performance at flag_limit = 4096. Each point represents a model’s macro-F1 score (y-axis) versus its inference time per patch (x-axis). CustomViT achieves the highest classification performance while maintaining inference costs more than an order of magnitude lower than foundation models such as UNI. Task-specific convolutional models (CNN, ResNet, NIN, SE-ResNet) offer sub-millisecond to few-millisecond inference but plateau at substantially lower performance. Foundation models (ResNet-RS50, CTransPath, UNI) incur markedly higher inference latency, with UNI requiring approximately 25 ms per patch despite strong fine-tuning performance. This demonstrates that CustomViT provides a favorable balance between accuracy and computational efficiency for large-scale patch-based analysis. 
+
+below the performance of the best foundation models. EfficientNet showed early performance gains but could not be evaluated at the largest scale due to prohibitive training cost, highlighting its limited scalability in large-scale patch-based learning. Table 4 reports the classification performance of task-specific and foundation models at a representative large-scale training setting ( flag_limit = 4096). Among task-specific models trained from scratch, performance increased consistently with model capacity. CustomViT achieved the best overall results, attaining an accuracy of 0.92 and a 
+
+H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 6 of 13 Cell-Level Histopathological Analysis under Small-Patch Constraints 
+
+Table 4 
+
+Classification performance of task-specific and foundation models at flag_limit = 4096. Model Stage Accuracy Macro precision Macro F1 MLP – 0.49 0.42 0.40 CNN – 0.59 0.58 0.55 NIN – 0.60 0.58 0.53 ResNet – 0.61 0.58 0.57 SE-ResNet – 0.53 0.50 0.47 EfficientNet – 0.64 0.62 0.61 CustomViT – 0.92 0.91 0.92                             
+
+> ConvNeXt –0.65 0.63 0.61 ResNet-RS50 LP 0.51 0.51 0.48 ResNet-RS50 FT_last 0.63 0.62 0.62 CTransPath LP 0.09 0.01 0.01 CTransPath FT_last 0.24 0.21 0.15 UNI LP 0.55 0.56 0.52 UNI FT_last 0.79 0.78 0.78
+
+macro-F1 score of 0.92, clearly outperforming conventional convolutional architectures. ConvNeXt, ResNet, and NIN showed moderate improve-ments with increasing data, reaching macro-F1 scores in the range of 0.53–0.61. In contrast, simpler architectures such as MLP and CNN saturated at lower performance levels. Among foundation models, fine-tuning (FT_last) consis-tently outperformed linear probing (LP). UNI with FT_last achieved a macro-F1 score of 0.78, representing the strongest foundation-model baseline at this scale. CTransPath, how-ever, exhibited markedly lower performance (F1 = 0.01 for LP and 0.15 for FT_last), suggesting limited transferability of this Swin Transformer–based architecture to the small-patch regime. Notably, CustomViT already surpassed all foundation models at flag_limit = 4096, while maintaining substantially lower inference costs (Table 3). Although experiments were conducted up to flag_limit 
+
+= 8192, the overall scaling trends observed at this largest setting were consistent with those at flag_limit = 4096 for all evaluated architectures. However, EfficientNet exhibited excessively long training and inference times at flag_limit 
+
+= 8192 and was therefore terminated before completing the full evaluation. As a consequence, we report quantitative comparisons at flag_limit = 4096, where all task-specific and foundation models could be evaluated under identical conditions. Importantly, the relative performance ordering and the point at which task-specific models surpassed foun-dation models were unchanged at flag_limit = 8192. 
+
+Data scale required to surpass foundation models 
+
+To quantify how much labeled data are required for task-specific models to match or exceed foundation mod-els, we analyzed classification performance as a function of flag_limit (Fig. 3 and Table 4). At small data scales (flag_limit ≤ 512), all task-specific models trained from scratch underperformed compared with foundation models using linear probing (LP) or fine-tuning (FT_last). In this low-data regime, foundation models—particularly UNI with FT_last— exhibited a clear advantage, achieving macro-F1 scores above 0.8 while task-specific models remained 
+
+Fig. 3: Scaling behavior of classification performance with increasing training set size (flag_limit ). Macro F1 scores under clean conditions are shown for task-specific models and foundation models with fine-tuning of the last layer (FT_last). CustomViT exhibits monotonic performance gains and surpasses foundation models at moderate data scales, whereas conventional convolutional networks saturate. Effi-cientNet shows early gains but was not evaluated at the largest scale due to excessive training time. 
+
+substantially lower. As the training set size increased, per-formance gaps progressively narrowed. For several convolu-tional architectures (ResNet, ConvNeXt, NIN), parity with foundation models under LP was approached at interme-diate scales ( flag_limit ≈ 2048–4096), but these models did not consistently exceed the performance of foundation models fine-tuned on the same task. In contrast, CustomViT demonstrated a qualitatively different scaling behavior. Al-ready at flag_limit = 2048, CustomViT matched or slightly exceeded the performance of UNI under LP. At flag_limit 
+
+= 4096, CustomViT clearly surpassed all LP-based founda-tion models and approached the performance of UNI with FT_last (Table 4). Experiments conducted at flag_limit 
+
+= 8192 exhibited trends consistent with those observed at  
+
+> flag_limit
+
+= 4096 (Fig. 3). However, EfficientNet required prohibitively long training and inference times at this scale and was therefore terminated before completing a full eval-uation. For this reason, we report quantitative comparisons at flag_limit = 4096, which represents the largest data scale at which all task-specific and foundation models could be evaluated under identical conditions. Notably, at flag_limit 
+
+= 8192, CustomViT continued to improve and decisively exceeded the performance of UNI with FT_last, confirming that the observed crossover is robust to further data scaling. 
+
+Robustness to Blur 
+
+We evaluated model robustness to image blur using both pre-resize (optical) and post-resize (digital) perturbations under a fixed annotation budget (flag_limit = 4096). Figure 4 summarizes classification performance under a strong blur condition ( 𝜎 = 1 .6), while Figure 5 quantifies the overall sensitivity to blur severity by estimating the performance 
+
+H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 7 of 13 Cell-Level Histopathological Analysis under Small-Patch Constraints                      
+
+> Fig. 4: Robustness to strong blur ( 𝜎 = 1 .6) under a fixed annotation budget (flag_limit = 4096). Macro-F1 scores are shown for clean images (blue), post-resize blur (orange), and pre-resize blur (green). Blur is applied either after resizing to
+> 40×40 pixels (post) or before resizing with resolution-corrected strength (pre). All models show pronounced performance degradation at this severity, with comparable sensitivity to pre-and post-resize blur.
+> Fig. 5: Accuracy degradation rate with increasing blur sever-ity. Bars indicate the slope of accuracy change per unit increase in log 2(1 + 𝜎 ), with negative values representing faster performance degradation. Pre-resize (optical) and post-resize (digital) blur are shown separately.
+
+drop slope across the full range of perturbations. Detailed quantitative results across multiple blur levels are reported in Table 5. As shown in Figure 4, all models exhibit substantial degradation at high blur levels, regardless of whether blur is applied before or after resizing. This trend is consistently observed across architectures and blur severities (Table 5). The performance gap between pre-resize and post-resize blur is generally modest, indicating that most architectures are similarly affected by physically plausible optical blur and synthetic digital blur when the effective spatial scale is matched. Notably, performance remains relatively stable at lower blur levels ( 𝜎 ≤ 0.4), whereas a clear decline emerges for 𝜎 ≥ 0.8, consistent with a threshold-like behavior in blur sensitivity. The extent of degradation varies across architectures, but the relative ordering of models remains largely preserved. Vision Transformer–based models and strong convolutional                                                                            
+
+> Table 5
+> Robustness to blur at different severities ( 𝜎 ) under a fixed annotation budget (flag_limit = 4096). Macro-F1 scores and relative changes from the clean baseline ( ΔMacro-F1) are reported. For each blur type (pre-resize and post-resize), the label is shown only in the first row of the corresponding block. Model Blur 𝜎 Macro-F1 ΔMacro-F1 ResNet pre 0.1 0.553384 -0.000187 0.2 0.553114 -0.000457 0.4 0.548343 -0.005228 0.8 0.526534 -0.027037 1.6 0.435413 -0.118158 post 0.1 0.553571 00.2 0.553465 -0.000106 0.4 0.551806 -0.001765 0.8 0.528185 -0.025385 1.6 0.444646 -0.108924 CustomViT pre 0.1 0.916980 0.000081 0.2 0.916004 -0.000895 0.4 0.906016 -0.010883 0.8 0.838967 -0.077931 1.6 0.580491 -0.336408 post 0.1 0.916899 00.2 0.916899 00.4 0.913003 -0.003896 0.8 0.842737 -0.074162 1.6 0.597622 -0.319276 UNI FT_last pre 0.1 0.780562 0.000626 0.2 0.780303 0.000367 0.4 0.765950 -0.013987 0.8 0.675980 -0.103957 1.6 0.469279 -0.310658 post 0.1 0.779937 00.2 0.779956 0.000020 0.4 0.779205 -0.000731 0.8 0.673225 -0.106712 1.6 0.464888 -0.315048
+
+baselines achieve higher absolute performance under both clean and corrupted conditions; however, they do not ex-hibit qualitatively superior robustness compared to simpler CNN architectures when evaluated on small ( 40 × 40 ) cell patches. This pattern is evident in both the absolute perfor-mance values (Table 5) and the aggregated robustness met-rics (Figure 5). These findings suggest that higher-capacity or foundation-style models primarily benefit from improved clean accuracy rather than intrinsically enhanced resistance to blur. To further characterize robustness, Figure 5 reports the drop slope of accuracy as a function of blur severity, esti-mated by linear regression on a log 2(1 + 𝜎 ) scale. This rep-resentation captures the approximately exponential decay in performance observed as blur strength doubles. Across mod-els, pre-resize and post-resize slopes are closely matched, reinforcing the conclusion that robustness is governed more by architectural inductive bias than by the specific stage at which blur is introduced.   
+
+> H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 8 of 13 Cell-Level Histopathological Analysis under Small-Patch Constraints
+
+Overall, these results indicate that blur robustness does not substantially differentiate foundation models from com-pact, task-specific architectures in the small-patch regime. As training data volume increases, the reliance on large pre-trained models becomes less critical, and architectures ex-plicitly designed for low-resolution inputs may offer a more appropriate trade-off between performance, robustness, and computational efficiency. 
+
+## 5. Discussion 
+
+5.1. Impact of Squeeze-and-Excitation Architecture on Small-Patch Learning 
+
+To assess whether channel-wise attention mechanisms improve performance in small-patch medical image classi-fication, we evaluated a Squeeze-and-Excitation enhanced variant of ResNet-D4 (SE-ResNet-D4) against the standard architecture. At a training scale of flag_limit = 4096, SE-ResNet-D4 consistently underperformed ResNet-D4, achieving 0.53 accuracy and 0.47 macro-F1 compared with 0.61 and 0.57, respectively (Table 4). Training dynamics revealed that SE-ResNet-D4 exhib-ited slower convergence and a larger train–validation gap, suggesting impaired generalization. We hypothesize that in settings characterized by small input size (40 ×40) and subtle morphological cues, aggressive channel reweight-ing may suppress informative low-level features rather than enhance discriminative capacity. These findings indicate that squeeze-and-excitation mechanisms are not universally beneficial and may be counterproductive for small-patch medical image classification; consequently, SE-ResNet ar-chitectures were excluded from further comparisons. 
+
+5.2. EfficientNet under Small Patch Constraints 
+
+EfficientNet achieved slightly higher classification per-formance than ResNet-D4 at flag_limit = 4096 (Table 4). However, this marginal improvement came at the cost of severe scaling limitations at larger training set sizes. At flag_limit = 8192, EfficientNet training became strongly memory-bound due to the extensive use of depth-wise separable convolutions and squeeze-and-excitation blocks, whose fine-grained operations lead to frequent mem-ory accesses and limit effective kernel fusion. This resulted in non-linear increases in wall-clock time without propor-tional gains in GPU utilization, ultimately requiring early termination of training. These results indicate that, despite its moderate accu-racy advantage, EfficientNet is unsuitable for benchmarking data efficiency against foundation models in this setting: its training cost grew disproportionately with dataset size, making the data scale required to surpass foundation models impractically large. 
+
+5.3. Vision Transformer Architectures for Small Patch Learning 
+
+In contrast to convolutional and channel-attention-based architectures, the Vision Transformer–based model (Cus-tomViT) exhibited consistently superior scaling behavior and ultimately surpassed all foundation models at large data scales. This success can be attributed to several architectural properties suited to small patch-based classification. First, Vision Transformers operate on explicit patch tokens, pre-serving spatial locality without prematurely collapsing fine-grained information through repeated pooling. Second, self-attention enables global spatial interaction without relying on channel-wise recalibration; unlike SE blocks, it directly models relationships between spatial regions, which is ad-vantageous when class-discriminative signals arise from subtle spatial co-occurrence patterns. Third, Vision Trans-formers avoid strong translation invariance biases inherent to convolutional architectures, retaining flexibility in capturing task-specific spatial dependencies that may convey diagnos-tic information in medical images. Notably, these benefits became apparent only beyond a moderate data scale. At low flag_limit values, CustomViT did not outperform foundation models, consistent with the data-hungry nature of transformers. However, once suffi-cient labeled data were available ( flag_limit ≥ 2048), per-formance improved monotonically, ultimately surpassing all foundation models at the largest evaluated scale. 
+
+5.4. Limitations of ConvNeXt for Small Patch Learning 
+
+ConvNeXt incorporates design principles inspired by Vision Transformers, including large convolutional kernels, LayerNorm, and GELU activations. While effective for large-scale natural image classification, our results indicate that ConvNeXt architectures are poorly suited for small patch-based medical image learning. We evaluated a modified ConvNeXt variant adapted for 40 ×40 inputs, reducing the depthwise kernel size from 7×7 to 5 ×5 and adjusting the stem convolution and down-sampling operations accordingly. Despite these modifica-tions, the adapted ConvNeXt failed to achieve meaningful improvements over conventional convolutional baselines, suggesting a fundamental incompatibility rather than mere kernel size mismatch. This limitation likely stems from several factors: Con-vNeXt rapidly accumulates large effective receptive fields through repeated depthwise convolution and downsampling, leading to premature spatial information loss; its architec-ture emphasizes channel-wise feature mixing via pointwise MLP layers, prioritizing inter-channel relationships over spatial reconfiguration; and global average pooling further compresses spatial information, disproportionately affecting performance at severely constrained input resolutions. These results highlight the importance of selecting architectures whose inductive biases align with both the spatial scale and task characteristics. 
+
+5.5. Foundation Models versus Task-Specific Architectures 
+
+Foundation models provide substantial advantages at small data scales, with UNI achieving F1 scores above 0.8   
+
+> H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 9 of 13 Cell-Level Histopathological Analysis under Small-Patch Constraints
+
+at flag_limit ≤ 512 through transfer learning. However, at  
+
+> flag_limit
+
+= 4096, CustomViT trained from scratch (F1 = 0.92) decisively surpassed fine-tuned UNI (F1 = 0.78). This crossover reflects architectural misalignment: foun-dation models are pretrained on images substantially larger than 40 ×40 pixels and rely on multi-scale spatial features un-available in small patches. CTransPath exhibited markedly lower performance (F1 = 0.01–0.15), suggesting that Swin Transformer’s hierarchical windowed attention is poorly suited to inputs lacking spatial hierarchy. In contrast, Cus-tomViT’s patch-token representation operates effectively at the 40 ×40 scale without requiring multi-scale context. The data scale required for CustomViT to surpass foun-dation models ( flag_limit ≈ 2048–4096) remains exper-imentally feasible, highlighting the practical viability of task-specific architectures when input characteristics diverge from foundation-model pretraining regimes. Note that foun-dation model evaluation was constrained by GPU memory limitations, requiring reduced batch sizes (13 for linear probing, 5 for fine-tuning versus 80 for task-specific models) due to larger input size (224 ×224). 
+
+5.6. Robustness to Blur 
+
+Across all architectures, classification performance re-mains largely stable under mild blur ( 𝜎 ≤ 0.4) and degrades rapidly only at higher blur levels ( 𝜎 ≥ 0.8), indicating a threshold-like sensitivity rather than gradual deterioration. This threshold-like behavior is consistently observed for both pre-resize and post-resize blur, suggesting that moder-ate blur does not substantially disrupt discriminative cell-level cues in small ( 40 × 40 ) patches. When the effective blur strength is normalized to the same spatial scale, the difference between pre-resize (opti-cal) and post-resize (digital) blur is generally modest. Both absolute performance under strong blur (Figure 4) and ac-curacy drop slopes across blur severities (Figure 5) show closely matched trends. This indicates that, once scale effects are controlled, robustness is governed primarily by architec-tural inductive bias rather than by the stage at which blur is introduced. Vision Transformer–based models achieve the highest absolute accuracy under both clean and blurred conditions. However, they also exhibit the steepest performance drops as blur severity increases. This highlights an important distinc-tion: strong clean performance does not necessarily imply intrinsic robustness. In the small-patch regime, ViTs appear particularly sensitive to the loss of fine-grained spatial infor-mation caused by severe blur. Overall, robustness patterns are broadly similar across architectures, and higher-capacity or foundation-style mod-els do not demonstrate qualitatively superior blur resis-tance compared with compact convolutional baselines. Im-portantly, robustness analysis here is not intended as a pri-mary benchmark, but rather as supporting evidence that, as training data volume increases, the advantages of large pre-trained models lie mainly in improved clean accuracy. For low-resolution cell-level analysis, task-specific architectures trained for this regime may offer a more appropriate trade-off between accuracy, robustness, and computational efficiency. 
+
+## 6. Conclusion 
+
+This study demonstrates that cell-level pathological im-age classification on 40 ×40 pixel patches is feasible with appropriately designed architectures. CustomViT, a Vision Transformer optimized for small patches, achieved supe-rior performance (F1 = 0.92) compared with foundation models while providing order-of-magnitude computational advantages (1.78 ms vs 24.89 ms inference time). Foun-dation models demonstrated strong performance in low-data regimes but exhibited limited scaling beyond 2,048 samples per class, indicating fundamental transferability constraints under extreme spatial downsampling. Channel-attention mechanisms proved detrimental under small-patch constraints, with both SE-ResNet-D4 and EfficientNet-B0 underperforming baseline architectures. For cell-level pathological image analysis with datasets exceeding 4,096 samples per class, task-specific Vision Transformer architectures trained from scratch provide su-perior classification accuracy, substantially lower inference costs, and comparable robustness to foundation models. These findings challenge the prevailing assumption that foundation models universally outperform task-specific ar-chitectures in medical imaging, highlighting the importance of matching architectural design to domain-specific con-straints. 
+
+## Acknowledgements 
+
+We would like to express our sincere gratitude to the following individuals for their valuable contributions to the precise image tagging: To the graduate students and techni-cal assistants from Kobe University who assisted with the annotation tasks: Abe T, Adachi Y, Agawa K, Ando M, Fukuda S, Imai M, Ito R, Kagiyama H, Konaka R, Miyake T, Mukoyama T, Okazoe Y, Takahashi T, Ueda Y and Yasuda K. We also extend our appreciation to the registered annota-tors who were engaged by the AMAIC: Adachi K, Akima J, Aoki S, Ichikawa K, Kanto T, Kawase Y, Kimura M, Miura R, Sirasawa H, Sotani K and Yuki A. Their professional and diligent efforts greatly enhanced the quality of the dataset. This study is supported by the Grants-in-Aid for Scientific Research from the Ministry of Education, Culture, Sports, Science and Technology of Japan (MEXT; 24K10381 to TN, 23K08171 to KY, and 21K09167 to MF). 
+
+## Declaration of generative AI and AI-assisted technologies in the writing process 
+
+During the preparation of this work the authors used Claude Opus 4.5 (Anthropic) and ChatGPT 5.2 (OpenAI) to check for errors in analysis software code and to improve the language and readability of the manuscript text. After using these tools, the authors reviewed and edited the content   
+
+> H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 10 of 13
+
+Cell-Level Histopathological Analysis under Small-Patch Constraints 
+
+as needed and take full responsibility for the content of the publication. 
+
+## CRediT authorship contribution statement 
+
+Hiroki Kagiyama: Investigation, Formal analysis, Writ-ing – original draft. Toru Nagasaka: Conceptualization, Methodology, Software, Data curation, Visualization, Val-idation, Writing – review and editing. Yukari Adachi: In-vestigation, Data curation. Takaaki Tachibana: Investiga-tion, Data curation. Ryota Ito: Investigation, Data curation. 
+
+Mitsugu Fujita: Writing – review and editing. Kimihiro Yamashita: Resources, Project administration. Yoshihiro Kakeji: Supervision. 
+
+## References 
+
+Abe, T., Yamashita, K., Nagasaka, T., Fujita, M., Agawa, K., Ando, M., Mukoyama, T., Yamada, K., Miyake, S., Saito, M., et al., 2023. Deep learning-based image cytometry using a bit-pattern kernel-filtering al-gorithm to avoid multi-counted cell determination. Anticancer Research 43, 3755–3761. Bello, I., Fedus, W., Du, X., Cubuk, E.D., Srinivas, A., Lin, T.Y., Shlens, J., Zoph, B., 2021. Revisiting resnets: Improved training and scaling strategies. Advances in Neural Information Processing Systems 34, 22614–22627. Chen, R.J., Ding, T., Lu, M.Y., Williamson, D.F., Jaume, G., Chen, B., Zhang, A., Shao, D., Song, A.H., Shaban, M., et al., 2024. Towards a general-purpose foundation model for computational pathology. Nature Medicine . Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., Uszkoreit, J., Houlsby, N., 2021. An image is worth 16x16 words: Transformers for image recognition at scale. URL: https://arxiv.org/ abs/2010.11929 , arXiv:2010.11929 .He, K., Zhang, X., Ren, S., Sun, J., 2016. Deep residual learning for image recognition, in: Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 770–778. Howard, A., Sandler, M., Chu, G., Chen, L.C., Chen, B., Tan, M., Wang, W., Zhu, Y., Pang, R., Vasudevan, V., et al., 2019. Searching for mobilenetv3, in: Proceedings of the IEEE/CVF international conference on computer vision, pp. 1314–1324. Hu, J., Shen, L., Albanie, S., Sun, G., Wu, E., 2019. Squeeze-and-excitation networks. URL: https://arxiv.org/abs/1709.01507 , arXiv:1709.01507 .Koohbanani, N.A., Unnikrishnan, B., Khurram, S.A., Krishnaswamy, P., Rajpoot, N., 2020. Self-path: Self-supervision for classification of pathology images with limited annotations. URL: https://arxiv.org/ abs/2008.05571 , arXiv:2008.05571 .Liu, Z., Mao, H., Wu, C.Y., Feichtenhofer, C., Darrell, T., Xie, S., 2022. A convnet for the 2020s. URL: https://arxiv.org/abs/2201.03545 ,
+
+> arXiv:2201.03545
+
+.Meirelles, A.L., Kurc, T., Kong, J., Ferreira, R., Saltz, J.H., Teodoro, G., 2022. Building efficient cnn architectures for histopathology images analysis: a case-study in tumor-infiltrating lymphocytes classification. Frontiers in Medicine 9, 894430. Ohno, M., Kuramitsu, S., Yamashita, K., Nagasaka, T., Haimoto, S., Fujita, M., 2024. Tumor-infiltrating b cells and tissue-resident memory t cells as prognostic indicators in brain metastases derived from gastrointestinal cancers. Cancers 16, 3765. Rohit Chitnis, S., Liu, S., Dash, T., Tulsidas Verlekar, T., Di Ieva, A., Berkovsky, S., Vig, L., Srinivasan, A., 2023. Domain-specific pre-training improves confidence in whole slide image classification. arXiv e-prints , arXiv–2302. Sandler, M., Howard, A., Zhu, M., Zhmoginov, A., Chen, L.C., 2018. Mobilenetv2: Inverted residuals and linear bottlenecks, in: Proceedings of the IEEE conference on computer vision and pattern recognition, pp. 4510–4520. Simonyan, K., Zisserman, A., 2015. Very deep convolutional networks for large-scale image recognition. URL: https://arxiv.org/abs/1409.1556 ,
+
+> arXiv:1409.1556
+
+.Srinidhi, C.L., Ciga, O., Martel, A.L., 2021. Deep neural network models for computational histopathology: A survey. Medical image analysis 67, 101813. Szegedy, C., Vanhoucke, V., Ioffe, S., Shlens, J., Wojna, Z., 2015. Re-thinking the inception architecture for computer vision. URL: https: //arxiv.org/abs/1512.00567 , arXiv:1512.00567 .Tachibana, T., Nagasaka, T., Adachi, Y., Kagiyama, H., Ito, R., Fujita, M., Yamashita, K., Kakeji, Y., 2025. Reliability assessment framework based on feature separability for pathological cell image classification under prior bias. arXiv preprint arXiv:2511.01953 . Tan, M., Le, Q.V., 2020. Efficientnet: Rethinking model scaling for con-volutional neural networks. URL: https://arxiv.org/abs/1905.11946 ,
+
+> arXiv:1905.11946
+
+.Wang, X., Yang, S., Zhang, J., Wang, M., Zhang, J., Yang, W., Huang, J., Han, X., 2022. Transformer-based unsupervised contrastive learning for histopathological image classification. Medical image analysis 81, 102559. 
+
+H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 11 of 13 Cell-Level Histopathological Analysis under Small-Patch Constraints 
+
+## Appendix 
+
+Training Dynamics and Class-wise Error Analysis 
+
+To verify that the performance trends reported in the main Results are not artifacts of unstable optimization or premature overfitting, we provide additional diagnostic analyses of training dynamics and class-wise error struc-tures for representative models. Specifically, we examine a conventional convolutional baseline (ResNet), a task-specific transformer architecture (CustomViT), and a fine-tuned foundation model (UNI with FT_last). Training and validation curves are used to assess convergence behavior, while normalized confusion matrices provide insight into class-dependent error patterns. These analyses are intended to support the reliability of the reported scaling results rather than to introduce additional performance comparisons. 
+
+ResNet (Convolutional baseline) As a representative convolutional architecture, ResNet provides a baseline for assessing optimization stability and class-wise error struc-ture in the small-patch regime. As shown in Fig. 6, training and validation curves exhibit smooth convergence without evidence of severe overfitting. However, the confusion ma-trix (Fig. 7) reveals substantial confusion among morpho-logically similar or heterogeneous classes, highlighting the limitations of conventional convolutional features at this resolution.  
+
+> Fig. 6: Training dynamics of ResNet over 50 epochs. The left panel shows training and validation loss curves, exhibiting smooth exponential decay and early stabilization. The right panel displays corresponding accuracy trajectories, with valida-tion accuracy plateauing after approximately 30 epochs. These trends indicate stable optimization and the absence of severe overfitting.
+
+CustomViT (Task-specific transformer) CustomViT rep-resents a task-specific transformer architecture optimized for small-patch cell classification. Figure 8 demonstrates stable convergence with monotonic accuracy improvements. The corresponding confusion matrix (Fig. 9) shows strong diag-onal dominance across most cell types, indicating improved feature separability relative to convolutional baselines. 
+
+UNI with FT_last (Foundation model) UNI with fine-tuning of the last layers serves as a representative foundation model with strong self-supervised pretraining. As shown in Fig. 10, optimization converges rapidly, reflecting the influence of pretrained representations. While validation accuracy continues to improve gradually, an increasing gap between training and validation accuracy is observed. This                      
+
+> Fig. 7: Normalized confusion matrix for ResNet classifica-tion across 16 cell types. Diagonal entries represent correct classification rates, while off-diagonal entries indicate mis-classification patterns. Epithelial and structurally distinctive classes (e.g., adenocarcinoma NOS, adenoma, cytotoxic T cell, dendritic cell, smooth muscle cell) show strong diagonal dominance. In contrast, morphologically heterogeneous or weakly discriminative classes (e.g., endothelium, neutrophil, plasma cell, stromal cell) exhibit increased confusion with related cell populations.
+> Fig. 8: Training dynamics of CustomViT over 60 epochs. Both training and validation loss decrease smoothly, accompanied by monotonic improvements in accuracy. The close align-ment between training and validation curves indicates stable convergence despite the higher model capacity. Compared with convolutional baselines, CustomViT achieves substantially higher validation accuracy without evidence of optimization instability.
+
+behavior is consistent with partial adaptation of a strong pretrained representation to a fine-grained, small-patch clas-sification task, resulting in a form of task-mismatch–induced bias rather than classical high-variance overfitting. Consis-tent with this interpretation, the confusion matrix (Fig. 11) indicates that remaining classification errors are concen-trated in morphologically overlapping or weakly stained classes, suggesting data- and label-driven limitations rather than optimization instability. This behavior can be formally understood by considering the restriction imposed on the effective hypothesis class under limited fine-tuning.   
+
+> H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 12 of 13
+
+Cell-Level Histopathological Analysis under Small-Patch Constraints 
+
+Fig. 9: Normalized confusion matrix for CustomViT across 16 cell types. Strong diagonal dominance is observed for nearly all classes, reflecting improved feature separability relative to convolutional architectures. Residual confusion is primarily confined to biologically heterogeneous categories such as stromal cells and other lymphocytes, consistent with intrinsic label ambiguity rather than optimization failure. 
+
+When transfer learning is performed via linear probing, where all pretrained layers remain frozen, the effective hy-pothesis class is constrained to functions of the form 
+
+fixed = { 𝑔 𝑤 ◦𝜙 𝜃 0 ∣ 𝑤 ∈ 𝑊 },
+
+where 𝜙 𝜃 0 ∶  → ℝ𝑑 denotes a pretrained feature extractor with fixed parameters, and 𝑔 𝑤 ∶ ℝ𝑑 →  represents a trainable classification head with parameters 𝑤 . Under this constraint, learning is limited to adjusting the decision func-tion on top of a fixed representation space. This formulation applies directly to linear probing and, more generally, to restricted fine-tuning schemes in which the feature extractor remains approximately fixed. Even if the pretrained feature map 𝜙 𝜃 0 provides a rich and high-dimensional represen-tation, the target Bayes-optimal decision rule 𝑓 ∗ may not be realizable within fixed due to mismatch between the pretraining task and the downstream classification objective. As a consequence, an approximation gap may persist: 
+
+Δapprox = 𝑅 ∗ 
+
+> fixed
+
+− 𝑅 ∗ ≥ 0,
+
+where 𝑅 ∗ denotes the Bayes risk and 𝑅 ∗ 
+
+> fixed
+
+is the minimum achievable risk within the restricted hypothesis class. When positive, this approximation error arises from the limited expressiveness of the constrained hypothesis class and does not diminish with increasing sample size, distinguishing it from estimation error associated with finite-sample learning. Taken together, these training dynamics and class-wise error analyses support the interpretation that the observed performance differences and scaling behaviors arise from systematic architectural characteristics and data-related fac-tors, rather than from optimization artifacts. 
+
+Fig. 10: Training dynamics of UNI with fine-tuning of the last layers (FT_last). Rapid initial convergence is followed by sta-ble refinement of both loss and accuracy. The early saturation of training accuracy reflects the strong representational prior provided by large-scale self-supervised pretraining. 
+
+Fig. 11: Normalized confusion matrix for UNI with FT_last. Overall classification accuracy is high, with well-separated epithelial and immune cell populations. Remaining errors are concentrated in morphologically overlapping or weakly stained classes, suggesting that residual limitations arise from data characteristics rather than insufficient model capacity. H. Kagiyama and T. Nagasaka : Preprint submitted to Elsevier Page 13 of 13
