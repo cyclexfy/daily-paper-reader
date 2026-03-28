@@ -1,0 +1,2015 @@
+Title: BALM: A Model-Agnostic Framework for Balanced Multimodal Learning under Imbalanced Missing Rates
+
+URL Source: https://arxiv.org/pdf/2603.19718v1
+
+Published Time: Mon, 23 Mar 2026 00:35:19 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# BALM: A Model-Agnostic Framework for Balanced Multimodal Learning under Imbalanced Missing Rates 
+
+Phuong-Anh Nguyen, Tien Anh Pham, Duc-Trong Le, Cam-Van Thi Nguyen *
+
+VNU University of Engineering and Technology Hanoi, Vietnam 
+
+{22028332, 23021696, trongld, vanntc }@vnu.edu.vn 
+
+Abstract 
+
+Learning from multiple modalities often suffers from im-balance, where information-rich modalities dominate opti-mization while weaker or partially missing modalities con-tribute less. This imbalance becomes severe in realistic settings with imbalanced missing rates (IMR), where each modality is absent with different probabilities, distorting representation learning and gradient dynamics. We revisit this issue from a training-process perspective and propose 
+
+BALM , a model-agnostic plug-in framework to achieve balanced multimodal learning under IMR. The framework comprises two complementary modules: the Feature Cal-ibration Module ( FCM ), which recalibrates unimodal fea-tures using global context to establish a shared representa-tion basis across heterogeneous missing patterns; the Gra-dient Rebalancing Module ( GRM ), which balances learning dynamics across modalities by modulating gradient mag-nitudes and directions from both distributional and spatial perspectives. BALM can be seamlessly integrated into di-verse backbones, including multimodal emotion recognition (MER) models, without altering their architectures. Ex-perimental results across multiple MER benchmarks con-firm that BALM consistently enhances robustness and im-proves performance under diverse missing and imbalance settings. Code available at: https://github.com/ np4s/BALM_CVPR2026.git 
+
+1. Introduction 
+
+Multimodal learning has achieved substantial progress by jointly exploiting complementary information from audio, visual, and textual modalities [2, 20, 31, 47]. However, real-world multimodal systems rarely operate under per-fect conditions, as sensor failures, recording noise, or ac-quisition costs often cause partial or complete modality loss [30, 46, 54]. This phenomenon leads to incomplete   
+
+> *Corresponding author 0.45 0.50 0.55
+
+Modality 1   
+
+> 0.45 0.50 0.55
+
+Modality 2   
+
+> 0.45 0.50 0.55
+
+Modality 3 
+
+Figure 1. Modality-specific missing rates’ distribution of a tri-modal dataset under Share Missing Rate (SMR=0.5). 57   
+
+> 58
+> 59
+> 60
+> (a) GCNet 54.0
+> 55.5
+> 57.0
+> 58.5
+> (b) SDR-GNN
+> 55.5
+> 57.0
+> 58.5
+> (c) Mi-CGA
+> SMR average Acc. IMR average Acc.
+
+Figure 2. Model accuracy under SMR=0.5 and five equivalent IMR settings with (rA, r L, r V ) ∈ { 0.3, 0.5, 0.7} on IEMOCAP. 
+
+multimodal learning , where missing data affect both rep-resentation quality and cross-modal interaction [54]. Effec-tively handling incomplete or missing modalities remains a central challenge for building reliable multimodal sys-tems [21]. Beyond incompleteness, multimodal learning inherently faces modality imbalance [38, 45, 49], where modalities contribute unequally due to differences in signal reliability, feature granularity, and data scale. When modal-ities are missing, this imbalance worsens as the dominant modality overfits while the less frequent or corrupted ones receive limited supervision, leading to a biased equilibrium that weakens robustness and generalization. Recent advances in missing-modality learning have ex-plored two main paradigms to enhance robustness under in-complete data: alignment-based methods , which align rep-resentations between complete and incomplete inputs using contrastive, correlation, or augmentation techniques [19, 22, 28, 30], and generation-based methods , which recon-struct missing modalities through autoencoders, variational inference, graph reasoning, or diffusion models [26, 40, 50, 56]. These approaches generally overlook the imbalance 1
+
+> arXiv:2603.19718v1 [cs.CV] 20 Mar 2026
+
+that arises when missingness occurs during training. No-tably, some models [7, 19] compute reconstruction losses using the full data, whereas some approaches [50, 56] do not employ reconstruction but rely on pretrained encoders trained on full modalities, leaving challenges of incomplete training data unaddressed. Most prior studies further simplify the problem by adopt-ing the Shared Missing Rate (SMR) assumption [7, 19, 56], where all modalities are randomly dropped with the same probability. As illustrated in Fig. 1, when SM R = 0 .5, each modality exhibits comparable missing proportions, result-ing in a statistically balanced yet idealized setting. In con-trast, realistic multimodal systems often encounter uneven data degradation across modalities due to heterogeneous ac-quisition or noise. We refer to this scenario as the Imbal-anced Missing Rate (IMR) condition [33, 34, 55], which in-troduces persistent exposure disparity and optimization bias across modalities. As shown in Fig. 2, traditional missing-modality models exhibit unstable behavior under IMR set-tings, particularly when the missing rates across modali-ties differ significantly. This imbalance causes performance fluctuations, as models struggle to adapt when one modality becomes substantially less reliable than the others. 
+
+Our approach. We study multimodal learning un-der the Imbalanced Missing Rate (IMR) setting, where modality absence occurs from the beginning of training and follows distinct missing rates. Imbalanced Miss-ing Rate introduces two coupled challenges: (1) repre-sentation imbalance , where heterogeneous missing pat-terns distort unimodal feature distributions and hinder con-sistent cross-modal fusion [36]; and (2) learning imbal-ance , where gradients are dominated by frequently ob-served modalities, leading to biased convergence [8]. To ad-dress these issues, we propose BALM (Balanced Agnostic 
+
+Learning under Imbalanced Missing Rates ), a lightweight and model-agnostic plug-in framework that mitigates both representation- and optimization-level imbalance under IMR. Our propose BALM integrates seamlessly with exist-ing multimodal backbones, particularly those used in MER. It comprises two complementary modules: a Feature Cal-ibration Module ( FCM ) that aligns representations across varying missing patterns, and a Gradient Rebalancing Mod-ule ( GRM ) that harmonizes optimization dynamics by adap-tively modulating gradient magnitudes and directions. Our main contributions are summarized as follows: • We propose BALM , a plug-in framework that enables ro-bust multimodal learning under the Imbalanced Missing Rate condition without redesigning existing architectures. • We design two complementary modules: a Feature Cal-ibration Module (FCM) for representation-level align-ment and a Gradient Rebalancing Module (GRM) for optimization-level balancing. • We conduct extensive experiments on multiple MER benchmarks, showing that BALM consistently en-hances robustness across standard backbones, imbalance-oriented models, and missing-modality methods. 
+
+2. Related Work 
+
+2.1. Incomplete Multimodal Learning 
+
+Recent studies on incomplete multimodal learning can be broadly categorized into two paradigms [54]. Alignment-based methods aim to bridge the gap between complete and incomplete inputs by aligning their latent representa-tions. Contrastive objectives [18, 22] encourage modality-invariant embeddings, while correlation-based techniques such as canonical correlation analysis and its extensions [1, 10, 37] learn cross-modal coherence. Other efforts incorpo-rate masking or noise-based augmentation [30, 51] to sim-ulate missingness and improve robustness. Although effec-tive at aligning feature spaces, these methods depend on bal-anced modality exposure and struggle under heterogeneous missing conditions. Generation-based methods explic-itly reconstruct missing modalities to recover full-modality representations. Autoencoder-based frameworks [26, 35] learn deterministic mappings between observed and miss-ing modalities, while variational inference models [39, 56] impose probabilistic constraints to improve generative con-sistency. Graph-based completion networks [19, 28] cap-ture structural dependencies among modalities and in-stances, whereas diffusion-based approaches [4, 5, 41] leverage denoising priors to iteratively refine reconstructed signals. Despite their generative flexibility, these methods still assume identical missing probabilities across modali-ties and rarely consider imbalance during optimization. 
+
+2.2. Imbalanced Multimodal Learning 
+
+Imbalance in multimodal learning occurs when some modalities dominate training because they provide stronger or more reliable information [38, 45, 54]. This causes bi-ased gradients and uneven representation learning, where dominant modalities are updated more effectively while weaker ones lag behind. Prior studies address this issue through data re-sampling [43], adaptive feature calibra-tion [24, 54], objective regularization [24, 42, 48], and gra-dient modulation [14, 17, 27, 29, 44]. These approaches enhance cooperation among modalities when all are fully available. Under incomplete conditions, imbalance wors-ens as low-availability modalities provide fewer samples and gradients, slowing convergence and degrading repre-sentations. The interplay between modality imbalance and missing data further complicates optimization and weakens cross-modal alignment. Our work addresses these issues by jointly calibrating features and rebalancing gradients for stable learning under heterogeneous missing conditions. 2ො𝑥  
+
+> Average Pooling
+> 𝐅 𝑔𝑙𝑜𝑏𝑎𝑙
+> 𝐅 𝑐𝑎𝑙
+> 𝜙
+> Fusion
+> 𝓕
+> 𝐅 𝑝𝑟𝑒𝑑
+> Unimodal
+> Prediction
+> Heads
+> KL
+> Divergence
+> Cosine
+> Similarity
+> Encoders
+> 𝜙  𝜙
+> Forward
+> Backward
+> 𝜇 𝑚 ℒ𝑚𝑜𝑑
+> ℒ𝑡𝑎𝑠𝑘
+> GRM Module
+> FCM Module
+> MER
+> Backbone
+
+Figure 3. Overview of BALM, consisting of a Feature Calibration Module ( FCM ) and a Gradient Rebalancing Module ( GRM ) for bal-anced multimodal learning under imbalanced missing rates. 
+
+3. Methodology 
+
+Given a multimodal dataset D = {(xi, y i)}Ni=1 with M
+
+modalities and label space Y, the multimodal feature of sample i is denoted as xi = {xmi }Mm=1 , where xmi ∈ Rdm
+
+represents the feature of modality m. To simulate missing-modality scenarios, we introduce a stochastic masking op-erator M(·; r) parameterized by a missing-ratio vector r =[r1,. . ., r M ], where rm ∈ [0 , 1) denotes the probability that modality m is absent. The missing mask vector of a mul-timodal sample is obtained via ei ∼ M (xi; r), where each observation indicator emi ∈ { 0, 1} indicates the availabil-ity of modality m for sample i. The indicator is generated with regards to the missing probability rm while ensuring at least one modality is available for each sample. The in-complete dataset is defined as ˜D = {(˜ xi, y i)}Ni=1 , where ˜xi
+
+is the incomplete multimodal sample with unimodal feature 
+
+˜xmi = xmi if emi = 1 , and ˜xmi =⃗ 0 if otherwise. 
+
+3.1. Shared- and Imbalanced Missing Rate 
+
+Shared Missing Rate (SMR). In the shared setting, all modalities follow the same Bernoulli missingness pattern, where for each sample i and modality m. The observation indicator emi ∈ { 0, 1} is drawn via P (emi = 1) = 1 −rshared 
+
+and P (emi = 0) = rshared , with rshared ∈ [0 , 1) denoting the shared missing rate. The joint masking distribution is: 
+
+pSMR (e) = 
+
+QMm=1 (1 − rshared )em
+
+r1−em
+
+> shared
+
+1 − rM
+
+> shared
+
+, (1) where e = {em}Mm=1 represents the binary masking pat-tern. Here, the denominator normalizes by excluding the all-missing case. For each modality m, the empirical miss-ing ratio ˆrm = 1
+
+> N
+
+PNi=1 (1 − emi ) follows a Binomial distri-bution B(N, r shared ) with expectation and variance: 
+
+E[ˆ rm] = rshared , Var[ˆ rm] = rshared (1 − rshared )
+
+N . (2) As N increases, ˆrm converges to N rshared , rshared (1 −rshared )
+
+> N
+
+,implying all modalities are statistically equivalent (see Fig. 1), and any difference among ˆrm arises from stochastic fluctuation rather than systematic imbalance. 
+
+Imbalanced Missing Rate (IMR). In realistic multi-modal environments, different modalities exhibit heteroge-neous missing probabilities ( rm̸ = rm′ ) due to sensor relia-bility, recording noise, or acquisition cost. The correspond-ing masking distribution becomes modality-specific: 
+
+pIMR (e) = 
+
+QMm=1 (1 − rm)em
+
+r1−em
+
+> m
+
+1 − QMm=1 rm
+
+, (3) where pIMR (e) and pSMR (e) denote the probability of ob-serving a particular masking pattern e under IMR and SMR, respectively. Unlike the homogeneous pSMR , the heteroge-neous pIMR assigns higher probability mass to combinations retaining low-rm modalities. The degree of imbalance can be quantified by a divergence: 
+
+∆IMR = D pIMR (e) ∥ pSMR (e), (4) where D(·∥· ) is a distributional divergence measure, e.g., KL or Jensen–Shannon distance. A larger ∆IMR reflects stronger modality heterogeneity and sampling bias. 
+
+From Distributional to Learning Imbalance. The heterogeneous masking distribution pIMR induces a persis-tent distributional shift between the training data distribu-tion Ptrain (˜ x, y ) and the full-modality distribution Pfull (x, y ),whose magnitude scales with ∆IMR . This imbalance further propagates to the optimization process. Given a backbone model F that produces prediction ˆyi = F(˜ xi), the learning objective under IMR can be formulated as: 
+
+LIMR = E( ˜X,Y )∼PIMR 
+
+h MX
+
+> m=1
+
+(1 − rm) ℓ(fm( ˜Xm), Y )
+
+i
+
+, (5) where ℓ denotes the task loss for modality branch m. The gradient contribution of each modality scales with its avail-ability ratio (1 − rm) is computed via: 
+
+∂LIMR 
+
+∂θ m
+
+∝ (1 − rm) E
+
+"
+
+∂ℓ (fm( ˜Xm), Y )
+
+∂θ m
+
+#
+
+. (6) Consequently, modalities with higher missing ratios receive weaker supervision and converge more slowly, resulting in 
+
+representation underfitting and optimization dominance 
+
+by low-missing-rate modalities. (See more in Suppl.B) 
+
+Motivation. The above analysis reveals two coupled challenges under IMR: (1) uneven exposure leading to in-
+
+3consistent intra-modal representations , and (2) gradient-level inequality during optimization . To address these is-sues, we propose a model-agnostic framework that per-forms rebalancing at both the representation and optimiza-tion levels, as illustrated in Fig. 3. 
+
+3.2. Representation-level Rebalancing with Feature Calibration Module 
+
+IMR introduces an imbalanced exposure pattern, where some modalities are observed far more often than others. This imbalance distorts the corresponding unimodal repre-sentations, weakening their semantic consistency and com-promising cross-modal learning [34]. Here, we introduce 
+
+Feature Calibration Module ( FCM ) to align modality-specific features that are distorted by uneven exposure un-der IMR. Instead of imputing missing signals, it leverages global contextual cues aggregated from available modalities to recalibrate unimodal embeddings. 
+
+Feature aggregation under IMR. Following [16], we obtain modality-wise descriptors to represent the overall statistics of available features. Given the masked features 
+
+˜xmi and binary indicators emi from the masking operator 
+
+M(x; r), the unimodal global descriptor is computed by av-eraging available features: 
+
+xm 
+
+> glob
+
+=
+
+PNi=1 ˜xmi
+
+ε + PNi=1 emi
+
+, (7) where xm 
+
+> global
+
+∈ Rdm and ε is a smoothing hyper-parameter. 
+
+Cross-modal context extraction. The unimodal de-scriptors are concatenated and passed through a fully con-nected layer to capture shared cross-modal context: 
+
+xglobal = ReLU  Fglobal ([ xm1
+
+> glob
+
+, x m2
+
+> glob
+
+, ..., x mM 
+
+> glob
+
+]) , (8) where xglobal ∈ Rdglobal encodes the global information jointly derived from all available modalities {mj }. This representation is then projected to modality-specific calibra-tion weights through independent fully connected layers: 
+
+wm 
+
+> cal
+
+= Fm
+
+> cal
+
+(xglobal ), (9) where wm 
+
+> cal
+
+∈ Rdm represents the contextual calibration weight for modality m.
+
+Feature calibration. Each modality feature is adap-tively recalibrated through excitation-based calibration weights derived from global contextual information [12]. These weights highlight the importance of each modality and help correct representation bias under IMR. Formally, a gating operation with sigmoid activation is applied to rescale each unimodal feature: 
+
+ˆxmi = (1 + σ(wm
+
+> cal
+
+)) ⊙ ˜xmi , (10) where ˆxmi ∈ Rdm , ⊙ and σ(·) denote element-wise mul-tiplication and sigmoid function, respectively. Features of missing modalities remain as ⃗ 0.Although the recalibrated features ˆxmi differ in compo-sition, they preserve dimensionality and seamlessly inte-grated into any backbone. This shared calibration mitigates IMR-induced representation discrepancies and provides a consistent feature basis for downstream optimization. 
+
+3.3. Model-Agnostic Integration of Multimodal Emotion Recognition Backbone 
+
+For compatibility with existing Multimodal Emotion Recognition (MER) frameworks, we keep this stage un-changed. Each sample in MER corresponds to an utterance 
+
+ui with multimodal inputs ˜xi = {˜xai , ˜xvi , ˜xli} and an emo-tion label yi ∈ Y , where a, v, l denote acoustic, visual, lex-ical modalities, respectively. The model predicts ˆyi repre-senting the probability distribution over classes. Our plug-in modules work seamlessly with any backbone, treating missing modalities as ⃗ 0 during training and inference. 
+
+Unimodal encoding. Each modality feature ˆxmi from the Feature Calibration Module (FCM) is processed by a modality-specific encoder to obtain semantic embeddings: 
+
+zmi = ϕm(ˆ xmi ), (11) where zmi ∈ Rdemb denotes the embedding of modality m,and ϕm(·) represents its encoder 1.
+
+Multimodal fusion. The resulting unimodal embed-dings are then combined through a fusion network: 
+
+hi = F([ zai , z vi , z li]) , (12) where hi ∈ Rdh is the fused multimodal representation, and 
+
+F(·) denotes the fusion function 2.
+
+Prediction layer. The fused representation is mapped to the output space through a fully connected prediction head followed by a softmax layer: 
+
+ˆyi = δ(Fpred (hi)) , (13) where ˆyi ∈ R|Y| is the predicted class probability distribu-tion and δ(·) denotes the softmax operator. 
+
+Optimization objective. A task-specific loss ℓ(·), typi-cally Cross-Entropy or L1, is employed to measure the dis-crepancy between the predicted and ground-truth labels: 
+
+Ltask =
+
+> N
+
+X
+
+> i=1
+
+ℓ(ˆ yi, y i), (14) where N is the number of utterances in a mini-batch. This loss is used to optimize the parameters of the backbone via gradient-based updates: 
+
+θ(t+1) = θ(t) − α ∂Ltask 
+
+∂θ , (15) where θ denotes the model parameters, t is the current train-ing iteration, and α is the learning rate.    
+
+> 1In practice, ϕm(·)is typically implemented using an LSTM, GRU, or multilayer perceptron (MLP) depending on the modality type.
+> 2F(·)can take forms such as concatenation, attention, tensor fusion, or graph-based aggregation, depending on the backbone architecture.
+
+43.4. Optimization-level Rebalancing with Gradient Rebalancing Module 
+
+Generally, popular modalities drive most gradient updates, resulting in skewed convergence [8]. Here, we propose 
+
+Gradient Rebalancing Module (GRM) to balance learn-ing dynamics across modalities, in which each modality-specific component receives fair and consistent supervision under IMR. We use the latest unimodal embeddings as op-timization targets, while their encoders act as modality-specific components. 
+
+Unimodal Prediction Heads. To quantify optimization discrepancies among modalities, we introduce lightweight unimodal prediction heads that operate independently. Each head consists of two fully connected layers applied to the embeddings from Eq. 11. The first layer projects the em-bedding dimension to that of the multimodal representation in Eq. 12, followed by a ReLU activation as follows: 
+
+hmi = ReLU  Fm
+
+> map
+
+(zmi ), (16) where hmi ∈ Rdh . The second layer produces modality-specific predictions using the same formulation as Eq. 13: 
+
+ˆymi = δ Fm
+
+> pred
+
+(hmi ), (17) where ˆymi ∈ R|Y| and δ(·) denotes the softmax operator. We deliberately design these two-layer classifiers to ensure that the gradient matrices of all modality-specific prediction layers Fm 
+
+> pred
+
+share the same shape (dh × |Y| ) as the frame-work’s main prediction layer Fpred . Each unimodal head is optimized using the same loss function ℓ(·) as in Eq. 14, where the task-specific loss for modality m is: 
+
+Lm 
+
+> task
+
+=
+
+> N
+
+X
+
+> i=1
+
+ℓ(ˆ ymi , y i), θm 
+
+> (t+1)
+
+= θm 
+
+> (t)
+
+− α ∂Lm
+
+> task
+
+∂θ m . (18) where θm is updated via standard gradient descent. 
+
+Gradient Rebalancing Module ( GRM ). This module mit-igates the optimization bias introduced by imbalanced miss-ing modalities. It adjusts gradient updates of modality-specific encoders from two complementary perspectives: 
+
+distribution-driven and spatial-driven .
+
+Distribution-driven modulation. Since complete uni-modal distributions are unobservable under IMR, modality contributions become skewed as dominant modalities over-shadow weaker ones. We therefore approximate the multi-modal prediction distribution as a stable reference capturing intra- and inter-modal information. To measure the discrep-ancy between unimodal predictions and the multimodal ref-erence, we use the Kullback–Leibler (KL) divergence as: 
+
+Dm 
+
+> KL
+
+=
+
+> N
+
+X
+
+> i=1
+
+KL  ˆymi ∥ ˆyi
+
+, (19) where ˆyi and ˆymi denote the multimodal and unimodal pre-dicted class probability distribution from Eq. 13 and Eq. 17, respectively. A larger Dm 
+
+> KL
+
+indicates slower convergence of modality m toward the shared multimodal distribution. Absolute divergence values are insufficient for tracking learning dynamics, as dominant modalities stabilize quickly while others fluctuate. We thus compute the relative learn-ing progress of each modality from the change in diver-gence between consecutive iterations: 
+
+∆m 
+
+> KL
+
+=
+
+(
+
+Dm(t) 
+
+> KL
+
+, t = 0 ,
+
+Dm(t−1)  
+
+> KL
+
+− D m(t) 
+
+> KL
+
+, otherwise , (20) A larger ∆m 
+
+> KL
+
+indicates faster alignment with the multi-modal reference. Based on these progress signals, we define a modulation coefficient for each modality: 
+
+μm = ρ
+
+P  
+
+> m′∈{ a,v,l },m ′̸=m
+
+∆m′
+
+> KL
+
+P 
+
+> m′∈{ a,v,l }
+
+∆m′
+
+> KL
+
+, (21) where ρ is a saturation hyperparameter controlling the mod-ulation intensity. A smaller μm indicates that modality m
+
+is learning faster (larger ∆m
+
+> KL
+
+), and thus its gradient update should be attenuated; conversely, slower modalities receive stronger updates. Accordingly, the parameters of unimodal encoders are updated as: 
+
+θϕm 
+
+> (t+1)
+
+= θϕm 
+
+> (t)
+
+− α μ m ∂Ltask 
+
+∂θ ϕm
+
+> (t)
+
+, (22) where θϕm
+
+denotes the parameters of encoder ϕm.
+
+Spatial-driven modulation. Previous work [38, 45, 54] shows that multimodal optimization follows the dominant modality. This imbalance worsens under missing modali-ties, so we reorient gradients toward a balanced multimodal direction to stabilize training. Directly computing full uni-modal gradients is computationally expensive, and compar-ing them against the entire model’s gradients is often infea-sible. Following [8], we approximate the overall model and modality-specific gradients using those of the multimodal and unimodal prediction heads, respectively: 
+
+∇pred = ∇θFpred Ltask = ∂Ltask 
+
+∂θ Fpred , (23) 
+
+∇m 
+
+> pred
+
+= ∇θFm 
+
+> pred
+
+Lm 
+
+> task
+
+= ∂Lm
+
+> task
+
+∂θ Fm
+
+> pred
+
+, (24) where ∇pred represents the gradient of the main multimodal classifier and ∇m 
+
+> pred
+
+corresponds to the gradient of modality 
+
+m’s prediction head. We measure the spatial discrepancy between these gradients via cosine similarity: 
+
+Dm 
+
+> cos
+
+= cos sim 
+
+ ∇m
+
+> pred
+
+, ∇pred 
+
+, (25) A lower cosine similarity indicates that modality m is op-timized in a direction less aligned with the multimodal ob-jective. To avoid over-constraint, we adopt a soft spatial 5Table 1. Performance on IEMOCAP under different IMR configurations. 
+
+Model (0.3,0.5,0.7) (0.3,0.7,0.5) (0.5,0.3,0.7) (0.5,0.7,0.3) (0.7,0.3,0.5) (0.7,0.5,0.3) Acc. w-F1 Acc. w-F1 Acc. w-F1 Acc. w-F1 Acc. w-F1 Acc. w-F1 
+
+Group 1 (Models addressing missing or imbalanced modalities) 
+
+MMIN [56] 55.97 49.92 55.87 49.83 56.40 50.28 55.87 49.75 55.87 49.85 55.83 49.73 SDR-GNN [7] 59.46 59.34 54.16 53.59 58.53 58.42 56.56 56.77 55.14 55.22 55.45 55.17 Mi-CGA [28] 58.84 58.80 54.65 54.61 60.50 60.25 56.19 56.11 58.84 58.63 58.72 58.22 MoMKE [50] 55.39 54.19 50.83 49.70 60.18 59.94 50.77 50.15 58.26 58.45 54.78 54.92 GCNet [19] 58.04 58.36 56.81 56.83 61.61 62.06 56.81 56.99 59.64 59.78 59.09 59.19 Ada2I [27] 61.98 60.68 61.98 61.46 61.37 60.45 58.10 58.22 61.74 60.90 57.73 54.76 RedCore [34] 46.27 46.32 43.38 43.40 50.15 47.92 43.69 43.60 50.59 50.53 46.09 46.21 MCE [55] 46.52 45.54 44.36 43.48 50.65 49.22 42.64 41.70 50.34 49.45 44.73 44.40 
+
+GCNet +BALM 61.31 ±0.75 61.33 ±0.70 57.36 ±0.76 57.00 ±0.83 61.31 ±0.63 61.62 ±0.59 57.64 ±1.10 57.64 ±1.22 59.33 ±0.46 59.39 ±0.50 60.26 ±0.83 60.58 ±0.96                           
+
+> ∆(vs origin GCNet) +3.27 +2.97 +0.55 +0.17 -0.30 -0.44 +0.83 +0.65 -0.31 -0.39 +1.17 +1.39
+> ∆1(vs Grp1 mean) +6.00 +7.19 +4.61 +5.39 +4.21 +5.55 +5.06 +5.98 +3.03 +4.04 +6.21 +7.76
+
+Group 2 (Typical MER Models) 
+
+MMGCN [13] 63.59 63.62 59.09 58.99 64.63 64.95 57.79 57.99 64.14 64.27 60.63 60.85 
+
+MMGCN +BALM 64.39 ±0.88 63.82 ±0.89 60.07 ±0.70 60.04 ±0.65 65.37 ±0.61 65.03 ±0.63 62.29 ±0.75 62.35 ±0.70 65.00 ±1.54 64.98 ±1.77 61.74 ±0.96 61.20 ±0.82                           
+
+> ∆(vs origin MMGCN) +0.80 +0.20 +0.98 +1.05 +0.74 +0.08 +4.50 +4.36 +0.86 +0.71 +1.11 +0.35
+> ∆1(vs Group1 mean) +9.08 +9.68 +7.32 +8.43 +7.95 +8.96 +9.71 +10.69 +8.70 +9.63 +7.69 +8.38
+
+MMDFN [11] 63.34 63.00 60.38 60.01 67.34 67.40 57.92 56.25 66.48 66.67 63.65 64.00 
+
+MMDFN +BALM 67.34 ±0.84 66.64 ±0.94 63.40 ±0.45 63.11 ±0.47 68.76 ±0.22 68.25 ±0.18 64.02 ±1.11 63.76 ±1.05 67.22 ±1.03 67.02 ±1.06 65.50 ±0.47 64.98 ±0.64                           
+
+> ∆(vs origin MMDFN) +4.00 +3.64 +3.02 +3.10 +1.42 +0.85 +6.10 +7.51 +0.74 +0.35 +1.85 +0.98
+> ∆1(vs Group1 mean) +12.03 +12.50 +10.65 +11.50 +11.34 +12.18 +11.44 +12.10 +10.92 +11.67 +11.45 +12.16
+
+Note. (rA, r L, r V ) denotes the missing rates for Audio, Language, and Visual modalities. 
+
+∆ and ∆1 denote performance differences relative to the original backbone and mean of Group 1 models, respectively. 
+
+alignment strategy, which minimizes the weighted absolute deviation of cosine similarities: 
+
+Lmod = X
+
+m∈{ a,v,l }
+
+Dm
+
+cos × μm , (26) where μm are dynamic modulation coefficients from Eq. 21, adaptively weighting each modality’s contribution during spatial alignment under IMR. 
+
+Overall Objective. The overall training objective inte-grates the task loss and the modulation loss as: 
+
+L = Ltask + τ Lmod , (27) where τ is a trade-off hyperparameter. The modality-specific classifiers introduced in Sec. 3.4 are optimized independently using Lm
+
+task as auxiliary objec-tives and are therefore excluded from Eq. 27. The complete training procedure is summarized in Suppl. A. 
+
+4. Experiments 
+
+4.1. Experimental Settings 
+
+Datasets and Evaluation Metrics. We conduct exper-iments on two multimodal emotion recognition datasets: 
+
+IEMOCAP [3] ( 6-way ) and CMU-MOSEI [52], each con-taining audio (A), visual (V), and lexical (L) modalities. We adopt Accuracy ( Acc. ) and Weighted F1-score ( w-F1 ) as evaluation metrics to assess model performance. 
+
+Baselines. We evaluate BALM with two main groups of baselines: (1) Models addressing missing or imbal-anced modalities , including MMIN [56], SDR-GNN [7], 
+
+Mi-CGA [28], MoMKE [50], and GCNet [19] for missing-modality learning; Ada2I [27] for modality imbalance; Red-Core [34] and MCE [55] which jointly handles both as-pects; and (2) Typical MER backbones , MMGCN [13] and MMDFN [11], representing standard multimodal archi-tectures. All models are trained from scratch, with miss-ing modalities simulated under shared ( SMR ) or imbalanced (IMR ) rates defined in Sec. 3.1. Our plug-in ( +BALM ) is integrated without altering backbone architectures and supports both early- and late-fusion setups. This setup enables evaluating BALM across incomplete, imbalanced, and standard MER backbones. Further dataset statistics, baseline descriptions, and imple-mentation details are provided in the Suppl. E. 
+
+4.2. Main Results 
+
+Performance Comparison. Tables 1 and 2 present re-sults under different IMR settings with (rA, r L, r V ) ∈{0.3, 0.5, 0.7}, where integrating BALM consistently im-proves all metrics across all backbones. As shown in Table 1, integrating BALM consistently boosts both missing-modality and emotion-recognition baselines. For example, GCNet +BALM yields a gain of up to 
+
++3 .27 % Acc over the original GCNet on the (0 .3, 0.5, 0.7) 
+
+setting. It consistently outperforms other missing-modality baselines. Under the (0 .7, 0.5, 0.3) configuration, it im-proves w-F1 by roughly +7 .0% compared with the Group 1 
+
+mean. These results confirm its effectiveness in reduc-ing bias caused by uneven modality availability. Com-pared with recent IMR-oriented works of Group 1 , which explicitly model missing patterns, stronger fusion back-bones integrated with BALM, notably MMDFN +BALM and 6Table 2. Performance on CMU-MOSEI under different IMR configurations. 
+
+Model (0 .3, 0.5, 0.7) (0 .3, 0.7, 0.5) (0 .5, 0.3, 0.7) (0 .5, 0.7, 0.3) (0 .7, 0.3, 0.5) (0.7,0.5,0.3) Acc. w-F1 Acc. w-F1 Acc. w-F1 Acc. w-F1 Acc. w-F1 Acc. w-F1 
+
+Group 1 (Models addressing missing or imbalanced modalities) 
+
+MMIN [56] 75.87 75.52 71.93 71.60 79.72 79.69 71.46 71.30 78.92 78.45 75.65 75.81 SDR-GNN [7] 80.13 80.14 77.38 77.38 83.35 83.03 76.69 76.75 83.54 83.44 81.67 81.21 Mi-CGA [28] 81.04 80.97 77.38 77.11 82.55 82.37 76.42 76.45 82.86 82.64 80.65 80.33 MoMKE [50] 78.43 78.39 74.16 74.19 82.17 81.86 74.38 73.93 82.11 81.79 77.27 76.77 GCNet [19] 81.43 81.07 78.23 78.14 82.64 82.78 78.34 78.51 83.76 83.57 81.45 81.24 Ada2I [27] 82.42 82.28 78.07 77.53 83.82 83.57 77.68 76.97 83.38 83.49 81.87 81.61 RedCore [34] 74.88 72.89 70.51 64.25 75.05 72.82 75.01 72.79 74.37 72.71 74.94 73.59 
+
+GCNet +BALM 81.54 ±0.58 81.40 ±0.59 78.51 ±0.61 78.33 ±0.49 83.27 ±0.26 83.24 ±0.33 79.50 ±0.99 79.22 ±0.84 83.63 ±0.35 83.57 ±0.48 82.09 ±0.75 81.84 ±0.72                           
+
+> ∆(vs origin GCNet) +0.11 +0.33 +0.28 +0.19 +0.63 +0.46 +1.16 +0.71 -0.13 +0.00 +0.64 +0.60
+> ∆1(vs Group1 mean) +2.37 +2.65 +3.13 +4.02 +1.94 +2.37 +3.79 +3.98 +2.35 +2.70 +3.02 +3.19
+
+Group 2 (Typical MER Models) 
+
+MMGCN [13] 80.82 80.20 78.32 77.35 84.76 84.60 78.12 78.17 84.04 84.04 81.54 81.62 
+
+MMGCN +BALM 82.03 ±0.31 81.74 ±0.28 78.73 ±0.27 78.33 ±0.31 84.54 ±0.32 84.34 ±0.29 79.83 ±0.49 79.44 ±0.37 84.84 ±0.29 84.70 ±0.32 82.50 ±0.49 82.36 ±0.54                           
+
+> ∆(vs origin MMGCN) +1.21 +1.54 +0.41 +0.98 -0.22 -0.26 +1.71 +1.27 +0.80 +0.66 +0.96 +0.74
+> ∆1(vs Group1 mean) +2.86 +2.99 +3.35 +4.02 +3.21 +3.47 +4.12 +4.20 +3.56 +3.83 +3.43 +3.71
+
+MMDFN [11] 82.17 81.76 78.37 78.14 84.18 83.92 78.87 79.03 84.37 84.30 81.89 81.69 
+
+MMDFN +BALM 82.06 ±0.43 81.73 ±0.45 78.81 ±0.58 78.50 ±0.63 84.34 ±0.44 84.14 ±0.39 79.36 ±0.39 79.19 ±0.39 84.78 ±0.21 84.68 ±0.26 82.53 ±0.35 82.29 ±0.28                           
+
+> ∆(vs origin MMDFN) -0.11 -0.03 +0.44 +0.36 +0.16 +0.22 +0.49 +0.16 +0.41 +0.38 +0.64 +0.60
+> ∆1(vs Group1 mean) +2.89 +2.98 +3.43 +4.19 +2.63 +3.03 +3.65 +3.95 +3.50 +3.81 +3.46 +3.64
+
+Note. (rA, r L, r V ) denotes the missing rates for Audio, Language, and Visual modalities. 
+
+∆ and ∆1 denote performance differences relative to the original model and the mean of Group 1 models, respectively. 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 
+
+55 
+
+60 
+
+65 
+
+(a) IEMOCAP 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 
+
+78 
+
+80 
+
+82 
+
+84 
+
+86 
+
+(b) CMU-MOSEI 
+
+MMGCN +BALM GCNet SDR-GNN Mi-CGA 
+
+Figure 4. Average accuracy under different SMR settings 
+
+MMGCN +BALM , achieve even higher performance across different missing scenarios. In addition, BALM ele-vates both MER models in all missing configurations (up to 7.51% w-F1 gap over the original backbone of MMDFN +BALM ), and raises their performance lower-bound to above 60% for both Acc and w-F1. These results suggest that rebalancing, representation- and optimization-wise, provides complementary benefits for high-capacity fusion architectures. Ada2I, which addresses imbalance learn-ing for MER, performs better than conventional missing-modality models but still degrades under IMR, showing that gradient balancing alone is insufficient when missingness occurs. Likewise, on CMU-MOSEI (Table 2), BALM consis-tently improves performance across IMR settings with smaller but steady gains, reflecting the dataset’s lower modality noise and weaker sensitivity to missing-rate vari-ations. Persistent with the observation in the previous dataset, high language-missing rates in CMU-MOSEI lead to higher performance degradation, and in return, such con-figurations highlight the effectiveness of BALM in elevat-ing backbones’ performance. Specifically, MMGCN +BALM 
+
+achieves a +1 .71% Acc gain over the original MMGCN, widen the gap with Group 1 mean to +4 .12% Acc under 
+
+(0 .5, 0.7, 0.3) setting, a similar boost can also be found on GCNet +BALM under the same setting. For both dataset, moderate to high loss of visual (e.g., 
+
+(0 .7, 0.3, 0.5) , (0 .5, 0.3, 0.7) ) usually leads to lower degra-dation comparing to other modalities. Whereas, high miss-ing rates in language (e.g., (0 .3, 0.7, 0.5) ) lead to profound performance drops, confirming that lexical information is the most discriminative yet vulnerable modality. When audio missingness is also high alongside language (e.g., 
+
+(0 .5, 0.7, 0.3) ), the degradation becomes more pronounced, underscoring the critical role of robust auditory cues. These divergent behaviors when modalities take turn suffering low/high missing rate, along with the consistent gains of the backbones after integrating with BALM, further validate the need to address modalities’ discrepancy stem from IMR. 
+
+Evaluating Robustness under SMR Settings. To ensure a fair cross-evaluation, we adopt the same settings and model configurations as in the IMR experiments, while uni-formly applying identical missing rates to all modalities (SMR). As shown in Fig. 4, integrating BALM consistently outperforms all baselines under SMR settings, 3 indicating that our approach not only handles the challenging IMR scenario but also maintains superior robustness and gener-alization under balanced missing conditions. 
+
+> 3
+
+Each result is averaged over five independent runs with different ran-dom seeds for each shared missing rate. 
+
+7Table 3. Average performance on different modality combinations.                                    
+
+> Setting MMGCN +FCM
+> Acc w-F1 Acc w-F1
+> IEMOCAP 48.09 44.81 50.99 (↑2.90) 47.62 (↑2.81)
+> CMU-MOSEI 75.23 69.17 75.97 (↑0.74) 70.09 (↑0.92) 0200 400
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> Accuracy
+> Origin
+> 0200 400
+> + FCM
+> 0200 400
+> + FCM+GRM
+> 0200 400
+> 0.02
+> 0.01
+> 0.00
+> 0.01
+> 0.02
+> Cosine Similarity
+> 0200 400 0200 400
+> 0200 400
+> 0.5
+> 1.0
+> KL Divergence
+> 0200 400 0200 400
+> AVL
+
+Figure 5. Modality discrepancies on IEMOCAP with MMGCN. 
+
+4.3. Ablation Study 
+
+Effect of Rebalancing Modules. Table 3 summarizes the average performance over modality combinations under the IMR setting (rA, r L, r V ) = (0 .5, 0.7, 0.3) . FCM consis-tently improves results on both datasets, boosting w-F1 by 
+
++2 .81% on IEMOCAP and +0 .92% on MOSEI. As illustrated in Fig. 5, FCM effectively enhances feature-level consistency by reducing representation dis-crepancies among modalities; however, it does not fully resolve the imbalance in gradient magnitudes across branches. Building on this, GRM further rebalances the gradient flow. In particular, the lexical branch tends to dominate optimization, resulting in large cross-modal di-vergence. With GRM , the inter-modal cosine similarity in-creases and the KL divergence stabilizes, indicating that gradient rebalancing harmonizes multimodal optimization and alleviates dominance from high-availability modalities. 
+
+Modality Combination. Fig. 6 shows that BALM con-sistently improves both GCNet and MMGCN across most modality combinations on IEMOCAP, with the largest gains on audio and lexical branches (up to +5 .3% w-F1). Slight drops in settings where only the visual modality is available stem partly from the low quality of visual cues in IEMO-CAP and partly from the fusion architecture of each base-line. Fusion-based methods like MMGCN were originally developed for MER and use modality-specific encoders and A V L AV AL LV ALV        
+
+> 4
+> 2
+> 0
+> 2
+> 4
+> +1.7
+> +3.6
+> -1.3
+> -3.7
+> +0.3
+> +5.1
+> +3.9
+> +2.6
+> +0.9
+> +4.4
+> +1.1
+> +3.8
+> +0.5
+> +3.8
+> (a) Acc.
+> AVLAV AL LV ALV
+> 4
+> 2
+> 0
+> 2
+> 4+2.9
+> +5.3
+> -1.9
+> -4.1
+> +0.2
+> +5.2
+> +3.6 +3.7
+> +0.8
+> +3.6
+> +1.3
+> +3.9
+> +0.9
+> +3.4
+> (b) W-F1
+> GCNet +BALM
+> MMGCN +BALM
+
+Figure 6. Improvement of GCNet +BALM and MMGCN +BALM 
+
+comparing to GCNet on IEMOCAP 1.0 1.2 1.4 1.6 1.8 
+
+> 0.0
+> 0.6
+> 1.2
+> 60
+> 62
+> 64
+> 66
+
+(a) Config-A : (0 .5, 0.3, 0.7) 1.0 1.2 1.4 1.6 1.8  
+
+> 0.0
+> 0.6
+> 1.2
+> 56
+> 58
+> 60
+> 62
+
+(b) Config-B : (0 .5, 0.7, 0.3) 
+
+Figure 7. Weighted-F1 sensitivity to hyperparameters under two missing-rate configurations of audio, language and visual. 
+
+fusion mechanisms, which makes them more sensitive to variations in modality quality. As a result, they experi-ence larger performance drops. In contrast, GCNet incorpo-rates mechanisms to handle missing modalities and is more alignment-aware, enabling it to capture modality-specific cues and suffer less degradation under the same conditions. 
+
+Hyperparameter Sensitivity under Contrasting Miss-ing Rates. Fig. 7 compares w-F1 of MMGCN +BALM un-der two contrasting missing-rate settings on IEMOCAP: 
+
+Config–A: (0 .5, 0.3, 0.7) and Config–B: (0 .5, 0.7, 0.3) . In 
+
+Config–A , where the least missing-sensitive modality, i.e. visual, is highly missing, w-F1 is stable around 63 − 64% 
+
+despite the change in τ, ρ . Conversely, in Config–B , where the more vulnerable modality, i.e. lexical, suffers high-est missing rate, the imbalance-aware regularization yields more distinct effectiveness, as higher performance can be achieved with proper selection of ρ or τ . These results un-derscore the importance of adaptive regulation for imbal-anced missing-modality scenarios. 
+
+Severe Missing Rate Evaluation. Table 4 presents the robustness evaluation under extreme missing-modality con-ditions. As audio and language are informative modali-ties in MER, their absence typically leads to notable degra-dation. Nevertheless, BALM consistently stabilizes per-formance across settings. For instance, when 90% of the language modality is missing, MMGCN +BALM achieves a 8Table 4. Performance of MMGCN with BALM under severe missing-modality settings, where the arrows indicate the relative change compared to the mean performance of the two baselines.                                                                                            
+
+> (rA, r L, r V)Model IEMOCAP CMU-MOSEI
+> Acc w-F1 Acc w-F1
+> (0 .1,0.1,0.9)
+> GCNet 63.71 63.43 84.62 84.64 MMGCN 68.02 67.69 85.91 85.52 MMGCN +BALM 65.87 ↑0.01 65.57 ↑0.01 85.91 ↑0.64 85.70 ↑0.62
+> (0 .1,0.9,0.1)
+> GCNet 55.14 55.09 72.15 71.69 MMGCN 52.74 52.69 71.55 71.70 MMGCN +BALM 58.72 ↑4.78 58.11 ↑4.22 72.62 ↑0.77 72.15 ↑0.46
+> (0 .9,0.1,0.1)
+> GCNet 59.40 58.83 86.24 86.10 MMGCN 64.82 64.93 86.43 86.42 MMGCN +BALM 66.24 ↑4.13 66.27 ↑4.39 86.35 ↑0.01 86.38 ↑0.12
+> (0 .6,0.6,0.9)
+> GCNet 56.93 56.54 81.81 81.86 MMGCN 60.63 60.75 81.32 81.16 MMGCN +BALM 61.74 ↑2.96 61.92 ↑3.28 81.65 ↑0.09 81.62 ↑0.11
+> (0 .6,0.9,0.6)
+> GCNet 54.84 54.85 76.00 76.02 MMGCN 55.64 55.61 76.36 75.97 MMGCN +BALM 57.30 ↑2.06 57.48 ↑2.25 76.55 ↑0.37 75.30 ↓0.70
+> (0 .9,0.6,0.6)
+> GCNet 57.98 58.16 81.45 81.06 MMGCN 59.95 59.89 81.59 81.50 MMGCN +BALM 61.68 ↑2.72 61.63 ↑2.61 82.00 ↑0.48 81.55 ↑0.27
+
++4 .78% accuracy gain on IEMOCAP compared to the mean of baselines (eg. GCNet, MMGCN). Under heavy audio missing (0 .9, 0.6, 0.6) , it still improves by +2 .72% 
+
+on accuracy. Although a few settings exhibit minor perfor-mance drops, the overall trend indicates BALM effectively mitigates imbalance effects and maintains robustness even when informative modalities are severely incomplete. 
+
+5. Conclusion 
+
+This paper presents BALM, a lightweight and model-agnostic framework for multimodal learning under imbal-anced missing conditions. By combining the Feature Cal-ibration Module ( FCM ) and Gradient Rebalancing Module (GRM ), BALM effectively mitigates both representation and optimization imbalance. Extensive experiments on multi-ple MER backbones demonstrate that BALM consistently improves performance across standard, incomplete, and imbalanced-modality settings. The results highlight its ro-bustness to heterogeneous missing patterns and its ability to maintain stable optimization even when modality availabil-ity varies significantly. Future work will explore broader multimodal tasks and large-scale pretrained backbones. 
+
+References 
+
+[1] Galen Andrew, Raman Arora, Jeff Bilmes, and Karen Livescu. Deep canonical correlation analysis. In 
+
+International conference on machine learning , pages 1247–1255. PMLR, 2013. 2 [2] Tadas Baltruˇ saitis, Chaitanya Ahuja, and Louis-Philippe Morency. Multimodal machine learning: A survey and taxonomy. IEEE transactions on pat-tern analysis and machine intelligence , 41(2):423– 443, 2018. 1 [3] Carlos Busso, Murtaza Bulut, Chi-Chun Lee, Abe Kazemzadeh, Emily Mower, Samuel Kim, Jean-nette N Chang, Sungbok Lee, and Shrikanth SNarayanan. Iemocap: Interactive emotional dyadic motion capture database. Language resources and evaluation , 42:335–359, 2008. 6, 2 [4] Ruiting Dai, Chenxi Li, Yandong Yan, Lisi Mo, Ke Qin, and Tao He. Unbiased missing-modality mul-timodal learning. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 24507–24517, 2025. 2 [5] Ruiting Dai, Wenwei Zhu, Zheyu Wang, Haoran Meng, Zhengdao Yuan, Yandong Yan, and Lisi Mo. γ-crd: Gamma-cooperative retrieval diffusion model for robust incomplete multimodal learning. In Proceed-ings of the 2025 International Conference on Multi-media Retrieval , pages 173–182, 2025. 2 [6] Florian Eyben, Felix Weninger, Florian Gross, and Bj¨ orn Schuller. Recent developments in opensmile, the munich open-source multimedia feature extractor. In Proceedings of the 21st ACM international confer-ence on Multimedia , pages 835–838, 2013. 2 [7] Fangze Fu, Wei Ai, Fan Yang, Yuntao Shou, Tao Meng, and Keqin Li. Sdr-gnn: Spectral domain recon-struction graph neural network for incomplete multi-modal learning in conversational emotion recognition. 
+
+Knowledge-Based Systems , page 112825, 2024. 2, 6, 7, 3 [8] Zirun Guo, Tao Jin, Jingyuan Chen, and Zhou Zhao. Classifier-guided gradient modulation for enhanced multimodal learning. Advances in Neural Information Processing Systems , 37:133328–133344, 2024. 2, 5 [9] Pengcheng He, Xiaodong Liu, Jianfeng Gao, and Weizhu Chen. Deberta: Decoding-enhanced bert with disentangled attention. arXiv preprint arXiv:2006.03654 , 2020. 3 [10] Harold Hotelling. Relations between two sets of vari-ates. In Breakthroughs in statistics: methodology and distribution , pages 162–190. Springer, 1992. 2 [11] Dou Hu, Xiaolong Hou, Lingwei Wei, Lianxin Jiang, and Yang Mo. Mm-dfn: Multimodal dynamic fusion network for emotion recognition in conversations. In 
+
+ICASSP 2022-2022 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) ,pages 7037–7041. IEEE, 2022. 6, 7, 2, 3 [12] Jie Hu, Li Shen, and Gang Sun. Squeeze-and-excitation networks. In Proceedings of the IEEE con-ference on computer vision and pattern recognition ,pages 7132–7141, 2018. 4 [13] Jingwen Hu, Yuchen Liu, Jinming Zhao, and Qin Jin. MMGCN: Multimodal fusion via deep graph convo-lution network for emotion recognition in conversa-tion. In Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 
+
+911th International Joint Conference on Natural Lan-guage Processing (Volume 1: Long Papers) , pages 5666–5675, Online, 2021. Association for Computa-tional Linguistics. 6, 7, 2, 3 [14] Cong Hua, Qianqian Xu, Shilong Bao, Zhiyong Yang, and Qingming Huang. Reconboost: boosting can achieve modality reconcilement. In Proceedings of the 41st International Conference on Machine Learning ,pages 19573–19597, 2024. 2 [15] Gao Huang, Zhuang Liu, Laurens Van Der Maaten, and Kilian Q Weinberger. Densely connected convo-lutional networks. In Proceedings of the IEEE con-ference on computer vision and pattern recognition ,pages 4700–4708, 2017. 2 [16] Yewon Hwang and Jong-Hwan Kim. Self-supervised unimodal label generation strategy using recalibrated modality representations for multimodal sentiment analysis. In Findings of the Association for Compu-tational Linguistics: EACL 2023 , pages 35–46, 2023. 4[17] Hong Li, Xingyu Li, Pengbo Hu, Yinuo Lei, Chunx-iao Li, and Yi Zhou. Boosting multi-modal model per-formance with adaptive gradient modulation. In Pro-ceedings of the IEEE/CVF International Conference on Computer Vision , pages 22214–22224, 2023. 2 [18] Mingcheng Li, Dingkang Yang, Xiao Zhao, Shuaib-ing Wang, Yan Wang, Kun Yang, Mingyang Sun, Dongliang Kou, Ziyun Qian, and Lihua Zhang. Correlation-decoupled knowledge distillation for mul-timodal sentiment analysis with incomplete modali-ties. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 12458–12468, 2024. 2 [19] Zheng Lian, Lan Chen, Licai Sun, Bin Liu, and Jian-hua Tao. Gcnet: Graph completion network for in-complete multimodal learning in conversation. IEEE Transactions on Pattern Analysis and Machine Intelli-gence , 2023. 1, 2, 6, 7, 3 [20] Paul Pu Liang, Amir Zadeh, and Louis-Philippe Morency. Foundations & trends in multimodal ma-chine learning: Principles, challenges, and open ques-tions. ACM Computing Surveys , 56(10):1–42, 2024. 1[21] Ronghao Lin, Qiaolin He, Sijie Mai, Ying Zeng, Aolin Xiong, Li Huang, Yap-Peng Tan, and Haifeng Hu. Cyin: Cyclic informative latent space for bridging complete and incomplete multimodal learning. In The Thirty-ninth Annual Conference on Neural Informa-tion Processing Systems , 2025. 1 [22] Rui Liu, Haolin Zuo, Zheng Lian, Bj¨ orn W Schuller, and Haizhou Li. Contrastive learning based modality-invariant feature acquisition for robust multimodal emotion recognition with missing modalities. IEEE Transactions on Affective Computing , 15(4):1856– 1873, 2024. 1, 2 [23] Yinhan Liu, Myle Ott, Naman Goyal, Jingfei Du, Mandar Joshi, Danqi Chen, Omer Levy, Mike Lewis, Luke Zettlemoyer, and Veselin Stoyanov. Roberta: A robustly optimized bert pretraining approach. arXiv preprint arXiv:1907.11692 , 2019. 2 [24] Huan Ma, Qingyang Zhang, Changqing Zhang, Bingzhe Wu, Huazhu Fu, Joey Tianyi Zhou, and Qinghua Hu. Calibrating multimodal learning. In In-ternational Conference on Machine Learning , pages 23429–23450. PMLR, 2023. 2 [25] Hui Ma, Jian Wang, Hongfei Lin, Bo Zhang, Yijia Zhang, and Bo Xu. A transformer-based model with self-distillation for multimodal emotion recognition in conversations. IEEE Transactions on Multimedia , 26: 776–788, 2024. 2 [26] Mengmeng Ma, Jian Ren, Long Zhao, Sergey Tulyakov, Cathy Wu, and Xi Peng. Smil: Multimodal learning with severely missing modality. In Proceed-ings of the AAAI Conference on Artificial Intelligence ,pages 2302–2310, 2021. 1, 2 [27] Cam-Van Thi Nguyen, The-Son Le, Anh-Tuan Mai, and Duc-Trong Le. Ada2i: Enhancing modality bal-ance for multimodal conversational emotion recogni-tion. In Proceedings of the 32nd ACM International Conference on Multimedia , pages 9330–9339, 2024. 2, 6, 7, 3 [28] Cam-Van Thi Nguyen, Hai-Dang Kieu, Quang-Thuy Ha, Xuan-Hieu Phan, and Duc-Trong Le. Mi-cga: Cross-modal graph attention network for robust emo-tion recognition in the presence of incomplete modal-ities. Neurocomputing , 623:129342, 2025. 1, 2, 6, 7, 3[29] Xiaokang Peng, Yake Wei, Andong Deng, Dong Wang, and Di Hu. Balanced multimodal learning via on-the-fly gradient modulation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 8238–8247, 2022. 2 [30] Hai Pham, Paul Pu Liang, Thomas Manzini, Louis-Philippe Morency, and Barnab´ as P´ oczos. Found in translation: Learning robust joint representations by cyclic translations between modalities. In Proceed-ings of the AAAI Conference on Artificial Intelligence ,pages 6892–6899, 2019. 1, 2 [31] Soujanya Poria, Erik Cambria, Rajiv Bajpai, and Amir Hussain. A review of affective computing: From uni-modal analysis to multimodal fusion. Information fu-sion , 37:98–125, 2017. 1 [32] Steffen Schneider, Alexei Baevski, Ronan Collobert, and Michael Auli. wav2vec: Unsupervised pre-training for speech recognition. arXiv preprint arXiv:1904.05862 , 2019. 2 10 [33] Junjie Shi, Caozhi Shang, Zhaobin Sun, Li Yu, Xin Yang, and Zengqiang Yan. Passion: Towards effective incomplete multi-modal medical image segmentation with imbalanced missing rates. In Proceedings of the 32nd ACM International Conference on Multimedia ,pages 456–465, 2024. 2 [34] Jun Sun, Xinxin Zhang, Shoukang Han, Yu-Ping Ruan, and Taihao Li. Redcore: Relative advantage aware cross-modal representation learning for missing modalities with imbalanced missing rates. In Proceed-ings of the AAAI Conference on Artificial Intelligence ,pages 15173–15182, 2024. 2, 4, 6, 7, 3 [35] Luan Tran, Xiaoming Liu, Jiayu Zhou, and Rong Jin. Missing modalities imputation via cascaded residual autoencoder. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 1405–1414, 2017. 2 [36] Yao-Hung Hubert Tsai, Shaojie Bai, Paul Pu Liang, J Zico Kolter, Louis-Philippe Morency, and Ruslan Salakhutdinov. Multimodal transformer for unaligned multimodal language sequences. In Proceedings of the conference. Association for computational linguistics. Meeting , page 6558, 2019. 2 [37] Weiran Wang, Raman Arora, Karen Livescu, and Jeff Bilmes. On deep multi-view representation learn-ing. In International conference on machine learning ,pages 1083–1092. PMLR, 2015. 2 [38] Weiyao Wang, Du Tran, and Matt Feiszli. What makes training multi-modal classification networks hard? In 
+
+Proceedings of the IEEE/CVF conference on com-puter vision and pattern recognition , pages 12695– 12705, 2020. 1, 2, 5 [39] Yuanzhi Wang, Zhen Cui, and Yong Li. Distribution-consistent modal recovering for incomplete multi-modal learning. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 22025–22034, 2023. 2 [40] Yuanzhi Wang, Yong Li, and Zhen Cui. Incom-plete multimodality-diffused emotion recognition. Ad-vances in Neural Information Processing Systems , 36: 17117–17128, 2023. 1 [41] Yuanzhi Wang, Yong Li, and Zhen Cui. Incom-plete multimodality-diffused emotion recognition. Ad-vances in Neural Information Processing Systems , 36, 2024. 2 [42] Yake Wei and Di Hu. Mmpareto: Boosting multi-modal learning with innocent unimodal assistance. In 
+
+International Conference on Machine Learning , pages 52559–52572. PMLR, 2024. 2 [43] Yake Wei, Ruoxuan Feng, Zihe Wang, and Di Hu. Enhancing multimodal cooperation via sample-level modality valuation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recogni-tion , pages 27338–27347, 2024. 2 [44] Yake Wei, Siwei Li, Ruoxuan Feng, and Di Hu. Diag-nosing and re-learning for balanced multimodal learn-ing. In European Conference on Computer Vision ,pages 71–86. Springer, 2024. 2 [45] Nan Wu, Stanislaw Jastrzebski, Kyunghyun Cho, and Krzysztof J Geras. Characterizing and overcoming the greedy nature of learning in multi-modal deep neural networks. In International Conference on Machine Learning , pages 24043–24055. PMLR, 2022. 1, 2, 5 [46] Renjie Wu, Hu Wang, Hsiang-Ting Chen, and Gus-tavo Carneiro. Deep multimodal learning with missing modality: A survey. arXiv preprint arXiv:2409.07825 ,2024. 1 [47] Peng Xu, Xiatian Zhu, and David A Clifton. Mul-timodal learning with transformers: A survey. IEEE Transactions on Pattern Analysis and Machine Intelli-gence , 45(10):12113–12132, 2023. 1 [48] Ruize Xu, Ruoxuan Feng, Shi-Xiong Zhang, and Di Hu. Mmcosine: Multi-modal cosine loss towards bal-anced audio-visual fine-grained learning. In ICASSP 2023-2023 IEEE International Conference on Acous-tics, Speech and Signal Processing (ICASSP) , pages 1–5. IEEE, 2023. 2 [49] Shaoxuan Xu, Menglu Cui, Chengxiang Huang, Hongfa Wang, and Di Hu. Balancebenchmark: A sur-vey for multimodal imbalance learning. arXiv preprint arXiv:2502.10816 , 2025. 1 [50] Wenxin Xu, Hexin Jiang, et al. Leveraging knowledge of modality experts for incomplete multimodal learn-ing. In ACM Multimedia 2024 , 2024. 1, 2, 6, 7, 3 [51] Ziqi Yuan, Yihe Liu, Hua Xu, and Kai Gao. Noise imi-tation based adversarial training for robust multimodal sentiment analysis. IEEE Transactions on Multimedia ,26:529–539, 2023. 2 [52] AmirAli Bagher Zadeh, Paul Pu Liang, Soujanya Po-ria, Erik Cambria, and Louis-Philippe Morency. Mul-timodal language analysis in the wild: Cmu-mosei dataset and interpretable dynamic fusion graph. In 
+
+Proceedings of the 56th Annual Meeting of the Associ-ation for Computational Linguistics (Volume 1: Long Papers) , pages 2236–2246, 2018. 6, 2 [53] Kaipeng Zhang, Zhanpeng Zhang, Zhifeng Li, and Yu Qiao. Joint face detection and alignment using mul-titask cascaded convolutional networks. IEEE signal processing letters , 23(10):1499–1503, 2016. 3 [54] Qingyang Zhang, Yake Wei, Zongbo Han, Huazhu Fu, Xi Peng, Cheng Deng, Qinghua Hu, Cai Xu, Jie Wen, Di Hu, et al. Multimodal fusion on low-quality data: A comprehensive survey. arXiv preprint arXiv:2404.18947 , 2024. 1, 2, 5 11 [55] Binyu Zhao, Wei Zhang, and Zhaonian Zou. Mce: Towards a general framework for handling missing modalities under imbalanced missing rates. Pattern Recognition , page 112591, 2025. 2, 6, 3 [56] Jinming Zhao, Ruichen Li, and Qin Jin. Missing modality imagination network for emotion recogni-tion with uncertain missing modalities. In Proceed-ings of the 59th Annual Meeting of the Association for Computational Linguistics , pages 2608–2618, 2021. 1, 2, 6, 7, 3 [57] Zengqun Zhao, Qingshan Liu, and Shanmin Wang. Learning deep global multi-scale and local attention features for facial expression recognition in the wild. 
+
+IEEE Transactions on Image Processing , 30:6544– 6556, 2021. 3 12 BALM: A Model-Agnostic Framework for Balanced Multimodal Learning under Imbalanced Missing Rates 
+
+# Supplementary Material 
+
+A. Training procedure of BALM 
+
+The overall training procedure of BALM, including both the feature calibration and gradient rebalancing stages, is sum-marized in Algorithm 1. 
+
+Algorithm 1 Training procedure of the proposed plug-in framework BALM 
+
+Require: Multimodal dataset D; model (ϕm, F, Fpred );missing rates r = ( ra, r v , r l); total epochs E; hyper-parameters τ, ρ, α . 
+
+> 1:
+
+Initialize modulation loss Lmod ← 0 and iteration t ← 0 
+
+> 2:
+
+Generate missing mask e ∼ M (x; r) 
+
+> 3:
+
+Generate incomplete dataset ˜D ← { (˜ xi, y i)} 
+
+> 4:
+
+for epoch = 1 to E do  
+
+> 5:
+
+for each (˜ xi, y i) ∈ ˜D do  
+
+> 6:
+
+Calibrate unimodal features: ˆxmi ← FCM (˜ xi) 
+
+> 7:
+
+Encode modalities: zmi ← Eq. 11  
+
+> 8:
+
+Fuse embeddings: hi ← Eq. 12  
+
+> 9:
+
+Compute multimodal prediction: ˆyi ← Eq. 13  
+
+> 10:
+
+Compute task loss: Ltask ← Eq. 14  
+
+> 11:
+
+Aggregate total loss: L ← L task + τ Lmod  
+
+> 12:
+
+Update parameters: θ ← θ − α∇θ L 
+
+> 13:
+
+Compute unimodal predictions: ˆymi ← Eq. 17  
+
+> 14:
+
+Compute unimodal loss: Lm 
+
+> task
+
+← Eq. 18  
+
+> 15:
+
+Estimate coefficients: μm ← Eq. 21  
+
+> 16:
+
+Modulate encoder gradients: θϕm
+
+← Eq. 22  
+
+> 17:
+
+Update spatial modulation loss: Lmod ← Eq. 26  
+
+> 18:
+
+t ← t + 1  
+
+> 19:
+
+end for  
+
+> 20:
+
+end for 
+
+B. Theoretical Analysis 
+
+B.1. Gradient Imbalance under IMR 
+
+This section provides a formal justification for Eq. 6 in the main paper, showing how the imbalance in gradient mag-nitudes arises under the Imbalanced Missing Rate (IMR) condition. 
+
+Assumption 1 (Independent Missingness). Each modal-ity m is independently missing according to a Bernoulli variable emi ∈ { 0, 1} with P (emi = 1) = (1 − rm) and 
+
+P (emi = 0) = rm,, where rm ∈ [0 , 1) denotes the miss-ing probability of modality m. The missingness indicators 
+
+{emi } are assumed independent of the target label Y (i.e., Missing Completely At Random-MCAR). 
+
+Lemma 1 (Expected Gradient Scaling under IMR). Un-der above Assumption, for a differentiable per-sample loss 
+
+ℓm = ℓ(fm(Xm), Y ) with finite variance, the expected gra-dient of modality m with respect to its parameters θm satis-fies: 
+
+E[∇θm LIMR ] = (1 − rm) E[∇θm ℓ(fm(Xm), Y )] . (28) 
+
+Proof. Let LIMR denote the expected loss under the IMR distribution: 
+
+LIMR = EX,Y,e 
+
+" MX
+
+> m=1
+
+em ℓ(fm(Xm; θm), Y )
+
+#
+
+, (29) where fm(·; θm) represents the modality-specific encoder or prediction branch parameterized by θm, and em indi-cates its availability. Taking the gradient with respect to 
+
+θm yields: 
+
+∇θm LIMR = EX,Y,e [em ∇θm ℓ(fm(Xm; θm), Y )] . (30) By the linearity of expectation, we can separate the stochas-tic variable em:
+
+E[∇θm LIMR ] = Ee[em] EX,Y [∇θm ℓ(fm(Xm; θm), Y )] .
+
+(31) Since em ∼ Bernoulli(1 − rm), we have E[em] = 1 − rm.Substituting this into Eq. 31 gives: 
+
+E[∇θm LIMR ] = (1 − rm) E[∇θm ℓ(fm(Xm; θm), Y )] .
+
+(32) Eq. 32 shows that, in expectation, the gradient propagated to the parameters θm of each modality-specific encoder is linearly scaled by its availability ratio (1 − rm).
+
+Corollary 1 (Gradient Imbalance Effect). Taking the L2
+
+norm of Eq. 32 yields 
+
+E[∥∇ θm LIMR ∥] = (1 −rm) E[∥∇ θm ℓ(fm(Xm; θm), Y )∥] .
+
+(33) Therefore, modalities with higher missing rates ( rm large) receive proportionally weaker gradient updates on their en-coder parameters, causing slower convergence and opti-mization dominance by low-missing-rate modalities. The above analysis reveals that, under IMR, each modal-ity receives a gradient update scaled by its availability ra-tio (1 − rm). This induces biased optimization dynam-ics where dominant modalities converge faster while rare ones lag behind. To counteract this imbalance, the Gradient 1Rebalancing Module (GRM) introduced later (Eq. 21 and Eq. 22) adaptively rescales the gradient flow through mod-ulation coefficients μm that act as an inverse correction to the implicit scaling factor (1 − rm). In essence, GRM re-stores equilibrium among modalities by dynamically adjust-ing both the magnitude and the direction of their gradients, thereby stabilizing multimodal optimization under hetero-geneous missing conditions. 
+
+B.2. Gradient Rebalancing Rationale 
+
+Proposition 1. Building on Lemma 1 , which shows that the expected gradient magnitude of each modality is scaled by its availability ratio (1 − rm), we explain the rationale behind the proposed Gradient Rebalancing Module (GRM). 
+
+Rationale. GRM compensates for the imbalance in gradi-ent magnitudes through adaptive modulation of each modal-ity’s update: 
+
+μm = ρ
+
+P 
+
+> m′∈{ a,v,l }, m ′̸=m
+
+∆m′
+
+> KL
+
+P
+
+> m′∈{ a,v,l }
+
+∆m′
+
+> KL
+
+,θϕm 
+
+> (t+1)
+
+= θϕm 
+
+> (t)
+
+− α μ m ∂Ltask 
+
+∂θ ϕm
+
+> (t)
+
+.
+
+(34) Here, ∆m 
+
+> KL
+
+quantifies the learning discrepancy of modal-ity m between its unimodal and fused distributions, and ρ
+
+is a hyperparameter controlling the modulation intensity. A smaller μm indicates that modality m is learning faster (i.e. , larger ∆m
+
+> KL
+
+) and thus its gradient update is attenu-ated, whereas slower modalities are amplified. This mecha-nism counteracts the imbalance identified in Lemma 1 and encourages all modality-specific gradients to approach an equilibrium: 
+
+μm∇θϕm Ltask ≈ μm′
+
+∇θϕm′ Ltask , ∀m, m ′. (35) Here, ∇θϕm Ltask denotes the gradient of the task loss with respect to the parameters of the m-th encoder, and ∥ · ∥ de-notes the Euclidean norm measuring its magnitude. Such modulation is consistent with previous analyses [8, 29] showing that gradient reweighting based on learning discrepancy stabilizes multimodal training. GRM extends this idea to imbalanced missing-rate conditions, using KL-divergence as a continuous signal of learning disparity rather than a fixed prior ratio (1 − rm).
+
+C. Benchmark Datasets 
+
+C.1. Dataset Description 
+
+To evaluate the effectiveness of BALM, we conduct exper-iments on two widely used multimodal emotion and senti-ment benchmarks: IEMOCAP [3] and CMU-MOSEI [52]. Their key statistics are summarized in Table 5.                  
+
+> Table 5. Statistical overview of the IEMOCAP and CMU-MOSEI datasets.
+> Dataset Dialogues Utterances
+> train valid test train valid test
+> IEMOCAP 120 31 5810 1623
+> CMU-MOSEI 2249 300 676 16326 1871 4659
+
+IEMOCAP contains dyadic interactions between ac-tors performing both scripted and improvised dialogues de-signed to elicit diverse emotions. The corpus comprises five sessions, each segmented into multiple utterances an-notated with categorical emotion labels. Following the la-bel processing in [25], we adopt the common six-class set-ting. Since the original dataset only provides training and test splits, we further divide the training set into training and validation subsets using a ratio of r (default 0.1). 
+
+CMU-MOSEI consists of 22,856 video-based utter-ances from over 1,000 YouTube speakers, each annotated with a sentiment score in the range [−3, 3] . Following [19], this dataset is trained as regression task, and evaluated as negative/positive classification task. Positive and negative classes are assigned for < 0 and > 0 scores, respectively. The official partitioning protocol is adopted to ensure con-sistency with previous studies. Similar to prior studies [11, 13, 27], we use Accuracy (Acc) and Weighted F1 Score (W-F1) as our main evalua-tion metrics. 
+
+C.2. Multimodal Feature Extraction 
+
+For each utterance, multimodal features are extracted from acoustic, lexical, and visual modalities. The details of the extraction process for the two datasets are described as fol-lows. For the IEMOCAP dataset, we follow the feature ex-traction procedures outlined in [25] to obtain feature vectors for each modality. Specifically, we employ the RoBERTa-Large [23] model to extract 1024-dimensional textual fea-tures. RoBERTa is fine-tuned for emotion recognition on conversation transcripts, and the embeddings of the [CLS] tokens from the last layer are used as textual representa-tions. Acoustic features are extracted using openSMILE [6] and then reduced to 1,582 dimensions via a fully con-nected layer, while visual features are obtained from a pre-trained DenseNet [15], resulting in 342-dimensional repre-sentations for each utterance. Similarly, we adopt the feature extraction methods de-scribed in [19] for CMU-MOSEI . Pre-trained wav2vec 4
+
+[32] is leveraged to extract 512-dimensional acoustic fea-tures for each utterance. For the textual modality, the pre-
+
+> 4https://github.com/pytorch/fairseq/tree/main/examples/wav2vec
+
+2trained DeBERTa-Large model 5 [9] is exploited to encode word sequences into 1024-dimensional representations. Vi-sual features are obtained through a two-step process: faces are first detected and aligned using the MTCNN [53] face detection algorithm, and the aligned frames are subse-quently processed with MA-Net 6 [57] to produce frame-level features. Finally, we aggregate these frame-level facial features into 1024-dimensional utterance-level representa-tions using average pooling. 
+
+D. Baseline Models 
+
+To evaluate the performance of BALM, we compare it with state-of-the-art methods for incomplete or imbalanced mul-timodal learning, as well as typical MER backbones. 
+
+D.1. Incomplete or Imbalanced Multimodal Models 
+
+The following baselines focus on addressing the challenges of missing modalities and uneven multimodal contribution. 
+
+MMIN [56] learns robust joint representations by imag-ining the features of absent modalities from the available ones via cycle-consistent autoencoders, thereby handling uncertain missing conditions effectively. 
+
+SDR-GNN [7] integrates spectral analysis into a hyper-graph framework to impute missing data and explicitly re-tains high-frequency signals typically lost in conventional GNNs. 
+
+Mi-CGA [28] utilizes a reconstruction module to ap-proximate missing inputs and leverages cross-modal graph attention to capture comprehensive inter-modal dependen-cies. 
+
+MoMKE [50] adopts a dual-phase learning scheme in which a learnable router dynamically fuses outputs from pretrained unimodal encoders to derive a more comprehen-sive representation for incomplete data. 
+
+GCNet [19] captures speaker and temporal dependen-cies via graph neural networks to handle incomplete con-versations and employs a dual-task framework to simulta-neously predict target labels and restore missing features. 
+
+Ada2I [27] rectifies learning imbalances by dynamically re-weighting feature and modality contributions under the supervision of a learning discrepancy metric. 
+
+RedCore [34] employs variational encoders to construct robust cross-modal representations and dynamically regu-lates auxiliary supervision based on reconstruction diffi-culty. 
+
+MCE [55] optimizes training dynamics via game-theoretic evaluations and promotes semantic robustness through subset prediction to facilitate balanced feature ca-pability despite imbalanced missing rates.                    
+
+> 5https://huggingface.co/microsoft/deberta-large
+> 6https://github.com/zengqunzhao/MA-Net
+> Table 6. Hyper-parameters Setting
+> Parameters IEMOCAP CMU-MOSEI
+> Audio dim da1582 512 Lexical dim dl1024 1024 Visual dim dv342 1024
+> dglobal 737 640
+> ρ(1.1,1.6]
+> τ(0.2,0.8] batch size 16 32 epoch 80 25
+
+D.2. MER Backbones 
+
+To assess overall effectiveness, we further compare against mainstream backbones renowned for their multimodal con-text modeling and fusion mechanisms. 
+
+MMGCN [13] leverages a deep spectral graph network to fuse multimodal features. The framework defines utter-ances as interconnected nodes and captures long-range de-pendencies along with speaker context for emotion classifi-cation. 
+
+MMDFN [11] employs a gated graph architecture to selectively regulate cross-modal information flow. By dy-namically filtering feature propagation across layers, it mit-igates the accumulation of redundant data while strengthen-ing inter-modal synergy. 
+
+E. Implementation Details 
+
+We conduct experiments under varying missing configura-tions to evaluate the performance of different baselines on multimodal emotion recognition datasets. For each dataset 
+
+D and missing setting r = (rA, r L, r V ), we generate modality-missing masks e for the train/validation/test sets independently using the masking operator M(·, r). Mask-ing is applied prior to any processing or training, ensuring that complete data remain hidden from all models during both training and inference, while the missing masks remain fixed. The best model selected on the incomplete validation set is then evaluated on the incomplete test set. For all baselines, we adopt their official implementa-tions and model-specific hyperparameter settings (includ-ing learning rates) provided in their documentation. For 
+
+GCNet , SDR-GNN , and Mi-CGA , specifically, we employ variants that omit reconstruction losses to ensure no base-line has access to any complete data. For integrating BALM to GCNet , MMGCN , and 
+
+MMDFN , FCM is added as a additional module to their ar-chitect while GCM is used as a separated module monitoring the training phase, the unimodal prediction heads is trained in parallel with the backbone using the same optimizer and learning rate, main architect and hyper-parameters of the backbone remain unchanged. Since CMU-MOSEI is 3Table 7. Weighted-F1 sensitivity to hyperparameters under two contrastive missing-rate configurations of audio, language and visual.                                                                     
+
+> Config A
+> (0 .5,0.3,0.7)
+> ρConfig B
+> (0 .5,0.7,0.3)
+> ρ
+> 1.0 1.2 1.4 1.6 1.8 1.0 1.2 1.4 1.6 1.8
+> τ
+> 0.1 64.38 64.92 63.71 63.90 65.93
+> τ
+> 0.1 59.49 61.37 62.41 59.39 61.26 0.4 65.50 64.71 65.53 63.80 64.31 0.4 59.98 60.62 61.80 60.22 60.45 0.7 64.88 64.14 63.59 64.14 63.57 0.7 60.21 59.05 60.86 61.34 59.11 1.0 65.10 63.71 64.26 66.30 65.67 1.0 60.35 60.58 60.73 59.48 59.87 1.3 63.64 64.50 64.03 64.16 64.37 1.3 61.34 60.21 59.02 58.39 59.09
+
+treated as a regression task, we omit the softmax function (δ(·) in Eq. 13, Eq. 17) and use sigmoid function to map predicted scalars to probabilities of negative/positive class for Distribution-driven Modulation in GRM .All experiments are implemented in PyTorch 7, and tracked with Comet.ml 8. Additional training configurations and hyper-parameters of BALM are summarized in Table 6. 
+
+Code Availability and Reproducibility. We release our full implementation and configurations at: https:// github.com/np4s/BALM_CVPR2026.git . The repository includes source code, configuration files, and brief guidelines with scripts to run experiments or adapt the framework to other datasets. 
+
+Masking Operator. Given a dataset of N samples with 
+
+M modalities and a missing-ratio vector r = [ r1, . . . , r M ],our masking operator M(·; r) generates missing masks based on the hypothetical ratios of missing patterns. For a missing pattern ˆe = [ˆ e1, . . . , ˆeM ] among the 2M possible patterns, its ratio is computed as: 
+
+ˆr =
+
+> M
+
+Y
+
+> m=1
+
+ˆem(1 − rm) × (1 − ˆem)rm. (36) Thus, n = ⌊N ˆr⌋ samples are randomly assigned to the missing pattern ˆe, generating n missing-mask vectors with 
+
+ei = ˆ e. Since each sample must retain at least one modal-ity, the N QMm=1 rm masks corresponding to the pattern where all modalities are missing are redistributed uniformly among the M patterns where exactly M − 1 modalities are missing. Consequently, the error εm of M(·; r), defined as the discrepancy between the intended missing ratio rm and the realized missing ratio 1
+
+> N
+
+PNi=1 (1 − emi ) for modality m,satisfies εm ≤ 1
+
+> M
+
+QMm′=1 rm′ .
+
+F. Additional Experiment Results 
+
+F.1. Hyperparameter Sensitivity under Contrasting Missing Rates (Detailed Results) 
+
+Table 7 provides the complete numerical results of MMGCN +BALM on IEMOCAP for the two contrasting IMR 
+
+> 7https://pytorch.org/
+> 8https://comet.ml
+
+configurations. Specifically, under Config–A (0 .5, 0.3, 0.7) , w-F1 re-mains stable across the (τ, ρ ) grid, mostly lying within 63 –
+
+64% , with limited sensitivity to either hyperparameter. The best score 66 .30% occurs at (τ =1 .0, ρ =1 .6) , while all other settings fluctuate within a narrow range of about 2% .In contrast, Config–B (0 .5, 0.7, 0.3) shows noticeably larger spread, ranging from 58 .39% to 62 .41% . Perfor-mance improves around small τ with moderate ρ (best at 
+
+(τ =0 .1, ρ =1 .4)=62 .41% ), whereas higher ρ consistently leads to degradation across all τ . This pattern indicates stronger τ –ρ interaction when the lexical modality has the highest missing rate. 
+
+F.2. Average performance on different modality combinations (Detailed Results) 
+
+Table 8 and Table 9 report the complete results for Accu-racy (Acc) and weighted-F1 (w-F1), respectively, across all modality combinations-unimodal (A, V, L), bimodal (AV, AL, LV), and trimodal (ALV)-under different missing-rate settings on IEMOCAP. For each combination, unspecified modalities are ablated from training and evaluating. We compare GCNet and MMGCN with their variants enhanced by BALM. Across all unimodal, bimodal, and trimodal configurations, the BALM-enhanced models consistently achieve higher Acc and W-F1, demonstrating improved ro-bustness under varying missing-modality conditions. The averaged performance across all configurations is presented in Fig. 6 of the main paper. Table 10 reports the full MMGCN results across all modality combinations before and after integrating the FCM 
+
+module. In this experiment, MMGCN and MMGCN +BALM 
+
+are trained under the specified condition and tested on the complete test-set of modality combinations. The averaged performance is summarized in Table 3 of the main paper. Overall, FCM provides consistent improvements across set-tings, highlighting the effectiveness of BALM in addressing the inconsistent representations arising from IMR. 
+
+F.3. BALM under SMR settings (Numerical Re-sults) 
+
+Table 11 and Table 12 report the detail results from Fig. 4 in the main paper. By addressing challenges of missing modal-ities with BALM, MMGCN +BALM and MMDFN +BALM are 4Table 8. Performance across unimodal, bimodal, and trimodal configurations under varying missing rates (Accuracy) 
+
+MR Setting Model A V L AV AL LV ALV 
+
+(0.5, 0.5, 0.7) GCNet 46.33 37.28 57.42 48.18 59.09 54.16 58.47 GCNet +BALM 46.95 31.44 59.09 50.89 59.64 54.41 59.33 MMGCN +BALM 51.45 31.98 60.63 46.77 61.18 62.60 60.44 (0.5, 0.7, 0.5) GCNet 49.04 31.85 56.99 48.49 56.69 53.73 57.86 GCNet +BALM 47.13 27.60 54.59 46.21 58.10 55.76 55.82 MMGCN +BALM 51.02 29.94 59.89 51.26 62.23 52.50 61.49 (0.7, 0.5, 0.5) GCNet 44.18 30.19 56.44 38.32 56.93 56.81 58.23 GCNet +BALM 48.37 30.75 56.90 47.57 60.01 58.60 57.86 MMGCN +BALM 48.92 29.94 62.97 46.03 62.54 60.07 62.85 (0.3, 0.5, 0.7) GCNet 47.87 32.72 53.54 48.55 60.20 55.51 59.46 GCNet +BALM 51.57 32.10 54.53 53.05 60.38 54.53 61.12 MMGCN +BALM 52.93 28.34 60.57 52.43 62.78 60.38 62.78 (0.5, 0.3, 0.7) GCNet 45.41 32.35 59.64 45.96 59.64 57.92 58.60 GCNet +BALM 51.26 35.00 59.64 51.76 61.80 60.20 60.69 MMGCN +BALM 50.89 28.34 63.71 50.40 64.08 61.31 64.39 (0.7, 0.5, 0.3) GCNet 46.89 35.49 54.47 48.86 56.01 54.78 58.41 GCNet +BALM 44.55 35.43 55.51 52.00 54.10 55.88 59.33 MMGCN +BALM 45.96 28.90 61.61 46.95 61.86 59.09 61.74 
+
+Average GCNet 46.62 33.31 56.42 46.39 58.09 55.49 58.51 GCNet +BALM 48.31 32.05 56.71 50.25 59.01 56.56 59.02 MMGCN +BALM 50.20 29.57 61.56 48.97 62.45 59.33 62.28 
+
+Table 9. Performance across unimodal, bimodal, and trimodal configurations under varying missing rates (w-F1) 
+
+MR Setting Model A V L AV AL LV ALV 
+
+(0.5, 0.5, 0.7) GCNet 45.91 34.50 57.76 48.44 59.06 54.02 58.52 GCNet +BALM 46.56 27.57 59.47 50.56 59.77 53.93 59.51 MMGCN +BALM 50.66 25.81 61.05 48.66 60.44 62.12 60.39 (0.5, 0.7, 0.5) GCNet 44.14 29.65 56.58 49.40 56.71 53.81 58.15 GCNet +BALM 48.36 26.36 54.82 46.89 58.36 56.05 58.75 MMGCN +BALM 50.07 28.88 59.50 51.01 61.85 51.77 61.37 (0.7, 0.5, 0.5) GCNet 42.68 25.13 56.54 35.41 57.30 57.26 58.35 GCNet +BALM 45.31 26.62 54.77 46.54 59.99 58.63 58.01 MMGCN +BALM 48.85 28.88 62.18 46.00 62.08 60.29 62.78 (0.3, 0.5, 0.7) GCNet 43.77 32.29 52.87 48.67 60.68 54.84 59.40 GCNet +BALM 50.54 28.40 54.75 51.26 60.57 54.52 61.40 MMGCN +BALM 52.51 26.86 60.95 51.91 62.73 60.61 62.17 (0.5, 0.3, 0.7) GCNet 43.47 32.25 59.85 44.77 60.09 57.73 58.88 GCNet +BALM 49.61 34.11 59.75 50.92 62.21 60.43 60.78 MMGCN +BALM 50.87 26.86 63.64 50.33 63.28 61.33 63.73 (0.7, 0.5, 0.3) GCNet 46.08 33.43 54.02 49.48 56.14 54.54 58.61 GCNet +BALM 42.91 32.98 55.51 51.46 54.09 56.45 58.98 MMGCN +BALM 45.19 25.48 61.54 50.63 61.15 59.21 61.92 
+
+Average GCNet 44.34 31.21 56.27 46.03 58.33 55.37 58.65 GCNet +BALM 47.22 29.34 56.51 49.61 59.17 56.67 59.57 MMGCN +BALM 49.69 27.13 61.48 49.76 61.92 59.22 62.06 
+
+able to achieve a more robust performance as the shared missing rate increases. Notably, for IEMOCAP, other meth-ods addressing missing modalities can suffer up to over 
+
+3% performance reduction, e.g. SDR-GNN and GCNet when SMR increase from 0.5 to 0.6, Mi-CGA when SMR increase from 0.6 to 0.7; while both MMGCN +BALM and MMDFN +BALM only see a 1% − 2% drop across miss-ing rates. Although more subtle, such trend in the perfor-mance’s consistency can also be seen for CMU-MOSEI. 
+
+F.4. Gradient Rebalancing Module Analysis 
+
+To further investigate the two sub-modules of Gradient Rebalancing Module (GRM), we introduce two variants: 
+
+BALM-D consisting FCM and distribution modulation only, and its counterpart BALM-S consisting FCM and spatial modulation only. Fig. 8 shows the learning progress of the modali-ties during training under IMR setting (rA, r L, r V ) =(0 .5, 0.7, 0.3) , while Table 13 displays quantitative perfor-mance of the two variants. The more robust and over-5Table 10. Performance of MMGCN on different modality combinations after training under IMR setting (rA, r L, r V ) =(0 .5, 0.7, 0.3) , before and after plugged with FCM module.                                                                                                     
+
+> Modality IEMOCAP CMU-MOSEI MMGCN +FCM MMGCN +FCM
+> Acc w-F1 Acc w-F1 Acc w-F1 Acc w-F1 A31.05 25.97 39.99 34.75 62.85 48.51 62.85 48.51 L61.92 61.01 62.48 61.56 83.46 83.68 85.75 85.76 V19.78 11.67 20.70 12.07 62.91 48.66 62.85 50.06 AL 64.45 63.11 63.77 62.15 83.57 83.78 85.72 85.71 AV 32.29 26.92 42.88 38.07 62.91 48.64 62.85 48.86 LV 61.98 61.03 62.91 61.92 85.39 85.40 85.91 85.87 ALV 65.19 63.94 64.20 62.80 85.55 85.55 85.88 85.83
+> Avg. 48.09 44.81 50.99 47.62 75.23 69.17 75.97 70.09 0200 400
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Accuracy
+> MMGCN
+> 0200 400
+> MMGCN +BALM D
+> 0200 400
+> MMGCN +BALM S
+> 0200 400
+> 0.02
+> 0.01
+> 0.00
+> 0.01
+> 0.02
+> Cosine Similarity
+> 0200 400 0200 400
+> 0200 400
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+> 1.25
+> KL Divergence
+> 0200 400 0200 400
+> AVL
+
+Figure 8. Modality discrepancies on IEMOCAP with different variants of BALM. 
+
+all better performance of MMGCN +BALM (from Table 1,2 in main paper) when compared to MMGCN +BALM-D and MMGCN +BALM-S further highlight the complementary na-ture of distribution- and spatial-driven Modulation. Fig. 8 suggests that these two-sided modulations act as each other’s regulator, keeping the backbone from being over-balanced toward either perspective (e.g., the cosine similar-ity of MMGCN +BALM-S ), thus, giving a more general model. 
+
+F.5. Distribution-driven Modulation Analysis 
+
+We introduce the BALM-M variant, in which the KL divergence (i.e., KL (·) in Eq. 19) is replaced with an Mean Squared Error (MSE) loss, while all other compu-tations in GRM remain unchanged. Detailed results for GCNet +BALM-M , MMGCN +BALM-M , and MMDFN +BALM-M ,along with their performance gaps relative to the corre-sponding baseline enhanced by BALM, are reported in Ta-Audio Text Visual 
+
+(a) Original Audio Text Visual (b) Calibrated 
+
+Figure 8. Original input of MMGCN (i.e., ˜x) and calibrated in-put of MMGCN +BALM (i.e., ˆx), under IMR setting (rA, r L, r V ) = (0 .5, 0.7, 0.3) on IEMOCAP. Audio Text Visual 
+
+(a) Embeddings of MMGCN Audio Text Visual (b) Embeddings of MMGCN +BALM 
+
+Figure 9. The embeddings (i.e., z in Eq. 11) corresponding to the inputs from Fig. 8. 
+
+ble 14 and Table 15. The improvements observed in MMDFN +BALM-M over MMDFN +BALM under most settings on IEMOCAP, up to 
+
+1.67% under (0 .3, 0.5, 0.7) , suggest that MSE can also serve as an effective measure of the distribution gap be-tween multimodal and unimodal predictions for certain backbones. Nonetheless, KL divergence consistently yields better performance across different backbones and across both datasets, likely due to its softer characterization of dis-tribution differences, verifies its advantage as a more suit-able choice for distribution quantification as we aim to gen-eralize BALM across diverse models. 
+
+F.6. Multimodal Representation 
+
+Fig. 8, 9, 10 visualize the features comparison at different stages between MMGCN and MMGCN +BALM using t-SNE. As Fig. 8 depicts, after being calibrated with FCM , the out-liers of audio and lexical modalities become more visible, which is a better reflection of the dataset’s properties in this specific scenario where these two modalities suffer loss at high rates, while visual features are also preprocessed into more defined clusters. Consequently, the embeddings in Fig.9 also show a better learning of modal-specific en-coders, resulting in multimodal fused feature with more dis-tinct border between hap-exc (happy - excited) and ang-fru 
+
+(angry - frustrated) clusters in Fig. 10. 6Table 11. Average performance of five runs under different SMR settings on IEMOCAP. 
+
+SMR Mi-CGA SDR-GNN GCNet MMGCN +BALM MMDFN +BALM 
+
+Acc w-F1 Acc w-F1 Acc w-F1 Acc w-F1 Acc w-F1 0.0 64.45 ±0.76 64.49 ±0.94 64.86 ±0.78 64.65 ±0.83 64.90 ±0.59 65.01 ±0.68 65.63 ±1.92 65.49 ±1.90 70.02 ±0.95 69.89 ±0.81 
+
+0.1 63.43 ±1.27 63.42 ±1.24 63.43 ±1.07 63.35 ±0.99 64.10 ±0.73 63.99 ±0.63 64.28 ±0.71 64.05 ±0.74 68.90 ±0.99 68.78 ±1.06 
+
+0.2 63.71 ±1.68 63.76 ±1.68 62.28 ±1.48 62.00 ±1.41 63.18 ±1.57 62.83 ±1.67 63.73 ±1.84 63.54 ±1.89 68.56 ±0.73 68.45 ±0.72 
+
+0.3 60.46 ±1.26 59.93 ±1.46 60.54 ±3.23 59.92 ±2.92 62.50 ±0.61 62.14 ±0.80 62.76 ±1.16 62.67 ±1.21 67.43 ±1.38 67.44 ±1.37 
+
+0.4 59.99 ±1.96 60.18 ±2.02 59.16 ±1.25 58.85 ±1.16 60.31 ±1.01 60.01 ±1.38 62.12 ±0.97 61.90 ±0.94 66.21 ±0.98 66.15 ±0.95 
+
+0.5 58.07 ±1.49 58.09 ±1.64 58.79 ±2.18 58.20 ±1.71 58.68 ±0.85 58.54 ±0.80 61.77 ±1.53 61.82 ±1.72 64.93 ±1.47 64.78 ±1.48 
+
+0.6 58.43 ±1.09 58.42 ±1.26 55.71 ±2.32 55.27 ±2.15 55.00 ±2.37 54.83 ±2.47 60.75 ±1.93 60.71 ±1.94 63.64 ±2.33 63.27 ±2.29 
+
+0.7 55.79 ±0.85 55.40 ±1.67 54.41 ±2.47 53.65 ±2.46 53.91 ±0.83 53.52 ±1.21 59.68 ±2.09 59.59 ±2.20 61.63 ±2.36 61.80 ±2.15 
+
+Table 12. Average performance of five runs under different SMR settings on CMU-MOSEI. 
+
+SMR Mi-CGA SDR-GNN GCNet MMGCN +BALM MMDFN +BALM 
+
+Acc w-F1 Acc w-F1 Acc w-F1 Acc w-F1 Acc w-F1 0.0 86.23 ±0.44 86.21 ±0.35 86.60 ±0.56 86.58 ±0.51 87.00 ±0.32 86.94 ±0.39 87.33 ±0.16 87.29 ±0.19 86.98 ±0.38 86.96 ±0.36 
+
+0.1 85.06 ±0.43 85.04 ±0.50 85.82 ±0.30 85.80 ±0.31 85.92 ±0.29 85.87 ±0.23 85.81 ±0.22 85.73 ±0.16 86.13 ±0.53 86.06 ±0.50 
+
+0.2 83.60 ±0.68 83.47 ±0.56 84.85 ±0.36 84.77 ±0.34 84.57 ±0.83 84.56 ±0.71 85.55 ±0.19 85.45 ±0.18 84.78 ±0.36 84.65 ±0.34 
+
+0.3 82.26 ±0.50 82.23 ±0.47 83.34 ±0.39 83.18 ±0.26 83.83 ±0.30 83.73 ±0.29 83.90 ±0.22 83.67 ±0.34 83.87 ±0.13 83.80 ±0.18 
+
+0.4 81.33 ±0.38 81.19 ±0.42 82.35 ±0.56 81.99 ±0.72 82.58 ±0.53 82.36 ±0.50 82.71 ±0.50 82.44 ±0.48 82.86 ±0.55 82.65 ±0.50 
+
+0.5 80.06 ±0.74 80.05 ±0.71 80.88 ±0.72 80.59 ±0.83 81.44 ±0.64 81.26 ±0.63 81.92 ±0.22 81.63 ±0.21 81.83 ±0.32 81.59 ±0.41 
+
+0.6 79.01 ±0.61 78.86 ±0.53 79.75 ±0.60 79.49 ±0.56 79.92 ±0.79 79.86 ±0.68 80.28 ±0.19 80.07 ±0.21 80.46 ±0.28 80.16 ±0.18 
+
+0.7 78.44 ±0.31 78.16 ±0.35 78.64 ±0.75 78.46 ±0.64 78.55 ±1.16 78.45 ±1.01 79.05 ±0.23 78.71 ±0.23 79.31 ±0.35 78.95 ±0.24 
+
+Table 13. Performance of MMGCN on IEMOCAP under different IMR settings when integrated with two variants of BALM. 
+
+IMR Settings IEMOCAP CMU-MOSEI +BALM-D +BALM-S +BALM-D +BALM-S 
+
+Acc w-F1 Acc w-F1 Acc w-F1 Acc w-F1 (0.3, 0.5, 0.7) 64.51 64.02 62.29 62.47 80.79 80.69 81.04 80.39 (0.3, 0.7, 0.5) 61.49 60.80 59.15 59.51 78.01 77.82 78.32 77.77 (0.5, 0.3, 0.7) 63.83 63.50 65.13 65.18 84.04 83.76 84.07 83.86 (0.5, 0.7, 0.3) 60.63 60.53 60.87 60.90 77.99 77.66 79.25 78.94 (0.7, 0.3, 0.5) 64.76 64.65 64.26 64.49 84.56 84.31 84.31 84.22 (0.7, 0.5, 0.3) 60.57 60.60 60.44 60.63 82.55 82.43 81.65 81.53 
+
+Table 14. Performance of BALM-M variant on IEMOCAP under different IMR settings. 
+
+MR Setting GCNet +BALM-M MMGCN +BALM-M MMDFN +BALM-M 
+
+Acc w-F1 Acc w-F1 Acc w-F1 
+
+(0 .3, 0.5, 0.7) 59.46 ↓ 1.85 59.93 65.50 ↑ 1.11 65.26 69.01 ↑ 1.67 68.79 
+
+(0 .3, 0.7, 0.5) 58.23 ↑ 0.87 58.47 60.57 ↑ 0.50 60.69 64.08 ↑ 0.68 63.54 
+
+(0 .5, 0.3, 0.7) 61.43 ↑ 0.12 61.57 65.13 ↓ 0.24 65.19 69.32 ↑ 0.56 69.06 
+
+(0 .5, 0.7, 0.3) 56.87 ↓ 0.77 57.12 60.63 ↓ 1.66 60.68 64.39 ↑ 0.37 64.10 
+
+(0 .7, 0.3, 0.5) 58.16 ↓ 1.17 58.31 63.89 ↓ 1.11 63.90 68.45 ↑ 1.23 68.29 
+
+(0 .7, 0.5, 0.3) 54.71 ↓ 5.55 54.97 61.18 ↓ 0.56 61.25 65.13 ↓ 1.37 64.70 
+
+F.7. Shared- and Imbalanced Missing Rates Rela-tion 
+
+Given a dataset of N samples with M modalities, and the binary observation indicator emi of modality m for sample i
+
+with emi = 0 denotes missing. Following [7, 19], the shared 
+
+Table 15. Performance of BALM-M variant on CMU-MOSEI un-der different IMR settings. 
+
+MR Setting GCNet +BALM-M MMGCN +BALM-M MMDFN +BALM-M 
+
+Acc w-F1 Acc w-F1 Acc w-F1 
+
+(0 .3, 0.5, 0.7) 81.70 ↑ 0.16 81.44 81.29 ↓ 0.74 80.69 81.40 ↓ 0.66 80.96 
+
+(0 .3, 0.7, 0.5) 78.59 ↑ 0.08 78.10 78.40 ↓ 0.33 78.10 77.44 ↓ 1.37 77.34 
+
+(0 .5, 0.3, 0.7) 82.83 ↓ 0.44 82.66 82.97 ↓ 1.57 82.97 83.65 ↓ 0.69 83.55 
+
+(0 .5, 0.7, 0.3) 77.55 ↓ 1.95 77.54 77.96 ↓ 1.87 78.00 78.70 ↓ 0.66 78.50 
+
+(0 .7, 0.3, 0.5) 82.97 ↓ 0.66 82.96 84.26 ↓ 0.58 84.07 84.48 ↓ 0.30 84.36 
+
+(0 .7, 0.5, 0.3) 81.15 ↓ 0.94 81.11 82.72 ↑ 0.22 82.29 82.31 ↓ 0.22 82.16 hap 
+
+sad 
+
+neu 
+
+ang 
+
+exc 
+
+fru 
+
+(a) MMGCN hap 
+
+sad 
+
+neu 
+
+ang 
+
+exc 
+
+fru (b) MMGCN +BALM 
+
+Figure 10. The multimodal fusion (i.e., h in Eq. 12) corresponding to the inputs from Fig. 8, colored by ground truth. 
+
+missing rate is defined as: 
+
+rshared =
+
+PMm=1 
+
+PNi=1 (1 − emi )
+
+M N , (37) 7while the modality-specific missing rate under IMR is given by: 
+
+rm =
+
+PNi=1 (1 − emi )
+
+N . (38) Thus, we can assume the IMR settings equivalent to a given SMR are those that satisfy 
+
+MX
+
+m=1 
+
+rm = M r shared . (39) Accordingly, in Fig. 2 of the main paper, we compare the performance of models addressing missing modalities under SM R = 0.5 with IMR configurations satisfying 
+
+rA + rL + rV = 1 .5. The detailed results are provided in Table 1 for the sampled IMR settings and in Table 11 for 
+
+SM R = 0 .5. These experiments show that a shared miss-ing rate alone cannot fully capture a model’s behavior, par-ticularly under highly imbalanced missing-rate conditions, underscoring the necessity of investigating IMR scenarios. 
+
+F.8. Modality Discrepancies 
+
+In this section, we provide extended visual comparisons of modality discrepancies for MMGCN vs. MMGCN +BALM 
+
+and MMDFN vs. MMDFN +BALM on IEMOCAP under dif-ferent IMR configurations (from Fig.11 to Fig. 22). 0 200 400 
+
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+
+Accuracy   
+
+> 0200 400
+
+(a) MMGCN 
+
+> 0.02
+> 0.00
+
+Cosine Similarity   
+
+> 0200 400
+> 0.5
+> 1.0
+
+KL Divergence     
+
+> 0200 400
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 0200 400
+
+(b) MMGCN +BALM   
+
+> 0.02
+> 0.00
+> 0200 400
+> 0.5
+> 1.0
+
+A V L
+
+Figure 11. (rA, r L, r V ) = (0 .3, 0.5, 0.7) 0 200 400 
+
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+
+Accuracy   
+
+> 0200 400
+
+(a) MMGCN 
+
+> 0.00
+> 0.02
+
+Cosine Similarity   
+
+> 0200 400
+> 0.5
+> 1.0
+
+KL Divergence     
+
+> 0200 400
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 0200 400
+
+(b) MMGCN +BALM   
+
+> 0.00
+> 0.02
+> 0200 400
+> 0.5
+> 1.0
+
+A V L
+
+Figure 12. (rA, r L, r V ) = (0 .3, 0.7, 0.5) 0 200 400 
+
+> 0.25
+> 0.50
+> 0.75
+
+Accuracy   
+
+> 0200 400
+
+(a) MMGCN  
+
+> 0.01
+> 0.00
+> 0.01
+> 0.02
+
+Cosine Similarity   
+
+> 0200 400
+> 0.5
+> 1.0
+
+KL Divergence     
+
+> 0200 400
+> 0.25
+> 0.50
+> 0.75
+> 0200 400
+
+(b) MMGCN +BALM   
+
+> 0.01
+> 0.00
+> 0.01
+> 0.02
+> 0200 400
+> 0.5
+> 1.0
+
+A V L
+
+Figure 13. (rA, r L, r V ) = (0 .5, 0.3, 0.7) 0 200 400 
+
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+
+Accuracy   
+
+> 0200 400
+
+(a) MMGCN  
+
+> 0.02
+> 0.00
+> 0.02
+
+Cosine Similarity   
+
+> 0200 400
+> 0.5
+> 1.0
+
+KL Divergence     
+
+> 0200 400
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 0200 400
+
+(b) MMGCN +BALM   
+
+> 0.02
+> 0.00
+> 0.02
+> 0200 400
+> 0.5
+> 1.0
+
+A V L
+
+Figure 14. (rA, r L, r V ) = (0 .5, 0.7, 0.3) 
+
+80 200 400 
+
+0.25 
+
+0.50 
+
+0.75 
+
+Accuracy 
+
+0 200 400 
+
+(a) MMGCN 
+
+0.01 
+
+0.00 
+
+0.01 
+
+Cosine Similarity 
+
+0 200 400 
+
+0.5 
+
+1.0 
+
+KL Divergence 
+
+0 200 400 
+
+0.25 
+
+0.50 
+
+0.75 
+
+0 200 400 
+
+(b) MMGCN +BALM 
+
+0.01 
+
+0.00 
+
+0.01 
+
+0 200 400 
+
+0.5 
+
+1.0 
+
+A V LFigure 15. (rA, r L, r V ) = (0 .7, 0.3, 0.5) 0 200 400 
+
+0.00 
+
+0.25 
+
+0.50 
+
+0.75 
+
+Accuracy 
+
+0 200 400 
+
+(a) MMGCN 
+
+0.02 
+
+0.00 
+
+Cosine Similarity 
+
+0 200 400 
+
+0.5 
+
+1.0 
+
+KL Divergence 
+
+0 200 400 
+
+0.00 
+
+0.25 
+
+0.50 
+
+0.75 
+
+0 200 400 
+
+(b) MMGCN +BALM 
+
+0.02 
+
+0.00 
+
+0 200 400 
+
+0.5 
+
+1.0 
+
+A V L
+
+Figure 16. (rA, r L, r V ) = (0 .7, 0.5, 0.3) 0 200 
+
+0.5 
+
+1.0 Accuracy 
+
+0 200 
+
+(a) MMDFN 
+
+0.02 
+
+0.00 
+
+0.02 
+
+Cosine Similarity 
+
+0 200 
+
+0.0 
+
+0.5 
+
+1.0 
+
+KL Divergence 
+
+0 200 400 
+
+0.5 
+
+1.0 
+
+0 200 400 
+
+(b) MMDFN +BALM 
+
+0.02 
+
+0.00 
+
+0.02 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+A V L
+
+Figure 17. (rA, r L, r V ) = (0 .3, 0.5, 0.7) 0 200 400 
+
+0.5 
+
+1.0 Accuracy 
+
+0 200 400 
+
+(a) MMDFN 
+
+0.02 
+
+0.00 
+
+0.02 
+
+Cosine Similarity 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 KL Divergence 
+
+0 200 400 
+
+0.5 
+
+1.0 
+
+0 200 400 
+
+(b) MMDFN +BALM 
+
+0.02 
+
+0.00 
+
+0.02 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 
+
+A V L
+
+Figure 18. (rA, r L, r V ) = (0 .3, 0.7, 0.5) 0 200 400 
+
+0.25 
+
+0.50 
+
+0.75 
+
+Accuracy 
+
+0 200 400 
+
+(a) MMDFN 
+
+0.02 
+
+0.00 
+
+0.02 
+
+Cosine Similarity 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 
+
+KL Divergence 
+
+0 200 400 
+
+0.25 
+
+0.50 
+
+0.75 
+
+0 200 400 
+
+(b) MMDFN +BALM 
+
+0.02 
+
+0.00 
+
+0.02 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 
+
+A V L
+
+Figure 19. (rA, r L, r V ) = (0 .5, 0.3, 0.7) 0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 Accuracy 
+
+0 200 400 
+
+(a) MMDFN 
+
+0.02 
+
+0.00 
+
+0.02 
+
+Cosine Similarity 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 KL Divergence 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+0 200 400 
+
+(b) MMDFN +BALM 
+
+0.02 
+
+0.00 
+
+0.02 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 
+
+A V L
+
+Figure 20. (rA, r L, r V ) = (0 .5, 0.7, 0.3) 
+
+90 100 200 300 
+
+0.25 
+
+0.50 
+
+0.75 
+
+Accuracy 
+
+0 100 200 300 
+
+(a) MMDFN 
+
+0.02 
+
+0.00 
+
+0.02 
+
+Cosine Similarity 
+
+0 100 200 300 
+
+0.0 
+
+0.5 
+
+1.0 
+
+KL Divergence 
+
+0 200 400 
+
+0.25 
+
+0.50 
+
+0.75 
+
+0 200 400 
+
+(b) MMDFN +BALM 
+
+0.02 
+
+0.00 
+
+0.02 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+A V LFigure 21. (rA, r L, r V ) = (0 .7, 0.3, 0.5) 0 200 400 
+
+0.25 
+
+0.50 
+
+0.75 
+
+Accuracy 
+
+0 200 400 
+
+(a) MMDFN 
+
+0.02 
+
+0.00 
+
+0.02 
+
+Cosine Similarity 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 KL Divergence 
+
+0 200 400 
+
+0.25 
+
+0.50 
+
+0.75 
+
+0 200 400 
+
+(b) MMDFN +BALM 
+
+0.02 
+
+0.00 
+
+0.02 
+
+0 200 400 
+
+0.0 
+
+0.5 
+
+1.0 
+
+1.5 
+
+A V L
+
+Figure 22. (rA, r L, r V ) = (0 .7, 0.5, 0.3) 
+
+10

@@ -6,73 +6,73 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-03-27
-- 运行时间：2026-03-27 19:54:16 UTC
+- 最新运行日期：2026-03-28
+- 运行时间：2026-03-28 19:22:43 UTC
 - 运行状态：成功
 - 本次总论文数：17
 - 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今日聚焦 17 篇 AI 医疗前沿进展，重点发布了评分高达 9.0 的胃癌多模态多相位基准数据集 Gastric-X。
-研究揭示了多模态融合在胃癌分析及多组学药物预测中的巨大潜力，通过空间转录组与稳定性建模显著提升了临床诊断的精准度。
-建议关注多模态大模型在垂直病种的深度应用，探索如何利用跨学科数据优化个性化精准医疗方案。
-- 详情：[/202603/27/README](/202603/27/README)
+今日精选 17 篇前沿论文，重点聚焦本地化大模型在多模态生存分析及医疗影像理解中的突破。
+核心推荐本地部署 LLM 在生存预测中的高分应用，以及针对真实场景医疗照片理解的全新统一基准 ReXInTheWild。
+建议关注医疗大模型如何通过图推理与认知对齐，实现更具可解释性且符合临床逻辑的辅助诊断。
+- 详情：[/202603/28/README](/202603/28/README)
 
 ### 精读区论文标签
-1. [Gastric-X: A Multimodal Multi-Phase Benchmark Dataset for Advancing Vision-Language Models in Gastric Cancer Analysis](/202603/27/2603.19516v1-gastric-x-a-multimodal-multi-phase-benchmark-dataset-for-advancing-vision-language-models-in-gastric-cancer-analysis)  
+1. [Multimodal Survival Analysis with Locally Deployable Large Language Models](/202603/28/2603.22158v1-multimodal-survival-analysis-with-locally-deployable-large-language-models)  
    标签：评分：9.0/10、query:cpath
-   evidence：使用视觉语言模型进行胃癌分析的多模态基准数据集
-2. [Gastric-X: A Multimodal Multi-Phase Benchmark Dataset for Advancing Vision-Language Models in Gastric Cancer Analysis](/202603/27/2603.19516v2-gastric-x-a-multimodal-multi-phase-benchmark-dataset-for-advancing-vision-language-models-in-gastric-cancer-analysis)  
-   标签：评分：9.0/10、query:cpath
-   evidence：用于推进胃癌分析中视觉语言模型的多模态基准数据集
-3. [Multi-Stage Fine-Tuning of Pathology Foundation Models with Head-Diverse Ensembling for White Blood Cell Classification](/202603/27/2603.20383v1-multi-stage-fine-tuning-of-pathology-foundation-models-with-head-diverse-ensembling-for-white-blood-cell-classification)  
-   标签：评分：9.0/10、query:cpath
-   evidence：微调病理基础模型用于细胞分类
-4. [SkinCLIP-VL: Consistency-Aware Vision-Language Learning for Multimodal Skin Cancer Diagnosis](/202603/27/2603.21010v1-skinclip-vl-consistency-aware-vision-language-learning-for-multimodal-skin-cancer-diagnosis)  
-   标签：评分：9.0/10、query:cpath
-   evidence：使用视觉语言模型进行多模态皮肤癌诊断
-5. [Towards Interpretable Foundation Models for Retinal Fundus Images](/202603/27/2603.18846v1-towards-interpretable-foundation-models-for-retinal-fundus-images)  
+   evidence：结合基因组数据的多模态生存分析
+2. [ReXInTheWild: A Unified Benchmark for Medical Photograph Understanding](/202603/28/2603.19517v1-rexinthewild-a-unified-benchmark-for-medical-photograph-understanding)  
    标签：评分：8.0/10、query:cpath
-   evidence：用于医学影像的可解释基础模型
-6. [CFCML: A Coarse-to-Fine Crossmodal Learning Framework For Disease Diagnosis Using Multimodal Images and Tabular Data](/202603/27/2603.20016v1-cfcml-a-coarse-to-fine-crossmodal-learning-framework-for-disease-diagnosis-using-multimodal-images-and-tabular-data)  
+   evidence：评估视觉语言模型在医学照片上表现的基准
+3. [Ensemble of Small Classifiers For Imbalanced White Blood Cell Classification](/202603/28/2603.20856v1-ensemble-of-small-classifiers-for-imbalanced-white-blood-cell-classification)  
    标签：评分：8.0/10、query:cpath
-   evidence：用于疾病诊断的跨模态学习
+   evidence：用于白血病诊断的计算病理学
+4. [Conformal Cross-Modal Active Learning](/202603/28/2603.23159v1-conformal-cross-modal-active-learning)  
+   标签：评分：8.0/10、query:cpath
+   evidence：利用视觉语言模型多模态知识的主动学习
+5. [Bi-CRCL: Bidirectional Conservative-Radical Complementary Learning with Pre-trained Foundation Models for Class-incremental Medical Image Analysis](/202603/28/2603.23729v1-bi-crcl-bidirectional-conservative-radical-complementary-learning-with-pre-trained-foundation-models-for-class-incremental-medical-image-analysis)  
+   标签：评分：8.0/10、query:cpath
+   evidence：利用预训练基础模型进行类增量医学图像分析
+6. [Sparse Autoencoders for Interpretable Medical Image Representation Learning](/202603/28/2603.23794v1-sparse-autoencoders-for-interpretable-medical-image-representation-learning)  
+   标签：评分：8.0/10、query:cpath
+   evidence：利用视觉基础模型进行可解释的医学图像表示学习
 
 ### 速读区论文标签
-1. [DeepDTF: Dual-Branch Transformer Fusion for Multi-Omics Anticancer Drug Response Prediction](/202603/27/2603.24265v1-deepdtf-dual-branch-transformer-fusion-for-multi-omics-anticancer-drug-response-prediction)  
-   标签：评分：8.0/10、query:cpath
-   evidence：使用Transformer融合进行多组学抗癌药物反应预测
-2. [Robust Multicenter CT Radiogenomics for Dual EGFR and KRAS Prediction in Lung Cancer with Stability-Aware Modeling and SHAP Interpretation](/202603/27/2603.24922v1-robust-multicenter-ct-radiogenomics-for-dual-egfr-and-kras-prediction-in-lung-cancer-with-stability-aware-modeling-and-shap-interpretation)  
-   标签：评分：8.0/10、query:cpath
-   evidence：用于肺癌突变预测的放射基因组学
-3. [FEAST: Fully Connected Expressive Attention for Spatial Transcriptomics](/202603/27/2603.25247v1-feast-fully-connected-expressive-attention-for-spatial-transcriptomics)  
-   标签：评分：8.0/10、query:cpath
-   evidence：从全视野切片图像推断基因表达
-4. [Interpretable Prostate Cancer Detection using a Small Cohort of MRI Images](/202603/27/2603.18460v1-interpretable-prostate-cancer-detection-using-a-small-cohort-of-mri-images)  
+1. [MedQ-Engine: A Closed-Loop Data Engine for Evolving MLLMs in Medical Image Quality Assessment](/202603/28/2603.19863v1-medq-engine-a-closed-loop-data-engine-for-evolving-mllms-in-medical-image-quality-assessment)  
    标签：评分：7.0/10、query:cpath
-   evidence：利用深度学习在MRI图像上进行自动前列腺癌检测
-5. [MedQ-UNI: Toward Unified Medical Image Quality Assessment and Restoration via Vision-Language Modeling](/202603/27/2603.18465v1-medq-uni-toward-unified-medical-image-quality-assessment-and-restoration-via-vision-language-modeling)  
+   evidence：用于医学图像质量评估的多模态大语言模型
+2. [DCG-Net: Dual Cross-Attention with Concept-Value Graph Reasoning for Interpretable Medical Diagnosis](/202603/28/2603.20325v1-dcg-net-dual-cross-attention-with-concept-value-graph-reasoning-for-interpretable-medical-diagnosis)  
    标签：评分：7.0/10、query:cpath
-   evidence：通过视觉语言模型进行统一的医学图像质量评估
-6. [ARIADNE: A Perception-Reasoning Synergy Framework for Trustworthy Coronary Angiography Analysis](/202603/27/2603.19169v1-ariadne-a-perception-reasoning-synergy-framework-for-trustworthy-coronary-angiography-analysis)  
+   evidence：用于医学诊断的多模态对齐与结构化概念推理
+3. [Clinical Cognition Alignment for Gastrointestinal Diagnosis with Multimodal LLMs](/202603/28/2603.20698v1-clinical-cognition-alignment-for-gastrointestinal-diagnosis-with-multimodal-llms)  
    标签：评分：7.0/10、query:cpath
-   evidence：微调视觉语言基础模型用于医学分析
-7. [AURORA: Adaptive Unified Representation for Robust Ultrasound Analysis](/202603/27/2603.19364v1-aurora-adaptive-unified-representation-for-robust-ultrasound-analysis)  
+   evidence：用于医学图像分析和诊断的多模态大语言模型
+4. [The Dual Mechanisms of Spatial Reasoning in Vision-Language Models](/202603/28/2603.22278v1-the-dual-mechanisms-of-spatial-reasoning-in-vision-language-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：超声图像分析的基础模型
-8. [LoFi: Location-Aware Fine-Grained Representation Learning for Chest X-ray](/202603/27/2603.19451v1-lofi-location-aware-fine-grained-representation-learning-for-chest-x-ray)  
+   evidence：视觉语言模型中的空间推理
+5. [SynLeaF: A Dual-Stage Multimodal Fusion Framework for Synthetic Lethality Prediction Across Pan- and Single-Cancer Contexts](/202603/28/2603.22369v1-synleaf-a-dual-stage-multimodal-fusion-framework-for-synthetic-lethality-prediction-across-pan--and-single-cancer-contexts)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉语言模型的位置感知细粒度表示学习
-9. [Multiscale Switch for Semi-Supervised and Contrastive Learning in Medical Ultrasound Image Segmentation](/202603/27/2603.18655v1-multiscale-switch-for-semi-supervised-and-contrastive-learning-in-medical-ultrasound-image-segmentation)  
+   evidence：癌症预测的多模态融合
+6. [Cross-Modal Prototype Alignment and Mixing for Training-Free Few-Shot Classification](/202603/28/2603.24528v1-cross-modal-prototype-alignment-and-mixing-for-training-free-few-shot-classification)  
+   标签：评分：7.0/10、query:cpath
+   evidence：专注于改进 CLIP 等视觉语言模型 (VLM) 的少样本分类性能
+7. [BALM: A Model-Agnostic Framework for Balanced Multimodal Learning under Imbalanced Missing Rates](/202603/28/2603.19718v1-balm-a-model-agnostic-framework-for-balanced-multimodal-learning-under-imbalanced-missing-rates)  
    标签：评分：6.0/10、query:cpath
-   evidence：用于医学图像分割的半监督学习
-10. [WeNLEX: Weakly Supervised Natural Language Explanations for Multilabel Chest X-ray Classification](/202603/27/2603.18752v1-wenlex-weakly-supervised-natural-language-explanations-for-multilabel-chest-x-ray-classification)  
+   evidence：用于平衡多模态学习的模型无关框架
+8. [Discriminative Representation Learning for Clinical Prediction](/202603/28/2603.20921v1-discriminative-representation-learning-for-clinical-prediction)  
    标签：评分：6.0/10、query:cpath
-   evidence：医学图像分类的弱监督自然语言解释
-11. [Efficiency Follows Global-Local Decoupling](/202603/27/2603.19567v1-efficiency-follows-global-local-decoupling)  
+   evidence：医疗保健领域的基础模型
+9. [Boundary-Aware Instance Segmentation in Microscopy Imaging](/202603/28/2603.21206v1-boundary-aware-instance-segmentation-in-microscopy-imaging)  
    标签：评分：6.0/10、query:cpath
-   evidence：适用于大图像的高效视觉模型的全局-局部解耦
+   evidence：评估SAM基础模型在显微镜细胞分割中的应用
+10. [Focus on Background: Exploring SAM's Potential in Few-shot Medical Image Segmentation with Background-centric Prompting](/202603/28/2603.21287v1-focus-on-background-exploring-sams-potential-in-few-shot-medical-image-segmentation-with-background-centric-prompting)  
+   标签：评分：6.0/10、query:cpath
+   evidence：用于医学图像分割的SAM基础模型
+11. [OmniFM: Toward Modality-Robust and Task-Agnostic Federated Learning for Heterogeneous Medical Imaging](/202603/28/2603.21660v1-omnifm-toward-modality-robust-and-task-agnostic-federated-learning-for-heterogeneous-medical-imaging)  
+   标签：评分：6.0/10、query:cpath
+   evidence：针对多模态医学影像的模态鲁棒联邦学习
 
 
 <div class="dpr-home-promo-card">
