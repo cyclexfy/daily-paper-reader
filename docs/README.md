@@ -6,73 +6,64 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-03-28
-- 运行时间：2026-03-28 19:22:43 UTC
+- 最新运行日期：2026-03-29
+- 运行时间：2026-03-29 19:41:03 UTC
 - 运行状态：成功
-- 本次总论文数：17
-- 精读区：6
+- 本次总论文数：14
+- 精读区：3
 - 速读区：11
 
 ### 今日简报（AI）
-今日精选 17 篇前沿论文，重点聚焦本地化大模型在多模态生存分析及医疗影像理解中的突破。
-核心推荐本地部署 LLM 在生存预测中的高分应用，以及针对真实场景医疗照片理解的全新统一基准 ReXInTheWild。
-建议关注医疗大模型如何通过图推理与认知对齐，实现更具可解释性且符合临床逻辑的辅助诊断。
-- 详情：[/202603/28/README](/202603/28/README)
+今日聚焦多模态大模型的可靠性与效率优化，深度研读了医疗因果推理与递归自适应架构。
+MedCausalX 通过自我反思提升医疗诊断的可信度，RVLM 则利用递归结构实现了推理深度的动态平衡。
+建议关注因果逻辑与动态计算如何协同解决垂直领域 AI 的幻觉问题与能效瓶颈。
+- 详情：[/202603/29/README](/202603/29/README)
 
 ### 精读区论文标签
-1. [Multimodal Survival Analysis with Locally Deployable Large Language Models](/202603/28/2603.22158v1-multimodal-survival-analysis-with-locally-deployable-large-language-models)  
-   标签：评分：9.0/10、query:cpath
-   evidence：结合基因组数据的多模态生存分析
-2. [ReXInTheWild: A Unified Benchmark for Medical Photograph Understanding](/202603/28/2603.19517v1-rexinthewild-a-unified-benchmark-for-medical-photograph-understanding)  
+1. [MedCausalX: Adaptive Causal Reasoning with Self-Reflection for Trustworthy Medical Vision-Language Models](/202603/29/2603.23085v1-medcausalx-adaptive-causal-reasoning-with-self-reflection-for-trustworthy-medical-vision-language-models)  
    标签：评分：8.0/10、query:cpath
-   evidence：评估视觉语言模型在医学照片上表现的基准
-3. [Ensemble of Small Classifiers For Imbalanced White Blood Cell Classification](/202603/28/2603.20856v1-ensemble-of-small-classifiers-for-imbalanced-white-blood-cell-classification)  
+   evidence：可信医学视觉语言模型的自适应因果推理
+2. [RVLM: Recursive Vision-Language Models with Adaptive Depth](/202603/29/2603.24224v1-rvlm-recursive-vision-language-models-with-adaptive-depth)  
    标签：评分：8.0/10、query:cpath
-   evidence：用于白血病诊断的计算病理学
-4. [Conformal Cross-Modal Active Learning](/202603/28/2603.23159v1-conformal-cross-modal-active-learning)  
+   evidence：用于医疗AI可审计性的递归视觉语言模型
+3. [NeuroVLM-Bench: Evaluation of Vision-Enabled Large Language Models for Clinical Reasoning in Neurological Disorders](/202603/29/2603.24846v1-neurovlm-bench-evaluation-of-vision-enabled-large-language-models-for-clinical-reasoning-in-neurological-disorders)  
    标签：评分：8.0/10、query:cpath
-   evidence：利用视觉语言模型多模态知识的主动学习
-5. [Bi-CRCL: Bidirectional Conservative-Radical Complementary Learning with Pre-trained Foundation Models for Class-incremental Medical Image Analysis](/202603/28/2603.23729v1-bi-crcl-bidirectional-conservative-radical-complementary-learning-with-pre-trained-foundation-models-for-class-incremental-medical-image-analysis)  
-   标签：评分：8.0/10、query:cpath
-   evidence：利用预训练基础模型进行类增量医学图像分析
-6. [Sparse Autoencoders for Interpretable Medical Image Representation Learning](/202603/28/2603.23794v1-sparse-autoencoders-for-interpretable-medical-image-representation-learning)  
-   标签：评分：8.0/10、query:cpath
-   evidence：利用视觉基础模型进行可解释的医学图像表示学习
+   evidence：用于临床推理的视觉大语言模型
 
 ### 速读区论文标签
-1. [MedQ-Engine: A Closed-Loop Data Engine for Evolving MLLMs in Medical Image Quality Assessment](/202603/28/2603.19863v1-medq-engine-a-closed-loop-data-engine-for-evolving-mllms-in-medical-image-quality-assessment)  
+1. [ResPrune: Text-Conditioned Subspace Reconstruction for Visual Token Pruning in Large Vision-Language Models](/202603/29/2603.21105v1-resprune-text-conditioned-subspace-reconstruction-for-visual-token-pruning-in-large-vision-language-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于医学图像质量评估的多模态大语言模型
-2. [DCG-Net: Dual Cross-Attention with Concept-Value Graph Reasoning for Interpretable Medical Diagnosis](/202603/28/2603.20325v1-dcg-net-dual-cross-attention-with-concept-value-graph-reasoning-for-interpretable-medical-diagnosis)  
+   evidence：大型视觉语言模型的视觉标记剪枝
+2. [Uncertainty-guided Compositional Alignment with Part-to-Whole Semantic Representativeness in Hyperbolic Vision-Language Models](/202603/29/2603.22042v1-uncertainty-guided-compositional-alignment-with-part-to-whole-semantic-representativeness-in-hyperbolic-vision-language-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于医学诊断的多模态对齐与结构化概念推理
-3. [Clinical Cognition Alignment for Gastrointestinal Diagnosis with Multimodal LLMs](/202603/28/2603.20698v1-clinical-cognition-alignment-for-gastrointestinal-diagnosis-with-multimodal-llms)  
+   evidence：增强双曲视觉语言模型以实现部分到整体的语义代表性
+3. [Abnormalities and Disease Detection in Gastro-Intestinal Tract Images](/202603/29/2603.22378v1-abnormalities-and-disease-detection-in-gastro-intestinal-tract-images)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于医学图像分析和诊断的多模态大语言模型
-4. [The Dual Mechanisms of Spatial Reasoning in Vision-Language Models](/202603/28/2603.22278v1-the-dual-mechanisms-of-spatial-reasoning-in-vision-language-models)  
+   evidence：胃肠道图像中的疾病检测
+4. [Focus, Don't Prune: Identifying Instruction-Relevant Regions for Information-Rich Image Understanding](/202603/29/2603.22815v1-focus-dont-prune-identifying-instruction-relevant-regions-for-information-rich-image-understanding)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉语言模型中的空间推理
-5. [SynLeaF: A Dual-Stage Multimodal Fusion Framework for Synthetic Lethality Prediction Across Pan- and Single-Cancer Contexts](/202603/28/2603.22369v1-synleaf-a-dual-stage-multimodal-fusion-framework-for-synthetic-lethality-prediction-across-pan--and-single-cancer-contexts)  
+   evidence：用于图像理解的大型视觉语言模型
+5. [Automatic Segmentation of 3D CT scans with SAM2 using a zero-shot approach](/202603/29/2603.23116v1-automatic-segmentation-of-3d-ct-scans-with-sam2-using-a-zero-shot-approach)  
    标签：评分：7.0/10、query:cpath
-   evidence：癌症预测的多模态融合
-6. [Cross-Modal Prototype Alignment and Mixing for Training-Free Few-Shot Classification](/202603/28/2603.24528v1-cross-modal-prototype-alignment-and-mixing-for-training-free-few-shot-classification)  
+   evidence：将SAM2基础模型应用于3D医学影像
+6. [Multi-Modal Image Fusion via Intervention-Stable Feature Learning](/202603/29/2603.23272v1-multi-modal-image-fusion-via-intervention-stable-feature-learning)  
    标签：评分：7.0/10、query:cpath
-   evidence：专注于改进 CLIP 等视觉语言模型 (VLM) 的少样本分类性能
-7. [BALM: A Model-Agnostic Framework for Balanced Multimodal Learning under Imbalanced Missing Rates](/202603/28/2603.19718v1-balm-a-model-agnostic-framework-for-balanced-multimodal-learning-under-imbalanced-missing-rates)  
+   evidence：多模态图像融合与跨模态依赖
+7. [Hierarchical Text-Guided Brain Tumor Segmentation via Sub-Region-Aware Prompts](/202603/29/2603.21083v1-hierarchical-text-guided-brain-tumor-segmentation-via-sub-region-aware-prompts)  
    标签：评分：6.0/10、query:cpath
-   evidence：用于平衡多模态学习的模型无关框架
-8. [Discriminative Representation Learning for Clinical Prediction](/202603/28/2603.20921v1-discriminative-representation-learning-for-clinical-prediction)  
+   evidence：通过多模态方法进行分层文本引导的脑肿瘤分割
+8. [ALADIN:Attribute-Language Distillation Network for Person Re-Identification](/202603/29/2603.21482v1-aladinattribute-language-distillation-network-for-person-re-identification)  
    标签：评分：6.0/10、query:cpath
-   evidence：医疗保健领域的基础模型
-9. [Boundary-Aware Instance Segmentation in Microscopy Imaging](/202603/28/2603.21206v1-boundary-aware-instance-segmentation-in-microscopy-imaging)  
+   evidence：从CLIP视觉语言模型进行蒸馏
+9. [PEARL: Geometry Aligns Semantics for Training-Free Open-Vocabulary Semantic Segmentation](/202603/29/2603.21528v1-pearl-geometry-aligns-semantics-for-training-free-open-vocabulary-semantic-segmentation)  
    标签：评分：6.0/10、query:cpath
-   evidence：评估SAM基础模型在显微镜细胞分割中的应用
-10. [Focus on Background: Exploring SAM's Potential in Few-shot Medical Image Segmentation with Background-centric Prompting](/202603/28/2603.21287v1-focus-on-background-exploring-sams-potential-in-few-shot-medical-image-segmentation-with-background-centric-prompting)  
+   evidence：用于开放词汇语义分割的跨模态几何
+10. [SHAPE: Structure-aware Hierarchical Unsupervised Domain Adaptation with Plausibility Evaluation for Medical Image Segmentation](/202603/29/2603.21904v1-shape-structure-aware-hierarchical-unsupervised-domain-adaptation-with-plausibility-evaluation-for-medical-image-segmentation)  
    标签：评分：6.0/10、query:cpath
-   evidence：用于医学图像分割的SAM基础模型
-11. [OmniFM: Toward Modality-Robust and Task-Agnostic Federated Learning for Heterogeneous Medical Imaging](/202603/28/2603.21660v1-omnifm-toward-modality-robust-and-task-agnostic-federated-learning-for-heterogeneous-medical-imaging)  
+   evidence：基于DINOv3基础模型构建的医学图像分割框架
+11. [Pretext Matters: An Empirical Study of SSL Methods in Medical Imaging](/202603/29/2603.22649v1-pretext-matters-an-empirical-study-of-ssl-methods-in-medical-imaging)  
    标签：评分：6.0/10、query:cpath
-   evidence：针对多模态医学影像的模态鲁棒联邦学习
+   evidence：医学影像中的自监督学习方法
 
 
 <div class="dpr-home-promo-card">
