@@ -1,0 +1,485 @@
+Title: EcoFair: Trustworthy and Energy-Aware Routing for Privacy-Preserving Vertically Partitioned Medical Inference
+
+URL Source: https://arxiv.org/pdf/2603.26483v1
+
+Published Time: Mon, 30 Mar 2026 01:05:48 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# ECO FAIR : T RUSTWORTHY AND ENERGY -A WARE ROUTING FOR 
+
+# PRIVACY -P RESERVING VERTICALLY PARTITIONED MEDICAL 
+
+# INFERENCE ∗
+
+Mostafa Anoosha Dhavalkumar Thakker Kuniko Paxton Koorosh Aslansefat Bhupesh Kumar Mishra Baseer Ahmad Rameez Raja Kureshi 
+
+School of Digital and Physical Science, University of Hull Kingston upon Hull, HU6 7RX, U.K. 
+
+{M.Anoosha, D.Thakker, k.Azuma-2021, K.Aslansefat, Bhupesh.Mishra, Baseer.Ahmad, R.Kureshi}@hull.ac.uk 
+
+March 30, 2026 
+
+# ABSTRACT 
+
+Privacy-preserving medical inference must balance data locality, diagnostic reliability, and deployment efficiency. This paper presents EcoFair, a simulated vertically partitioned inference framework for dermatological diagnosis in which raw image and tabular data remain local and only modality-specific embeddings are transmitted for server-side multimodal fusion. EcoFair introduces a lightweight-first routing mechanism that selectively activates a heavier image encoder when local uncertainty or metadata-derived clinical risk indicates that additional computation is warranted. The routing decision combines predictive uncertainty, a safe–danger probability gap, and a tabular neurosymbolic risk score derived from patient age and lesion localisation. Experiments on three dermatology benchmarks show that EcoFair can substantially reduce edge-side inference energy in representative model pairings while remaining competitive in classification performance. The results further indicate that selective routing can improve subgroup-sensitive malignant-case behaviour in representative settings without modifying the global training objective. These findings position EcoFair as a practical framework for privacy-preserving and energy-aware medical inference under edge deployment constraints. 
+
+Keywords Privacy-preserving medical AI · vertically partitioned inference · edge–cloud computing · dynamic routing ·
+
+trustworthy AI · algorithmic fairness · neurosymbolic risk modelling 
+
+# 1 Introduction 
+
+The transition towards decentralised digital infrastructures has reshaped how sensitive information is processed, shared, and utilised across institutional and geographic boundaries. In highly regulated sectors such as healthcare, governed by frameworks including HIPAA (Health Insurance Portability and Accountability Act) and GDPR (General Data Protection Regulation), data can no longer be indiscriminately aggregated into centralised repositories [ 1]. In addition, the risks associated with single-point-of-failure breaches, unauthorised access, and loss of data sovereignty have heightened the importance of privacy-preserving decentralised computation. In this setting, predictive value must be extracted and exchanged without exposing raw digital assets to external parties. This requirement is especially important in image-based medical applications, where high-resolution images may contain identifiable biometric information while remaining essential for accurate diagnosis. In the clinical setting considered in this study, a dermatological client processes skin lesion images, a tabular details stores demographic metadata, and a central server performs multimodal fusion on intermediate representations. By constraining communication to learned embeddings rather than raw pixels or 
+
+> ∗
+
+Manuscript created March 2026. This work was supported by the UK National Edge AI Hub under Grant Agreement EP/Y028813/1. 
+
+> arXiv:2603.26483v1 [cs.LG] 27 Mar 2026
+
+A PREPRINT - M ARCH 30, 2026 raw metadata, such architectures support privacy-preserving cross-party inference while keeping sensitive source data local to the originating client. It is also observed that vertically partitioned learning architectures have emerged as a practical approach for privacy-preserving collaborative inference across data silos that hold complementary information about the same patient population, particularly in healthcare settings where images, metadata, and clinical records may be distributed across different parties [ 2 ]. In such settings, vertically partitioned learning offers a natural way to balance predictive utility with data locality by allowing each party to retain raw inputs while contributing intermediate representations for downstream inference [ 3, 4]. Despite these privacy benefits, real-world deployment introduces additional system-level constraints where the repeated exchange and processing of representations between edge devices and cloud servers can impose substantial energy cost, which is problematic for mobile dermatoscopes and resource-constrained clinical settings [ 5 ]. Existing responses, including quantisation, pruning, and knowledge distillation, can reduce computational burden but may also weaken representational quality and downstream reliability [ 6]. Besides, in safety-critical medical applications, energy efficiency cannot be pursued in isolation if it disproportionately degrades performance on clinically important or demographically vulnerable cases. EcoFair is designed to address these challenges in a unified post-deployment setting. Rather than presenting an end-to-end vertically partitioned training pipeline, this work studies a simulated vertically partitioned inference architecture in which raw image and tabular data remain local, only modality-specific embeddings are transmitted to the server, and a routing mechanism determines whether inference can be completed using the lightweight image encoder alone or whether the heavier image encoder must also be activated before multimodal fusion. To examine this deployment behaviour beyond a single fixed backbone choice, EcoFair is evaluated using multiple pretrained lightweight and heavyweight image encoders spanning moderate, strong, and extreme compute disparities, including MobileNetV2, MobileNetV3Small, ResNet50, DenseNet201, and EfficientNetB6. The aim is to improve deployment efficiency while preserving clinical utility and subgroup-aware safety. Accordingly, this study is guided by the following research questions: 1. RQ1: How can decentralised medical inference reduce edge-side energy consumption without transmitting raw biometric data to a central server? 2. RQ2: How can dynamic routing incorporate explicit clinical risk to improve safety when local model confidence is unreliable? 3. RQ3: To what extent can post-hoc routing improve subgroup-sensitive diagnostic performance without modifying the global training objective? In response to these questions, this paper makes the following contributions: • To address RQ1, we propose a privacy-preserving vertically partitioned inference framework in which raw image and tabular data remain local and only modality-specific embeddings are exchanged. Within this setting, EcoFair introduces an energy-aware routing strategy for reducing unnecessary use of the heavier cloud-assisted image pathway. • To address RQ2, we combine predictive uncertainty with a tabular neurosymbolic risk score based on patient age and lesion localisation, providing an interpretable routing signal for clinically higher-risk cases. • To address RQ3, we investigate whether routing-based escalation can improve subgroup-sensitive diagnostic behaviour post hoc, particularly for clinically important malignant cases, without altering the global loss formulation. The rest of this paper is organised as follows. Section 2 reviews related work. Section 3 presents the EcoFair methodology, including the vertically partitioned inference setting, routing mechanism, and tabular neurosymbolic risk design. Section 4 reports the experimental evaluation across energy, classification, and fairness perspectives. Section 5 discusses the main findings of this work. Section 6 outlines limitations of the current study and directions for future research, and Section 7 concludes the paper. 
+
+# 2 Related Work 
+
+The development of secure, efficient, and fair decentralised artificial intelligence (AI) has motivated substantial research across several intersecting areas of computer science. To position EcoFair within this landscape, this section reviews relevant work on privacy-preserving data exchange, decentralised system optimisation, and fairness-aware medical AI. A central requirement in cross-institutional collaborative computing is the preservation of data sovereignty and privacy during information exchange. Recent works have examined secure and auditable infrastructures for controlled cross-2A PREPRINT - M ARCH 30, 2026 domain data sharing. For example, Zhang et al. [ 7 ] introduced the Secure Auditable Sharing Protocol together with a Reputation-driven Proactive Sharing Mechanism to support trustworthy cohort-data exchange across isolated data centres. Related discussions in Web 3.0 literature have likewise emphasised the importance of moving towards read– write–own paradigms for user-controlled data management [ 8]. Within machine learning, vertically partitioned federated settings provide a natural mechanism for privacy-preserving collaboration when different parties hold complementary attributes of the same individuals, enabling joint predictive modelling without direct raw-data disclosure [ 2, 4 , 3 ]. In this context, EcoFair is aligned with privacy-preserving vertically partitioned inference frameworks that are increasingly advocated for clinical use [ 9], while focusing specifically on post-deployment optimisation rather than end-to-end federated training. The deployment of deep models in decentralised and edge environments introduces additional constraints related to energy, latency, and computational capacity [ 10 ]. A recent work has sought to mitigate these bottlenecks in Split Learning architectures by dynamically regulating local computation to handle resource heterogeneity [ 11 ]. EcoFair complements this system-level focus by addressing post-deployment energy efficiency alongside demographic fairness. Persistent reliance on remote processing can be prohibitive for battery-constrained clinical devices and resource-limited healthcare settings. To address this, prior works have explored model compression, lightweight architectures, and adaptive computation strategies to make dermatological classification viable on resource-constrained edge devices [ 12 , 13 , 14 ]. Likewise, dynamic routing has emerged as a useful mechanism for selectively allocating computational effort based on input difficulty or model confidence, thereby mitigating the computational waste of network "overthinking" on simpler samples [ 15 ]. In a related direction, Qasim et al. [16 ] examined the sustainability of federated networks and highlighted the trade-off between model complexity and energy cost. However, many routing strategies rely primarily on confidence thresholds that may be poorly calibrated in deep neural networks [ 17 ]. EcoFair builds on this line of work by combining uncertainty-based routing with an explicit metadata-driven clinical risk signal, thereby linking deployment efficiency to clinically meaningful decision support. In medical AI, trustworthiness requires more than average predictive performance. Deployed systems must remain clinically reliable across demographic groups, avoid amplifying historical biases, and provide reasoning signals that can support scrutiny in safety-critical settings [ 18 , 19 , 20 ]. In dermatology, one of the fields within the medical system, unfair behaviour may appear as reduced malignant-case sensitivity for minority subgroups or atypical lesion presentations, highlighting the need to evaluate fairness robustly across diverse skin tones [ 21 , 22 , 23 ]. At the same time, neurosymbolic methods have gained attention as a way to incorporate structured domain knowledge into learning systems and improve interpretability [ 24 ]. For example, the ZTID-IoV framework applied neurosymbolic design principles to interpretable zero-trust intrusion detection in decentralised vehicular networks [ 25 ]. EcoFair adopts a related principle in the medical setting by integrating neural image-based prediction with a symbolic risk score derived from explicit patient metadata, and by using this signal to guide post-deployment routing decisions under privacy and energy constraints. Taken together, these limitations define the problem addressed in this paper: how to support privacy-preserving medical inference under edge deployment constraints while avoiding disproportionate degradation on clinically important and demographically vulnerable cases. In EcoFair, fairness is viewed through the malignant-case Equal Opportunity perspective, with particular emphasis on improving the worst-group True Positive Rate (WG-TPR) and reducing the subgroup TPR gap. Existing efficiency-oriented approaches in decentralised and edge AI largely prioritise energy reduction, compression, or routing economy, but they typically provide limited analysis of whether these savings are achieved at the expense of subgroup-sensitive diagnostic reliability [ 26 ]. EcoFair is motivated by this gap and studies whether routing can jointly improve deployment efficiency and subgroup-aware safety in a vertically partitioned inference setting. 
+
+# 3 Methodology 
+
+EcoFair operationalises the central premise of this study: privacy-preserving medical inference should not be treated solely as a communication problem, but as a joint systems problem involving representation exchange, adaptive computation, clinically informed decision support, and subgroup-aware evaluation under edge deployment constraints. 
+
+3.1 Formulation of the VFL Environment 
+
+EcoFair is formulated as a simulated vertically partitioned medical inference architecture designed to preserve data locality while enabling multimodal diagnosis. The system follows an Edge-to-Edge-to-Cloud topology with two local clients and one central server. Party A1 acts as the image client and processes raw dermatological images captured at the edge. Party A2 acts as the tabular client and processes patient metadata available locally, such as age and lesion localisation. Party B denotes the central server, which receives modality-specific embeddings and performs multimodal 3A PREPRINT - M ARCH 30, 2026 fusion to produce the final diagnostic prediction. The objective is to support collaborative inference without transmitting raw image pixels or raw tabular attributes beyond their originating clients. Fig. 1 illustrates the full EcoFair workflow. For empirical evaluation, EcoFair is studied in a simulated deployment setting using a centralised 5-fold cross-validation pipeline. This setup is intended to model routing behaviour, privacy-preserving representation exchange, and edge-side energy consumption, rather than to implement end-to-end federated training or measure real network latency. On the image side, Party A1 first computes a lightweight image embedding and the associated routing signals derived from the local predictive distribution. Based on these signals, the heavier image encoder is either kept inactive or additionally activated on the same client. On the tabular side, Party A2 independently computes a tabular embedding together with a metadata-driven risk score. The server then receives the resulting modality-specific embeddings and performs multimodal fusion for the final prediction. Privacy preservation in EcoFair follows directly from this architectural constraint. Raw image and tabular inputs remain local to their respective clients, while only learned intermediate representations are transmitted for downstream fusion. This design reduces direct exposure of sensitive biometric and demographic information without relying on explicit cryptographic protocols or injected differential noise at inference time [27]. Edge Image Client 𝐴 !      
+
+> 𝐸 "#$%
+> Local Probability Distribution
+> 𝑃 "&'(" 𝑦 𝑥
+> Softmax
+> 𝐻 𝑃 Safe -Danger Gap
+> 𝐺 𝑃
+> Edge Tabular Client
+> Patient Metadata
+> 𝑋 $() 𝐸 $()
+> Tabular Embedding
+> 𝐻 $()
+> Image Embedding
+> 𝐻 #*+
+> 𝐴 ,
+> Centralised Cloud Server 𝐵
+> 𝑦 *'"&-.
+> 𝐺 /&-$%
+
+10Send Lite 𝐸 0%(12    
+
+> Concatenation FC Network Softmax
+> Raw Image Input
+> 𝑋 #*+
+> Risk Score
+> 𝑅 $()
+
+X
+
+D
+
+Figure 1: Architecture of the EcoFair framework in a simulated Edge-to-Edge-to-Cloud vertically partitioned inference setting. The image client (Party A1) processes raw image input locally using a lightweight encoder and computes routing signals from the local predictive distribution. Depending on the routing decision, the heavier image encoder may also be activated on the same client. The tabular client (Party A2) processes patient metadata locally to produce a tabular embedding and risk score. Only modality-specific embeddings are transmitted to the server (Party B), where multimodal fusion produces the final diagnostic prediction. 
+
+3.2 Dynamic Routing for System Optimisation 
+
+A central design objective in EcoFair is to avoid unnecessary activation of the heavier image pathway while preserving clinically relevant diagnostic reliability. In a vertically partitioned deployment setting, the image client must first compute a lightweight representation for every input, but not every sample warrants the additional cost of a heavier encoder. EcoFair therefore, introduces a dynamic routing mechanism that operates directly on the local predictive output of the lightweight image pathway and decides whether the heavier image encoder should remain inactive or be additionally activated for the same sample. This design targets deployment efficiency at the point of inference rather than during training, and is consistent with adaptive computation strategies proposed for resource-constrained intelligent systems [12, 28]. Let x denote an input image processed by the lightweight image encoder Elite . The lightweight pathway produces an image embedding 
+
+hlite (x) = Elite (x), (1) and a corresponding predictive distribution over C classes 4A PREPRINT - M ARCH 30, 2026 
+
+p(x) = p1(x), p 2(x), . . . , p C (x),
+
+> C
+
+X
+
+> c=1
+
+pc(x) = 1 . (2) The routing function is defined as a binary decision 
+
+G(x) ∈ { 0, 1}, (3) where G(x) = 0 indicates that the lightweight image encoder alone is used, and G(x) = 1 indicates that the heavier image encoder is additionally activated on the image client before embeddings are transmitted for multimodal fusion. Under both outcomes, raw image data remain local and only learned representations are sent to the server. The routing decision is derived from two lightweight statistics computed from the predictive distribution of the lightweight pathway. The first is the Shannon entropy 
+
+H(x) = −
+
+> C
+
+X
+
+> c=1
+
+pc(x) log pc(x), (4) which measures the spread of predictive mass across classes and is commonly used as a proxy for predictive uncertainty [ 17 , 29 ]. Larger values of H(x) indicate greater uncertainty and hence reduced confidence in the sufficiency of the lightweight pathway. The second statistic is a clinically motivated safe–danger probability gap. Let S denote the set of clinically lower-risk classes and let D denote the set of clinically higher-risk classes. The cumulative safe and danger probabilities are defined as 
+
+PS (x) = X
+
+> s∈S
+
+ps(x), PD (x) = X
+
+> d∈D
+
+pd(x), (5) and the corresponding probability gap is 
+
+∆( x) = PS (x) − PD (x). (6) A large positive value of ∆( x) indicates strong support for a lower-risk prediction, whereas values near zero indicate ambiguity between clinically safer and clinically riskier outcomes. To make this quantity directly usable as a routing signal, we define a gap-based ambiguity score so that larger values correspond to greater clinical ambiguity. 
+
+A∆(x) = 1 − ∆( x) , (7) The final routing score combines global predictive uncertainty and safe–danger ambiguity, 
+
+R(x) = λH eH(x) + λ∆ A∆(x), (8) where eH(x) denotes a normalised entropy term and λH , λ ∆ ≥ 0 are weighting coefficients controlling the relative contribution of the two signals. In practice, EcoFair uses this combined score together with threshold-based gating, 
+
+G(x) = 
+
+1, if R(x) > τ r ,
+
+0, otherwise, (9) where τr is a calibrated routing threshold. Equivalently, this decision can be expressed as a logical trigger on the constituent signals, 
+
+G(x) = I
+
+ eH(x) > τ H ∨ A∆(x) > τ ∆
+
+
+
+, (10) 5A PREPRINT - M ARCH 30, 2026 where τH and τ∆ are threshold parameters and I(·) is the indicator function. This formulation makes the routing policy explicit: samples with high predictive uncertainty or a narrow safe–danger separation are treated as insufficiently reliable for lightweight-only processing. If G(x) = 0 , the image client transmits the lightweight image embedding for downstream fusion. If G(x) = 1 , the heavier image encoder Eheavy is additionally evaluated on the same client to produce 
+
+hheavy (x) = Eheavy (x), (11) which is then transmitted in place of, or alongside, the lightweight representation according to the fusion design adopted in the implementation. The tabular client independently produces its own embedding and metadata-derived risk signal, and the server performs multimodal fusion using the received representations. By basing routing on quantities available from a single lightweight forward pass, EcoFair avoids the added computational burden of repeated stochastic inference procedures such as Monte Carlo Dropout, thereby making the routing step itself suitable for edge deployment [ 30 , 14 ]. This routing mechanism is the main system-level lever through which EcoFair controls inference cost. Samples that are straightforward under the lightweight pathway avoid unnecessary heavy-model activation, while ambiguous or clinically risk-sensitive samples are selectively escalated. The resulting behaviour enables a direct trade-off between deployment efficiency and subgroup-aware diagnostic reliability, which is examined empirically in the experimental section. 
+
+3.3 Tabular Neurosymbolic Risk Score 
+
+Predictive uncertainty alone is not always sufficient for safe routing in clinical settings, since neural models may still produce confident but incorrect predictions. To reduce this risk, EcoFair augments the routing mechanism with a tabular neurosymbolic risk score derived from explicit patient metadata [ 31 , 20 ]. This component provides a simple and auditable symbolic signal that operates alongside the image-based uncertainty measures. The tabular client, Party A2, processes metadata variables that are clinically associated with malignancy risk, specifically patient age and anatomical site. Lesion localisation is included not only as an anatomical descriptor, but also because body-site risk patterns in cutaneous melanoma are known to vary with differential ultraviolet exposure and related epidemiological factors, although this relationship is not uniform across all melanoma subtypes [ 32 , 33 ]. Rather than relying on latent image features, the symbolic module uses a deterministic rule-based formulation grounded in metadata-derived priors. Let a(x) denote the normalised age score for sample x, and let ℓ(x) denote the empirical localisation risk associated with the lesion site. The tabular risk score is defined as 
+
+Rtab (x) = a(x) ℓ(x), (12) where both terms are scaled to the unit interval. In this form, larger values of Rtab (x) correspond to samples with jointly elevated metadata-based risk. A more explicit formulation can be written as 
+
+a(x) = Age( x) − Amin 
+
+Amax − Amin 
+
+, (13) and 
+
+ℓ(x) = MalRate(loc( x)) max l MalRate( l) , (14) where loc( x) denotes the anatomical site of sample x, and MalRate( ·) is the empirical malignancy frequency estimated from the training data for each localisation category. This makes the symbolic score directly interpretable as a metadata-driven prior on clinical risk. The tabular score acts as an override on the image-side routing logic. If the lightweight image pathway appears confident but the metadata-derived risk remains high, EcoFair treats this as a clinically relevant disagreement and activates the heavier image encoder. Formally, the risk-based override is defined as 
+
+G(x) = 1 if Rtab (x) ≥ τrisk , (15) 6A PREPRINT - M ARCH 30, 2026 where τrisk is a calibrated safety threshold. Combined with the uncertainty-based routing conditions defined earlier, the final routing decision may therefore be written as 
+
+G(x) = I
+
+ eH(x) > τ H ∨ A∆(x) > τ ∆ ∨ Rtab (x) ≥ τrisk 
+
+
+
+. (16) This override does not guarantee correctness, but it provides a clinically motivated safeguard against lightweight-only decisions in metadata profiles associated with elevated malignancy risk. In this sense, the tabular neurosymbolic component improves the interpretability of the routing process and strengthens the safety rationale for selective escalation [34, 31]. 
+
+3.4 Fairness-Aware Routing Mechanism 
+
+The final methodological component of EcoFair addresses subgroup-sensitive reliability in deployment. In standard training settings, optimisation is typically driven by aggregate objective functions, which can mask systematic disparities across demographic groups and clinically atypical cases [ 35 ]. In medical diagnosis, this may appear as reduced sensitivity for underrepresented cohorts even when overall performance remains acceptable. However, EcoFair departs from conventional fairness -inducing approaches as it does not impose fairness through an additional loss term or constrained optimisation objective during training. Instead, it examines whether fairness can be improved post hoc through routing behaviour at inference time. The central idea is that samples associated with higher uncertainty, narrower safe–danger separation, or elevated metadata-derived risk are more likely to correspond to cases for which lightweight-only inference is less reliable. By selectively activating the heavier image pathway for such cases, EcoFair provides an operational mechanism for reducing failure on clinically important and subgroup-sensitive samples. Formally, let G denote a set of demographic subgroups and let TPR g denote the true positive rate for subgroup g ∈ G 
+
+on malignant cases. EcoFair is evaluated using subgroup-aware criteria that examine both the mean malignant-case sensitivity across groups and the worst-group performance. 
+
+TPR mean = 1
+
+|G| 
+
+X
+
+> g∈G
+
+TPR g , (17) and 
+
+TPR worst = min  
+
+> g∈G
+
+TPR g . (18) To quantify disparity, we further define a subgroup fairness gap as 
+
+Gap TPR = max  
+
+> g∈G
+
+TPR g − min  
+
+> g∈G
+
+TPR g . (19) Under this formulation, EcoFair is not assumed to guarantee fairness universally. Rather, the hypothesis is that routing can act as a clinically informed safety mechanism that improves subgroup-sensitive performance relative to lightweight-only inference, and in some settings relative to heavier baseline inference, without modifying the global training objective. This makes fairness a deployment-time property of the routing policy rather than a quantity enforced directly in parameter optimisation [36]. Algorithm 1 summarises the operational flow of EcoFair at inference time, showing how lightweight prediction, metadata-driven risk scoring, selective heavy-model activation, and server-side multimodal fusion are combined within a single routing pipeline. 
+
+# 4 Experimental Evaluation 
+
+The empirical study is designed to determine whether EcoFair delivers a tangible deployment advantage in practice by reducing edge-side energy demand, preserving clinically relevant diagnostic performance, and improving subgroup-sensitive behaviour under selective heavy-model activation. 7A PREPRINT - M ARCH 30, 2026 
+
+Algorithm 1 EcoFair Dynamic Routing and Server-Side Fusion 
+
+Require: Image ximg , metadata xtab , thresholds τrisk , τ H , τ ∆
+
+1: Rtab (x) ← ComputeRisk (xtab )
+
+2: p(x), h lite (x) ← LiteEncoder (ximg )
+
+3: H(x) ← − PCc=1 pc(x) log pc(x)
+
+4: ∆( x) ← P 
+
+> s∈S
+
+ps(x) − P 
+
+> d∈D
+
+pd(x)
+
+5: htab (x) ← TabularEncoder (xtab )
+
+6: if Rtab (x) ≥ τrisk or H(x) ≥ τH or ∆( x) ≤ τ∆ then 
+
+7: himg (x) ← HeavyEncoder (ximg )
+
+8: else 
+
+9: himg (x) ← hlite (x)
+
+10: end if 
+
+11: Transmit himg (x) and htab (x) to the server 
+
+12: yfinal ← ServerFusion  himg (x), h tab (x)
+
+13: return yfinal 
+
+4.1 Evaluation Setup and Protocol 
+
+The evaluation uses three publicly available dermatology benchmarks: HAM10000 [ 37 ], PAD-UFES-20 [ 38 ], and BCN20000 [ 39 ]. These datasets were selected because they collectively capture clinically relevant heterogeneity in image acquisition conditions, demographic composition, and label imbalance. In particular, PAD-UFES-20 and BCN20000 introduce stronger out-of-distribution variation than HAM10000, while all three datasets reflect the imbalance patterns commonly observed in real-world dermatological classification tasks [ 40 ]. This makes them suitable for evaluating not only predictive performance, but also the deployment behaviour of routing-based systems under varying difficulty and subgroup composition. To support a principled analysis of deployment trade-offs, EcoFair does not rely on a single fixed image backbone. Instead, a broader screening stage is first used to profile multiple candidate encoders, after which three representative lite-heavy model pairs are selected for detailed framework-level evaluation. This design allows the experiments to examine EcoFair under moderate, strong, and extreme compute disparities between lightweight and heavyweight image pathways. The tabular neurosymbolic risk score is calibrated from the training-fold metadata. Fig. 2 provides the empirical motivation for this symbolic prior by showing that malignancy prevalence is not uniform across age brackets or anatomical sites within HAM10000, thereby supporting the use of age and lesion localisation as metadata-driven routing signals. 0  
+
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> 2.5
+> 3.0
+> 0 - 10
+> 10 - 20
+> 20 -30
+> 30 - 40
+> 40 - 50
+> 50 - 60
+> 60 - 70
+> 70 - 80
+> 80 - 90
+> Malignancy Rate
+> Number of Cases (Thousand)
+> Age Bracket Malignancy Rate
+> 0
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> 2.5
+> 3.0
+> Acral
+> Genital
+> Trunk
+> Abdomen
+> Foot
+> Lower Ext
+> Hand
+> Back
+> Upper Ext
+> Chest
+> Neck
+> Ear
+> Scalp
+> Face
+> Malignancy Rate
+> Number of Cases (Thousand)
+> Anatomical Site Maignancy Rate
+
+Figure 2: Empirical malignancy prevalence across patient age brackets (left) and anatomical localisations (right) in HAM10000. The non-uniform risk distribution across these metadata groups provides empirical support for the tabular neurosymbolic risk score used by EcoFair to guide selective escalation. 8A PREPRINT - M ARCH 30, 2026 
+
+4.2 Backbone Screening for Edge–Cloud Deployment 
+
+To ensure that the architectural choices used in the EcoFair routing framework are principled rather than ad hoc, a comprehensive screening of ten widely used convolutional backbones was first conducted. For each architecture, deployment-oriented characteristics including parameter count, model size, embedding dimensionality, inference latency, GPU memory footprint, and energy consumption per sample were empirically measured during feature extraction. These measurements characterise the computational behaviour of each encoder independently of the routing mechanism and provide an objective basis for selecting representative model combinations for subsequent framework evaluation. To accurately quantify the computational cost of the feature extraction and inference phases, GPU energy consumption was dynamically tracked using pynvml, the official Python interface for the NVIDIA Management Library (NVML) [ 41 ]. This approach directly polls hardware-level power sensors, providing a highly accurate and widely validated standard for energy measurement in deep learning pipelines [42]. Table 1 summarises the screening statistics measured on HAM10000. Since encoder inference cost depends primarily on network architecture and input resolution rather than dataset content, the corresponding measurements on BCN20000 and PAD-UFES-20 were highly consistent and are therefore omitted for brevity. These additional results are available in the public implementation described in the Code Availability statement. Table 1: Backbone screening results on HAM10000.                                                                   
+
+> Model Params (M) Size (MB) Emb. Dim. Latency (ms/Sample) Energy (J/Sample) GPU Mem. (MB)
+> MobileNetV3Small 0.94 3.58 576 143.50 0.179 465 MobileNetV2 2.26 8.61 1280 130.49 0.178 4499 MobileNetV3Large 2.99 11.43 960 167.67 0.209 1427 EfficientNetB0 4.05 15.45 1280 269.40 0.332 2451 NASNetMobile 4.27 16.29 1056 628.82 0.683 4499 ResNet50 23.59 89.98 2048 203.47 0.392 3457 DenseNet201 18.32 69.89 1920 682.11 0.844 15901 ResNet152V2 58.33 222.52 2048 566.06 0.933 9603 InceptionResNetV2 54.34 207.28 1536 682.81 1.238 15903 EfficientNetB6 40.96 156.25 2304 743.97 9.617 15903
+
+Based on the screening results in Table 1, three representative model pairs were selected for the subsequent framework-level evaluation: Pair I (MobileNetV2–ResNet50), Pair II (MobileNetV3Small–DenseNet201), and Pair III (MobileNetV3Small–EfficientNetB6). The objective of this selection is not to identify a universally optimal backbone, but to analyse the behaviour of the EcoFair routing mechanism under progressively stronger edge–cloud compute disparities using a small and interpretable set of representative configurations. These three pairs span complementary operating regimes. Pair I represents a practical deployment-oriented configuration with moderate computational contrast between lightweight and heavyweight image inference. Pair II introduces a substantially stronger heavy encoder to assess whether routing can recover difficult clinical cases while retaining the efficiency advantages of a compact local model. Pair III provides an extreme compute contrast to examine the upper bound of energy savings achievable through selective escalation and to stress-test the robustness of the routing design under highly asymmetric deployment conditions. Taken together, these configurations allow the subsequent analysis to evaluate whether EcoFair can preserve diagnostic utility and subgroup protection while reducing total inference energy across increasingly demanding edge–cloud scenarios. 
+
+4.3 Optimisation of Decentralised Energy Consumption 
+
+A primary deployment constraint in edge-based medical inference is the energy cost associated with image processing under limited on-device resources. In EcoFair, this cost is determined by whether inference proceeds with the lightweight image encoder alone or whether the heavier image encoder is additionally activated for the same sample before multimodal fusion. The routing mechanism, therefore, acts directly on the dominant source of variable computation in the image client and provides a controllable trade-off between efficiency and diagnostic safety. Table 2 summarises the empirical per-sample energy consumption and routing statistics for the three selected model pairs across the evaluated datasets. The results show that the energy behaviour of EcoFair is strongly pair-dependent. On HAM10000, all three pairs achieve a reduction in energy consumption relative to their corresponding heavy baselines, with savings ranging from 28.09% for MobileNetV2–ResNet50 to 68.09% for MobileNetV3Small–EfficientNetB6. This confirms that selective heavy-model activation can substantially reduce inference cost when a meaningful computational gap exists between the lightweight and heavyweight pathways. 9A PREPRINT - M ARCH 30, 2026 Table 2: Per-sample energy consumption and routing statistics across datasets for the three selected model pairs. Reported values correspond to mean results across cross-validation folds.                                                                                                              
+
+> Dataset Pair Lite Heavy EcoFair Routing Savings (J/sample) (J/sample) (J/sample) (%) vs. Heavy (%)
+> HAM10000 MobileNetV2 →ResNet50 0.18 0.39 0.28 26 .63 ±2.82 28 .09 ±2.82
+> MobileNetV3Small →DenseNet201 0.18 0.84 0.46 33 .32 ±1.96 45 .43 ±1.96
+> MobileNetV3Small →EfficientNetB6 0.18 9.62 3.09 30 .04 ±5.02 68 .09 ±5.02
+> BCN20000 MobileNetV2 →ResNet50 0.19 0.37 0.41 57 .36 ±7.75 −10 .09 ±7.75
+> MobileNetV3Small →DenseNet201 0.18 0.82 0.62 54 .91 ±4.12 24 .27 ±4.12
+> MobileNetV3Small →EfficientNetB6 0.18 9.37 6.01 57 .10 ±4.59 35 .80 ±4.59
+> PAD-UFES-20 MobileNetV2 →ResNet50 0.20 0.39 0.42 54 .28 ±2.66 −7.73 ±2.66
+> MobileNetV3Small →DenseNet201 0.18 0.84 0.64 55 .24 ±3.31 23 .86 ±3.31
+> MobileNetV3Small →EfficientNetB6 0.18 9.61 5.58 56 .04 ±2.96 41 .90 ±2.96
+
+The behaviour on BCN20000 and PAD-UFES-20 is more nuanced. For the DenseNet201 and EfficientNetB6 pairs, EcoFair continues to provide clear energy savings, although the gains are smaller than those observed on HAM10000 because routing is triggered more frequently under the stronger dataset shift and increased diagnostic ambiguity. By contrast, the MobileNetV2–ResNet50 pair does not yield energy savings on BCN20000 or PAD-UFES-20, indicating that when the computational contrast between the two encoders is relatively modest, frequent heavy-model activation can offset the efficiency benefit of the routing policy. This result is important rather than problematic: it shows that EcoFair is not universally energy-optimal for every backbone pairing, and it justifies the broader pair-wise evaluation adopted in this study. Taken together, these results show that EcoFair is most beneficial when the routing policy operates over a sufficiently large compute gap while retaining enough flexibility to escalate difficult cases. In this sense, the framework should be interpreted not as a guarantee of maximal efficiency under all architectural choices, but as a deployment mechanism whose benefit depends on the interaction between routing behaviour, dataset difficulty, and backbone disparity. 0.48         
+
+> 0.49
+> 0.50
+> 0.51
+> 0.52
+> 0.53
+> 0.54
+> 0.55
+> 0.56
+> 0.57
+> 0.58
+> 1,700 2,200 2,700 3,200 3,700
+> Worst Group TPR
+> Total Energy (Joules)
+> 0.48
+> 0.49
+> 0.50
+> 0.51
+> 0.52
+> 0.53
+> 0.54
+> 0.55
+> 0.56
+> 0.57
+> 0.58
+> 1,700 2,200 2,700 3,200 3,700
+> Worst Group TPR
+> Total Energy (Joules)
+
+Figure 3: Pareto frontier on HAM10000 for the MobileNetV2–ResNet50 pair. Grey points denote non-optimal routing configurations obtained from threshold sweeps, while the highlighted frontier shows the non-dominated trade-off between total edge energy and worst-group TPR on malignant classes. Fig. 3 illustrates this trade-off for the MobileNetV2–ResNet50 pair on HAM10000, where the Pareto frontier identifies non-dominated operating points balancing total edge energy against worst-group TPR on malignant classes. Additional Pareto frontiers for the remaining selected model pairs are available in the public implementation described in the Code Availability statement. 
+
+4.4 Classification Performance 
+
+Energy efficiency is only useful in practice if it does not come at the cost of clinically meaningful predictive performance. For this reason, the empirical evaluation considers not only overall class balance through Macro F1 and Balanced 10 A PREPRINT - M ARCH 30, 2026 Accuracy, but also malignant-case recall, which is especially important in a diagnostic setting. Table 3 summarises these results across the three datasets and the selected model pairs. Table 3: Classification performance across datasets for the three selected model pairs. Reported values correspond to mean ± standard deviation across cross-validation folds. Bold values indicate the best result within each pair block.                                                                                                                                                                                                                                                                                                              
+
+> Dataset Pair / Model Macro F1 Balanced Acc. Malignant Recall
+> HAM10000 MobileNetV2 →ResNet50 (Lite) 0.5305 ±0.0212 0.5932 ±0.0324 0.5442 ±0.0467
+> MobileNetV2 →ResNet50 (Heavy) 0.5855 ±0.0177 0.6431 ±0.0227 0.5998 ±0.0308
+> MobileNetV2 →ResNet50 (EcoFair) 0.5629 ±0.0124 0.6224 ±0.0230 0.5519 ±0.0299
+> MobileNetV3Small →DenseNet201 (Lite) 0.5521 ±0.0165 0.6244 ±0.0165 0.6168 ±0.0342
+> MobileNetV3Small →DenseNet201 (Heavy) 0.5837 ±0.0118 0.6338 ±0.0288 0.5802 ±0.0206
+> MobileNetV3Small →DenseNet201 (EcoFair) 0.5774 ±0.0222 0.6440 ±0.0262 0.5882 ±0.0477
+> MobileNetV3Small →EfficientNetB6 (Lite) 0.5568 ±0.0205 0.6285 ±0.0235 0.5793 ±0.0335
+> MobileNetV3Small →EfficientNetB6 (Heavy) 0.5468 ±0.0182 0.6141 ±0.0171 0.5714 ±0.0142
+> MobileNetV3Small →EfficientNetB6 (EcoFair) 0.5784 ±0.0163 0.6506 ±0.0157 0.5850 ±0.0251
+> BCN20000 MobileNetV2 →ResNet50 (Lite) 0.3750 ±0.0355 0.3988 ±0.0399 0.4152 ±0.0538
+> MobileNetV2 →ResNet50 (Heavy) 0.3816 ±0.0261 0.4094 ±0.0284 0.4587 ±0.0281
+> MobileNetV2 →ResNet50 (EcoFair) 0.3908 ±0.0321 0.4165 ±0.0362 0.4430 ±0.0427
+> MobileNetV3Small →DenseNet201 (Lite) 0.3819 ±0.0157 0.4437 ±0.0237 0.4706 ±0.0293
+> MobileNetV3Small →DenseNet201 (Heavy) 0.3748 ±0.0177 0.4012 ±0.0186 0.4632 ±0.0402
+> MobileNetV3Small →DenseNet201 (EcoFair) 0.3940 ±0.0200 0.4566 ±0.0261 0.4750 ±0.0387
+> MobileNetV3Small →EfficientNetB6 (Lite) 0.3922 ±0.0297 0.4311 ±0.0235 0.4732 ±0.0380
+> MobileNetV3Small →EfficientNetB6 (Heavy) 0.3774 ±0.0193 0.4123 ±0.0207 0.4594 ±0.0234
+> MobileNetV3Small →EfficientNetB6 (EcoFair) 0.4015 ±0.0323 0.4419 ±0.0218 0.4658 ±0.0345
+> PAD-UFES-20 MobileNetV2 →ResNet50 (Lite) 0.5986 ±0.0170 0.6090 ±0.0064 0.5261 ±0.0370
+> MobileNetV2 →ResNet50 (Heavy) 0.6228 ±0.0331 0.6360 ±0.0279 0.5365 ±0.0479
+> MobileNetV2 →ResNet50 (EcoFair) 0.6157 ±0.0253 0.6243 ±0.0286 0.5384 ±0.0643
+> MobileNetV3Small →DenseNet201 (Lite) 0.6128 ±0.0177 0.6647 ±0.0250 0.6267 ±0.0676
+> MobileNetV3Small →DenseNet201 (Heavy) 0.6147 ±0.0265 0.6315 ±0.0144 0.5447 ±0.0425
+> MobileNetV3Small →DenseNet201 (EcoFair) 0.6351 ±0.0231 0.6722 ±0.0274 0.6283 ±0.0452
+> MobileNetV3Small →EfficientNetB6 (Lite) 0.6147 ±0.0415 0.6549 ±0.0402 0.6280 ±0.0638
+> MobileNetV3Small →EfficientNetB6 (Heavy) 0.6016 ±0.0285 0.6292 ±0.0202 0.5561 ±0.0261
+> MobileNetV3Small →EfficientNetB6 (EcoFair) 0.6374 ±0.0357 0.6756 ±0.0310 0.6450 ±0.0435
+
+The results show that EcoFair should not be interpreted as a universal replacement for either the lightweight or heavyweight baseline. Instead, its behaviour depends on the interaction between dataset difficulty and backbone disparity. On HAM10000, EcoFair consistently remains competitive and achieves the strongest overall classification profile for the two larger-compute-gap pairs. These differences are also consistent with the model-selection strategy introduced earlier. Pair I represents a relatively modest compute disparity, whereas Pairs II and III introduce substantially stronger heavyweight pathways and therefore provide routing with greater opportunity to alter the deployment trade-off between efficiency and predictive quality. In particular, the MobileNetV3Small–DenseNet201 and MobileNetV3Small– EfficientNetB6 configurations yield the best Balanced Accuracy values, indicating that selective heavy-model activation can improve class-balanced performance without requiring the heavyweight pathway to be used for every sample. On BCN20000 and PAD-UFES-20, the same pattern becomes more informative. For the DenseNet201 and Efficient-NetB6 pairs, EcoFair either matches or exceeds both baselines across most reported metrics, with especially clear gains in Balanced Accuracy and Macro F1. This is most evident on PAD-UFES-20, where EcoFair achieves the strongest performance under both larger-gap pairings and also improves malignant recall relative to the corresponding heavy baselines. By contrast, the MobileNetV2–ResNet50 pair produces more modest gains, which is consistent with the smaller computational and representational separation between the two image encoders. Taken together, these results support the intended role of EcoFair as an adaptive deployment mechanism rather than a uniformly dominant classifier. Its strongest performance arises when routing operates over a sufficiently meaningful gap between lightweight and heavyweight pathways, allowing difficult cases to benefit from selective escalation while preserving the efficiency advantages of lightweight-first inference. 11 A PREPRINT - M ARCH 30, 2026 
+
+4.5 Subgroup-Sensitive Fairness 
+
+Subgroup-sensitive fairness is a central requirement in medical deployment because acceptable average performance can still conceal systematic failure on vulnerable cohorts. In this study, fairness is evaluated primarily through the Equal Opportunity perspective, which examines parity in True Positive Rate (TPR) across demographic subgroups for clinically important malignant cases [ 43 ]. Under this criterion, a system is considered more equitable when it improves worst-group sensitivity and reduces disparity across subgroups, rather than merely increasing average performance on the dominant population. EcoFair does not enforce fairness through a modified training objective or an explicit fairness penalty. Instead, it investigates whether fairness can be improved post hoc through routing behaviour at inference time. Samples associated with higher uncertainty, narrower safe–danger separation, or elevated metadata-derived risk are more likely to be difficult for lightweight-only inference and are therefore more likely to trigger selective heavy-model activation. As shown in Fig. 4 and summarised in Table 4, the fairness benefit of EcoFair should therefore be interpreted as a deployment-time rescue mechanism meaning it aims to improve subgroup-sensitive malignant-case performance relative to the baselines by selectively escalating samples that are more likely to be clinically ambiguous. EcoFair     
+
+> Lite
+> Heavy
+> EcoFair
+> Lite
+> Heavy
+> EcoFair
+> Lite
+> Heavy 0.00
+> 0.10
+> 0.20
+> 0.30
+> 0.40
+> 0.50
+> 0.60
+> 0.70
+> BCN20,000 HAM10,000 PAD-UFES-20
+> Worst -Group TPR
+> EcoFair
+> Lite
+> Heavy
+> EcoFair
+> Lite
+> Heavy
+> EcoFair
+> Lite
+> Heavy 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> 0.35
+> 0.40
+> 0.45
+> 0.50
+> BCN20,000 HAM10,000 PAD-UFES-20
+> TPR GAP
+
+Figure 4: Subgroup-sensitive fairness analysis for Pair I (MobileNetV2–ResNet50) across the three benchmark datasets. The left plot shows worst-group TPR on malignant classes, and the right plot shows the corresponding TPR gap across demographic subgroups. Table 4: Fairness improvement relative to Lite and Heavy baselines across datasets and model pairs. Positive values indicate improvement in all reported columns. Bold values indicate the strongest improvement within each dataset block. 
+
+Data Pair 
+
+∆ WG TPR Heavy 
+
+∆ Gap Heavy 
+
+∆ WG TPR Lite 
+
+∆ Gap Lite 
+
+HAM I -0.023 0.006 0.004 0.015 
+
+II 0.010 0.129 -0.046 -0.029 III 0.008 -0.087 -0.017 -0.011 BCN I 0.027 0.039 0.002 -0.040 II 0.031 0.013 0.015 0.000 III 0.042 0.023 -0.022 -0.024 PAD I 0.000 -0.009 0.000 -0.024 II -0.200 -0.275 -0.100 -0.103 III 0.200 0.112 0.000 -0.023 
+
+The results indicate that this behaviour is pair-dependent but meaningful. For Pair I, EcoFair provides the most stable fairness profile across datasets, yielding modest but consistent improvements in worst-group TPR relative to the lightweight baseline and, in several cases, reducing the disparity gap relative to the heavyweight baseline. This makes Pair I the clearest example of a practically balanced routing policy, where fairness improvement is achieved without relying on an extreme compute contrast. The remaining pairs help clarify the limits and strengths of the framework. Pair II shows that routing can produce substantial fairness gains in some settings, particularly when the heavier model provides a useful corrective signal, but 12 A PREPRINT - M ARCH 30, 2026 it also illustrates that fairness rescue is not uniform across all datasets. Pair III demonstrates that a larger compute gap can still support strong rescue behaviour against the heavyweight baseline in selected cases, although this comes with less consistent behaviour relative to the lightweight baseline. Taken together, these results support the main claim of EcoFair: fairness is not guaranteed universally by routing alone, but selective heavy-model activation can act as a clinically meaningful safety mechanism that improves subgroup-sensitive reliability in deployment without altering the global training objective [44]. 
+
+# 5 Discussion 
+
+The empirical results position EcoFair as a deployment-oriented framework rather than a universally dominant classifier. Across the evaluated datasets, its benefit depends on the interaction between routing policy, dataset difficulty, and the computational disparity between lightweight and heavyweight image pathways. The strongest results are observed when routing operates over a sufficiently meaningful compute gap, allowing selective heavy-model activation to improve classification balance and subgroup-sensitive behaviour while still reducing inference cost in representative settings. A second important finding is that fairness improvement should be interpreted as a deployment-time property of the rout-ing policy rather than as a guarantee induced by training. EcoFair does not enforce subgroup parity through constrained optimisation or loss modification. Instead, it improves worst-group malignant-case behaviour in representative settings by identifying uncertain or clinically higher-risk cases and escalating them selectively. This makes the framework particularly relevant for practical medical AI deployment, where average predictive performance alone is not sufficient. At the same time, the results show that the framework is not uniformly optimal across all model pairings and datasets. More challenging data distributions increase routing frequency, which can reduce the net efficiency advantage for some backbone combinations. This is an important outcome in itself, because it shows that backbone disparity and routing design must be considered jointly when assessing the usefulness of selective inference in privacy-preserving medical systems. 
+
+# 6 Future Work 
+
+Several directions remain for future investigation. First, the current evaluation is conducted in a simulated vertically partitioned inference setting rather than on a physical distributed deployment. A natural next step is to implement EcoFair on real edge hardware and embedded platforms in order to measure end-to-end latency, communication overhead, and energy usage under practical operating conditions. Second, the current framework relies on the availability and quality of local tabular metadata. Future work should therefore examine the robustness of the neurosymbolic risk component under missing, corrupted, or biased metadata and investigate more reliable strategies for metadata validation and uncertainty-aware tabular reasoning. Finally, the present results show that the effectiveness of EcoFair is pair-dependent. Future work should extend the framework to broader backbone families, stronger calibration strategies, and adaptive routing policies that are more explicitly optimised for joint energy, performance, and subgroup-sensitive fairness across heterogeneous deployment environments. 
+
+# 7 Conclusion 
+
+The development of practical digital healthcare infrastructures depends on balancing privacy preservation, diagnostic reliability, and deployment efficiency. In this work, EcoFair has been studied as a simulated vertically partitioned inference framework designed to address these objectives jointly. The results show that privacy-preserving multimodal inference can be combined with selective heavy-model activation to support clinically meaningful deployment trade-offs without transmitting raw image or tabular data beyond their originating clients. With respect to RQ1 and RQ2, EcoFair demonstrates that lightweight-first inference, uncertainty-aware routing, and metadata-driven neurosymbolic risk scoring can reduce unnecessary heavy-model activation while preserving a mechanism for clinically informed escalation. The empirical results further show that the efficiency benefit of this design is pair-dependent: meaningful energy savings are achieved when the computational disparity between lightweight and heavyweight pathways is sufficiently large, while more modest pairings offer weaker efficiency gains. With respect to RQ3, the results indicate that routing can also improve subgroup-sensitive behaviour at deployment time without modifying the global training objective. Although this fairness benefit is not uniform across all model pairs and 13 A PREPRINT - M ARCH 30, 2026 datasets, EcoFair shows that selective escalation can act as a practical safety mechanism for improving worst-group malignant-case sensitivity and reducing disparity in representative settings. Overall, EcoFair should be interpreted not as a universally optimal classifier, but as a deployment framework for privacy-preserving medical inference in which routing, metadata-aware risk signals, and multimodal fusion are used to balance energy, performance, and fairness under edge constraints. 
+
+# Code Availability 
+
+The implementation used in this study is publicly available at https://github.com/mociatto/EcoFair . The repository includes the main experimental pipelines, feature extraction workflows, and the core source modules required for data processing, routing, training, fairness evaluation, visualisation, and reproducibility. 
+
+# Acknowledgment 
+
+This work was supported by the UK National Edge AI Hub under Grant Agreement EP/Y028813/1. 
+
+# References 
+
+[1] Ankita Maurya, Rahul Haripriya, Manish Pandey, Jaytrilok Choudhary, Dhirendra Pratap Singh, Surendra Solanki, and Duansh Sharma. Federated learning for privacy-preserving severity classification in healthcare: A secure edge-aggregated approach. IEEE Access , 13:102339–102358, 2025. [2] Yang Liu, Yan Kang, Tianyuan Zou, Yanhong Pu, Yuanqin He, Xiaozhou Ye, Ye Ouyang, Ya-Qin Zhang, and Qiang Yang. Vertical federated learning: Concepts, advances, and challenges. IEEE Transactions on Knowledge and Data Engineering , 36(7):3615–3634, 2024. [3] Praneeth Vepakomma, Otkrist Gupta, Tristan Swedish, and Ramesh Raskar. Split learning for health: Distributed deep learning without sharing raw patient data, 2018. [4] Siguang Chen, Tong Jin, Yanyan Xia, and Xue Li. Metadata and image features co-aware semi-supervised vertical federated learning with attention mechanism. IEEE Transactions on Vehicular Technology , 73(2):2520–2532, 2024. [5] Syed Umar Amin and M. Shamim Hossain. Edge intelligence and internet of things in healthcare: A survey. IEEE Access , 9:45–59, 2021. [6] Defu Liu, Yixiao Zhu, Zhe Liu, Yi Liu, Changlin Han, Jinkai Tian, Ruihao Li, and Wei Yi. A survey of model compression techniques: Past, present, and future. Frontiers in Robotics and AI , 12:1518965, 2025. [7] Jie Zhang, Xiaohong Li, Ruitao Feng, Shanshan Xu, Zhe Hou, Hanwei Wu, and Guangdong Bai. From isolation to integration: A reputation-backed auditable model for cohort data sharing. IEEE Transactions on Dependable and Secure Computing , 23(1):637–654, 2026. [8] Weikang Liu, Bin Cao, and Mugen Peng. Web3 technologies: Challenges and opportunities. IEEE Network ,38(3):187–193, 2024. [9] Nicola Rieke, Holger Hancox, Wenqi Li, Fausto Milletari, Holger R Roth, Shadi Albarqouni, Spyridon Bakas, Mathieu N Galtier, Bennett A Landman, Klaus Maier-Hein, et al. The future of digital health with federated learning. NPJ digital medicine , 3(1):119, 2020. [10] Jiasi Chen and Xukan Ran. Deep learning with edge computing: A review. Proceedings of the IEEE , 107(8):1655– 1674, 2019. [11] Yao Zhao, Zahir Tari, Nasrin Sohrabi, Qin Wang, and Xiaoyu Xia. Split learning with local epoch regulation and time-aware detection. IEEE Transactions on Dependable and Secure Computing , pages 1–16, 2026. [12] Yizeng Han, Gao Huang, Shiji Song, Le Yang, Honghui Wang, and Yulin Wang. Dynamic neural networks: A survey. IEEE Transactions on Pattern Analysis and Machine Intelligence , 44(11):7436–7456, 2022. [13] Kuniko Paxton, Koorosh Aslansefat, Dhavalkumar Thakker, and Yiannis Papadopoulos. Skewness-guided pruning of multimodal swin transformers for federated skin lesion classification on edge devices. In Proceedings of the 18th IEEE/ACM International Conference on Utility and Cloud Computing , page 62. Association for Computing Machinery, 2026. 14 A PREPRINT - M ARCH 30, 2026 [14] Xiaofei Wang, Yiwen Han, Victor C. M. Leung, Dusit Niyato, Xueqiang Yan, and Xu Chen. Convergence of edge computing and deep learning: A comprehensive survey. IEEE Communications Surveys & Tutorials ,22(2):869–904, 2020. [15] Yigit Kaya, Sanghyun Hong, and Tudor Dumitras. Shallow-deep networks: Understanding and mitigating network overthinking. In International conference on machine learning , pages 3301–3310. PMLR, 2019. [16] Muhammad Qasim, Muhammad Imran, Faisal Akram, Muhammad Ahmad Bilal, and M. Jaleed Khan. Transformer and graph neural network-based federated learning for cellular traffic prediction with sustainability analysis. IEEE Access , 13:159649–159666, 2025. [17] Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q. Weinberger. On calibration of modern neural networks. In Doina Precup and Yee Whye Teh, editors, Proceedings of the 34th International Conference on Machine Learning ,volume 70 of Proceedings of Machine Learning Research , pages 1321–1330. PMLR, 2017. [18] Laleh Seyyed-Kalantari, Haoran Zhang, Matthew BA McDermott, Irene Y Chen, and Marzyeh Ghassemi. Underdiagnosis bias of artificial intelligence algorithms applied to chest radiographs in under-served patient populations. Nature medicine , 27(12):2176–2182, 2021. [19] Ninareh Mehrabi, Fred Morstatter, Nripsuta Saxena, Kristina Lerman, and Aram Galstyan. A survey on bias and fairness in machine learning. ACM computing surveys (CSUR) , 54(6):1–35, 2022. [20] Navid Hasani, Michael A Morris, Arman Rhamim, Ronald M Summers, Elizabeth Jones, Eliot Siegel, and Babak Saboury. Trustworthy artificial intelligence in medical imaging. PET clinics , 17(1):1, 2022. [21] Roxana Daneshjou et al. Disparities in dermatology ai performance on a diverse, curated clinical image set. 
+
+Science Advances , 8(32):eabq6147, 2022. [22] Kuniko Paxton, Koorosh Aslansefat, Dhavalkumar Thakker, and Yiannis Papadopoulos. Measuring ai fairness in a continuum maintaining nuances: A robustness case study. IEEE Internet Computing , 28(5):11–19, 2024. [23] Samuel G Finlayson, Adarsh Subbaswamy, Karandeep Singh, John Bowers, Annabel Kupke, Jonathan Zittrain, Isaac S Kohane, and Suchi Saria. The clinician and dataset shift in artificial intelligence. New England Journal of Medicine , 385(3):283–286, 2021. [24] Artur d’Avila Garcez and Luis C Lamb. Neurosymbolic ai: The 3rd wave. Artificial Intelligence Review ,56:12387–12406, 2023. [25] Farhan Ullah, Gautam Srivastava, Leonardo Mostarda, and Umar Raza. Ztid-iov: Zero-trust intrusion detection in iov using neurosymbolic ai approach with federated meta-learning. IEEE Transactions on Consumer Electronics ,71(4):12037–12046, 2025. [26] Sara Hooker, Aaron Courville, Gregory Clark, Yann Dauphin, and Andrea Frome. What do compressed deep neural networks forget? In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,pages 111–120. IEEE, 2020. [27] Abhishek Singh, Praneeth Vepakomma, Otkrist Gupta, and Ramesh Raskar. Detailed comparison of communica-tion efficiency of split learning and federated learning. IEEE Access , 7:131053–131065, 2019. [28] En Li, Liekang Zeng, Zhi Zhou, and Xu Chen. Edge ai: On-demand accelerating deep neural network inference via edge computing. IEEE Transactions on Wireless Communications , 19(1):447–457, 2020. [29] Surat Teerapittayanon, Bradley McDanel, and H.T. Kung. Branchynet: Fast inference via early exiting from deep neural networks. In 2016 23rd International Conference on Pattern Recognition (ICPR) , pages 2464–2469, 2016. [30] Yarin Gal and Zoubin Ghahramani. Dropout as a bayesian approximation: Representing model uncertainty in deep learning. In Proceedings of the 33rd International Conference on Machine Learning , pages 1050–1059. PMLR, 2016. [31] Manas Gaur and Amit Sheth. Building trustworthy neurosymbolic ai systems: Consistency, reliability, explain-ability, and safety. AI Magazine , 45(1):139–155, 2024. [32] Ruhina S Laskar, Aida Ferreiro-Iglesias, D Timothy Bishop, et al. Risk factors for melanoma by anatomical site: an evaluation of aetiological heterogeneity. British Journal of Dermatology , 184(6):1085–1093, 2021. [33] Sara Raimondi, Mariano Suppa, and Sara Gandini. Melanoma epidemiology and sun exposure. Acta Dermato-Venereologica , 100(11):adv00136, 2020. [34] Erico Tjoa and Cuntai Guan. A survey on explainable artificial intelligence (xai): Toward medical xai. IEEE Transactions on Neural Networks and Learning Systems , 32(11):4793–4813, 2021. 15 A PREPRINT - M ARCH 30, 2026 [35] Luke Oakden-Rayner, Jared Dunnmon, Gustavo Carneiro, and Christopher Re. Hidden stratification causes clinically meaningful failures in machine learning for medical imaging. In Proceedings of the ACM Conference on Health, Inference, and Learning , pages 151–159. Association for Computing Machinery, 2020. [36] Irene Y Chen, Emma Pierson, Sherri Rose, Shalmali Joshi, Kadija Ferryman, and Marzyeh Ghassemi. Ethical machine learning in healthcare. Annual Review of Biomedical Data Science , 4:123–144, 2021. [37] Philipp Tschandl, Cliff Rosendahl, and Harald Kittler. The ham10000 dataset, a large collection of multi-source dermatoscopic images of common pigmented skin lesions. Scientific data , 5(1):180161, 2018. [38] Andre GC Pacheco, Gustavo R Lima, Amanda S Salomao, Breno Krohling, Igor P Biral, Gabriel G De Angelo, Fábio CR Alves Jr, José GM Esgario, Alana C Simora, Pedro BC Castro, et al. Pad-ufes-20: A skin lesion dataset composed of patient data and clinical images collected from smartphones. Data in brief , 32:106221, 2020. [39] Carlos Hernández-Pérez, Marc Combalia, Sebastian Podlipnik, Noel CF Codella, Veronica Rotemberg, Allan C Halpern, Ofer Reiter, Cristina Carrera, Alicia Barreiro, Brian Helba, et al. Bcn20000: Dermoscopic lesions in the wild. Scientific data , 11(1):641, 2024. [40] Andre G. C. Pacheco and Renato A. Krohling. An attention-based mechanism to combine images and metadata in deep learning models applied to skin cancer classification. IEEE Journal of Biomedical and Health Informatics ,25(9):3554–3563, 2021. [41] NVIDIA Corporation. pynvml: Python bindings to the nvidia management library. https://pypi.org/ project/nvidia-ml-py/ , 2025. [42] Jie You, Jae-Won Chung, et al. Zeus: Understanding and optimizing GPU energy consumption of DNN training. In 20th USENIX Symposium on Networked Systems Design and Implementation (NSDI 23) . USENIX Association, 2023. [43] Moritz Hardt, Eric Price, and Nati Srebro. Equality of opportunity in supervised learning. In Advances in Neural Information Processing Systems , volume 29, pages 3315–3323, 2016. [44] Jenna Wiens, Suchi Saria, Mark Sendak, Marzyeh Ghassemi, Vincent X Liu, Finale Doshi-Velez, Kenneth Jung, Katherine Heller, David Kale, Mohammed Saeed, et al. Do no harm: a roadmap for responsible machine learning for health care. Nature medicine , 25(9):1337–1340, 2019. 16

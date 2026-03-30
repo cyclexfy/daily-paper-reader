@@ -6,64 +6,73 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-03-29
-- 运行时间：2026-03-29 19:41:03 UTC
+- 最新运行日期：2026-03-30
+- 运行时间：2026-03-30 19:45:28 UTC
 - 运行状态：成功
-- 本次总论文数：14
-- 精读区：3
+- 本次总论文数：17
+- 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今日聚焦多模态大模型的可靠性与效率优化，深度研读了医疗因果推理与递归自适应架构。
-MedCausalX 通过自我反思提升医疗诊断的可信度，RVLM 则利用递归结构实现了推理深度的动态平衡。
-建议关注因果逻辑与动态计算如何协同解决垂直领域 AI 的幻觉问题与能效瓶颈。
-- 详情：[/202603/29/README](/202603/29/README)
+今日深度解析 17 篇医疗 AI 论文，重点聚焦细胞核形态学基座模型 LEMON 与 SAM 3 的医学适配。
+满分力作 LEMON 重新定义了计算病理学的形态学建模，同时 SAM 3 在概念驱动的病灶分割中展现出卓越的迁移能力。
+建议关注大模型在眼科临床决策及多模态生存预测中的应用，并探索医疗推理中能效与隐私的平衡。
+- 详情：[/202603/30/README](/202603/30/README)
 
 ### 精读区论文标签
-1. [MedCausalX: Adaptive Causal Reasoning with Self-Reflection for Trustworthy Medical Vision-Language Models](/202603/29/2603.23085v1-medcausalx-adaptive-causal-reasoning-with-self-reflection-for-trustworthy-medical-vision-language-models)  
+1. [LEMON: a foundation model for nuclear morphology in Computational Pathology](/202603/30/2603.25802v1-lemon-a-foundation-model-for-nuclear-morphology-in-computational-pathology)  
+   标签：评分：10.0/10、query:cpath
+   evidence：计算病理学中细胞核形态的基础模型
+2. [Adapting Segment Anything Model 3 for Concept-Driven Lesion Segmentation in Medical Images: An Experimental Study](/202603/30/2603.25945v1-adapting-segment-anything-model-3-for-concept-driven-lesion-segmentation-in-medical-images-an-experimental-study)  
+   标签：评分：9.0/10、query:cpath
+   evidence：将SAM3基础模型应用于医学病灶分割
+3. [MedOpenClaw: Auditable Medical Imaging Agents Reasoning over Uncurated Full Studies](/202603/30/2603.24649v1-medopenclaw-auditable-medical-imaging-agents-reasoning-over-uncurated-full-studies)  
    标签：评分：8.0/10、query:cpath
-   evidence：可信医学视觉语言模型的自适应因果推理
-2. [RVLM: Recursive Vision-Language Models with Adaptive Depth](/202603/29/2603.24224v1-rvlm-recursive-vision-language-models-with-adaptive-depth)  
+   evidence：在医学影像任务中评估视觉语言模型 (VLM)
+4. [Colon-Bench: An Agentic Workflow for Scalable Dense Lesion Annotation in Full-Procedure Colonoscopy Videos](/202603/30/2603.25645v1-colon-bench-an-agentic-workflow-for-scalable-dense-lesion-annotation-in-full-procedure-colonoscopy-videos)  
    标签：评分：8.0/10、query:cpath
-   evidence：用于医疗AI可审计性的递归视觉语言模型
-3. [NeuroVLM-Bench: Evaluation of Vision-Enabled Large Language Models for Clinical Reasoning in Neurological Disorders](/202603/29/2603.24846v1-neurovlm-bench-evaluation-of-vision-enabled-large-language-models-for-clinical-reasoning-in-neurological-disorders)  
+   evidence：用于结肠癌筛查和病变标注的多模态大语言模型
+5. [Seeing Like Radiologists: Context- and Gaze-Guided Vision-Language Pretraining for Chest X-rays](/202603/30/2603.26049v1-seeing-like-radiologists-context--and-gaze-guided-vision-language-pretraining-for-chest-x-rays)  
    标签：评分：8.0/10、query:cpath
-   evidence：用于临床推理的视觉大语言模型
+   evidence：医学放射影像的视觉语言预训练
+6. [SkinGPT-X: A Self-Evolving Collaborative Multi-Agent System for Transparent and Trustworthy Dermatological Diagnosis](/202603/30/2603.26122v1-skingpt-x-a-self-evolving-collaborative-multi-agent-system-for-transparent-and-trustworthy-dermatological-diagnosis)  
+   标签：评分：8.0/10、query:cpath
+   evidence：用于皮肤病诊断的多模态多智能体系统
 
 ### 速读区论文标签
-1. [ResPrune: Text-Conditioned Subspace Reconstruction for Visual Token Pruning in Large Vision-Language Models](/202603/29/2603.21105v1-resprune-text-conditioned-subspace-reconstruction-for-visual-token-pruning-in-large-vision-language-models)  
+1. [MUST: Modality-Specific Representation-Aware Transformer for Diffusion-Enhanced Survival Prediction with Missing Modality](/202603/30/2603.26071v1-must-modality-specific-representation-aware-transformer-for-diffusion-enhanced-survival-prediction-with-missing-modality)  
+   标签：评分：8.0/10、query:cpath
+   evidence：用于精准肿瘤学的多模态生存预测
+2. [EcoFair: Trustworthy and Energy-Aware Routing for Privacy-Preserving Vertically Partitioned Medical Inference](/202603/30/2603.26483v1-ecofair-trustworthy-and-energy-aware-routing-for-privacy-preserving-vertically-partitioned-medical-inference)  
+   标签：评分：8.0/10、query:cpath
+   evidence：用于皮肤病诊断的图像和表格数据多模态融合
+3. [Guideline-grounded retrieval-augmented generation for ophthalmic clinical decision support](/202603/30/2603.21925v1-guideline-grounded-retrieval-augmented-generation-for-ophthalmic-clinical-decision-support)  
    标签：评分：7.0/10、query:cpath
-   evidence：大型视觉语言模型的视觉标记剪枝
-2. [Uncertainty-guided Compositional Alignment with Part-to-Whole Semantic Representativeness in Hyperbolic Vision-Language Models](/202603/29/2603.22042v1-uncertainty-guided-compositional-alignment-with-part-to-whole-semantic-representativeness-in-hyperbolic-vision-language-models)  
+   evidence：用于临床决策支持的多模态视觉RAG系统
+4. [Uncertainty-guided Compositional Alignment with Part-to-Whole Semantic Representativeness in Hyperbolic Vision-Language Models](/202603/30/2603.22042v2-uncertainty-guided-compositional-alignment-with-part-to-whole-semantic-representativeness-in-hyperbolic-vision-language-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：增强双曲视觉语言模型以实现部分到整体的语义代表性
-3. [Abnormalities and Disease Detection in Gastro-Intestinal Tract Images](/202603/29/2603.22378v1-abnormalities-and-disease-detection-in-gastro-intestinal-tract-images)  
+   evidence：用于部分到整体语义对齐的双曲视觉语言模型
+5. [An Explainable AI-Driven Framework for Automated Brain Tumor Segmentation Using an Attention-Enhanced U-Net](/202603/30/2603.23344v1-an-explainable-ai-driven-framework-for-automated-brain-tumor-segmentation-using-an-attention-enhanced-u-net)  
    标签：评分：7.0/10、query:cpath
-   evidence：胃肠道图像中的疾病检测
-4. [Focus, Don't Prune: Identifying Instruction-Relevant Regions for Information-Rich Image Understanding](/202603/29/2603.22815v1-focus-dont-prune-identifying-instruction-relevant-regions-for-information-rich-image-understanding)  
+   evidence：用于临床诊断的自动脑肿瘤分割
+6. [3D-LLDM: Label-Guided 3D Latent Diffusion Model for Improving High-Resolution Synthetic MR Imaging in Hepatic Structure Segmentation](/202603/30/2603.23845v1-3d-lldm-label-guided-3d-latent-diffusion-model-for-improving-high-resolution-synthetic-mr-imaging-in-hepatic-structure-segmentation)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于图像理解的大型视觉语言模型
-5. [Automatic Segmentation of 3D CT scans with SAM2 using a zero-shot approach](/202603/29/2603.23116v1-automatic-segmentation-of-3d-ct-scans-with-sam2-using-a-zero-shot-approach)  
+   evidence：用于肝细胞癌分割的3D潜扩散模型
+7. [Causal Transfer in Medical Image Analysis](/202603/30/2603.24388v1-causal-transfer-in-medical-image-analysis)  
    标签：评分：7.0/10、query:cpath
-   evidence：将SAM2基础模型应用于3D医学影像
-6. [Multi-Modal Image Fusion via Intervention-Stable Feature Learning](/202603/29/2603.23272v1-multi-modal-image-fusion-via-intervention-stable-feature-learning)  
+   evidence：鲁棒医学图像分析的因果迁移学习综述
+8. [CORA: A Pathology Synthesis Driven Foundation Model for Coronary CT Angiography Analysis and MACE Risk Assessment](/202603/30/2603.24847v1-cora-a-pathology-synthesis-driven-foundation-model-for-coronary-ct-angiography-analysis-and-mace-risk-assessment)  
    标签：评分：7.0/10、query:cpath
-   evidence：多模态图像融合与跨模态依赖
-7. [Hierarchical Text-Guided Brain Tumor Segmentation via Sub-Region-Aware Prompts](/202603/29/2603.21083v1-hierarchical-text-guided-brain-tumor-segmentation-via-sub-region-aware-prompts)  
+   evidence：病理合成驱动的医学影像分析基础模型
+9. [Enhancing Brain Tumor Classification Using Vision Transformers with Colormap-Based Feature Representation on BRISC2025 Dataset](/202603/30/2603.21234v1-enhancing-brain-tumor-classification-using-vision-transformers-with-colormap-based-feature-representation-on-brisc2025-dataset)  
    标签：评分：6.0/10、query:cpath
-   evidence：通过多模态方法进行分层文本引导的脑肿瘤分割
-8. [ALADIN:Attribute-Language Distillation Network for Person Re-Identification](/202603/29/2603.21482v1-aladinattribute-language-distillation-network-for-person-re-identification)  
+   evidence：使用Vision Transformers进行脑肿瘤分类诊断
+10. [Sketch2CT: Multimodal Diffusion for Structure-Aware 3D Medical Volume Generation](/202603/30/2603.22509v1-sketch2ct-multimodal-diffusion-for-structure-aware-3d-medical-volume-generation)  
    标签：评分：6.0/10、query:cpath
-   evidence：从CLIP视觉语言模型进行蒸馏
-9. [PEARL: Geometry Aligns Semantics for Training-Free Open-Vocabulary Semantic Segmentation](/202603/29/2603.21528v1-pearl-geometry-aligns-semantics-for-training-free-open-vocabulary-semantic-segmentation)  
+   evidence：用于3D医学体数据生成的多模态扩散模型
+11. [Curriculum-Driven 3D CT Report Generation via Language-Free Visual Grafting and Zone-Constrained Compression](/202603/30/2603.23308v1-curriculum-driven-3d-ct-report-generation-via-language-free-visual-grafting-and-zone-constrained-compression)  
    标签：评分：6.0/10、query:cpath
-   evidence：用于开放词汇语义分割的跨模态几何
-10. [SHAPE: Structure-aware Hierarchical Unsupervised Domain Adaptation with Plausibility Evaluation for Medical Image Segmentation](/202603/29/2603.21904v1-shape-structure-aware-hierarchical-unsupervised-domain-adaptation-with-plausibility-evaluation-for-medical-image-segmentation)  
-   标签：评分：6.0/10、query:cpath
-   evidence：基于DINOv3基础模型构建的医学图像分割框架
-11. [Pretext Matters: An Empirical Study of SSL Methods in Medical Imaging](/202603/29/2603.22649v1-pretext-matters-an-empirical-study-of-ssl-methods-in-medical-imaging)  
-   标签：评分：6.0/10、query:cpath
-   evidence：医学影像中的自监督学习方法
+   evidence：用于放射报告生成的多模态学习
 
 
 <div class="dpr-home-promo-card">
