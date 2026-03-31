@@ -1,0 +1,487 @@
+Title: Label What Matters: Modality-Balanced and Difficulty-Aware Multimodal Active Learning
+
+URL Source: https://arxiv.org/pdf/2603.25107v1
+
+Published Time: Fri, 27 Mar 2026 00:50:56 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# Label What Matters: Modality-Balanced and Difficulty-Aware Multimodal Active Learning 
+
+## Yuqiao Zeng 1, Xu Wang 1, Tengfei Liang 1, Yiqing Hao 1, Yi Jin 1*, Hui Yu 21Key Laboratory of Big Data and Artificial Intelligence in Transportation, Ministry of Education; State Key Laboratory of Advanced Rail Autonomous Operation; School of Computer and Information Technology, Beijing Jiaotong University, Beijing, China 
+
+> 2
+
+## School of Psychology & Neuroscience, University of Glasgow, Glasgow, UK 
+
+{yuqiaozeng, xu.wang, tengfei.liang, yiqinghao, yjin }@bjtu.edu.cn Hui.Yu@glasgow.ac.uk 
+
+## Abstract 
+
+Multimodal learning integrates complementary information from different modalities such as image, text, and audio to improve model performance, but its success relies on large-scale labeled data, which is costly to obtain. Active learning (AL) mitigates this challenge by selectively anno-tating informative samples. In multimodal settings, many approaches implicitly assume that modality importance is stable across rounds and keep selection rules fixed at the fusion stage, which leaves them insensitive to the dynamic nature of multimodal learning, where the relative value of modalities and the difficulty of instances shift as training proceeds. To address this issue, we propose RL-MBA , a reinforcement-learning framework for modality-balanced, difficulty-aware multimodal active learning. RL-MBA mod-els sample selection as a Markov Decision Process, where the policy adapts to modality contributions, uncertainty, and diversity, and the reward encourages accuracy gains and balance. Two key components drive this adaptability: (1) Adaptive Modality Contribution Balancing (AMCB), which dynamically adjusts modality weights via reinforce-ment feedback, and (2) Evidential Fusion for Difficulty-Aware Policy Adjustment (EFDA), which estimates sample difficulty via uncertainty-based evidential fusion to priori-tize informative samples. Experiments on Food101, Kinet-icsSound, and VGGSound demonstrate that RL-MBA con-sistently outperforms strong baselines, improving both clas-sification accuracy and modality fairness under limited la-beling budgets. 
+
+> *Corresponding author.
+
+Figure 1. Fixed rules vs. adaptive strategy in multimodal ac-tive learning. The unlabeled pool contains items with different difficulty levels and different dominant modality. Left (1–2): fixed strategies keep selecting hard, dominant-modality samples and do not adjust when the value of each modality or the difficulty of samples changes across rounds. Right (3–4): an adaptive strat-egy reweights modality contributions and difficulty, yielding more balanced, budget-efficient batches. 
+
+## 1. Introduction 
+
+Multimodal learning has attracted growing attention be-cause it combines information from different sources, en-abling models to build richer representations and achieve stronger performance than single-modal approaches in dif-ferent tasks [1, 2, 24]. Despite these benefits [11], collect-ing such annotations, especially across multiple modalities, 
+
+> arXiv:2603.25107v1 [cs.CV] 26 Mar 2026
+
+is costly and time-consuming, creating a major barrier for deploying multimodal models in practice. Active learn-ing (AL) is therefore used to lower labeling costs by se-lectively querying the most informative samples for anno-tation, reducing the need for large amounts of labeled data [16, 18, 20]. However, most active learning methods in multimodal settings still rely on fixed selection rules, which fail to ad-dress the dynamic nature of multimodal learning [1, 5, 7, 10, 19, 21]. These methods often suffer from a modal-ity imbalance : batches are biased toward samples where a strong modality dominates, while weaker modalities are underused. This imbalance reduces cross-modal comple-mentarity and hinders generalization [3, 15]. As illustrated in Fig. 1 (left), fixed strategies fail to react when the value of each modality or the difficulty of samples shifts from one round to the next, making the budget less effective and limiting fusion quality. Existing methods which attempt to reduce this bias, such as BMMAL [21], rely on static adjustments during training; they help to some extent but implicitly assume that modality importance is stable across rounds, which rarely holds as the model and labeled pool evolve. These observations point to a simple requirement: 
+
+sampling should update from feedback . Concretely, a good multimodal AL strategy should (i) reweight modality con-tributions across rounds, so that rising modalities are used and fading ones do not dominate, and (ii) use quantitative uncertainty to focus on challenging but informative cases while avoiding unproductive extremes. Such a rule aims for balanced, long-term gains under a fixed budget rather than a fixed strategy. This highlights the need for a more adap-tive approach, where the sampling strategy evolves based on feedback from each learning round. Such a dynamic strat-egy would enable the model to continually adjust its focus on modalities and sample difficulty as training progresses, addressing the limitations of static selection rules. To this end, we propose RL-MBA , a feedback-driven multimodal AL method that makes the sampling rule adap-tive along these two axes. RL-MBA treats sample selection as a policy that is updated from round-level feedback (accu-racy gains and balance signals), where a unified score first proposes a compact candidate set and the policy selects the final query batch from these candidates. A natural way to realize such feedback-driven updates is to model selection as a Markov Decision Process (MDP) with a policy opti-mized for long-term reward; this allows the policy to adjust to the current model state, the distribution of the unlabeled pool, and the changing value of each modality over time. In Fig. 1 (right), the adaptive policy yields balanced batches by reweighting modalities and by prioritizing samples whose difficulty is informative for learning. RL-MBA introduces two components to implement this adaptivity: (i) Adaptive Modality Contribution Balancing (AMCB): estimates modality contributions on a fixed val-idation split and reweights them across rounds, coupling the same weights with fusion, scoring, and the policy state. (ii) Evidential Fusion for Difficulty-Aware Adjust-ment (EFDA): computes calibrated, evidential uncertainty and uses it to emphasize challenging but useful samples, rather than merely the hardest ones. Our main contributions are as follow: • We present RL-MBA, a multimodal active learning framework that updates its sampling rule from feedback, achieving adaptive balance across modalities and diffi-culty over rounds. • We design AMCB to dynamically reweight modality con-tributions and feed the same weights into fusion, scoring, and policy state for coherent emphasis. • We introduce EFDA , an evidential uncertainty module that guides selection toward challenging yet informative samples with improved calibration. 
+
+## 2. Related Work 
+
+2.1. Active Learning 
+
+Active learning (AL) aims to improve model performance by selectively annotating the most informative unlabeled samples, reducing labeling costs. Existing strategies gener-ally fall into three categories: uncertainty-based, diversity-based, and hybrid approaches. Uncertainty-based methods measure model confidence using metrics such as entropy or prediction margins [17, 20], with improvements via Monte Carlo dropout for Bayesian uncertainty [9] and multi-model variance estimation [3]. Diversity-based methods, such as CoreSet [19] and determinantal point processes [4], aim for broad representation but often overlook sample informative-ness. Hybrid strategies like BADGE [1] combine uncer-tainty with diversity using gradient embeddings, yet their adaptability to multimodal data and dynamic modality im-portance remains limited, motivating more integrated and adaptive solutions. 
+
+2.2. Reinforcement Learning 
+
+Reinforcement learning (RL) has been explored as an adap-tive alternative for active learning, enabling policies to evolve through interaction and reward optimization. Early efforts include RAL [12], which uses uncertainty-aware policies, and DRAL [13], which integrates feedback for per-son re-identification. Policy-based Active Learning [8] and LSTM-based agents for few-shot learning [23] demonstrate RL’s potential to surpass static heuristics. However, most RL-driven approaches focus on unimodal scenarios and lack mechanisms to address multimodal imbalance or incor-porate difficulty-aware selection. Our RL-MBA framework addresses these gaps by jointly modeling modality balance and sample difficulty within a unified RL-based design. 3. Method 
+
+3.1. Problem Definition 
+
+We consider a multimodal active learning scenario with dataset D = {(xi, y i)}Ni=1 , where xi = ( x(1)  
+
+> i
+
+, . . . , x(M ) 
+
+> i
+
+)
+
+spans M modalities and yi ∈ { 1, . . . , C }. Initially, a small labeled subset L ⊂ D and a large unlabeled pool U = D \L 
+
+are given. At each round t, a batch of size b is selected from 
+
+Ut for annotation under a fixed labeling budget. We denote the fused multimodal feature by f (x), the modality weights by w = ( w1, . . . , w M ) with wm ∈ [0 , 1] , P 
+
+> m
+
+wm = 1 , and the Dirichlet evidence from each modality by αm ∈ RC>0.
+
+3.2. Overview of RL-MBA 
+
+RL-MBA formulates multimodal sample selection as a Markov Decision Process (MDP) and optimizes alightweight selection policy via policy-gradient reinforce-ment learning. Each active learning round (Fig. 2) proceeds as: (1) multimodal fusion with adaptive modality weight-ing (AMCB, Sec. 3.3) and budgeted clustering for diversity; 
+
+(2) evidential uncertainty and difficulty estimation (EFDA, Sec. 3.4); (3) unified scoring to construct a candidate set (Sec. 3.5); (4) policy-based set selection from the candi-dates (Sec. 3.6, Sec. 3.7); (5) retraining on the updated la-beled set L; and (6) reward computation and policy update. 
+
+All evaluations use a fixed stratified validation split across rounds. Per-modality heads share the backbone; at each round they are evaluated on the validation split to compute modality contributions and calibration statistics. 
+
+3.3. Adaptive Modality Contribution Balancing (AMCB) 
+
+Motivation. In multimodal AL, a modality’s contribution depends on the current training context: which categories are prevalent or missing, how many labels are available, and how well the model already fits the data. It changes across rounds. Fixed weights bias selection toward the channel that happens to dominate and leave other cues underused. AMCB replaces fixed weighting with a feedback-updated simplex of modality contributions. The same weights guide fusion, scoring, and (part of) the state given to the policy, so emphasis shifts coherently as the task evolves, yielding more balanced and budget-efficient batches. 
+
+Design. We quantify the current contribution of modality 
+
+m by the Top-1 gap: 
+
+∆m = Top-1 m − Top-1 mm , (1) computed on the fixed validation split at each round (per-modality heads share the backbone and are evaluated with their respective branches). A positive gap indicates comple-mentary signal beyond the multimodal head; negative gaps indicate redundancy or noise. Contributions are mapped to a probability simplex by a temperature-controlled softmax 
+
+w = softmax( ∆/τ ), wm ∈ [0 , 1] ,
+
+> M
+
+X
+
+> m=1
+
+wm = 1 ,
+
+(2) where τ > 0 modulates sensitivity. To avoid vanish-ing modalities we use an optional floor ε > 0: ˜wm =(wm + ε)/ P 
+
+> j
+
+(wj + ε).
+
+Properties. (i) Simplex consistency. w is non-negative and sums to one, so fusion is a convex combination and scale-stable. (ii) Monotonicity and control. ∂w m/∂ ∆m ∝
+
+(1 /τ ) wm(1 −wm); smaller τ yields quicker emphasis shifts when a modality becomes informative. (iii) Identity and ro-bustness. If a single modality dominates ( ∆k ≫ ∆m̸=k), then w → ek; if contributions tie, w is uniform, preventing premature specialization. 
+
+Coupling across the pipeline. The same w is injected into three loci: (i) Fusion: f (x) = P 
+
+> m
+
+wmfm(x) focuses representation on currently informative views; (ii) Scoring: 
+
+q(x) (Sec. 3.5) weighs modality-wise uncertainties by w,aligning acquisition with contribution; (iii) State: the state includes w (or ∆), exposing the balance to the policy so that future selection can react to shifts in modality value. 
+
+3.4. Evidential Fusion for Difficulty-Aware Estima-tion (EFDA) 
+
+Motivation. Uncertainty should reflect both aleatoric vari-ability (intrinsic noise) and epistemic lack of evidence. Combining signals at the posterior level (e.g., simple prod-ucts or averages) may become overconfident when calibra-tion differs across modalities or when a local failure occurs. EFDA instead performs evidence -level fusion that is addi-tive, bounded, and aligned with AMCB: modalities with higher wm contribute more evidence, while weaker modal-ities neither dominate nor collapse the estimate. 
+
+Design. Each modality head outputs Dirichlet evidence 
+
+αm(x) ∈ RC>0. We fuse evidence additively, 
+
+αf (x) = 1 +
+
+> M
+
+X
+
+> m=1
+
+wm
+
+ αm(x) − 1, (3) so that the fused prior αf interpolates between modalities according to w. Per-modality logits can be temperature-scaled on the validation split (one scalar per modality) be-fore converting to evidence, yielding better-calibrated per-modality and fused Dirichlet distributions. 
+
+Rationale. Additive evidence preserves identity when a single modality is trusted ( w = ek gives αf = αk)and keeps confidence within explicit bounds ( 1 ≤ αf,c ≤
+
+1 + P 
+
+> m
+
+wm(αm,c − 1) ), preventing runaway certainty. It degrades gracefully under weak or missing inputs because small wm or low evidence limits a modality’s influence, and it remains calibration-friendly since scaling is applied up-stream of evidence. Figure 2. Overview of RL-MBA. Each round consists of (1) multimodal fusion and clustering, (2) evidential uncertainty and difficulty estimation, (3) scoring to form a candidate set, (4) policy-based set selection, (5) retraining, and (6) reward and policy update. 
+
+Difficulty-aware uncertainty. Given αf , the Dirichlet pre-dictive variance 
+
+Var[ pc] = αf,c (αf, 0 − αf,c )
+
+α2
+
+> f, 0
+
+(αf, 0 + 1) , U(x) = 1
+
+> CC
+
+X
+
+> c=1
+
+Var[ pc],
+
+(4) with αf, 0 = P 
+
+> c
+
+αf,c , serves as a difficulty proxy: samples with diffuse posteriors (small αf, 0 or balanced class mass) receive larger U(x) and are prioritized. This naturally cou-ples with AMCB: if a modality becomes more informative, 
+
+wm increases, its evidence contributes more to αf , and the uncertainty of easy samples shrinks, freeing budget for gen-uinely difficult cases. 
+
+3.5. Scoring with AMCB, EFDA and Diversity 
+
+Let um(x) denote modality-wise uncertainty derived anal-ogously to Eq. 4 on αm, and f (x) = P 
+
+> m
+
+wmfm(x) the fused feature. To promote representativeness, we apply budgeted k-means++ on {f (x) | x ∈ U t} with k=b cen-troids {ck}bk=1 (at most 5 iterations). The nearest-centroid distance is 
+
+d(x) = min  
+
+> k≤b
+
+∥f (x) − ck∥2, (5) which encourages coverage of underrepresented regions rather than selecting outliers. Within each round, uncertain-ties and distances are min–max normalized to mitigate scale drift: ˜um(x) = minmax( um(x)) , ˜d(x) = minmax( d(x)) .The final score combines informativeness and diversity: 
+
+q(x) = 
+
+> M
+
+X
+
+> m=1
+
+wm ˜um(x) + β ˜d(x). (6) We use q(·) to build a candidate set Ct (Sec. 3.6) rather than directly taking Top -b as the action. 
+
+3.6. MDP Formulation with State, Action and Re-ward 
+
+State st. A fixed-length vector st = [ gt ∥ ϕt ∥ ¯ut ∥ ¯dt ∥ ρt],including (i) validation statistics gt (Top-1, NLL, ECE; all normalized to [0 , 1] ); (ii) modality contributions ϕt (Top-1 gaps); (iii) aggregated uncertainty and diversity summaries 
+
+(¯ ut, ¯dt); and (iv) training diagnostics ρt (loss slope, gradi-ent norm). All elements are standardized across rounds. 
+
+Action at. We first construct a candidate set 
+
+Ct = Top -K by q(·) on Ut, K = κb, (7) where κ > 1 is a small constant (e.g., κ = 5 in our imple-mentation). The action is a set of b samples selected from 
+
+Ct without replacement by the policy πθ (·| st) (Sec. 3.7). 
+
+Transition. Each step involves candidate construction, policy-based selection, labeling, retraining for E epochs, and recomputation of validation statistics, resulting in a de-terministic MDP given the dataset and fixed training proto-col (up to stochastic optimization noise). 
+
+Reward rt. We use a round-level reward based on the val-idation Top-1 of the multimodal model, optionally defined 
+
+relative to precomputed baseline learning curves: 
+
+rt = Top-1 RL-MBA  
+
+> t
+
+− 1
+
+|E| 
+
+X
+
+> h∈E
+
+Top-1 (h) 
+
+> t
+
+, (8) 
+
+E = {GCNAL , BADGE , BMMAL }. (9) Importantly, the baseline scores {Top-1 (h) 
+
+> t
+
+} are precom-puted offline under the same protocol and read as constants Figure 3. Core components. (a) AMCB updates simplex weights  
+
+> wfrom round-level modality gains. (b) EFDA fuses Dirichlet ev-idence to obtain calibrated uncertainty/difficulty; the RL reward updates the selection policy (and optionally uncertainty heads if enabled in implementation).
+
+during RL-MBA training; hence, computing rt does not re-quire concurrent training of baselines and adds negligible overhead. In practice, we further smooth the reward with an exponential moving average to improve stability. 
+
+Per-round complexity. Let F be the backbone for-ward cost per sample and M the number of modali-ties. Each round requires O(|U t|F ) for feature extraction, 
+
+O(|U t|M ) for scoring (AMCB/EFDA are linear in M ), and 
+
+O(|U t| log |U t|) for sorting; budgeted k-means++ uses k=b
+
+with a small fixed number of iterations. Candidate construc-tion adds only sorting-based overhead, while policy selec-tion operates on K = κb candidates and is negligible com-pared to retraining. 
+
+3.7. Policy Network and Optimization 
+
+Policy parameterization. The policy is a lightweight MLP that, given the round state st, outputs selection logits for candidates in Ct. We sample a batch of size b sequentially 
+
+without replacement . Let C(j) 
+
+> t
+
+denote the remaining can-didates at step j (C(1)  
+
+> t
+
+= Ct). At each step j, the policy defines 
+
+πθ (x | st, C (j) 
+
+> t
+
+) = exp( zθ (st, x )) 
+
+P
+
+> x′∈C(j)
+> t
+
+exp( zθ (st, x ′)) , (10) and samples xij ∼ πθ (·| st, C (j) 
+
+> t
+
+), then removes it from the candidate set. Thus, the probability of the batch action at =
+
+{xi1 , . . . , x ib } is 
+
+πθ (at|st) = 
+
+> b
+
+Y
+
+> j=1
+
+πθ
+
+ xij st, C (j)
+
+> t
+
+, (11) 
+
+log πθ (at|st) = 
+
+> b
+
+X
+
+> j=1
+
+log πθ
+
+ xij st, C (j)
+
+> t
+
+. (12) 
+
+Policy optimization. We optimize θ with REINFORCE us-ing a one-step return at each AL round: 
+
+∇θ J(θ) = E
+
+" TX
+
+> t=1
+
+At ∇θ log πθ (at | st)
+
+#
+
+, At = rt−bt,
+
+(13) where bt is a moving-average baseline of past rewards (vari-ance reduction). In implementation we optionally clip At to stabilize training. This formulation lets the policy adapt to the evolving data distribution while keeping the RL compo-nent lightweight. We train one policy per dataset/task under the same AL protocol. 
+
+3.8. Overall Algorithm 
+
+Algorithm 1 summarizes one active learning episode of RL–MBA. Given a labeled set L, an unlabeled pool U, and a labeling budget b per round, the agent observes the state 
+
+st, scores the unlabeled pool to form a candidate set Ct,samples an action batch at from Ct, updates the backbone on L, and receives a (relative) Top-1 reward (Eq. 8). AMCB (Eq. 2) adapts modality weights across rounds, while EFDA provides calibrated uncertainty for difficulty-aware scoring. Per-round cost follows Sec. 3.6 and the policy update uses Eq. 13. 
+
+## 4. Experiment 
+
+We evaluate RL-MBA on multiple multimodal datasets to test its ability to rebalance modality contributions and pri-oritize informative samples. We describe datasets, setup, baselines, and metrics, then present modality-contribution analysis and ablations, combining quantitative and visual evidence of RL-MBA’s advantages. 
+
+4.1. Datasets 
+
+We evaluate RL-MBA on three multimodal datasets that cover distinct modality combinations and semantic com-plexities. Food101 contains 101 food categories with Algorithm 1 RL-MBA: Modality-Balanced Multimodal Active Learning. Inputs: dataset D = ( L, U), batch b,rounds T , epochs E, temperature τ , diversity weight β, can-didate multiplier κ, discount γ. Output: trained backbone and policy πθ . 
+
+> 1:
+
+Initialize policy θ; fix a stratified validation split  
+
+> 2:
+
+Estimate initial contributions ∆ on the validation split; set w ← softmax(∆ /τ ) (Eq. 2)  
+
+> 3:
+
+for t = 1 , . . . , T do  
+
+> 4:
+
+Build state st = [ gt ∥ ϕt ∥ ¯ut ∥ ¯dt ∥ ρt] (Sec. 3.6)  
+
+> 5:
+
+Run budgeted k-means++ on fused features ( k=b,
+
+≤5 iters); obtain centroids {ck}bk=1  
+
+> 6:
+
+for each x ∈ U t do  
+
+> 7:
+
+Obtain per-modality evidence αm(x); fuse 
+
+αf (x) = 1 + P 
+
+> m
+
+wm(αm(x) − 1) (Eq. 3)  
+
+> 8:
+
+Compute um(x) via Dirichlet variance; set d(x) = min k≤b ∥f (x) − ck∥2 (Eq. 4, Eq. 5)  
+
+> 9:
+
+Normalize: ˜um(x) = minmax( um(x)) , ˜d(x) = minmax( d(x))  
+
+> 10:
+
+Score: q(x) = P 
+
+> m
+
+wm ˜um(x) + β ˜d(x) (Eq. 6)  
+
+> 11:
+
+end for  
+
+> 12:
+
+Construct candidate set Ct ← Top -K by q(·) on Ut,
+
+K = κb (Eq. 7)  
+
+> 13:
+
+Sample action batch at ∼ πθ (·| st) from Ct without replacement (Eq. 11)  
+
+> 14:
+
+Query labels y(at); L ← L ∪ at, U ← U \ at 
+
+> 15:
+
+Retrain backbone for E epochs  
+
+> 16:
+
+Compute reward rt (Eq. 8); update policy with RE-INFORCE (Eq. 13)  
+
+> 17:
+
+Recompute ∆ on the validation split; update w ←
+
+softmax(∆ /τ ) (Eq. 2)  
+
+> 18:
+
+end for 
+
+paired image and text modalities, including 45,719 train-ing and 15,294 test samples. Each class is associated with a concise textual description that complements the visual modality[25]. KineticsSound comprises 31 action classes combining video and audio modalities, with 14,739 train-ing and 2,594 test clips. VGGSound extends this to 309 diverse sound–vision categories, including 105,243 training and 7,109 test samples. 
+
+4.2. Experimental Setup 
+
+Our experiments are conducted on a system with an NVIDIA RTX 5880 GPU and 128GB of memory, run-ning Ubuntu 18.04.6 LTS as the operating system. We utilize PyTorch version 2.5.1 with CUDA 12.4 support for deep learning tasks, ensuring compatibility with the GPU hardware. We evaluate RL-MBA on two multimodal classification tasks: image-text (Food101) and video-audio (VGGSound, KineticsSound), using task-specific architec-tures. For image-text classification, we use ResNet-101  
+
+> Figure 4. The example from Food101, KineticsSound and VG-GSound
+
+Method Food101 KineticsSound VGGSound 
+
+Random 0.8470 0.4650 0.2173 Entropy 0.8480 0.4650 0.2043 GCNAL 0.8510 0.4600 0.2033 CoreSet 0.8422 0.4600 0.2013 DeepFool 0.8500 0.4680 0.1973 BALD 0.8450 0.4550 0.1993 BADGE 0.8420 0.4700 0.2023 BMMAL 0.8609 0.4745 0.2053 
+
+RL-MBA 0.8650 0.4841 0.2223        
+
+> Table 1. Top-1 Accuracy on multimodal datasets with 3,000 la-belled samples . This corresponds to 6.6% of Food101, 20.4% of KineticsSound, and 2.9% of VGGSound training sets.
+
+(ImageNet-pretrained) for images and BERT-base [6] for text, followed by a shared fully connected layer. Models are optimized with AdamW [14] for 15 epochs per active learn-ing cycle. Standard image augmentations (random crop, horizontal flip, grayscale) are applied. For video-audio clas-sification, we adopt ResNet2P1D-18 [22] for video (pre-trained on Kinetics-400 for VGGSound, random init for Ki-neticsSound) and a modified ResNet-18 for audio. Videos are sampled at 10 FPS; audio is converted to spectrograms using a 512-sample window with 353-sample overlap. 
+
+4.3. Baselines 
+
+We compare RL-MBA with widely used active learning strategies. Random selects samples uniformly as a naive baseline. Entropy [20] ranks samples by prediction un-certainty. GCNAL [5] uses graph convolutional networks for uncertainty and diversity. CoreSet [19] applies K-center selection for feature coverage. DeepFool [7] tar-gets points near decision boundaries via adversarial per-turbations. BALD [10] estimates informativeness through Bayesian mutual information. BADGE [1] combines un-certainty and diversity using gradient embeddings. BM-MAL [21] integrates multimodal informativeness and di-versity for modality balance. All baselines share the same model backbones and training setup for fair comparison. Figure 5. Performance comparison between the proposed method and other conventional AL strategies on Food101, KineticsSound, and VGGSound. The metric selected is top-1 accuracy (Top-1) on multimodal and unimodal classification. 
+
+4.4. Multimodal Active Learning Performance 
+
+Table 1 reports top-1 accuracy with a fixed labelling budget of 3,000 samples . As the training-set sizes differ substan-tially, this corresponds to different labelled fractions across datasets (6.6% for Food101, 20.4% for KineticsSound, and 2.9% for VGGSound). RL-MBA achieves 0.8650 on Food101, 0.4841 on KineticsSound, and 0.2223 on VG-GSound, outperforming all baselines at the same labelled-set size. Compared with the strongest baseline BMMAL (0.8609/0.4745/0.2053), RL-MBA yields consistent gains, with a particularly notable improvement on VGGSound, in-dicating better utilisation of multimodal complementarity under limited annotations. Figure 5 shows learning curves as the budget in-creases. RL-MBA remains competitive across all stages and typically leads other methods, demonstrating favourable accuracy–budget trade-offs on diverse multimodal bench-marks. 
+
+4.5. Modality Contribution Analysis 
+
+To assess RL-MBA’s dynamic modality focus, we track the Shapley-derived contribution ϕ across rounds. Figure 6 plots ϕ on Food101 from 1,000 to 7,000 labels, compar-ing RL-MBA (red dash–dot) with BMMAL (blue), BADGE (green), BALD (purple), and Random (gray); circles denote text and “x” images. All methods start similarly, but RL-MBA gradually shifts toward text and de-emphasizes im-ages, whereas baselines remain largely static. This stems from RL-MBA’s Adaptive Modality Contribution Balanc-                    
+
+> Figure 6. Modality contribution ϕon Food101 (1k–7k labels).
+> ϕis Shapley-derived; circles = Text, crosses = Image. RL-MBA progressively increases text weight, while baselines remain static.
+> Variant Food101 KineticsSound VGGSound
+> BMMAL (Baseline) 0.8609 0.4745 0.2053 RL-MBA w/ AMCB 0.8621 0.4771 0.2059 RL-MBA w/ EFDA 0.8637 0.4802 0.2177 RL-MBA (Full) 0.8650 0.4841 0.2223
+> Table 2. Ablation study results (TOP-1 Accuracy) on Food101, KineticsSound, and VGGSound with 3,000 labels.
+
+ing (AMCB) and Evidential Fusion for Difficulty-Aware Policy Adjustment (EFDA), which align sampling with the evolving value of each modality. Figure 7. Combined ablation and reward analysis. (a) Ablation on KineticsSound comparing BMMAL, RL-MBA w/ AMCB, RL-MBA w/ EFDA, and RL-MBA (Full). (b) Reward settings on Food101 comparing Relative, Absolute, and Incremental rewards. Table 3. Food101 per-round wall-clock breakdown (s) with fixed Train/Val across methods. Round Total is computed as Pred +Sel +Train +Val +Policy.                                           
+
+> Strategy Pred Sel Train Val Policy Update Round Total GCNAL 450.15 700.54 639.16 56.11 0.00 1845.96 DeepFool 263.12 1273.25 639.16 56.11 0.00 2231.64 BALD 519.21 0.44 639.16 56.11 0.00 1214.92 BADGE 162.10 312.84 639.16 56.11 0.00 1170.21 BMMAL 146.00 310.12 639.16 56.11 0.00 1151.39 RL-MBA 155.41 33.48 639.16 56.11 0.23 884.39
+
+4.6. Efficiency 
+
+Table 3 shows that RL-MBA achieves the lowest round total (884.39s), mainly by accelerating selection: Sel is 33.48s, compared with 312.84s (BADGE) and 310.12s (BMMAL). Meanwhile, the reinforcement-learning component incurs negligible overhead ( Policy Update = 0 .23 s), indicating that RL-MBA improves sampling efficiency without intro-ducing substantial extra computation. 
+
+4.7. Ablation Study 
+
+We evaluate the contributions of RL-MBA’s components on Food101, KineticsSound, and VGGSound by compar-ing four settings: the BMMAL baseline, RL-MBA with only AMCB, RL-MBA with only EFDA, and the full method. Table 2 (3,000 labels) further confirms this: on Food101, AMCB/EFDA bring incremental gains and RL-MBA reaches 0.8650; on KineticsSound and VGGSound, EFDA yields larger boosts, while RL-MBA attains the top scores (0.4841 and 0.2223), highlighting the benefit of jointly modeling modality balance and sample difficulty. On Food101, we also compare reward designs, Relative (Rel), Absolute (Abs), and Incremental (Delta) (Fig. 7(b)). All start similarly at 1,000 labels, but as the budget grows the Relative reward stays highest (feedback-normalized and more adaptive). 
+
+## 5. Conclusion 
+
+We introduced RL-MBA, a reinforcement learning frame-work for multimodal active learning that adaptively bal-ances modality contributions and prioritizes informative samples under limited labeling budgets. By coupling Adap-tive Modality Contribution Balancing with Evidential Fu-sion for Difficulty-Aware adjustment, RL-MBA shows the benefit of reinforcement-driven adaptive sampling for miti-gating modality imbalance and learning difficulty. 
+
+## References 
+
+[1] Jordan T Ash, Chicheng Zhang, Akshay Krishnamurthy, John Langford, and Alekh Agarwal. Deep batch active learning by diverse, uncertain gradient lower bounds. arXiv preprint arXiv:1906.03671 , 2019. 1, 2, 6 [2] Tadas Baltruˇ saitis, Chaitanya Ahuja, and Louis-Philippe Morency. Multimodal machine learning: A survey and tax-onomy. IEEE transactions on pattern analysis and machine intelligence , 41(2):423–443, 2018. 1 [3] William H Beluch, Tim Genewein, Andreas N¨ urnberger, and Jan M K¨ ohler. The power of ensembles for active learning in image classification. In Proceedings of the IEEE con-ference on computer vision and pattern recognition , pages 9368–9377, 2018. 2 [4] Erdem Bıyık, Kenneth Wang, Nima Anari, and Dorsa Sadigh. Batch active learning using determinantal point pro-cesses. arXiv preprint arXiv:1906.07975 , 2019. 2 [5] Razvan Caramalau, Binod Bhattarai, and Tae-Kyun Kim. Se-quential graph convolutional network for active learning. In 
+
+Proceedings of the IEEE/CVF conference on computer vi-sion and pattern recognition , pages 9583–9592, 2021. 2, 6 [6] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. Bert: Pre-training of deep bidirectional trans-formers for language understanding. In Proceedings of the 2019 conference of the North American chapter of the asso-ciation for computational linguistics: human language tech-nologies, volume 1 (long and short papers) , pages 4171– 4186, 2019. 6 [7] Melanie Ducoffe and Frederic Precioso. Adversarial active learning for deep networks: a margin based approach. arXiv preprint arXiv:1802.09841 , 2018. 2, 6 [8] Meng Fang, Yuan Li, and Trevor Cohn. Learning how to active learn: A deep reinforcement learning approach. arXiv preprint arXiv:1708.02383 , 2017. 2 [9] Yarin Gal and Zoubin Ghahramani. Dropout as a bayesian approximation: Representing model uncertainty in deep learning. In international conference on machine learning ,pages 1050–1059. PMLR, 2016. 2 [10] Yarin Gal, Riashat Islam, and Zoubin Ghahramani. Deep bayesian active learning with image data. In International conference on machine learning , pages 1183–1192. PMLR, 2017. 2, 6 [11] Wenzhong Guo, Jianwen Wang, and Shiping Wang. Deep multimodal representation learning: A survey. Ieee Access ,7:63373–63394, 2019. 1 [12] Manuel Haussmann, Fred A Hamprecht, and Melih Kan-demir. Deep active learning with adaptive acquisition. arXiv preprint arXiv:1906.11471 , 2019. 2 [13] Zimo Liu, Jingya Wang, Shaogang Gong, Huchuan Lu, and Dacheng Tao. Deep reinforcement active learning for human-in-the-loop person re-identification. In Proceedings of the IEEE/CVF international conference on computer vi-sion , pages 6122–6131, 2019. 2 [14] Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization. arXiv preprint arXiv:1711.05101 , 2017. 6 [15] Katerina Margatina, Giorgos Vernikos, Lo¨ ıc Barrault, and Nikolaos Aletras. Active learning by acquiring contrastive examples. arXiv preprint arXiv:2109.03764 , 2021. 2 [16] Amin Parvaneh, Ehsan Abbasnejad, Damien Teney, Gholam-reza Reza Haffari, Anton Van Den Hengel, and Javen Qin-feng Shi. Active learning by feature mixing. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 12237–12246, 2022. 2 [17] Dan Roth and Kevin Small. Margin-based active learning for structured output spaces. In European conference on ma-chine learning , pages 413–424. Springer, 2006. 2 [18] Sebastian Schmidt, Leonard Schenk, Leo Schwinn, and Stephan G¨ unnemann. Joint out-of-distribution filtering and data discovery active learning. In Proceedings of the Com-puter Vision and Pattern Recognition Conference , pages 25677–25687, 2025. 2 [19] Ozan Sener and Silvio Savarese. Active learning for convolu-tional neural networks: A core-set approach. arXiv preprint arXiv:1708.00489 , 2017. 2, 6 [20] Burr Settles. From theories to queries: Active learning in practice. In Active learning and experimental design work-shop in conjunction with AISTATS 2010 , pages 1–18. JMLR Workshop and Conference Proceedings, 2011. 2, 6 [21] Meng Shen, Yizheng Huang, Jianxiong Yin, Heqing Zou, Deepu Rajan, and Simon See. Towards balanced active learning for multimodal classification. In Proceedings of the 31st ACM International Conference on Multimedia , pages 3434–3445, 2023. 2, 6 [22] Du Tran, Heng Wang, Lorenzo Torresani, Jamie Ray, Yann LeCun, and Manohar Paluri. A closer look at spatiotemporal convolutions for action recognition. In Proceedings of the IEEE conference on Computer Vision and Pattern Recogni-tion , pages 6450–6459, 2018. 6 [23] Mark Woodward and Chelsea Finn. Active one-shot learn-ing. arXiv preprint arXiv:1702.06559 , 2017. 2 [24] Yuqiao Zeng, Tengfei Liang, Yi Jin, and Yidong Li. Mmi-det: Exploring multi-modal integration for visible and in-frared object detection. IEEE Transactions on Circuits and Systems for Video Technology , 34(11):11198–11213, 2024. 1[25] Li Zhang, Tao Xiang, and Shaogang Gong. Learning a deep embedding model for zero-shot learning. In Proceedings of the IEEE conference on computer vision and pattern recog-nition , pages 2021–2030, 2017. 6
