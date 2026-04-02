@@ -1,0 +1,233 @@
+Title: CIV-DG: Conditional Instrumental Variables for Domain Generalization in Medical Imaging
+
+URL Source: https://arxiv.org/pdf/2603.25202v1
+
+Published Time: Fri, 27 Mar 2026 00:45:27 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# CIV-DG: Conditional Instrumental Variables for Domain Generalization in Medical Imaging 
+
+Shaojin Bai 1, Yuting Su 1, and Weizhi Nie 1⋆
+
+School of Electrical and Information Engineering, Tianjin University, Tianjin, China 
+
+bsj072@tju.edu.cn, yutingsu@tju.edu.cn, weizhinie@tju.edu.cn 
+
+Abstract. Cross-site generalizability in medical AI is fundamentally compromised by selection bias, a structural mechanism where patient demographics (e.g., age, severity) non-randomly dictate hospital assign-ment. Conventional Domain Generalization (DG) paradigms, which pre-dominantly target image-level distribution shifts, fail to address the re-sulting spurious correlations between site-specific variations and diagnos-tic labels. To surmount this identifiability barrier, we propose CIV-DG ,a causal framework that leverages Conditional Instrumental Variables to disentangle pathological semantics from scanner-induced artifacts. By relaxing the strict random assignment assumption of standard IV meth-ods, CIV-DG accommodates complex clinical scenarios where hospital selection is endogenously driven by patient demographics. We instanti-ate this theory via a Deep Generalized Method of Moments (DeepGMM) architecture, employing a conditional critic to minimize moment vio-lations and enforce instrument-error orthogonality within demographic strata. Extensive experiments on the Camelyon17 benchmark and large-scale Chest X-Ray datasets demonstrate that CIV-DG significantly out-performs leading baselines, validating the efficacy of conditional causal mechanisms in resolving structural confounding for robust medical AI. 
+
+Keywords: Domain Generalization · Conditional Instrumental Vari-ables · Causal Representation Learning · Medical AI. 
+
+## 1 Introduction 
+
+The clinical deployment of medical AI is frequently stalled by domain shift: models with expert-level internal performance fail to generalize across institu-tions [1,2,3]. While Domain Generalization (DG) typically attributes this to ac-quisition heterogeneity [4,5](e.g., scanner physics, imaging protocols, staining), this pixel-centric view overlooks a more fundamental confounder—non-random patient selection into medical centers [6]. Unlike random noise, demographics and disease severity systematically dictate site assignment, inducing spurious site–label correlations [7,8,9] that feature alignment cannot resolve. In observational multi-center studies, patient assignment is rarely random and is structurally entangled with demographics (selection bias) [10]. For ex-ample, patients with complex or rare pathologies are preferentially referred to  
+
+> ⋆
+
+Corresponding author. Email: weizhinie@tju.edu.cn  
+
+> arXiv:2603.25202v1 [cs.CV] 26 Mar 2026 2S. Bai et al.
+
+tertiary hospitals, creating a dependency between patient characteristics and acquisition sites [11]. This confounding leads models to exploit site-specific ar-tifacts (e.g., scanner noise or tag text) as shortcuts instead of learning causally invariant pathological semantics. Thus, DG methods that ignored this selec-tion mechanism would break down if the demographic–site relationship were to shift [12,13]. Instrumental Variable (IV) methods offer a principled route to causal iden-tification by leveraging exogenous variation [14]. The acquisition site (hospital) is a natural instrument candidate: it affects the image generation process but should not directly cause the pathology [15]. However, standard IV requires instrument–confounder independence, which is often implausible in practice be-cause hospital selection may be endogenous (e.g., driven by demographics and referral patterns), thereby undermining standard IV identification in clinical set-tings [16]. Addressing this limitation, we introduce CIV-DG, a structural causal frame-work designed to generalize identification to scenarios plagued by selection bias. Departing from standard IV methods, CIV-DG leverages the theory of Condi-tional Instrumental Variables, which relaxes the strict independence assumption by positing that the instrument (hospital) is valid conditional on observed con-founders (demographics). We instantiate this theory via a novel Deep Gener-alized Method of Moments (DeepGMM) architecture [17]. Specifically, instead of standard adversarial learning [5], we employ a conditional moment critic to minimize the violation of conditional moment restrictions. This mathematically enforces the orthogonality between the instrument and the error term within demographic strata, thereby rigorously adjusting for confounding. As a result, CIV-DG effectively disentangles pathological semantics from site-specific arti-facts [8], ensuring that the learned representations remain invariant to both acquisition shifts and demographic selection biases. Main contributions: 1) Causal Formalization: We introduce a novel perspec-tive that identifies demographic confounding as a structural impediment to med-ical DG, formalizing cross-site generalization via Conditional Instrumental Vari-ables (CIV) to enable identification where randomization fails. 2) Methodology: We propose CIV-DG, a structural causal framework implementing conditional moment restrictions with DeepGMM. By enforcing instrument–error orthogonal-ity within demographic strata, CIV-DG addresses endogenous site assignment and disentangles pathology from site artifacts without paired data. 3) Clinical Validity: On Camelyon17 and Multi-Source Chest X-Ray, CIV-DG significantly outperforms state-of-the-art baselines, supporting fair, robust clinical AI. 
+
+## 2 Method 
+
+2.1 Structural Causal Model (SCM) 
+
+We formalize the data-generating process to clarify the link between the gener-ative mechanism (Figure 1 A) and our inference strategy (Figure 1B). Our goal Title Suppressed Due to Excessive Length 3           
+
+> Fig. 1. Structural Causal Models (SCM) and the CIV-DG framework. (A)
+> The generative graph illustrating how hospital assignment Zinduces site-specific arti-facts Ain images X.(B) Our inference graph. Dashed arrows from Ddenote method-ological conditioning rather than structural causal edges. (C) The proposed CIV-DG framework. It comprises the DeepGMM Critic (top) for enforcing conditional moment restrictions via stratum-wise estimation; the Linear Representation path (bot-tom) using a frozen encoder and Causal Adapter for prediction; and the Optimization module (right) depicting the alternating minimax updates between the critic and pri-mal objectives.
+
+is to disentangle clinically meaningful semantics from site-specific artifacts by translating causal assumptions into estimable moment conditions. 
+
+Variables and Notation. We consider a multi-site clinical imaging setting with observed variables O := ( X, Y, Z, D ), comprising the image X, diagnostic label 
+
+Y , hospital assignment Z, and demographics D. Additionally, we introduce the following latent mechanisms: 
+
+– A: site-specific imaging artifacts (e.g., scanner protocols, staining effects); 
+
+– Yr : the latent true clinical state underlying the image; 
+
+– U : unobserved confounders (e.g., unmeasured severity or systematic anno-tation bias) that may jointly influence Yr and Y .
+
+Generative Graph. Figure 1 (A) encodes the data-generating process via the following structural equations, where ϵ· denote mutually independent exogenous noise terms: 
+
+Z := gZ (D, ϵ Z ), Yr := gr (D, U, ϵ r ), A := gA(Z, ϵ A),X := gX (Yr , A, ϵ X ), Y := gY (Yr , D, U, ϵ Y ). (1) Here, demographics D drive selection bias ( D → Z) and influence the clinical state Yr . Crucially, the image X is a composite of the true signal Yr and site-induced artifacts A (Z → A → X). Notably, Z does not appear in the structural 4 S. Bai et al. 
+
+equation for Y , satisfying the exclusion restriction: hospital assignment influ-ences the observed image X (via artifacts), but has no causal influence on the diagnostic label Y .
+
+Inference Graph. Our objective is to learn a representation R := ϕ(X) and a predictor ˆY := f (R, D ), such that prediction relies on stable pathological fea-tures rather than spurious site correlations. Figure 1 (B) depicts the inference graph, where dashed arrows from D denote methodological conditioning. These indicate that D is used for stratification to enforce conditional instrument valid-ity (CIV) and may optionally serve as a predictor input for case-mix adjustment. To achieve identification, we leverage hospital assignment Z as a conditional instrument and posit the Conditional Instrument Validity (CIV) assumption: 
+
+Z ⊥ U | D. This assumption implies that, after controlling for patient de-mographics D, the site assignment Z is effectively randomized with respect to unobserved confounders U . Consequently, within any demographic stratum, pre-diction errors should exhibit no systematic dependence on Z. In the next section, we translate this implication into conditional moment restrictions to guide model learning. 
+
+2.2 DeepGMM for CIV-DG 
+
+Figure 1 (C) illustrates the framework of the proposed CIV-DG via DeepGMM. With R = ϕ(X) and p = f (R, D ), define the residual e := Y − p. Under Z ⊥
+
+U | D (and exclusion), we enforce conditional moment restrictions by making 
+
+e orthogonal to a rich class of centered test functions of Z (and D), optimized with alternating critic–primal updates. 
+
+From CIV to Conditional Moment Restrictions. To disentangle pathology from site effects, we require the prediction residual e = Y − fθ (X, D ) to be con-ditionally mean-independent of instrument-induced variation. We include D in the predictor to explicitly absorb demographic case-mix. Under correct specifica-tion of the predictor and exclusion restrictions, the residual captures unmodeled components correlated with artifacts; CIV implies no residual–instrument de-pendence conditional on D.We rely on three structural assumptions: (1) Relevance : Z induces non-trivial variation in artifact-related features; (2) Exclusion : Z does not directly cause the diagnostic label Y (except via X); and (3) CIV : Z ⊥ U | D. This implies that within demographic strata, the conditional mean of e should not vary with Z, i.e., E[e | Z, D ] = E[e | D].To enforce this, we introduce a critic function cω (Z, D ) ∈ RM and minimize the empirical norm of the unconditional moment derived via the Law of Iterated Expectations (LIE): 
+
+Ee ˜cω (Z, D )⊤ = E
+
+h
+
+E[e | Z, D ] ˜ cω (Z, D )⊤i
+
+= 0 , (2) where ˜cω (Z, D ) = cω (Z, D ) − E[cω | D] is the centered instrument. The equality holds because E[˜ cω | D] = 0 , rendering ˜cω orthogonal to any function solely dependent on D. In practice, we estimate E[cω | D] using stratum-wise moving averages to stabilize training against sampling noise. Title Suppressed Due to Excessive Length 5
+
+DeepGMM Instantiation and Optimization. We instantiate the framework as a minimax game between a predictor fθ and a critic cω . As shown in Fig. 1(C), the predictor fθ (X, D ) comprises a frozen encoder ϕ, a Causal Adapter, and a classifier head, outputting logits s = fθ (X, D ) and probability vectors p =
+
+softmax (s). The critic cω processes concatenated inputs [Enc (Z), Enc (D)] via SN-Linear & LeakyReLU MLP. Here, Enc (·) denotes learnable embeddings for discrete metadata (hospital ID and demographics), trained jointly with the critic. The critic finally outputs a raw instrument vector cω ∈ RM , which is subse-quently centered to obtain ˜cω = cω − E[cω | D].To efficiently estimate the conditional expectation E[cω | D] within a mini-batch, we employ a stratum-wise Exponential Moving Average (EMA). Let K =
+
+{1, . . . , K } denote the set of discrete group indices. We maintain a running mean vector μk for each k ∈ K . During the forward pass, the centered instrument is obtained as ˜ci = cω (zi, d i) − μk(di), where k(di) maps the sample to its group index. Crucially, the EMA update is skipped for groups not present in the current mini-batch to ensure stability. The core training signal arises from the empirical moment matrix ˆm, defined as the outer product of the prediction residuals ei = yi − pi ∈ RC (where yi is the one-hot label) and the centered critic features: 
+
+ˆm(θ, ω ) = 1
+
+B
+
+> B
+
+X
+
+> i=1
+
+ei ˜c⊤ 
+
+> i
+
+∈ RC×M . (3) The optimization proceeds via alternating updates. In each iteration, we perform 
+
+nc steps of gradient ascent on ω to maximize Lω (or minimize −L ω ), followed by one step of gradient descent on θ to minimize Lθ . The objectives are defined as: 
+
+Lθ = Ltask + λLGMM , Lω = LGMM − βΩ (ω). (4) Here, LGMM = ∥ ˆm∥2 
+
+> F
+
+, and λ controls the strength of the causal constraint. Note that the use of Spectral Normalization (SN) in the critic architecture works in tandem with Ω(ω) (e.g., weight decay) to restrict the Lipschitz constant, preventing unbounded scaling during the maximization step. 
+
+## 3 Experiment & Analysis 
+
+3.1 Datasets Camelyon17-WILDS (Semi-Synthetic). We utilize whole-slide images from 5 centers ( Z ∈ { 0, . . . , 4}) [18]. To verify causal disentanglement, we induce spurious correlations by subsampling such that a synthetic stratification variable 
+
+D ∈ { 0, 1} strongly correlates with Z (enriching D = 0 in centers 0–1 and D = 1 
+
+in 3–4), while keeping diagnostic labels Y unchanged. This forces the model to ignore site-specific artifacts to recover true pathological signals. 
+
+Multi-Source CXR (Real-World). We combine NIH-CXR14 [20], CheX-pert [21], and MIMIC-CXR [22]. The dataset source serves as the instrument Z,6 S. Bai et al. 
+
+Table 1. Main Results: Comparison with State-of-the-Art Methods. All scores pre-sented in percentage. The best results are highlighted in bold.                                                                                                                                             
+
+> Method Camelyon17 CXR Acc (↑)Wg-Acc (↑)ECE (↓)AUC (↑)EOD (↓)DPD (↓)SWAD [23] 92 .45 ±0.467 .82 ±1.210 .15 ±0.582 .64 ±0.38.42 ±0.49.15 ±0.4
+> LISA [24] 92 .18 ±0.568 .94 ±1.19.84 ±0.682 .91 ±0.38.15 ±0.48.86 ±0.5
+> DFR [25] 91 .92 ±0.669 .85 ±1.09.62 ±0.583 .12 ±0.27.94 ±0.38.53 ±0.4
+> CLIP (Zero-Shot) [26] 85 .23 ±0.552 .16 ±1.818 .52 ±1.279 .54 ±0.014 .81 ±0.016 .25 ±0.0
+> MedCLIP [27] 84 .58 ±0.650 .82 ±1.519 .24 ±1.181 .23 ±0.211 .56 ±0.312 .42 ±0.4
+> AdFair-CLIP [28] 86 .12 ±0.453 .45 ±1.617 .83 ±1.083 .51 ±0.27.24 ±0.37.83 ±0.3
+> CIV-DG (Ours) 93 .24 ±0.370 .46 ±0.98.73 ±0.384 .15 ±0.26.81 ±0.36.78 ±0.3
+
+proxying acquisition shifts. Unlike the synthetic setup, we use real patient meta-data (Age and Gender) as the conditioning variable D to evaluate robustness across diverse populations. 
+
+3.2 Experimental Setup Backbones & Metrics. For CXR, we leverage a frozen MedCLIP (ViT-L/14) backbone adapted via a lightweight 2-layer MLP; for Camelyon17, we train a ViT-B/16 from scratch to ensure fair comparison. Model selection (including early stopping and λ tuning) is strictly performed on source-domain validation sets to prevent data leakage. We report Accuracy, Worst-Group Accuracy (Wg-Acc), and Expected Calibration Error (ECE) for the binary Camelyon17 task (WILDS split). For the multi-label CXR task, we employ the Leave-One-Domain-Out (LODO) protocol, reporting Macro-AUROC, Equalized Odds Difference (EOD), and Demographic Parity Difference (DPD). All results are averaged over 5 independent runs. 
+
+Implementation Details. We employ the AdamW optimizer with a weight decay of 1 × 10 −4 on a single NVIDIA A800 (80 GB) GPU. 1) For CXR: We use a batch size of 32 and a learning rate of 1 × 10 −3 (cosine schedule with 5% 
+
+warmup). Demographic strata are constructed by intersecting Age quartiles with Gender groups. 2) For Camelyon17: We use a batch size of 128 and a learning rate of 3 × 10 −4, following standard OOD protocols. 3) DeepGMM Strategy: The critic is a 3-layer SN-MLP designed to minimize moment violations. We estimate conditional moments via stratum-wise EMA (momentum 0.9) and perform nc =5 critic updates per predictor step. The penalty weight is set to λ = 1 .0 (selected from {0.1, 1.0, 10 .0}), with β = 1 .0.
+
+3.3 Comparisons with the state-of-the-art methods 
+
+Table 1 reports the main results of CIV-DG in comparison with state-of-the-art Domain Generalization (DG) methods (SWAD, LISA, DFR), Vision-Language (VL) methods (CLIP, MedCLIP, AdFair-CLIP), and an ablation variant (Deep-GMM w/o CIV). Overall, CIV-DG delivers the strongest and most consistent performance across OOD robustness, fairness, and calibration. Title Suppressed Due to Excessive Length 7
+
+(1) Superior OOD Robustness on Camelyon17. CIV-DG achieves the best overall OOD performance on Camelyon17, obtaining the highest Accuracy (93.24 ±0.3%) and the best Worst-Group Accuracy (70.46 ±0.9%). Compared to the strongest DG baseline in Wg-Acc (DFR: 69.85 ±1.0%), CIV-DG provides a clear improvement, indicating better robustness under distribution shifts and reduced reliance on site-specific spurious cues. 
+
+(2) Breaking the Fairness–Utility Trade-off on CXR. On the multi-source CXR fairness benchmark, CIV-DG achieves the highest diagnostic utility (AUC: 84.15 ±0.2%) while simultaneously exhibiting the smallest group dispar-ities (EOD: 6.81 ±0.3%, DPD: 6.78 ±0.3%). In contrast, VL baselines such as CLIP and MedCLIP show substantially larger fairness gaps (e.g., EOD 14.81% and 11.56%) and lower AUC, while AdFair-CLIP improves fairness but remains inferior to CIV-DG in both AUC and disparity metrics. These results suggest that CIV-DG improves equity without sacrificing predictive performance. 
+
+(3) Improved Calibration for Reliable Deployment. Beyond accuracy, CIV-DG also yields the best calibration on Camelyon17, achieving the lowest ECE of 8.73 ±0.3%. This is notably better than both VL approaches (ECE ≈
+
+18–19%) and competitive DG baselines (ECE 9.62–10.15%), supporting that CIV-DG produces more reliable confidence estimates under OOD shifts. 
+
+3.4 Ablation studies 
+
+Table 2. Ablation study on CIV-DG components. All scores presented in percentage. The best results are highlighted in bold.                                                                                      
+
+> Method Components Camelyon17 CXR IV Cond. Acc (↑)Wg-Acc (↑)ECE (↓)AUC (↑)EOD (↓)DPD (↓)ERM (Baseline) −−88 .50 ±0.655 .20 ±1.515 .42 ±0.8 80 .12 ±0.4 12 .45 ±0.5 13 .10 ±0.5
+> DeepGMM (w/o CIV) ✓−91 .25 ±0.563 .54 ±1.211 .82 ±0.6 81 .43 ±0.3 10 .12 ±0.4 10 .85 ±0.5
+> CIV-DG (Random Z)✓Rand 92 .10 ±0.466 .85 ±1.110 .05 ±0.5 82 .50 ±0.38.95 ±0.49.20 ±0.4
+> CIV-DG ✓Causal 93 .24 ±0.3 70 .46 ±0.9 8 .73 ±0.3 84 .15 ±0.2 6 .81 ±0.3 6 .78 ±0.3
+
+Table 2 validates the efficacy of our conditional instrumentation. Compared to the DeepGMM baseline, the full CIV-DG improves Camelyon17 Wg-Acc by 6.92 % (63 .54 →70 .46 ) and CXR AUC by 2.72 % (81 .43 →84 .15 ), while reducing fairness gaps (EOD/DPD) by over 3 points. Furthermore, CIV-DG significantly outperforms the Random Z variant (66.85 % Wg-Acc), confirming that perfor-mance gains stem from meaningful causal guidance rather than stochastic noise or increased model capacity. 
+
+3.5 Visualization and Discussion 
+
+To further understand the effectiveness of CIV-DG, we provide a comprehensive analysis in Figure 2. (1) To verify whether the model relies on hospital-specific styles (spurious correlations), we visualize the features colored by hospital IDs 8 S. Bai et al.      
+
+> Fig. 2. Qualitative analysis of CIV-DG. (A-B) t-SNE visualization showing im-proved feature separation over Baseline. (C) Hyperparameter sensitivity analysis of λ.
+> (D) AUC comparison across age subgroups on CXR.
+
+through t-SNE on Camelyon17. In Figure 2 (A) (Baseline), samples from dif-ferent hospitals form distinct, isolated clusters (e.g., the red and blue clusters are clearly separated). This indicates that the baseline model primarily learns domain-specific biases rather than true pathological features, leading to poor generalization. In contrast, Figure 2 (B) (CIV-DG) shows a uniform mixture of samples from all hospitals in two separate clusters (yes/no lesions), proving that CIV-DG successfully removes domain-specific artifacts and learns a truly domain-invariant representation. (2) Regarding hyperparameter sensitivity (Fig-ure 2 (C)), we evaluate the impact of the weight coefficient λ on both datasets. The performance trend shows an initial increase followed by stability, peaking at λ = 1 .0. The results demonstrate that CIV-DG is robust to hyperparameter variations within a reasonable range. (3) Finally, regarding subgroup robustness (Figure 2 (D)), we compare the AUC performance across different age groups on the CXR dataset. While the baseline suffers a severe performance drop in the elderly group (60+), CIV-DG consistently outperforms the baseline across all subgroups. Notably, our method significantly mitigates the accuracy degra-dation in the hardest subgroup (60+), highlighting its superior generalization capability and fairness across demographics. 
+
+## 4 Conclusion 
+
+In this paper, we identified selection bias driven by non-random patient as-signment as a fundamental barrier to medical AI generalization. To surmount this, we proposed CIV-DG , a causal framework leveraging Conditional Instru-mental Variables to disentangle pathology from site-specific artifacts. Unlike standard methods assuming random assignment, CIV-DG enforces conditional moment restrictions via a DeepGMM architecture to handle endogenous hospital selection. Extensive experiments on Camelyon17 and multi-source CXR datasets demonstrate that CIV-DG achieves state-of-the-art performance in both OOD robustness and fairness, significantly outperforming strong baselines. These re-sults validate that modeling the causal structure of data acquisition is essential for reliable clinical deployment. Future work will extend this framework to multi-modal records and continuous confounders. Title Suppressed Due to Excessive Length 9
+
+## References 
+
+1. Moor M, Banerjee O, Abad Z S H, et al. Foundation models for generalist medical artificial intelligence[J]. Nature, 2023, 616(7956): 259-265, https://www.nature.com /articles/s41586-023-05881-4 
+
+2. Thirunavukarasu A J, Ting D S J, Elangovan K, et al. Large language models in medicine[J]. Nature medicine, 2023, 29(8): 1930-1940, https://www.nature.com/a rticles/s41591-023-02448-8 
+
+3. Xiang J, Wang X, Zhang X, et al. A vision–language foundation model for precision oncology[J]. Nature, 2025, 638(8051): 769-778, https://www.nature.com/article s/s41586-024-08378-w 
+
+4. Ouyang C, Chen C, Li S, et al. Causality-inspired single-source domain generaliza-tion for medical image segmentation[J]. IEEE Transactions on Medical Imaging, 2022, 42(4): 1095-1106, https://ieeexplore.ieee.org/abstract/document/9961940 
+
+5. Zhou K, Liu Z, Qiao Y, et al. Domain generalization: A survey[J]. IEEE transactions on pattern analysis and machine intelligence, 2023, 45(4): 4396-4415, https://ieee xplore.ieee.org/abstract/document/9847099 
+
+6. Acosta J N, Falcone G J, Rajpurkar P, et al. Multimodal biomedical AI[J]. Nature medicine, 2022, 28(9): 1773-1784, https://www.nature.com/articles/s41591-022 -01981-2 
+
+7. Seyyed-Kalantari L, Zhang H, McDermott M B A, et al. Underdiagnosis bias of artificial intelligence algorithms applied to chest radiographs in under-served patient populations[J]. Nature medicine, 2021, 27(12): 2176-2182, https://www.nature.com /articles/s41591-021-01595-0 
+
+8. Geirhos R, Jacobsen J H, Michaelis C, et al. Shortcut learning in deep neural net-works[J]. Nature Machine Intelligence, 2020, 2(11): 665-673, https://www.nature.c om/articles/s42256-020-00257-z 
+
+9. Zhou W, Liu F, Zheng H, et al. Mitigating data bias and ensuring reliable evaluation of AI models with shortcut hull learning[J]. Nature Communications, 2025, 16(1): 5513, https://www.nature.com/articles/s41467-025-60801-6 
+
+10. Ricci Lara M A, Echeveste R, Ferrante E. Addressing fairness in artificial intel-ligence for medical imaging[J]. nature communications, 2022, 13(1): 4581, https: //www.nature.com/articles/s41467-022-32186-3 
+
+11. Mohyuddin G R, Prasad V. Detecting selection bias in observational studies—when interventions work too fast[J]. JAMA internal medicine, 2023, 183(9): 897-898, http s://jamanetwork.com/journals/jamainternalmedicine/article-abstract/2805 974 
+
+12. Castro D C, Walker I, Glocker B. Causality matters in medical imaging[J]. Nature Communications, 2020, 11(1): 3673, https://www.nature.com/articles/s41467-0 20-17478-w 
+
+13. McLeod G A, Stanley E A M, Rosenal T, et al. Distinct visual biases affect humans and artificial intelligence in medical imaging diagnoses[J]. npj Digital Medicine, 2025, 
+
+https://www.nature.com/articles/s41746-025-02226-5 
+
+14. Angrist J D, Imbens G W, Rubin D B. Identification of causal effects using instru-mental variables[J]. Journal of the American statistical Association, 1996, 91(434): 444-455, https://www.tandfonline.com/doi/abs/10.1080/01621459.1996.104769 02 
+
+15. Wu A, Kuang K, Xiong R, et al. Instrumental variables in causal inference and machine learning: A survey[J]. ACM Computing Surveys, 2025, 57(11): 1-36, https: //dl.acm.org/doi/full/10.1145/3735969 10 S. Bai et al. 16. Sun Q, Xia H, Liu J. Data-faithful feature attribution: Mitigating unobservable confounders via instrumental variables[J]. Advances in Neural Information Processing Systems, 2024, 37: 44935-44964. 17. Bennett A, Kallus N, Schnabel T. Deep generalized method of moments for in-strumental variable analysis[J]. Advances in neural information processing systems, 2019, 32, https://proceedings.neurips.cc/paper/2019/hash/15d185eaa7c954e 77f5343d941e25fbd-Abstract.html 
+
+18. Koh P W, Sagawa S, et al. Wilds: A benchmark of in-the-wild distribution shifts[C]//International conference on machine learning. PMLR, 2021: 5637-5664, 
+
+https://par.nsf.gov/biblio/10300276 
+
+19. Sagawa S, Koh P W, Hashimoto T B, et al. Distributionally robust neural networks for group shifts: On the importance of regularization for worst-case generalization[J]. arXiv preprint arXiv:1911.08731, 2019, https://arxiv.org/abs/1911.08731 
+
+20. Wang X, Peng Y, Lu L, et al. Chestx-ray8: Hospital-scale chest x-ray database and benchmarks on weakly-supervised classification and localization of common thorax diseases[C]//Proceedings of the IEEE conference on computer vision and pattern recognition. 2017: 2097-2106, https://openaccess.thecvf.com/content_cvpr_201 7/html/Wang_ChestX-ray8_Hospital-Scale_Chest_CVPR_2017_paper.html 
+
+21. Irvin J, Rajpurkar P, Ko M, et al. Chexpert: A large chest radiograph dataset with uncertainty labels and expert comparison[C]//Proceedings of the AAAI conference on artificial intelligence. 2019, 33(01): 590-597, https://ojs.aaai.org/index.php /AAAI/article/view/3834 
+
+22. Johnson A E W, Pollard T J, Berkowitz S J, et al. MIMIC-CXR, a de-identified publicly available database of chest radiographs with free-text reports[J]. Scientific data, 2019, 6(1): 317, https://www.nature.com/articles/s41597-019-0322-0 
+
+23. Cha J, Chun S, Lee K, et al. Swad: Domain generalization by seeking flat minima[J]. Advances in Neural Information Processing Systems, 2021, 34: 22405-22418, https: //proceedings.neurips.cc/paper_files/paper/2021/hash/bcb41ccdc4363c684 8a1d760f26c28a0-Abstract.html 
+
+24. Yao H, Wang Y, Li S, et al. Improving out-of-distribution robustness via selec-tive augmentation[C]//International Conference on Machine Learning. PMLR, 2022: 25407-25437, https://proceedings.mlr.press/v162/yao22b.html 
+
+25. Kirichenko P, Izmailov P, Gordon Wilson A. Last Layer Re-Training is Sufficient for Robustness to Spurious Correlations[J]. ICLR 2023, 2023, https://par.nsf.go v/biblio/10437678 
+
+26. Radford A, Kim J W, Hallacy C, et al. Learning transferable visual models from natural language supervision[C]//International conference on machine learn-ing. PmLR, 2021: 8748-8763, https://proceedings.mlr.press/v139/radford21a 
+
+27. Wang Z, Wu Z, Agarwal D, et al. Medclip: Contrastive learning from unpaired med-ical images and text[C]//Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing. 2022: 3876-3887, https://aclanthology.org/202 2.emnlp-main.256/ 
+
+28. Yi C, Xiong Z, Qi Q, et al. AdFair-CLIP: Adversarial Fair Contrastive Language-Image Pre-training for Chest X-rays[C]//International Conference on Medical Image Computing and Computer-Assisted Intervention. Cham: Springer Nature Switzer-land, 2025: 13-23, https://link.springer.com/chapter/10.1007/978-3-032-049 78-0_2
