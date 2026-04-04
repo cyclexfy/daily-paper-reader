@@ -1,0 +1,836 @@
+Title: Building evidence-based knowledge graphs from full-text literature for disease-specific biomedical reasoning
+
+URL Source: https://arxiv.org/pdf/2603.28325v1
+
+Published Time: Tue, 31 Mar 2026 02:00:13 GMT
+
+Number of Pages: 30
+
+Markdown Content:
+# Building evidence-based knowledge graphs from full-text literature for disease-specific biomedical reasoning 
+
+Chang Zong 1,∗, Sicheng Lv 1, Si-tu Xue 2, Huilin Zheng 1, Jian Wan 3, Lei Zhang 1
+
+> 1
+
+School of Computer Science and Technology, Zhejiang University of Science and Technology, Hangzhou, China 
+
+> 2
+
+Institute of Medicinal Biotechnology, Chinese Academy of Medical Sciences & Peking Union Medical College, Beijing, China 
+
+> 3
+
+Zhejiang Key Laboratory of Biomedical Intelligent Computing Technology, Hangzhou, China *Correspondence: zongchang@zust.edu.cn 
+
+Abstract 
+
+Biomedical knowledge resources often either preserve evidence as unstructured text or com-press it into flat triples that omit study design, provenance, and quantitative support. Here we present EvidenceNet , a framework and dataset for building disease-specific knowledge graphs from full-text biomedical literature. EvidenceNet uses a large language model (LLM)-assisted pipeline to extract experimentally grounded findings as structured evidence nodes, normalize biomedical entities, score evidence quality, and connect evidence records through typed seman-tic relations. We release two resources: EvidenceNet-HCC with 7,872 evidence records, 10,328 graph nodes, and 49,756 edges, and EvidenceNet-CRC with 6,622 records, 8,795 nodes, and 39,361 edges. Technical validation shows high component fidelity, including 98.3% field-level ex-traction accuracy, 100.0% high-confidence entity-link accuracy, 87.5% fusion integrity, and 90.0% semantic relation-type accuracy. In downstream evaluation, EvidenceNet improves internal and external retrieval-augmented question answering and retains structural signal for future link prediction and target prioritization. These results establish EvidenceNet as a disease-specific resource for evidence-aware biomedical reasoning and hypothesis generation. 
+
+Keywords: evidence-based knowledge graph, large language models, biomedical literature mining, disease-specific reasoning 
+
+## 1 Background & Summary 
+
+The realization of precision medicine requires more than access to biomedical literature. It also requires ways to organize that literature into computable evidence [1–3]. Scientific output continues to grow rapidly, but the ability to synthesize findings across papers remains limited [4–6]. Much of the relevant knowledge remains embedded in free text and is therefore difficult for computational systems to query, compare, and reuse [7, 8]. Current efforts to structure biomedical knowledge mainly rely on general-purpose knowledge graphs (KGs) such as PrimeKG [9], Hetionet [10], and TarKG [11]. These resources aggregate millions of facts into compact triples. This representation is powerful, but it omits much of the con-text that determines how a finding should be interpreted. In evidence-based medicine, a biological association is rarely absolute. Its meaning depends on the study population, intervention details, disease stage, and experimental design [12–14]. A treatment may show benefit in vitro yet fail in a 1
+
+> arXiv:2603.28325v1 [cs.CE] 30 Mar 2026
+
+phase II trial [15, 16]. A pathway may promote tumour progression in one setting but suppress it in another [17, 18]. Flattening these findings into simple edges removes the PICO (Population, Intervention, Com-parison, Outcome) structure that supports assessment of relevance and reliability [13, 19, 20]. This loss of context limits the value of conventional KGs for tasks such as clinical decision support [21,22] and mechanism-guided drug discovery [23–25], where provenance and evidential strength matter as much as the claim itself. General KGs also mix many diseases into a shared topology. That breadth is useful, but it can blur the disease-specific structure needed to study conditions such as hepato-cellular carcinoma (HCC) and colorectal cancer (CRC) [26–30]. Large language models (LLMs) provide a practical way to recover this missing structure from full-text articles [31–34]. Compared with earlier NLP systems that focus mainly on named-entity recognition [35, 36], modern LLMs can interpret longer scientific arguments and extract richer ex-perimental context [37–39]. Recent work shows strong performance in zero-shot or weakly super-vised information extraction, especially when schemas are complex and relations are context de-pendent [40–43]. LLMs are also increasingly used for ontology alignment and retrieval-augmented biomedical reasoning [38, 44–49]. Against this background, we present EvidenceNet , a framework and dataset for constructing disease-specific, evidence-centric knowledge graphs from biomedical literature. EvidenceNet treats the experimentally grounded finding, rather than the entity alone, as the primary graph unit. This design preserves provenance, study context, and quantitative support such as p-values or hazard ratios. It also keeps the graph focused on a specific disease landscape, making local topology more interpretable for downstream reasoning. EvidenceNet uses an automated pipeline to transform open-access articles into computable ev-idence. In this release, the corpus is restricted to disease-specific, recent PubMed-indexed arti-cles with accessible full text so that each extracted record can be grounded in article-level context rather than abstract-only statements. Full-text papers are segmented into candidate evidence spans, converted into structured PICO-style records, normalized against biomedical vocabularies, scored for evidence quality, and integrated into a semantic graph. The resulting resource supports both evidence-oriented interpretation and graph-based analysis. To clearly position EvidenceNet within the current landscape, Table 1 contrasts our approach with general biomedical KGs and raw literature databases across key dimensions.             
+
+> Feature General KGs Literature Databases EvidenceNet (Ours) Scope Universal (All diseases) Universal Disease-Specific
+> (e.g., HCC, CRC)
+> Data Unit Static Triple (Subject-Predicate-Object) Document / Abstract Evidence Node
+> (PICO Context)
+> Contextual Depth Low (Relation type only) High (Unstructured text)
+> High & Structured
+> (Study design, p-values, cohorts)
+> Reasoning Mode Structural (Path-finding, Embedding) Semantic (Keyword/Vector search)
+> Dual
+> (Structural + Deep Semantic)
+> Table 1: Comparison of EvidenceNet with existing biomedical knowledge resources.
+
+EvidenceNet provides curated disease-specific resources for HCC and CRC. EvidenceNet-HCC contains 7,872 evidence records and a graph with 10,328 nodes and 49,756 edges. EvidenceNet-CRC contains 6,622 evidence records and a graph with 8,795 nodes and 39,361 edges. Unlike 2traditional KGs, these resources preserve study-level semantics and support both semantic and structural reasoning. We validated EvidenceNet across four complementary dimensions: 
+
+• Component fidelity. Targeted audits show high reliability for evidence extraction, entity normalization, evidence fusion, and semantic relation typing. 
+
+• Context-aware biomedical QA. By leveraging the PICO-rich structure of evidence nodes, EvidenceNet improves internal and external retrieval-augmented question answering over base-line retrieval settings. 
+
+• Scientific discovery link prediction. Multi-method graph experiments show robust recov-ery of future entity links, supporting the biological validity of the evidence-centric topology. 
+
+• Prospective therapeutic target discovery. In a time-sliced scenario, EvidenceNet priori-tizes emerging HCC and CRC targets that the general TarKG misses, demonstrating practical utility for hypothesis generation. These results show that EvidenceNet serves as a disease-specific resource for biomedical reasoning and discovery, rather than only as a data repository. 
+
+## 2 Methods 
+
+2.1 Overview of the EvidenceNet workflow 
+
+EvidenceNet is a set of disease-specific, evidence-centric biomedical knowledge graphs constructed from full-text literature. The workflow comprises four stages, namely Data Preprocessing , LLM-Driven Evidence Extraction , Normalization and Scoring , and Integration and Graph Construction 
+
+(Fig. 1). The central design principle is to represent each experimentally grounded finding as an explicit evidence node , rather than collapsing the literature into direct subject–predicate–object triples. This representation preserves provenance, study context, and quantitative support, making it well suited to downstream evidence-based biomedical reasoning [20, 50]. Given a disease-specific corpus D = {d1, . . . , d N }, each article di is converted into a set of structured evidence objects Ei = {ei1, . . . , e im }. These objects are integrated into the directed graph defined in equation (1). 
+
+G = ( VE ∪ VT , R ), (1) where VE denotes evidence nodes, VT denotes normalized biomedical entity nodes, and R denotes evidence–entity and evidence–evidence relations. The resulting resource is designed to preserve both the depth of individual studies and the topology required for graph-based analysis. 3Phase 1: Data Preprocessing 
+
+PDF File 
+
+Metadata Fetcher 
+
+Paper 
+
+Title 
+
+CrossRef 
+
+OpenAlex 
+
+DOI 
+
+IF 
+
+Date 
+
+…
+
+PDF Parser 
+
+Heuristic Filtering 
+
+(Remove Irrelevant Sections) 
+
+Chunking 
+
+(Window Size + Overlap) 
+
+Phase 2: LLM -Driven 
+
+Evidence Extraction 
+
+List of Chunks 
+
+with Metadata 
+
+High -Performance LLM 
+
+Evidence Extractor 
+
+Text Chunk Evidence 
+
+Data Model 
+
+Few -Shot Prompting 
+
+Extracted Values 
+
+(PICO Elements, Named Entities, 
+
+Study Design, Statistics …) 
+
+Raw Objects 
+
+Intra -Document Aggregation 
+
+Deduplication 
+
+(Remove Exact the Same Evidence) 
+
+Evidence Object 
+
+Phase 3: Normalization & 
+
+Scoring 
+
+Entity Normalizer 
+
+Synonym Mapping 
+
+(via Dictionary) 
+
+Symbol Standardization 
+
+(via Suffix Stripping) 
+
+Fuzzy Matching 
+
+(via Similarity Threshold) 
+
+Evidence Scorer 
+
+Factors 
+
+> (Impact Factor, Study Design,
+> Statistics Significance, Sample Size,
+> LLM Confidence)
+
+Composite Confidence Score 
+
+(via Weighted Sum) 
+
+Scored 
+
+Evidence 
+
+Phase 4: Integration &
+
+Graph Construction 
+
+Global Deduplicator 
+
+Existing 
+
+Graph 
+
+Evidence Connector 
+
+Fingerprint 
+
+Matching 
+
+Semantic 
+
+Deduplicating 
+
+Attribute 
+
+Merging 
+
+Relationship Description 
+
+> (Support, Contradict, Extend, …)
+
+LLM -based 
+
+Detection 
+
+Evidence Filtering   
+
+> (Shared Entities, Semantic Similarity )
+
+Rule -based 
+
+Detection 
+
+Evidence 
+
+Graph 
+
+Manual Audit 
+
+LLM Check 
+
+Linked 
+
+Evidence Figure 1: Workflow of EvidenceNet for constructing an evidence knowledge graph. 1. Literature Example 
+
+Title: “A Comprehensive Review 
+
+of Sequencing and Combination 
+
+Strategies of Targeted Agents in 
+
+Metas -tatic Colorectal Cancer ” 
+
+Journal: The Oncologist 
+
+Year: 2018 
+
+DOI: 10.1634/theoncologist.2017 -0203 
+
+“In FIRE -3 (N5592),patients were 
+
+randomized 1:1 to cetuximab plus FOLFIRI 
+
+versus bevacizumab plus FOLFIRI, 
+
+and objective response rate (ORR) was 
+
+assessed as the primary endpoint. 
+
+Although no statistical differences in 
+
+ORR (62.0% vs. 58.0%; p = .18) or 
+
+median progression -free survival 
+
+(PFS; 10.0 vs.10.3 months; hazard ratio 
+
+[HR] =1.06 [95% confidence interval 
+
+confidence interval (Cl), 0.88 -1.26]; 
+
+p = .55) were observed, median OS 
+
+favored the cetuximab arm (28.7 vs. 
+
+25.0 months; HR = 0.77 [95% Cl, 
+
+0.62 -0.96]; p = .017)." 
+
+Evidence node 
+
+evidence_id: EVID -266DDD68D593 
+
+target_disease: CRC 
+
+study_design: rct 
+
+study_object: patients with RAS -wildtype 
+
+metastatic colorectal cancer 
+
+intervention: cetuximab plus FOLFIRI 
+
+comparison: bevacizumab plus FOLFIRI 
+
+phenotype: median overall survival favored the 
+
+t t cetuximab arm despite no statistical 
+
+d differences in ORR or PFS 
+
+bio_mechanism: differential benefit of anti -EGFR 
+
+therapy by tumor sidedness 
+
+Key statistics: 
+
+ORR: 62.0% vs 58.0%, p = .18 
+
+PFS: 10.0 vs 10.3 months, HR = 1.06, 
+
+95% CI 0.88 -1.26, p = .55 
+
+OS: 28.7 vs 25.0 months, HR = 0.77, 
+
+95% CI 0.62 -0.96, p = .017 
+
+composite_score: 0.6275 
+
+grade_level: B
+
+llm_confidence: 0.86 
+
+Cetuximab → TC546137 
+
+Irinotecan → TC777499 
+
+5-fluoropyrimidine → TC819142 
+
+RAS → P08647 
+
+"Clinical management 
+
+of metastatic 
+
+colorectal cancer in 
+
+the era of precision 
+
+medicine" (2022) 
+
+EVID -266DDD68D593 
+
+Cetuximab 
+
+(Drug) 
+
+5-fluoropyrimidine 
+
+(Drug) 
+
+Irinotecan 
+
+(Drug) 
+
+RAS 
+
+( (Gene) 
+
+"Exploring and 
+
+bypassing resistance 
+
+to targeted therapies 
+
+in colorectal cancer" 
+
+(2025) 
+
+Evidence: 
+
+“Monoclonal antibodies 
+
+for targeted therapy in 
+
+colorectal cancer.” 
+
+(2010) 
+
+LINKED_TO 
+
+LINKED_TO 
+
+LINKED_TO 
+
+LINKED_TO 
+
+SUPPORTS 
+
+REFINES 
+
+EXTENDS 
+
+2. Structured Evidence 3. Graph & Schema 
+
+Evidence -entity: LINKED_TO 
+
+Evidence -evidence: SUPPORTS, CONTRADICTS, REFINES, 
+
+EXTENDS, REPLICATES, CAUSAL_CHAIN 
+
+Figure 2: Compact overview of the EvidenceNet transformation process and graph schema. 
+
+From left to right, the figure traces a colorectal cancer example based on the FIRE-3 comparison of cetuximab plus FOLFIRI versus bevacizumab plus FOLFIRI from source text to a structured evidence record and then to its graph representation. The schema highlights the principal evidence attributes retained during extraction and the two relation families used during graph integration, namely evidence–entity LINKED_TO edges and typed evidence–evidence semantic relations. 
+
+Fig. 2 complements the stage-level workflow in Fig. 1 by illustrating how a comparative treatment statement is converted into a graph-native evidence object. The example is drawn from a colorectal cancer report summarizing the FIRE-3 trial, in which cetuximab plus FOLFIRI is compared with bevacizumab plus FOLFIRI. The extracted record retains provenance, trial context, response and survival outcomes, and quality metadata. In the graph layer, the corresponding evidence node 4links to normalized entities such as cetuximab, irinotecan, fluoropyrimidine, and RAS through LINKED_TO edges, while typed evidence–evidence relations, including SUPPORTS, EXTENDS, and REFINES, position the finding within the broader body of related evidence. This compact view clarifies how quantitative literature statements are carried into an interpretable graph structure. 
+
+2.2 Data preprocessing 
+
+The first stage standardizes full-text PDF articles for evidence mining. The current release operates on disease-specific corpora assembled from recent PubMed-indexed articles with available full text. Each article is associated with bibliographic metadata, including DOI, title, journal, year, citation count, and journal-level impact indicators. Missing metadata are supplemented from public biblio-graphic resources. DOI resolution is performed first, followed by title-based recovery when needed. Automatically retrieved metadata are merged with manually curated values, with manually supplied entries treated as the preferred source. The full text is then parsed and segmented into canonical scientific sections. References and other low-information sections are excluded from downstream evidence extraction. This section-aware design reflects the structure of biomedical articles, in which experimentally relevant content is concentrated in a limited portion of the full text. Each article is further divided into overlapping text chunks. For a document d, this stage produces the ordered set shown in equation (2). 
+
+C(d) = {c1, c 2, . . . , c M }, (2) where each chunk cj retains its section label. Overlap reduces boundary effects and helps preserve experiments described across adjacent spans. This preprocessing step increases evidence density in the input representation and improves downstream language-model efficiency. 
+
+2.3 LLM-driven evidence extraction 
+
+In the second stage, each retained text chunk is converted into structured candidate evidence using a LLM. Chunks unlikely to contain experimental findings are first filtered out. The remaining chunks are processed independently, enabling scalable extraction across large disease-specific corpora. Extraction follows a structured schema based on the PICO framework. The schema captures study object, intervention, comparison, outcomes, biological mechanism, phenotype, study design, clinical stage, and quantitative attributes such as p-values, sample size, and fold change [19]. The LLM is constrained to extract only explicitly stated findings, separate distinct experiments into atomic evidence units, and retain grounded supporting text. Background statements and descrip-tions of prior work are excluded. This design reduces unsupported inference and improves extraction fidelity [34]. For each chunk cj , the extraction model fθ produces a set of candidate evidence objects as in equation (3). ˆEj = fθ(cj ). (3) Chunk-level outputs are then aggregated at the document level according to equation (4). 
+
+ˆE(d) = Agg 
+
+
+
+> M
+
+[
+
+> j=1
+
+ˆEj
+
+ . (4) Aggregation removes exact duplicates and fills missing attributes when the same experiment is described in more than one section. Distinct experiments are retained as separate evidence units. 5Each aggregated object is represented as a structured evidence node. The node stores experi-mental context, core biomedical entities, quantitative results, source text, and extraction confidence. This formulation preserves the study-level detail needed for evidence-oriented analysis, especially when similar claims differ by model system, disease stage, or therapeutic condition [17]. 
+
+2.4 Normalization and scoring 
+
+The third stage converts extracted evidence into standardized and comparable data objects. This stage includes biomedical entity normalization and quality scoring. Biomedical entities are normalized to a standardized external resource. In this release, normal-ization is aligned to TarKG [11]. Matching supports exact matching, synonym mapping, symbol standardization for genes or proteins, and fuzzy matching based on semantic similarity. This step improves consistency across articles and increases interoperability with external biomedical graph resources. Each evidence node is then assigned a composite quality score inspired by evidence-based as-sessment frameworks. The score combines study design, source impact, statistical support, sample size, and extraction confidence as shown in equation (5). 
+
+S(e) = ( w1Stype + w2Simpact + w3Sstat + w4Ssample ) (1 − λ) + λC LLM , (5) where the sample-size term is log-normalized. Continuous scores are additionally mapped to four evidence levels (A-D) to support filtering and downstream ranking. 
+
+2.5 Integration and graph construction 
+
+In the final stage, normalized evidence nodes are integrated into the persistent EvidenceNet resource. This stage includes cross-document duplicate resolution, evidence–evidence relation induction, au-tomated verification, and graph serialization. Newly extracted evidence is first compared with the existing graph to identify near-duplicate findings through fingerprint matching and semantic comparison across documents. When highly overlapping evidence is detected, the canonical node is retained and updated with merged prove-nance. This prevents repeated findings from inflating the graph while preserving data lineage. Evidence–evidence relations are then inferred. Candidate pairs are identified using semantic similarity and overlap in biomedical entities. For related pairs, EvidenceNet assigns one of several directed relation types, including SUPPORTS, CONTRADICTS, REFINES, EXTENDS, REPLI-CATES, and CAUSAL_CHAIN. This layer captures isolated findings, consistency, refinement, re-production, and mechanistic ordering. Relation assignment uses a hybrid strategy. Deterministic heuristics provide an initial proposal based on semantic direction, chronology, and biological over-lap. An LLM-based verification step is then applied to ambiguous or high-similarity pairs. This combination balances interpretability and flexibility, and improves the reliability of relation labels in complex biomedical contexts [31, 39]. The final resource is stored as a directed evidence-centric graph. Each evidence node is linked to normalized biomedical entities, and evidence–evidence semantic relations are stored as typed directed edges. For each evidence node e ∈ VE and normalized entity t ∈ VT , the graph contains edges e → t for evidence–entity alignment and ei → ej for evidence–evidence relations. This topology differs from conventional biomedical knowledge graphs, where entities are commonly linked directly by flattened predicates. By explicitly modelling evidence as a graph object, EvidenceNet preserves provenance, quantitative support, and contextual validity while remaining suitable for downstream graph analysis and machine learning. 6This final stage also supports quality assurance. Automated verification is applied during dupli-cate resolution and relation construction. Each evidence node also retains explicit review metadata, so manual expert audit can be incorporated without altering the schema. The resulting graph func-tions as an extracted knowledge structure and as a curated, extensible biomedical data resource. 
+
+## 3 Data Records 
+
+We provide two disease-specific EvidenceNet resources, one centred on hepatocellular carcinoma (HCC) and the other on colorectal cancer (CRC). Each resource includes a structured evidence collection and a corresponding graph representation. The structured collection preserves the full record-level description of each evidence unit, including provenance, study context, PICO attributes, extracted entities, quantitative attributes, and quality scores. The graph representation provides an integrated network view in which evidence records connect to normalized biomedical entities and to other evidence records through typed semantic relations. The two release layers are synchronized through stable evidence identifiers and normalized entity identifiers, allowing users to move between record-level inspection and graph-level analysis without losing provenance. The overall transforma-tion and schema are illustrated in Fig. 2, whereas the tables below enumerate the released fields and distributions in detail. We derive evidence knowledge graphs from recent PubMed articles for each disease. The HCC resource contains 7,872 evidence records and a graph with 10,328 nodes, including evidence and normalized biomedical entities, and 49,756 edges. The CRC resource contains 6,622 evidence records and a graph with 8,795 nodes and 39,361 edges. The graph node counts exceed the evidence-record counts because the graph layer also includes normalized biomedical entity nodes that connect related evidence units across papers. Both resources are explicitly disease-specific and retain release-level metadata, including disease label, version, creator information, and update time. In both datasets, the dominant study designs are cohort, in-vivo, randomized controlled trial, in-vitro, and meta-analysis. Clinical-stage annota-tions are dominated by preclinical, clinical, phase I, phase II, and phase III labels. Evidence quality scores are concentrated in the intermediate range, with grade C as the most frequent category in both diseases. Small differences between DOI counts and title counts reflect records that are retained through title-based provenance recovery when DOI metadata are incomplete or unavailable. The network structure reflects the evidence-centric design of the resource. In both graphs, the most frequent edge types between evidence nodes are SUPPORTS, EXTENDS, and REFINES. Less frequent but still informative relation types include CONTRADICTS, CAUSAL_CHAIN, and REPLICATES. Most evidence nodes participate in at least one local semantic neighbourhood while the overall graph remains interpretable and sparse. Table 2 summarizes the overall scale and structural characteristics of the released HCC and CRC EvidenceNet resources. Table 3 reports the distributions of evidence grades, study designs, and clinical stages. Table 4 summarizes graph relation types, and Table 5 reports coverage of key provenance, contextual, and quantitative fields. 7Table 2: Expanded summary statistics of the released EvidenceNet resources. Feature HCC EvidenceNet CRC EvidenceNet 
+
+Corpus and provenance 
+
+Processed full-text articles 470 472 Unique DOIs 439 445 Unique source titles 457 452 Unique journals 157 179 Publication year range 2009–2025 2009–2025 Median publication year 2022 2022 
+
+Graph scale and topology 
+
+Evidence records 7,872 6,622 Entity nodes 2,456 2,173 Total graph nodes 10,328 8,795 Total graph edges 49,756 39,361 Graph density 0.000467 0.000509 
+
+Evidence richness 
+
+Average evidence relations 3.95 4.07 Median evidence relations 1.00 1.00 Average linked entities 2.27 1.80 Median linked entities 2.00 1.00 Average core entities 5.85 6.09 Median core entities 4.00 4.00 Average merged records 1.13 1.16 Records with version > 1 (%) 37.7 38.2 
+
+Evidence quality 
+
+Average composite_score 0.53 0.52 Median composite_score 0.50 0.49 Composite_score range 0.30–0.89 0.27–0.89 Most common evidence grade C C
+
+Field coverage (%) 
+
+Records with comparison 57.1 59.7 Records with p-value 10.2 12.6 Records with sample size 24.8 28.0 Records with fold change 4.3 4.9 Records with bio-mechanism 68.0 69.2 Records with phenotype 97.4 97.9 Records with source text 100.0 100.0 
+
+8Table 3: Distribution of evidence grades, study designs, and clinical stages in the released EvidenceNet resources. Values are shown as count (%). 
+
+Category group Category HCC EvidenceNet CRC EvidenceNet 
+
+Evidence grade A 60 (0.8%) 34 (0.5%) B 1,732 (22.0%) 1,251 (18.9%) C 5,886 (74.8%) 5,024 (75.9%) D 194 (2.5%) 313 (4.7%) Study design cohort 2,164 (27.5%) 1,680 (25.4%) in-vivo 1,811 (23.0%) 1,520 (23.0%) unknown 1,416 (18.0%) 1,412 (21.3%) in-vitro 1,115 (14.2%) 914 (13.8%) rct 703 (8.9%) 607 (9.2%) meta-analysis 426 (5.4%) 253 (3.8%) computational 192 (2.4%) 200 (3.0%) case-control 45 (0.6%) 36 (0.5%) Clinical stage clinical 3,087 (39.2%) 2,661 (40.2%) preclinical 2,976 (37.8%) 2,490 (37.6%) phase-i 386 (4.9%) 323 (4.9%) phase-ii 649 (8.2%) 693 (10.5%) phase-iii 756 (9.6%) 453 (6.8%) phase-iv 18 (0.2%) 2 (0.0%) 
+
+Table 4: Distribution of graph edge types in the released EvidenceNet resources. Values are shown as count (%). Percentages are calculated relative to the total number of edges in each graph. 
+
+Relation type HCC EvidenceNet CRC EvidenceNet 
+
+LINKED_TO 17,849 (35.9%) 11,910 (30.3%) SUPPORTS 13,861 (27.9%) 10,044 (25.5%) EXTENDS 9,263 (18.6%) 9,670 (24.6%) REFINES 6,115 (12.3%) 5,124 (13.0%) CONTRADICTS 1,111 (2.2%) 1,041 (2.6%) CAUSAL_CHAIN 856 (1.7%) 1,101 (2.8%) REPLICATES 701 (1.4%) 471 (1.2%) Total edges 49,756 (100%) 39,361 (100%) 
+
+9Table 5: Coverage of key evidence and provenance attributes in the released EvidenceNet resources. Values are shown as count (%). Percentages are calculated relative to the total number of evidence records in each resource.                               
+
+> Field HCC EvidenceNet CRC EvidenceNet
+> Provenance fields
+> Source title 7,786 (98.9%) 6,220 (93.9%) Journal name 6,820 (86.6%) 5,906 (89.2%) Impact factor 6,820 (86.6%) 5,895 (89.0%) Journal quartile 6,820 (86.6%) 5,895 (89.0%) Citation count 6,820 (86.6%) 5,929 (89.5%) Author list 6,820 (86.6%) 5,879 (88.8%)
+> PICO and contextual fields
+> Comparison 4,492 (57.1%) 3,951 (59.7%) Bio-mechanism 5,355 (68.0%) 4,585 (69.2%) Phenotype 7,666 (97.4%) 6,480 (97.9%) Experimental context 7,872 (100.0%) 6,622 (100.0%) Source text 7,872 (100.0%) 6,622 (100.0%)
+> Quantitative fields
+> p-value 800 (10.2%) 835 (12.6%) Sample size 1,955 (24.8%) 1,856 (28.0%) Fold change 340 (4.3%) 325 (4.9%)
+
+3.1 Record-level structure 
+
+The record-level component of each release stores the complete structured representation of in-dividual evidence units. Each record is uniquely indexed by an evidence identifier and contains six principal information layers. These comprise source provenance, PICO attributes, biomedical entities, quantitative statistics, evidence quality scores, and semantic graph relations. Bibliographic coverage is high for core provenance fields. In the HCC resource, source title is available for 98.9% of records. Journal, impact factor, journal quartile, citation count, and author information are each available for 86.6%. In the CRC resource, the corresponding coverages are 93.9%, 89.2%, 89.0%, 89.0%, 89.5%, and 88.8%, respectively. Quantitative fields are less uniformly reported in the literature. Comparator information is present in 57.1% of HCC records and 59.7% of CRC records. Explicit p-values appear in 10.2% and 12.6% of records, sample-size values in 24.8% and 28.0%, and fold-change values in 4.3% and 4.9% of HCC and CRC records, respectively. The evidence-quality object stores both component-level and composite assessments. In the HCC resource, the grade distribution is C (5,886), B (1,732), D (194), and A (60). In the CRC resource, the distribution is C (5,024), B (1,251), D (313), and A (34). These values indicate that the released resources preserve the full spectrum of extracted evidence, rather than only a narrowly filtered high-confidence subset. Each record also stores a set of extracted biomedical entities and, when available, normalized biomedical identifiers. In HCC, the most frequent extracted semantic classes are Drug, Phenotype, Gene, and Disease. In CRC, the most frequent classes are Drug, Disease, Gene, and Phenotype. Records may also include directed semantic relations to other evidence units, duplicate-merging provenance, lifecycle timestamps, version information, and fields reserved for future manual curation (Table 6). 10 3.2 Graph-level structure 
+
+The graph-level component stores the integrated disease-specific evidence network. It contains two node classes, namely evidence nodes and normalized biomedical entity nodes. Evidence nodes retain a flattened subset of the attributes present in the full record-level representation, including provenance, study type, disease context, intervention, mechanism, phenotype, and composite score. Entity nodes represent normalized biomedical concepts and preserve canonical names, semantic classes, and source-database provenance. In the HCC resource, the normalized entity layer comprises 1,033 genes, 745 drugs or compounds, 367 diseases, 180 phenotypes, and 131 pathways. In the CRC resource, the corresponding counts are 908 genes, 689 drugs or compounds, 352 diseases, 119 phenotypes, and 105 pathways. These entity sets form the shared concept layer through which individual evidence units are integrated into a coherent graph. Edges encode both evidence-to-entity alignment and evidence-to-evidence semantic relations. Evidence-to-entity edges connect structured evidence units to normalized biomedical concepts. Evidence-to-evidence edges encode semantic relations including support, extension, refinement, contradiction, replication, and causal ordering. Because the graph is directed, edge orientation is preserved and should be interpreted as part of the semantic structure of the resource (Table 7). 
+
+Table 6: Core fields represented in the released EvidenceNet resources at the record level. Field Description evidence_id Unique identifier of the evidence record. 
+
+source Source metadata, including DOI, title, authors, journal, publication year, cita-tion count, impact factor, journal quartile, and source document path. 
+
+pico Structured study context, including study object, intervention, comparison, and outcome metrics. 
+
+core_entities Extracted biomedical entities. Each entity record includes the raw name, se-mantic type, normalized identifier, canonical name, database source, and link-ing score when available. 
+
+bio_mechanism Free-text description of the reported biological mechanism. 
+
+phenotype Free-text description of the observed biological or clinical phenotype. 
+
+study_design Study type, such as cohort, in-vivo, in-vitro, or randomized trial. 
+
+clinical_stage Translational stage of the evidence, such as preclinical, clinical, or trial phase. 
+
+statistics Quantitative attributes, including p-value, fold change, confidence interval, sample size, effect size, and statistical method when reported. 
+
+score Evidence-quality object containing impact score, statistics score, sample size score, composite score, llm confidence, and grade level. 
+
+source_text Supporting text span from the source article. 
+
+linked_entities List of normalized entity identifiers used to connect the evidence record to the graph entity layer. 
+
+evidence_relations Directed semantic relations to other evidence records, including source identi-fier, target identifier, relation type, similarity score, rationale, and timestamp. 
+
+merged_from Identifiers of absorbed duplicate evidence records retained for provenance track-ing. 
+
+review_status Review state of the evidence record. In this release, all records are marked as pending review. 
+
+created_at, up-dated_at, version 
+
+Record versioning and timestamps. 
+
+11 Table 7: Core fields represented in the released EvidenceNet resources at the graph level. Field Description metadata Release-level metadata, including disease label, creator informa-tion, version, and update timestamp.     
+
+> evi_node_attr Flattened evidence-node fields used in the graph representation, including evidence identifier, bibliographic metadata, study de-sign, clinical stage, disease label, mechanism, phenotype, inter-vention, study object, linked entities, and composite score.
+> ent_node_attr Normalized biomedical entity fields, including canonical name, se-mantic type, and source database.
+> evi_ent_edges Directed edges connecting evidence nodes to normalized entities, with entity type and linking score.
+> evi_evi_edges Directed semantic relations (SUPPORTS, EXTENDS, REFINES, CONTRADICTS, CAUSAL_CHAIN, REPLICATES) with sim-ilarity score and rationale.
+
+The record-level and graph-level components provide complementary views of the same biomed-ical resource. The record-level representation preserves the full semantic structure of individual evidence units, whereas the graph-level representation supports integration, visualization, and down-stream network analysis. 
+
+## 4 Data Overview 
+
+To complement the structured descriptions in the Data Records section, we further summarize the released EvidenceNet resources through three descriptive visualizations that emphasize graph topology and dataset composition. Figure 3 provides a global view of the HCC and CRC graphs, Fig. 4 highlights representative local motifs, and Fig. 5 summarizes their temporal, methodological, scoring, and semantic-relation profiles. Together, these views provide a concise overview of how the released evidence is organized at the disease level. At the global level, both disease-specific graphs exhibit a dominant connected backbone together with smaller peripheral modules (Fig. 3). This structure indicates that a substantial portion of the literature converges on recurring intervention–mechanism–outcome patterns that are repeatedly connected across publications. At the same time, the presence of peripheral modules shows that the resource does not collapse all evidence into a single homogeneous network. More specialized themes remain preserved as localized semantic neighbourhoods, allowing users to distinguish broadly connected areas of investigation from narrower subdomains. The colour distribution in Fig. 3 further shows that the backbone is supported by heterogeneous study designs rather than by a single experimental tier. Preclinical and clinical evidence records are interwoven within the same large-scale structure, indicating that EvidenceNet integrates mechanis-tic, translational, and clinical findings into a shared disease-specific representation. This property is important for downstream interpretation because it allows users to inspect not only the den-sity of evidence surrounding a topic, but also the diversity of study types that contribute to that neighbourhood. Figure 4 provides a complementary local-scale view of the same resources. Whereas Fig. 3 emphasizes global organization, the motif panels show how semantically related evidence records form interpretable neighbourhoods within the larger graphs. In both diseases, contradiction-rich regions can be identified in which closely related evidence nodes are connected by mixed semantic relations rather than by uniformly supportive links alone. Such local structures indicate that the 12 Evidence records: 7,872 
+
+> Entity nodes: 2,456
+> Total edges: 49,756
+> Mean score: 0.53
+> Mean evidence relations: 3.95
+> Displayed cross-paper evidence nodes: 2,724
+> Displayed cross-paper semantic links: 25,486
+> HCC EvidenceNet: score-filtered cross-paper semantic overview
+> Evidence records: 6,622
+> Entity nodes: 2,173
+> Total edges: 39,361
+> Mean score: 0.52
+> Mean evidence relations: 4.07
+> Displayed cross-paper evidence nodes: 1,903
+> Displayed cross-paper semantic links: 19,510
+> CRC EvidenceNet: score-filtered cross-paper semantic overview
+> Study design (node colour)
+> rct
+> meta_analysis
+> cohort
+> case_control
+> in_vitro
+> in_vivo
+> computational
+> unknown
+> Semantic relation (edge colour)
+> SUPPORTS
+> EXTENDS
+> REFINES
+> CONTRADICTS
+> CAUSAL_CHAIN
+> REPLICATES
+
+Figure 3: Global overview of the released HCC and CRC EvidenceNet resources. Nodes represent filtered evidence records and are coloured by study design. Edges represent cross-paper semantic relations and are coloured by relation type. Both diseases show a densely connected backbone together with smaller peripheral modules. Very small disconnected components are omitted for visual clarity. 
+
+graph preserves not only evidence density but also the internal diversity of how findings relate to one another across studies. The peripheral motifs add a further layer of interpretability. In HCC, a compact module centred on sirolimus and tacrolimus reflects a specialized evidence cluster linked to transplant immunosup-pression, while in CRC, a postoperative ctDNA-centred module illustrates how clinically focused themes remain preserved outside the main backbone. These examples show that EvidenceNet re-tains coherent subgraphs at multiple scales, allowing users to move from disease-wide inspection to finer semantic neighbourhoods without losing provenance or contextual structure. Figure 5 complements the topology-oriented view by summarizing four key quantitative proper-ties of the released resources. The annual record counts in Fig. 5a show that both disease graphs are weighted towards recent literature, with a clear increase in extracted evidence in the later publication years. This pattern is consistent with the construction strategy of EvidenceNet, which prioritizes recent full-text articles while still retaining longitudinal coverage across the disease literature. The study-design composition in Fig. 5b shows that the released resources remain methodologi-cally heterogeneous. Cohort, in-vivo, in-vitro, and randomized-trial records account for much of the evidence volume, while meta-analysis, computational, and case-control studies provide additional complementary strata. The score distributions in Fig. 5c are concentrated in the mid-to-high range for both diseases, indicating that the release preserves broad coverage without being dominated by very low-confidence records. The semantic-relation distributions in Fig. 5d show that SUPPORTS, EXTENDS, and REFINES constitute the major cross-paper relation classes, whereas CONTRA-DICTS, CAUSAL_CHAIN, and REPLICATES form smaller but still informative portions of the graph. These summaries show that the released EvidenceNet resources are recent, methodologically diverse, and semantically structured for cross-paper interpretation and downstream graph analysis. 13 Combined targeted and immunotherapy-associated evidence 
+
+> HCC contradiction-rich neighbourhood
+> combined targeted drug
+> and immunotherapy
+> Transplant immunosuppression centred on sirolimus/tacrolimus
+> HCC peripheral module
+> sirolimus (most
+> frequently in
+> combination with low
+> dosages of tacrolimus)
+> Anti-EGFR treatment neighbourhood centred on FOLFOX plus panitumumab
+> CRC contradiction-rich neighbourhood
+> FOLFOX plus panitumumab
+> Postoperative ctDNA-associated module
+> CRC peripheral module
+> ctDNA-positive status
+> after curative-intent
+> surgery
+> rct
+> meta_analysis
+> cohort
+> case_control
+> in_vitro
+> in_vivo
+> computational
+> unknown
+> SUPPORTS
+> EXTENDS
+> REFINES
+> CONTRADICTS
+> CAUSAL_CHAIN
+> REPLICATES
+
+Figure 4: Representative local motifs in the HCC and CRC EvidenceNet resources. The four panels show example subgraphs selected from the full evidence graphs, including contradiction-rich neighbourhoods and more specialized peripheral modules. These motifs illustrate how EvidenceNet supports both global inspection and fine-grained exploration of disease-relevant evidence patterns. 
+
+## 5 Technical Validation 
+
+5.1 Component fidelity validation 
+
+We first evaluate component fidelity through a targeted manual audit of the released HCC and CRC resources (Table 8). The audit comprises 20 evidence-extraction cases, 20 entity-normalization cases, 12 fusion cases with merge provenance, and 20 semantic relations. Sampling is stratified by disease and audit type so that the reviewed set covers multiple study designs, entity classes, relation types, and merge scenarios. All cases are sampled from released records with sufficient textual context. Entity-linking cases are restricted to high-confidence mappings that can be directly grounded in the source sentence, so this audit evaluates the correctness of accepted links rather than the recall of all possible candidates. Evidence extraction shows high fidelity. The field-level macro accuracy reaches 98.3%, and 95.0% of reviewed records are fully correct with respect to source support, study-design assignment, and key-entity capture. These results indicate that the extraction stage generally preserves the main claim and study context of the source text. Entity normalization is also robust. All reviewed high-confidence links are mapped to the correct 14 2010 2012 2014 2016 2018 2020 2022 2024 
+
+> Year
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> 1200
+> Evidence records
+
+a Annual evidence records by source year   
+
+> HCC
+> CRC
+> HCC CRC
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Records (%)
+> n=7,872 n=6,622
+
+b Study-design composition  
+
+> Study design
+> cohort
+> in vivo
+> in vitro
+> rct
+> meta analysis
+> computational
+> case control
+> unknown
+> HCC CRC
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> 1.0
+> Composite score
+> median 0.50
+> IQR 0.46--0.59
+> median 0.49
+> IQR 0.45--0.58
+
+c Composite score distribution     
+
+> 010 20 30 40
+> Semantic edges (%)
+> supports
+> extends
+> refines
+> contradicts
+> causal chain
+> replicates
+> 43.4
+> 29.0
+> 19.2
+> 3.5
+> 2.7
+> 2.2
+> 36.6
+> 35.2
+> 18.7
+> 3.8
+> 4.0
+> 1.7
+
+d Semantic relation composition 
+
+> HCC
+> CRC
+
+Figure 5: Quantitative overview of the released HCC and CRC EvidenceNet resources. (a) Annual evidence-record counts by source year. (b) Study-design composition of evidence records. (c) Composite-score distributions across records. (d) Composition of semantic relation types among evidence–evidence edges. 
+
+TarKG [11] concept, yielding a link accuracy of 100.0%. A lower type-compatibility score of 80.0% is observed when assessing whether the mapped ontology class is the most semantically appropriate one. The remaining errors are mainly boundary cases between disease-level and phenotype-level concepts rather than failures of lexical grounding. Fusion is more challenging than extraction and normalization, but remains reliable overall. The final retained record is coherent in all reviewed cases, and the fusion integrity score reaches 87.5%. The lower same-underlying-evidence rate of 83.3% suggests that a small subset of merges involves closely related but not fully identical evidence statements. Semantic linking is precise. All reviewed edges connect genuinely related evidence records, giving an edge precision of 100.0%. In addition, 90.0% of audited links are assigned the cor-rect semantic relation type. Errors are concentrated in the more interpretive CONTRADICTS and CAUSAL_CHAIN categories, whereas all reviewed SUPPORTS, EXTENDS, REFINES, and REPLICATES relations are judged correct. These audits show that the released EvidenceNet resources are technically reliable at the compo-nent level. Easier steps such as record extraction and high-confidence entity normalization achieve very high accuracy, whereas fusion and fine-grained relation typing remain more difficult, as ex-pected for literature-derived evidence graphs. 15 Table 8: Component-level fidelity audit of the released EvidenceNet resources. Primary metrics summarize the main usability-oriented criterion for each component, and secondary metrics capture a stricter or more fine-grained aspect of the same audit.                       
+
+> Component nPrimary metric Value (%) Secondary metric Value (%)
+> Evidence extraction 20 Field-level macro ac-curacy 98.3 Strict record accuracy 95.0 Entity normalization 20 Link accuracy 100.0 Type compatibility 80.0 Evidence fusion 12 Fusion integrity score 87.5 Same-underlying-evidence rate 83.3 Semantic relations 20 Edge precision 100.0 Relation-type accuracy 90.0
+
+5.2 Internal consistency validation 
+
+We next assess internal consistency using question–answering pairs generated directly from the re-leased graph content. This experiment tests whether evidence already encoded in the graph can be retrieved and used to support correct answers without relying on external literature. It should there-fore be interpreted as an internal coherence and answer-recovery test, rather than as an out-of-graph generalization benchmark. Separate internal QA sets are constructed for HCC and CRC, each con-taining 50 graph-derived yes/no questions. We compare four answering settings, namely a baseline LLM (GPT-5.1) without retrieval, TarKG-only [11] retrieval-augmented generation (TarKG-RAG), local literature retrieval (Article-RAG), and EvidenceNet retrieval (EvidenceNet-RAG). EvidenceNet gives the highest accuracy in both diseases (Table 9). In HCC, EvidenceNet reaches 96.0% accuracy, compared with 76.0% for the baseline, 88.0% for TarKG-only retrieval, and 78.0% for local literature retrieval. In CRC, EvidenceNet reaches 92.0% accuracy, compared with 76.0%, 72.0%, and 78.0% for the same baselines, respectively. EvidenceNet also achieves the highest av-erage semantic similarity between predicted and reference answers in both datasets. This pattern indicates more accurate binary decisions and closer alignment with the reference explanation. These results show that the released graph is internally coherent. The gain over the baselines suggests that the improvement does not arise simply from general biomedical knowledge or from access to a background knowledge graph alone, but from the structured organization of literature-derived evidence records and their semantic links within EvidenceNet.                      
+
+> Table 9: Internal consistency evaluation using graph-derived yes/no QA pairs. Accuracy and average semantic similarity are computed separately for HCC and CRC using 50 internally generated questions per disease.
+> HCC CRC Method Accuracy (%) Avg. semantic similarity Accuracy (%) Avg. semantic similarity
+> Baseline LLM 76.0 0.734 76.0 0.742 TarKG-RAG 88.0 0.729 72.0 0.749 Article-RAG 78.0 0.735 78.0 0.751 EvidenceNet-RAG 96.0 0.789 92.0 0.798
+
+16 5.3 External reasoning utility validation 
+
+We next evaluate whether EvidenceNet can support question answering beyond facts directly in-stantiated in the graph. For this purpose, we assemble an external yes/no benchmark by filtering HCC-related (98 samples) and CRC-related (93 samples) question–answering instances from three public biomedical QA resources, namely PubMedQA [51], BioASQ [52], and Evidence-Inference [53]. This setting is more demanding than the internal QA task because the questions are not generated from EvidenceNet itself and therefore require semantic generalization rather than direct recovery of graph-native statements. We compare five answering settings, including a baseline LLM without retrieval, TarKG-RAG, Article-RAG, EvidenceNet-RAG, and a combined EvidenceNet+TarKG setting. As shown in Ta-ble 10, the combined setting achieves the best accuracy in both diseases. In HCC, accuracy increases from 56.1% for the baseline to 59.2% with EvidenceNet alone and 61.2% with EvidenceNet+TarKG. In CRC, the corresponding values are 64.8%, 67.0%, and 68.1%. TarKG-RAG and Article-RAG do not consistently outperform the baseline. These results indicate that EvidenceNet contributes useful disease-specific evidence for answering external biomedical questions, even when the benchmark is not derived from the graph itself. The additional gain from combining EvidenceNet with TarKG suggests that the two resources contribute complementary information. EvidenceNet contributes literature-grounded experimental and clinical evidence, whereas TarKG supplies broader entity-level definitions and background associations. Absolute performance remains lower than in the internal consistency experiment, which is expected because the external benchmark spans a broader range of question formulations and knowledge requirements. Nevertheless, the consistent improvement across both diseases supports the utility of EvidenceNet as a retrieval substrate for downstream reasoning tasks.                           
+
+> Table 10: External reasoning utility evaluated on filtered HCC- and CRC-related yes/no questions from public biomedical QA datasets. Accuracy and average semantic similarity are computed separately for HCC and CRC benchmark subsets.
+> HCC CRC Method Accuracy (%) Avg. semantic similarity Accuracy (%) Avg. semantic similarity
+> Baseline LLM 56.1 0.601 64.8 0.647 TarKG-RAG 55.1 0.609 63.7 0.651 Article-RAG 54.1 0.600 62.6 0.668 EvidenceNet-RAG 59.2 0.612 67.0 0.664 EvidenceNet+TarKG 61.2 0.619 68.1 0.652
+
+5.4 Structural predictive validation 
+
+The QA-based evaluations above mainly assess whether EvidenceNet can support semantically grounded retrieval and reasoning over already observed evidence. Predictive validity addresses a complementary question, namely whether graph structure itself contains forward-looking informa-tion that anticipates findings appearing only in later, previously unprocessed literature. We evaluate EvidenceNet from two predictive perspectives. The first is a general link prediction task, which mea-sures the ability of the graph to recover novel linked entity pairs from future papers. The second is a scenario-based target discovery task, which asks whether the graph can prioritize newly reported therapeutic targets in a more application-oriented setting. 17 For the general link prediction task, we construct disease-specific temporal hold-out datasets using recent papers not included in graph construction. Training positives are linked entity pairs already present in the released graph, whereas test positives are linked entity pairs extracted from newer papers but absent from the graph at training time. Random unseen pairs serve as negatives. This yields 501 future positive pairs for HCC and 665 for CRC. We compare four complementary predictors on the EvidenceNet graph, including a random-forest classifier using hand-crafted graph features, a node2vec [54] embedding model followed by logistic regression, a bipartite graph neural network [55], and a shortest-path heuristic baseline. All four methods achieve better-than-random performance, indicating that the released graph contains measurable predictive signal for future links (Table 11). The shortest-path baseline per-forms best in both diseases, reaching an AUC of 0.831 and AP of 0.884 in HCC, and an AUC of 0.833 and AP of 0.794 in CRC. Among the learned models, node2vec performs best in HCC (AUC 0.754, AP 0.861). In CRC, node2vec again provides the strongest learned-model performance (AUC 0.725, AP 0.717), while the random-forest model remains competitive (AUC 0.703, AP 0.634). The GNN shows consistent but more moderate performance in HCC (AUC 0.699, AP 0.668) and CRC (AUC 0.658, AP 0.579). These results suggest that local graph topology is highly informative for anticipating future as-sociations. This interpretation is reinforced by the strong performance of the shortest-path baseline, which relies only on structural proximity rather than complex learned parameters. The competitive performance of node2vec and random forest further indicates that both distributed graph represen-tations and engineered topological features capture useful predictive signal. In the random-forest model, the most influential features are semantic similarity and degree-based preferential attach-ment, suggesting that future links tend to arise where semantically related entities are already embedded in densely connected evidence neighbourhoods. These findings show that the predictive utility of EvidenceNet is encoded in graph organization as well as in text-level retrieval.                      
+
+> Table 11: Multi-method evaluation of future link prediction on held-out recent literature.
+> Positive test pairs are novel linked entity pairs extracted from previously unseen papers and absent from the released graph at training time.
+> HCC CRC Method AUC AP AUC AP
+> Random forest 0.708 0.746 0.703 0.634 node2vec + logistic regression 0.754 0.861 0.725 0.717 Bipartite GNN 0.699 0.668 0.658 0.579 Shortest-path baseline 0.831 0.884 0.833 0.794
+
+We next examine a more application-oriented setting based on emerging therapeutic targets reported in unseen recent papers. This task differs from generic link prediction in both viewpoint and utility. Instead of asking whether any missing edge can be recovered, it asks whether the disease-centred evidence neighbourhood can prioritize biologically plausible and therapeutically relevant targets before they are densely represented in the graph. We benchmark four HCC targets and five CRC targets curated from newly processed papers. For each candidate, we compute a disease– target proximity score in EvidenceNet using graph-neighbourhood overlap and compare it with an analogous score derived from TarKG. Given the small number of benchmark targets, this analysis is intended as a scenario-based proof of concept for translational prioritization rather than as a definitive ranking benchmark. As shown in Table 12, EvidenceNet assigns non-zero scores to one HCC target (SPP1) and two 18 CRC targets (CD47 and CTLA4), whereas TarKG assigns zero to all candidates. Across the full benchmark, three of nine literature-derived targets receive positive EvidenceNet scores. Among the four candidates already present as nodes in EvidenceNet, three receive non-zero disease-proximity scores. The remaining failures are mainly cold-start cases in which the target is absent from the current graph vocabulary, making recovery impossible under a purely graph-based ranking scheme. Even under this conservative setup, the results suggest that EvidenceNet can support weak but meaningful prioritization of emerging disease-relevant targets when some supporting graph context is available.        
+
+> Table 12: Scenario-based prediction of therapeutic targets reported in unseen recent papers.
+> A positive score indicates non-zero graph proximity between the disease node and the candidate target.
+> Disease Benchmark targets EvidenceNet positive-score targets TarKG positive-score targets
+> HCC 41/4 (SPP1) 0/4 CRC 52/5 (CD47, CTLA4) 0/5
+
+Together, these two experiments support the predictive validity of EvidenceNet. The general link prediction task shows that the global structure of EvidenceNet contains forward-looking information about future entity associations. The target discovery task shows how the same graph can be used in a more focused translational setting. Alongside the QA results above, these findings indicate that EvidenceNet is useful both as a repository of structured evidence and as a graph substrate for anticipating new relationships and prioritizing candidate therapeutic directions. 
+
+## 6 Usage Notes 
+
+EvidenceNet can be used at two complementary levels. The record-level release is most suitable for evidence-centric retrieval, manual review, and interpretation because each evidence unit pre-serves source text, study design, clinical stage, quantitative attributes, and provenance. The graph-level release is better suited to visualization, semantic neighbourhood analysis, link prediction, and disease-specific graph learning. Users interested in conservative downstream analyses may further filter records by composite score, evidence grade, study design, or clinical stage. More exploratory analyses may benefit from retaining the full release, including lower-confidence and contradictory evidence. This release should be interpreted within its coverage limits. EvidenceNet is built from disease-specific, recent PubMed-indexed articles with accessible full text, rather than from the entirety of the biomedical literature. Absence of a node, edge, or target in the current graph should therefore not be interpreted as evidence of biological absence. In some cases, it instead reflects corpus coverage, incomplete ontology alignment, or cold-start entities that have not yet entered the current graph vocabulary. Because EvidenceNet intentionally integrates heterogeneous evidence types, graph proximity should not be interpreted as direct clinical support without inspecting node-level context. Preclin-ical, translational, and clinical findings coexist in the same resource, and semantic relation edges indicate cross-paper consistency or relevance rather than therapeutic recommendation. We there-fore recommend that downstream users inspect the linked source text, study design, and evidence score before drawing mechanistic or translational conclusions. Entity normalization is aligned to TarKG, which improves interoperability but may still contain ontology-boundary cases, especially between disease and phenotype concepts. 19 7 Conclusion 
+
+We present EvidenceNet as a disease-specific, evidence-centric framework for converting full-text biomedical literature into computable knowledge graphs that preserve provenance, study context, and quantitative support. By treating experimentally grounded findings as the primary graph unit, EvidenceNet complements conventional biomedical knowledge graphs that focus mainly on entity-level facts. The released HCC and CRC resources show that this design scales to literature-sized corpora while retaining interpretable structure at both the record and graph levels. Our evaluations demonstrate that EvidenceNet is both technically reliable and practically useful. Component-level audits support the fidelity of evidence extraction, entity normalization, duplicate handling, and semantic relation typing. Downstream validation further shows that the resulting graphs support internal consistency checking, improve external biomedical question answering when used for retrieval, and capture structural signal for future link prediction and target prioritization. These findings indicate that EvidenceNet functions both as a structured data resource and as a substrate for disease-specific biomedical reasoning. EvidenceNet provides an evidence-aware knowledge resource for precision medicine and trans-lational discovery. Because the framework is modular and disease-specific, it can be extended to additional disease areas, updated with new literature, and integrated with external biomedical knowledge resources and retrieval-based LLM systems. Resources of this type may support more transparent biomedical question answering, more context-sensitive knowledge synthesis, and more efficient hypothesis generation from the rapidly expanding scientific literature. 
+
+## Appendix A LLM prompts used in EvidenceNet 
+
+To improve transparency and reproducibility, we summarize here the principal LLM prompts used in EvidenceNet construction and evaluation. Dynamic runtime content is represented by placeholders such as <TEXT CHUNK> , <QUESTION> , and <EVIDENCE CONTEXT> .
+
+A.1 Prompts used in graph construction 
+
+A.1.1 Prompt A1. Chunk-level evidence extraction. 
+
+This prompt is used to convert paper text segments into structured evidence records. A dedicated system instruction established the extraction role, JSON schema, and grounding constraints, and the user prompt supplied the disease context, text segment, and few-shot examples. For readability, lengthy inserted content and repeated fields were abbreviated without changing the prompt logic. 
+
+Prompt A1. Chunk-level evidence extraction 
+
+> [System instruction] You are a biomedical evidence extraction expert specializing in evidence-based medicine (EBM). Your task is to extract structured evidence from academic paper text following the PICO framework and GRADE guidelines. REQUIRED JSON FIELDS: - study_object - intervention - comparison - outcome_metrics - core_entities
+
+20 - bio_mechanism - phenotype - study_design - clinical_stage - p_value - sample_size - fold_change - experimental_context - source_text - extraction_confidence CRITICAL RULES: 1. Only extract evidence explicitly stated in the text. 2. If a paragraph contains multiple distinct experiments, extract them separately. 3. The source_text field must be an exact verbatim quote. 4. Do not treat background statements or prior work as new evidence. 5. If a field is missing, set it to null. Output only valid JSON. Do not include markdown code blocks. [User prompt template] Extract all distinct pieces of experimental evidence from the following text segment (section: <SECTION>). Target disease context: <DISEASE> Output a JSON object with a key "evidence" containing a list of evidence items. ### FEW-SHOT EXAMPLES Example 1: Input Text: "We treated HepG2 cells with 5 Micrometre Sorafenib for 48h. The CCK-8 assay showed that cell viability was significantly reduced compared to DMSO control (p < 0.01, n=3)." Example 2: Input Text: "Hepatocellular carcinoma (HCC) is a major cause of cancer-related death. Previous studies have linked TP53 mutations to poor prognosis." Output: {"evidence": []} Example 3: Input Text: "Knockdown of GeneA decreased migration. Additionally, Western blot analysis revealed decreased phosphorylation of AKT." Output: {"evidence": [{"phenotype": "decreased migration"}, {"bio_mechanism": "decreased phosphorylation of AKT"}]} ### TEXT TO ANALYZE ---<TEXT CHUNK> ---
+
+A.1.2 Prompt A2. Intra-document aggregation and enrichment. 
+
+After chunk-level extraction, evidence objects from the same paper were passed to a second prompt that enriched incomplete fields and removed only exact duplicates, while explicitly preserving dis-tinct experiments. 21 Prompt A2. Intra-document aggregation and enrichment 
+
+[System instruction] You are an expert in evidence synthesis for biomedical research. Your task is to enrich and complete evidence extractions from the same paper, not to reduce or merge them. Preserve every distinct piece of evidence. Only remove entries that are exact word-for-word duplicates. Output only valid JSON matching the schema. [User prompt template] The following JSON array contains evidence extracted from different sections of the same paper. Paper title: <TITLE> DOI: <DOI> Tasks (in order of priority): 1. Fill in missing fields using information found elsewhere in the array. 2. Add a "conflict_note" field only if two entries report directly contradictory numbers for the same metric. 3. Remove only exact word-for-word duplicate entries. 4. Keep all distinct experiments; do not merge experiments that merely study similar topics. Output a JSON object with a key "evidence" containing the list of enriched evidence items. Evidence to enrich: <EVIDENCE JSON ARRAY> 
+
+A.1.3 Prompt A3. Evidence-to-evidence relation verification. 
+
+When rule-based semantic linking between evidence records was uncertain or highly similar, an LLM verification step was used to assign a final semantic relation label. 
+
+Prompt A3. Evidence-to-evidence relation verification 
+
+[System instruction] You are an expert in biomedical evidence synthesis and evidence-based medicine. Your task is to classify the relationship between two pieces of experimental evidence extracted from scientific papers. Output only valid JSON. No markdown and no explanation outside the JSON object. [User prompt template] Classify the relationship between Evidence A and Evidence B. Evidence A: Intervention : <A_INTERVENTION> Mechanism : <A_MECHANISM> Phenotype : <A_PHENOTYPE> Study design : <A_DESIGN> Year : <A_YEAR> Key entities : <A_ENTITIES> Evidence B: Intervention : <B_INTERVENTION> Mechanism : <B_MECHANISM> Phenotype : <B_PHENOTYPE> Study design : <B_DESIGN> Year : <B_YEAR> Key entities : <B_ENTITIES> 
+
+22 Rule-based preliminary classification: <RULE_RELATION> Choose exactly one relationship: - SUPPORTS - CONTRADICTS - REFINES - EXTENDS - REPLICATES - CAUSAL_CHAIN Respond in the following JSON format: {"relation_type": "<one of the six types>", "confidence": <float 0.0-1.0>, "rationale": "<one sentence explanation>" }
+
+A.2 Prompts used in graph evaluation 
+
+A.2.1 Prompt A4. Graph-derived yes/no QA generation. 
+
+This prompt was used to generate internal QA pairs from evidence records already present in the graph. A lightweight JSON-only system role was used during generation. 
+
+Prompt A4. Graph-derived yes/no QA generation 
+
+[System instruction] You are a helpful assistant that outputs JSON. [User prompt template] You are an expert in biomedical question generation. Based strictly on the following evidence snippet from a scientific paper, generate a specific scientific question and its answer. Evidence Source Text: "<SOURCE_TEXT>" Context: Intervention: <INTERVENTION> Outcome: <OUTCOME> Mechanism: <MECHANISM> Task: 1. Generate a yes/no question that can be answered by this evidence. 2. Provide the yes/no classification. 3. Provide a concise explanation justified by the evidence. Output format (JSON): {"question": "Does [Intervention] cause [Outcome]...?", "class": "yes" or "no", "answer": "Yes. [Explanation...]" }
+
+23 A.2.2 Prompt A5. Retrieval-augmented QA answering. 
+
+For QA evaluation, EvidenceNet was queried either alone or together with TarKG. The answering prompt required explicit filtering of retrieved evidence, binary classification, and explanation. Afallback variant was used when no relevant graph evidence was retrieved. 
+
+Prompt A5. Retrieval-augmented QA answering 
+
+[EvidenceNet-only version] You are an expert biomedical researcher. CONTEXT (EvidenceNet): <EVIDENCE CONTEXT> QUESTION: <QUESTION> TASK: 1. Filter the evidence. - Relevant: direct mentions or conceptual matches. - Irrelevant: unrelated diseases or drugs. 2. Classify the answer as YES or NO. - If relevant evidence exists, answer based on it. - If all evidence is irrelevant, answer based on general knowledge rather than defaulting to "No". 3. Explain your reasoning and cite the evidence if used. OUTPUT FORMAT: CLASSIFICATION: [YES/NO] EXPLANATION: [Detailed reasoning] [EvidenceNet + TarKG version] You are an expert biomedical researcher. SOURCES: - EvidenceNet (Clinical Trials): specific experimental evidence - TarKG (Definitions): general biological definitions CONTEXT: <COMBINED_CONTEXT> QUESTION: <QUESTION> TASK: 1. Filter the retrieved EvidenceNet evidence. 2. Use TarKG for biological definitions if needed. 3. Classify the answer as YES or NO. - If relevant evidence exists, answer based on it. - If evidence is insufficient, answer using general biomedical knowledge. - Do not answer "No" solely because direct evidence is missing. 4. Provide a brief explanation. OUTPUT FORMAT: CLASSIFICATION: [YES/NO] EXPLANATION: [Reasoning] [No-evidence fallback version] Question: <QUESTION> 
+
+24 Task: 1. Classify the answer as YES or NO based on general biomedical knowledge. 2. No specific evidence was found in the database, so rely entirely on internal knowledge. Output Format: CLASSIFICATION: [YES/NO] EXPLANATION: [Detailed explanation from general knowledge] 
+
+## Data availability 
+
+The released EvidenceNet-HCC and EvidenceNet-CRC resources, including the record-level ev-idence collections and graph-level serializations used in this study, are deposited in figshare at 
+
+https://doi.org/10.6084/m9.figshare.31888399 . The release contains disease-specific files for HCC and CRC, including structured evidence records and graph files corresponding to the resources described in the Data Records section. 
+
+## Funding 
+
+This work was supported by the “Pioneer” and “Leading Goose” R&D Program of Zhejiang (Key Research and Development Program of Zhejiang Province), China (Grant No. 2025C01115). 
+
+## Author contributions 
+
+Chang Zong: conceptualization, methodology, software, data curation, formal analysis, valida-tion, visualization, writing—original draft. Sicheng Lv: data curation, software, formal analysis, writing—review and editing. Si-tu Xue: investigation, validation, writing—review and editing. Huilin Zheng: data curation, validation, visualization, writing—review and editing. Jian Wan: su-pervision, methodology, writing—review and editing. Lei Zhang: conceptualization, supervision, project administration, funding acquisition, writing—review and editing. All authors approved the final manuscript. 
+
+## Competing interests 
+
+The authors declare no competing interests. 
+
+## Code availability 
+
+The code used in this study is implemented in Python and is available on GitHub at https: //github.com/ZUST-BIT/EvidenceNet-code . The repository contains scripts for literature pre-processing, evidence extraction, entity normalization, graph construction, visualization, and down-stream evaluation, together with the dependency specifications required to reproduce the analyses reported here. 25 References 
+
+[1] Topol, Eric J. High-performance medicine: the convergence of human and artificial intelligence. 
+
+Nature medicine 25 (1), 44–56 (2019). [2] Sisodiya, Sanjay M. Precision medicine and therapies of the future. Epilepsia 62 , S90–S105 (2021). [3] Duffy, David J. Problems, challenges and promises: perspectives on precision medicine. Brief-ings in bioinformatics 17 (3), 494–504 (2016). [4] Bornmann, Lutz; Haunschild, Robin; Mutz, Rüdiger. Growth rates of modern science: a latent piecewise growth curve approach to model publication numbers from established and new literature databases. Humanities and Social Sciences Communications 8(1), 224 (2021). [5] González-Márquez, Rita; Schmidt, Luca; Schmidt, Benjamin M; Berens, Philipp; Kobak, Dmitry. The landscape of biomedical research. Patterns 5(6) (2024). [6] Goyal, Nandita; Singh, Navdeep. Named entity recognition and relationship extraction for biomedical text: A comprehensive survey, recent advancements, and future research directions. 
+
+Neurocomputing 618 , 129171 (2025). [7] Stroganov, Oleg; Schedlbauer, Amber; Lorenzen, Emily; Kadhim, Alex; Lobanova, Anna; Lewis, David A; Glausier, Jill R. Unpacking unstructured data: A pilot study on extracting insights from neuropathological reports of Parkinson’s disease patients using large language models. Biology Methods and Protocols 9(1), bpae072 (2024). [8] Seinen, Tom M; Fridgeirsson, Egill A; Ioannou, Solomon; Jeannetot, Daniel; John, Luis H; Kors, Jan A; Markus, Aniek F; Pera, Victor; Rekkas, Alexandros; Williams, Ross D; et al. Use of unstructured text in prognostic clinical prediction models: a systematic review. Journal of the American Medical Informatics Association 29 (7), 1292–1302 (2022). [9] Chandak, Payal; Huang, Kexin; Zitnik, Marinka. Building a knowledge graph to enable preci-sion medicine. Scientific data 10 (1), 67 (2023). [10] Himmelstein, Daniel Scott; Lizee, Antoine; Hessler, Christine; Brueggeman, Leo; Chen, Sab-rina L; Hadley, Dexter; Green, Ari; Khankhanian, Pouya; Baranzini, Sergio E. Systematic integration of biomedical knowledge prioritizes drugs for repurposing. eLife 6, e26726 (2017). 
+
+https://doi.org/10.7554/eLife.26726 .[11] Zhou, Cong; Cai, Chui-Pu; Huang, Xiao-Tian; Wu, Song; Yu, Jun-Lin; Wu, Jing-Wei; Fang, Jian-Song; Li, Guo-Bo. TarKG: a comprehensive biomedical knowledge graph for target dis-covery. Bioinformatics 40 (10), btae598 (2024). [12] Subbiah, Vivek. The next generation of evidence-based medicine. Nature medicine 29 (1), 49–58 (2023). [13] Hosseini, Mohammad-Salar; Jahanshahlou, Farid; Akbarzadeh, Mohammad Amin; Zarei, Mahdi; Vaez-Gharamaleki, Yosra. Formulating research questions for evidence-based studies. 
+
+Journal of medicine, surgery, and public health 2, 100046 (2024). 26 [14] Armeni, Patrizio; Polat, Irem; De Rossi, Leonardo Maria; Diaferia, Lorenzo; Meregalli, Sev-erino; Gatti, Anna. Digital twins in healthcare: is it the beginning of a new era of evidence-based medicine? A critical review. Journal of personalized medicine 12 (8), 1255 (2022). [15] Jain, Ritu; Subramanian, Janakiraman; Rathore, Anurag S. A review of therapeutic failures in late-stage clinical trials. Expert Opinion on Pharmacotherapy 24 (3), 389–399 (2023). [16] Sun, Duxin; Gao, Wei; Hu, Hongxiang; Zhou, Simon. Why 90% of clinical drug development fails and how to improve it? Acta Pharmaceutica Sinica B 12 (7), 3049–3062 (2022). [17] Hanahan, Douglas. Hallmarks of cancer: new dimensions. Cancer discovery 12 (1), 31–46 (2022). [18] Kontomanolis, Emmanuel N; Koutras, Antonios; Syllaios, Athanasios; Schizas, Dimitrios; Mas-toraki, Aikaterini; Garmpis, Nikolaos; Diakosavvas, Michail; Angelou, Kyveli; Tsatsaris, Geor-gios; Pagkalos, Athanasios; et al. Role of oncogenes and tumor-suppressor genes in carcinogen-esis: a review. Anticancer research 40 (11), 6009–6015 (2020). [19] Amir-Behghadami, Mehrdad; Janati, Ali. Population, Intervention, Comparison, Outcomes and Study (PICOS) design as a framework to formulate eligibility criteria in systematic reviews. 
+
+Emergency Medicine Journal (2020). [20] Brown, David. A review of the PubMed PICO tool: using evidence-based practice in health education. Health promotion practice 21 (4), 496–498 (2020). [21] Sutton, Reed T; Pincock, David; Baumgart, Daniel C; Sadowski, Daniel C; Fedorak, Richard N; Kroeker, Karen I. An overview of clinical decision support systems: benefits, risks, and strategies for success. NPJ digital medicine 3(1), 17 (2020). [22] Musen, Mark A; Middleton, Blackford; Greenes, Robert A. Clinical Decision-Support Sys-tems. In Biomedical Informatics: Computer Applications in Health Care and Biomedicine ,pp. 795–840 (Springer International Publishing, Cham, 2021). https://doi.org/10.1007/ 978-3-030-58721-5_24 .[23] Lavecchia, Antonio. Explainable artificial intelligence in drug discovery: bridging predictive power and mechanistic insight. Wiley Interdisciplinary Reviews: Computational Molecular Sci-ence 15 (5), e70049 (2025). [24] Pham, Thai-Hoang; Qiu, Yue; Zeng, Jucheng; Xie, Lei; Zhang, Ping. A deep learning framework for high-throughput mechanism-driven phenotype compound screening and its application to COVID-19 drug repurposing. Nature machine intelligence 3(3), 247–257 (2021). [25] Mohamed, S., Nováček, V. & Nounu, A. Discovering protein drug tar-gets using knowledge graph embeddings. Bioinformatics . 36 , 603-610 (2019,8), https://doi.org/10.1093/bioinformatics/btz600 [26] Barabási, Albert-László; Gulbahce, Natali; Loscalzo, Joseph. Network medicine: a network-based approach to human disease. Nature reviews genetics 12 (1), 56–68 (2011). [27] Buphamalai, Pisanu; Kokotovic, Tomislav; Nagy, Vanja; Menche, Jörg. Network analysis re-veals rare disease signatures across multiple levels of biological organization. Nature communi-cations 12 (1), 6306 (2021). 27 [28] Cha, Junha; Lee, Insuk. Single-cell network biology for resolving cellular heterogeneity in hu-man diseases. Experimental & molecular medicine 52 (11), 1798–1808 (2020). [29] Li, Qing; Geng, Shan; Luo, Hao; Wang, Wei; Mo, Ya-Qi; Luo, Qing; Wang, Lu; Song, Guan-Bin; Sheng, Jian-Peng; Xu, Bo. Signaling pathways involved in colorectal cancer: pathogenesis and targeted therapy. Signal Transduction and Targeted Therapy 9(1), 266 (2024). [30] Zeng, Xuezhen; Ward, Simon E; Zhou, Jingying; Cheng, Alfred SL. Liver immune microen-vironment and metastasis from colorectal cancer-pathogenesis and therapeutic perspectives. 
+
+Cancers 13 (10), 2418 (2021). [31] Thirunavukarasu, Arun James; Ting, Darren Shu Jeng; Elangovan, Kabilan; Gutierrez, Laura; Tan, Ting Fang; Ting, Daniel Shu Wei. Large language models in medicine. Nature medicine 
+
+29 (8), 1930–1940 (2023). [32] Clusmann, Jan; Kolbinger, Fiona R; Muti, Hannah Sophie; Carrero, Zunamys I; Eckardt, Jan-Niklas; Laleh, Narmin Ghaffari; Löffler, Chiara Maria Lavinia; Schwarzkopf, Sophie-Caroline; Unger, Michaela; Veldhuizen, Gregory P; et al. The future landscape of large language models in medicine. Communications medicine 3(1), 141 (2023). [33] Liévin, Valentin; Hother, Christoffer Egeberg; Motzfeldt, Andreas Geert; Winther, Ole. Can large language models reason about medical questions? Patterns 5(3) (2024). [34] Singhal, Karan; Azizi, Shekoofeh; Tu, Tao; Mahdavi, S Sara; Wei, Jason; Chung, Hyung Won; Scales, Nathan; Tanwani, Ajay; Cole-Lewis, Heather; Pfohl, Stephen; et al. Large language models encode clinical knowledge. Nature 620 (7972), 172–180 (2023). [35] Song, Bosheng; Li, Fen; Liu, Yuansheng; Zeng, Xiangxiang. Deep learning methods for biomed-ical named entity recognition: a survey and qualitative comparison. Briefings in Bioinformatics 
+
+22 (6), bbab282 (2021). [36] Sung, Mujeen; Jeong, Minbyul; Choi, Yonghwa; Kim, Donghyeon; Lee, Jinhyuk; Kang, Jaewoo. BERN2: an advanced neural biomedical named entity recognition and normalization tool. 
+
+Bioinformatics 38 (20), 4837–4839 (2022). [37] Truhn, Daniel; Reis-Filho, Jorge; Kather, Jakob. Large language models should be used as scientific reasoning engines, not knowledge databases. Nature Medicine 29 (2023). https:// doi.org/10.1038/s41591-023-02594-z .[38] Dagdelen, John; Dunn, Alexander; Lee, Sanghoon; Walker, Nicholas; Rosen, Andrew S; Ceder, Gerbrand; Persson, Kristin A; Jain, Anubhav. Structured information extraction from scientific text with large language models. Nature communications 15 (1), 1418 (2024). [39] Nori, Harsha; King, Nicholas; McKinney, Scott Mayer; Carignan, Dean; Horvitz, Eric. Capabil-ities of GPT-4 on Medical Challenge Problems. (2023). https://arxiv.org/abs/2303.13375 .[40] Agrawal, Monica; Hegselmann, Stefan; Lang, Hunter; Kim, Yoon; Sontag, David. Large lan-guage models are few-shot clinical information extractors. In Proceedings of the 2022 Confer-ence on Empirical Methods in Natural Language Processing , pp. 1998–2022 (Association for Computational Linguistics, 2022). https://doi.org/10.18653/v1/2022.emnlp-main.130 .28 [41] Kartchner, David; Ramalingam, Selvi; Al-Hussaini, Irfan; Kronick, Olivia; Mitchell, Cassie. Zero-Shot Information Extraction for Clinical Meta-Analysis using Large Language Models. In 
+
+Proceedings of the 22nd Workshop on Biomedical Natural Language Processing and BioNLP Shared Tasks , pp. 396–405 (Association for Computational Linguistics, 2023). https://doi. org/10.18653/v1/2023.bionlp-1.37 .[42] Hu, Danqing; Liu, Bing; Zhu, Xiaofeng; Lu, Xudong; Wu, Nan. Zero-shot information extrac-tion from radiological reports using ChatGPT. International Journal of Medical Informatics 
+
+183 , 105321 (2024). [43] Chen, David; Alnassar, Saif Addeen; Avison, Kate Elizabeth; Huang, Ryan S; Raman, Srini-vas. Large language model applications for health information extraction in oncology: scoping review. JMIR cancer 11 , e65984 (2025). [44] Wang, Andy; Liu, Cong; Yang, Jingye; Weng, Chunhua. Fine-tuning large language models for rare disease concept normalization. Journal of the American Medical Informatics Association 
+
+31 (9), 2076–2083 (2024). [45] Hertling, Sven; Paulheim, Heiko. OLaLa: Ontology Matching with Large Language Models. In 
+
+Proceedings of the 12th Knowledge Capture Conference 2023 , pp. 131–139 (Association for Com-puting Machinery, New York, NY, USA, 2023). https://doi.org/10.1145/3587259.3627571 .[46] Shang, Yong; Tian, Yu; Lyu, Kewei; Zhou, Tianshu; Zhang, Ping; Chen, Jianghua; Li, Jingsong. Electronic health record–oriented knowledge graph system for collaborative clinical decision support using multicenter fragmented medical data: design and application study. Journal of Medical Internet Research 26 , e54263 (2024). [47] Jeong, Minbyul; Sohn, Jiwoong; Sung, Mujeen; Kang, Jaewoo. Improving medical reasoning through retrieval and self-reflection with retrieval-augmented large language models. Bioinfor-matics 40 (Supplement_1), i119–i129 (2024). [48] Zhao, Xuejiao; Liu, Siyan; Yang, Su-Yin; Miao, Chunyan. MedRAG: Enhancing Retrieval-augmented Generation with Knowledge Graph-Elicited Reasoning for Healthcare Copilot. In 
+
+Proceedings of the ACM on Web Conference 2025 , pp. 4442–4457 (Association for Computing Machinery, New York, NY, USA, 2025). https://doi.org/10.1145/3696410.3714782 .[49] Sohn, Jiwoong; Park, Yein; Yoon, Chanwoong; Park, Sihyeon; Hwang, Hyeon; Sung, Mujeen; Kim, Hyunjae; Kang, Jaewoo. Rationale-Guided Retrieval Augmented Generation for Medi-cal Question Answering. In Proceedings of the 2025 Conference of the Nations of the Ameri-cas Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) , pp. 12739–12753 (Association for Computational Linguistics, 2025). 
+
+https://doi.org/10.18653/v1/2025.naacl-long.635 .[50] Yan, Lian; Guan, Yi; Wang, Haotian; Lin, Yi; Yang, Yang; Wang, Boran; Jiang, Jingchi. Eirad: An evidence-based dialogue system with highly interpretable reasoning path for automatic diagnosis. IEEE Journal of Biomedical and Health Informatics 28 (10), 6141–6154 (2024). [51] Jin, Qiao; Dhingra, Bhuwan; Liu, Zhengping; Cohen, William; Lu, Xinghua. PubMedQA: A Dataset for Biomedical Research Question Answering. In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Con-ference on Natural Language Processing (EMNLP-IJCNLP) , pp. 2567–2577 (Association for Computational Linguistics, 2019). https://doi.org/10.18653/v1/D19-1259 .29 [52] Krithara, Anastasia; Nentidis, Anastasios; Bougiatiotis, Konstantinos; Paliouras, Georgios. BioASQ-QA: A manually curated corpus for Biomedical Question Answering. Scientific data 
+
+10 (1), 170 (2023). [53] DeYoung, Jay; Lehman, Eric; Nye, Benjamin; Marshall, Iain; Wallace, Byron C. Evidence Inference 2.0: More Data, Better Models. In Proceedings of the 19th SIGBioMed Workshop on Biomedical Language Processing , pp. 123–132 (Association for Computational Linguistics, 2020). https://doi.org/10.18653/v1/2020.bionlp-1.13 .[54] Grover, Aditya; Leskovec, Jure. node2vec: Scalable Feature Learning for Networks. In Pro-ceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , pp. 855–864 (Association for Computing Machinery, New York, NY, USA, 2016). 
+
+https://doi.org/10.1145/2939672.2939754 .[55] Kipf, Thomas N; Welling, Max. Semi-supervised classification with graph convolutional net-works. arXiv preprint arXiv:1609.02907 (2016). 30
