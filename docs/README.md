@@ -6,64 +6,61 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-04
-- 运行时间：2026-04-04 19:46:34 UTC
+- 最新运行日期：2026-04-05
+- 运行时间：2026-04-05 19:25:51 UTC
 - 运行状态：成功
-- 本次总论文数：14
-- 精读区：3
+- 本次总论文数：13
+- 精读区：2
 - 速读区：11
 
 ### 今日简报（AI）
-今日精选 14 篇前沿论文，深度解析了满分病理大模型 MOOZY 及视觉语言模型的鲁棒性微调技术。
-核心突破在于以患者为中心的病理表征学习，以及通过几何曲率优化显著提升多模态模型在微调中的泛化能力。
-建议重点关注医疗 AI 如何结合大规模预训练与知识图谱，实现从影像分割到临床推理的全链路突破。
-- 详情：[/202604/04/README](/202604/04/README)
+聚焦医疗AI前沿，今日深度解析以 MOOZY 为首的 13 篇计算病理与视觉定位重磅研究。
+重点推荐“患者优先”的病理基础模型及知识引导的空间提示技术，实现了诊断精度与逻辑性的双重突破。
+建议深入探索多模态融合在慢病管理与肿瘤免疫中的应用，并关注主动学习框架下的避坑指南。
+- 详情：[/202604/05/README](/202604/05/README)
 
 ### 精读区论文标签
-1. [MOOZY: A Patient-First Foundation Model for Computational Pathology](/202604/04/2603.27048v2-moozy-a-patient-first-foundation-model-for-computational-pathology)  
+1. [MOOZY: A Patient-First Foundation Model for Computational Pathology](/202604/05/2603.27048v2-moozy-a-patient-first-foundation-model-for-computational-pathology)  
    标签：评分：10.0/10、query:cpath
-   evidence：针对计算病理学的患者优先基础模型，使用全切片图像
-2. [The Geometry of Robustness: Optimizing Loss Landscape Curvature and Feature Manifold Alignment for Robust Finetuning of Vision-Language Models](/202604/04/2603.27139v1-the-geometry-of-robustness-optimizing-loss-landscape-curvature-and-feature-manifold-alignment-for-robust-finetuning-of-vision-language-models)  
-   标签：评分：8.0/10、query:cpath
-   evidence：视觉语言模型的鲁棒微调
-3. [AGFT: Alignment-Guided Fine-Tuning for Zero-Shot Adversarial Robustness of Vision-Language Models](/202604/04/2603.29410v1-agft-alignment-guided-fine-tuning-for-zero-shot-adversarial-robustness-of-vision-language-models)  
-   标签：评分：8.0/10、query:cpath
-   evidence：视觉语言模型的对抗鲁棒性
+   evidence：以患者为中心的计算病理学全切片图像基础模型
+2. [Enhancing Medical Visual Grounding via Knowledge-guided Spatial Prompts](/202604/05/2604.01915v1-enhancing-medical-visual-grounding-via-knowledge-guided-spatial-prompts)  
+   标签：评分：9.0/10、query:cpath
+   evidence：用于医学视觉定位的视觉语言模型
 
 ### 速读区论文标签
-1. [Building evidence-based knowledge graphs from full-text literature for disease-specific biomedical reasoning](/202604/04/2603.28325v1-building-evidence-based-knowledge-graphs-from-full-text-literature-for-disease-specific-biomedical-reasoning)  
+1. [Multimodal Deep Learning for Diabetic Foot Ulcer Staging Using Integrated RGB and Thermal Imaging](/202604/05/2603.26952v1-multimodal-deep-learning-for-diabetic-foot-ulcer-staging-using-integrated-rgb-and-thermal-imaging)  
    标签：评分：7.0/10、query:cpath
-   evidence：从文献中构建用于疾病推理的知识图谱，包含肝癌和结直肠癌
-2. [Segmentation of Gray Matters and White Matters from Brain MRI data](/202604/04/2603.29171v1-segmentation-of-gray-matters-and-white-matters-from-brain-mri-data)  
+   evidence：用于临床诊断的多模态深度学习
+2. [Pan-Cancer Mapping of the Tumor Immune Landscape through Metagene Clustering and Predictive Modeling](/202604/05/2603.27145v1-pan-cancer-mapping-of-the-tumor-immune-landscape-through-metagene-clustering-and-predictive-modeling)  
    标签：评分：7.0/10、query:cpath
-   evidence：利用MedSAM等基础模型进行医学图像分割
-3. [Hierarchical Pre-Training of Vision Encoders with Large Language Models](/202604/04/2604.00086v1-hierarchical-pre-training-of-vision-encoders-with-large-language-models)  
+   evidence：肿瘤免疫图谱的泛癌映射与预测建模
+3. [Mind the Gap: A Framework for Assessing Pitfalls in Multimodal Active Learning](/202604/05/2603.29677v1-mind-the-gap-a-framework-for-assessing-pitfalls-in-multimodal-active-learning)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉语言对齐与多模态预训练
-4. [Ultrasound-CLIP: Semantic-Aware Contrastive Pre-training for Ultrasound Image-Text Understanding](/202604/04/2604.01749v1-ultrasound-clip-semantic-aware-contrastive-pre-training-for-ultrasound-image-text-understanding)  
+   evidence：评估多模态主动学习陷阱的框架
+4. [Genetic algorithms for multi-omic feature selection: a comparative study in cancer survival analysis](/202604/05/2604.00065v1-genetic-algorithms-for-multi-omic-feature-selection-a-comparative-study-in-cancer-survival-analysis)  
    标签：评分：7.0/10、query:cpath
-   evidence：临床诊断的视觉语言预训练
-5. [Retrieval-aligned Tabular Foundation Models Enable Robust Clinical Risk Prediction in Electronic Health Records Under Real-world Constraints](/202604/04/2604.01841v1-retrieval-aligned-tabular-foundation-models-enable-robust-clinical-risk-prediction-in-electronic-health-records-under-real-world-constraints)  
+   evidence：癌症生存分析中的多组学特征选择
+5. [UCell: rethinking generalizability and scaling of bio-medical vision models](/202604/05/2604.00243v1-ucell-rethinking-generalizability-and-scaling-of-bio-medical-vision-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于临床风险预测的表格基础模型
-6. [ARTA: Adaptive Mixed-Resolution Token Allocation for Efficient Dense Feature Extraction](/202604/04/2603.26258v1-arta-adaptive-mixed-resolution-token-allocation-for-efficient-dense-feature-extraction)  
+   evidence：生物医学视觉基础模型与缩放
+6. [Excite, Attend and Segment (EASe): Domain-Agnostic Fine-Grained Mask Discovery with Feature Calibration and Self-Supervised Upsampling](/202604/05/2604.00276v1-excite-attend-and-segment-ease-domain-agnostic-fine-grained-mask-discovery-with-feature-calibration-and-self-supervised-upsampling)  
+   标签：评分：7.0/10、query:cpath
+   evidence：利用基础模型在复杂形态中进行细粒度掩码发现
+7. [TMTE: Effective Multimodal Graph Learning with Task-aware Modality and Topology Co-evolution](/202604/05/2603.27723v1-tmte-effective-multimodal-graph-learning-with-task-aware-modality-and-topology-co-evolution)  
    标签：评分：6.0/10、query:cpath
-   evidence：用于高效密集特征提取的视觉Transformer
-7. [Statistical modeling of breast cancer radiomic features and hazard using image registration-aided longitudinal CT data](/202604/04/2603.26888v1-statistical-modeling-of-breast-cancer-radiomic-features-and-hazard-using-image-registration-aided-longitudinal-ct-data)  
+   evidence：适用于多种下游任务的多模态图学习框架
+8. [MAESIL: Masked Autoencoder for Enhanced Self-supervised Medical Image Learning](/202604/05/2604.00514v1-maesil-masked-autoencoder-for-enhanced-self-supervised-medical-image-learning)  
    标签：评分：6.0/10、query:cpath
-   evidence：乳腺癌影像组学特征与生存分析
-8. [BLOSSOM: Block-wise Federated Learning Over Shared and Sparse Observed Modalities](/202604/04/2603.27552v1-blossom-block-wise-federated-learning-over-shared-and-sparse-observed-modalities)  
+   evidence：自监督医学图像学习
+9. [An Approach to Enriching Surgical Video Datasets for Fine-Grained Spatial-Temporal Understanding of Vision-Language Models](/202604/05/2604.00784v1-an-approach-to-enriching-surgical-video-datasets-for-fine-grained-spatial-temporal-understanding-of-vision-language-models)  
    标签：评分：6.0/10、query:cpath
-   evidence：针对医疗领域缺失模态的多模态联邦学习
-9. [RecycleLoRA: Rank-Revealing QR-Based Dual-LoRA Subspace Adaptation for Domain Generalized Semantic Segmentation](/202604/04/2603.28142v1-recyclelora-rank-revealing-qr-based-dual-lora-subspace-adaptation-for-domain-generalized-semantic-segmentation)  
+   evidence：手术领域的视觉语言模型
+10. [AdaLoRA-QAT: Adaptive Low-Rank and Quantization-Aware Segmentation](/202604/05/2604.01167v1-adalora-qat-adaptive-low-rank-and-quantization-aware-segmentation)  
    标签：评分：6.0/10、query:cpath
-   evidence：利用视觉基础模型进行语义分割
-10. [Prototype-Enhanced Multi-View Learning for Thyroid Nodule Ultrasound Classification](/202604/04/2603.28315v1-prototype-enhanced-multi-view-learning-for-thyroid-nodule-ultrasound-classification)  
+   evidence：在计算机辅助诊断中部署大型基础模型
+11. [AffordTissue: Dense Affordance Prediction for Tool-Action Specific Tissue Interaction](/202604/05/2604.01371v1-affordtissue-dense-affordance-prediction-for-tool-action-specific-tissue-interaction)  
    标签：评分：6.0/10、query:cpath
-   evidence：甲状腺结节超声分类
-11. [Improving Generalization of Deep Learning for Brain Metastases Segmentation Across Institutions](/202604/04/2604.00397v1-improving-generalization-of-deep-learning-for-brain-metastases-segmentation-across-institutions)  
-   标签：评分：6.0/10、query:cpath
-   evidence：用于脑转移瘤分割和癌症诊断的深度学习
+   evidence：使用视觉-语言-动作模型的手术组织交互多模态框架
 
 
 <div class="dpr-home-promo-card">
