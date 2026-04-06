@@ -1,0 +1,652 @@
+Title: Brain MR Image Synthesis with Multi-contrast Self-attention GAN
+
+URL Source: https://arxiv.org/pdf/2604.00070v1
+
+Published Time: Thu, 02 Apr 2026 00:05:07 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+SUBMITTED TO arXiv 1
+
+# Brain MR Image Synthesis with 3D Multi-contrast Self-attention GAN 
+
+Zaid A. Abod, Furqan Aziz 
+
+Abstract — Accurate and complete multi-modal Mag-netic Resonance Imaging (MRI) is essential for neuro-oncological assessment, as each contrast provides com-plementary anatomical and pathological information. How-ever, acquiring all modalities (e.g., T1c, T1n, T2, T2f) for every patient is often impractical due to time, cost, and pa-tient discomfort, potentially limiting comprehensive tumour evaluation. We propose 3D-MC-SAGAN (3D Multi-Contrast Self-Attention generative adversarial network), a unified 3D multi-contrast synthesis framework that generates high-fidelity missing modalities from a single T2 input while explicitly preserving tumour characteristics. The model employs a multi-scale 3D encoder-decoder generator with residual connections and a novel Memory-Bounded Hy-brid Attention (MBHA) block to capture long-range depen-dencies efficiently, and is trained with a WGAN-GP critic and an auxiliary contrast-conditioning branch to produce T2f, T1n, and T1c volumes within a single unified net-work. A frozen 3D U-Net-based segmentation module intro-duces a segmentation-consistency constraint to preserve lesion morphology. The composite objective integrates ad-versarial, reconstruction, perceptual, structural similarity, contrast-classification, and segmentation-guided losses to align global realism with tumour-preserving structure. Ex-tensive evaluation on 3D brain MRI datasets demonstrates that 3D-MC-SAGAN achieves state-of-the-art quantitative performance and generates visually coherent, anatomically plausible contrasts with improved distribution-level real-ism. Moreover, it maintains tumour segmentation accuracy comparable to fully acquired multi-modal inputs, highlight-ing its potential to reduce acquisition burden while preserv-ing clinically meaningful information. 
+
+Index Terms — GAN, Multimodality MRI Synthesis, Per-ceptual Loss, Residual Networks, Self-Attention, Tumour Segmentation 
+
+I. I NTRODUCTION 
+
+# MAGNETIC Resonance Imaging (MRI) is integral to modern medical diagnostics due to its non-invasive acquisition of high-resolution soft-tissue images and its widespread use for studying neuroanatomy and diagnosing brain disorders [1]–[4]. Since its development in the 1980s, it has significantly enhanced medical diagnostics [5]. MRI oper-ates by generating a strong magnetic field that aligns protons within biological tissues. This imaging modality is clinically valuable for the evaluation of neuropathologies affecting the brain’s visual pathway, including inflammation, demyelination, trauma, malignancy, and ischemia [6]. 
+
+The authors are affiliated with the School of Computing and Math-ematical Sciences, University of Leicester, Leicester, United Kingdom. Email: zawaa2@leicester.ac.uk (Zaid A. Abod); fa311@leicester.ac.uk (Furqan Aziz). 
+
+To comprehensively characterise brain structure and pathol-ogy, MRI is typically acquired using multiple imaging se-quences, each highlighting different tissue properties. Com-mon modalities include T1-weighted (T1n), T2-weighted (T2), Fluid-Attenuated Inversion Recovery (T2f), and contrast-enhanced T1 (T1c), which provide complementary contrasts for detecting neurological disorders, particularly brain tumours [8]–[10]. T1n provides high-resolution anatomical detail, with white matter appearing brighter than grey matter, facilitating the identification of tumours and vascular or inflammatory changes [11]. T2 emphasises high-water-content processes such as edema and inflammation. T2f suppresses cerebrospinal fluid (CSF), enhancing the visibility of lesions near CSF spaces and improves detection of periventricular and juxtacor-tical lesions [7], [10]–[12]. T1c is central to neuro-oncologic imaging, enabling improved detection of brain metastases, differentiation between enhancing tumour and non-enhancing edema, and accurate lesion delineation for monitoring and diagnosis [3], [6], [13]. Integrating these complementary se-quences improves tumour assessment and diagnostic accuracy [14]–[17]. However, acquiring all modalities is often impracti-cal due to long scan times, patient discomfort, motion artefacts, and resource constraints; in some cases, implanted medical devices may also preclude MRI examinations [7], [8], [18]. Driven by recent advances in generative AI, research has increasingly focused on synthesising missing data using gen-erative models rather than developing task-specific models that operate with incomplete inputs. Medical image synthe-sis involves learning a mapping from an observed source modality to an unobserved target modality. However this task is inherently ill-posed, as the model must infer target images in the absence of target-modality observations [20]. To address these practical constraints and resulting modality gaps, recent research has pursued computational approaches that infer unavailable image contrasts directly from the acquired data. Principal applications include cross-modality synthesis to translate between imaging sequences or modalities; modality completion for missing-image imputation; image enhancement and restoration such as super-resolution, denoising, and arte-fact reduction; and virtual dataset creation for augmentation and rare-case simulation, thereby supporting downstream anal-ysis and clinical decision-making [19], [21]–[23] . Among the widely adopted computational approaches, generative adversarial networks (GAN) combined with autoencoder-based architectures have shown strong perfor-mance [20], [24]–[29]. Early models, such as pix2pix [30] and CycleGAN [31], demonstrated the feasibility of cross- 
+
+> arXiv:2604.00070v1 [eess.IV] 31 Mar 2026 2SUBMITTED TO arXiv
+
+modality image translation [2], [8]. However, these approaches are limited to one-to-one mappings, requiring separate models for each modality pair. Furthermore, their reliance on pixel-wise reconstruction losses, which tend to encourage intensity averaging, and PatchGAN discriminators that primarily en-force local realism can lead to global structural inconsistencies and poor preservation of subtle pathological features, such as tumour boundaries and tissue subregions critical for clinical analysis [2], [32]. Subsequent methods, including StarGAN-based variants [33], introduced multi-domain translation by conditioning a single generator-discriminator framework on domain labels with cycle-consistency constraints. This unified design enables efficient multi-modal synthesis without training multiple pairwise models. Nevertheless, maintaining patholog-ical fidelity remains a major challenge: synthesised images must accurately preserve tumour shape, size, and intensity to ensure diagnostic reliability. Conventional GAN frameworks often prioritise overall visual realism while overlooking fine-grained lesion details. In brain tumour imaging, even minor distortions of tumour boundaries can degrade segmentation accuracy and potentially affect treatment planning [32], [34]. To address this issue, Xin et al. [32] proposed TC-MGAN, which aligns tumour regions across modalities to improve lesion consistency; however, it focuses primarily on tumour areas and neglects other diagnostically relevant structures. In this paper, we propose 3D-MC-SAGAN (Multi-Contrast Self-Attention GAN), a framework designed to overcome limitations of existing MRI modality synthesis approaches and generate high-quality images through attention-guided learn-ing. The model introduces a memory-bounded hybrid attention block that captures long-range spatial dependencies while maintaining computational efficiency for 3D volumes. Inspired by the success of attention mechanisms in deep learning, the framework dynamically focuses on salient image regions, enabling selective emphasis on clinically relevant structures and improving synthesis reliability in medical imaging tasks [35]. The proposed 3D-MC-SAGAN performs multi-contrast MRI synthesis from a single input modality by conditioning a shared generator-critic pair on a contrast code within a unified architecture. The model employs a fully 3D encoder-decoder with residual connections and attention modules to capture both global anatomical context and fine-grained details while preserving tumour characteristics. To further guide synthesis, we incorporate a pre-trained 3D U-Net segmentor and optimise a composite objective combining adversarial, reconstruction, perceptual, and structural similarity losses with an explicit tumour-consistency constraint. Together, these components address key limitations of prior methods, including one-to-one translation, 2D or patch-based processing, contrast-agnostic conditioning, and purely intensity-driven objectives, enabling anatomically coherent and tumour-preserving synthesis across all target contrasts within a single unified model. Our code is available at https://github.com/Z-202/mc-sagan. To summarise, our main contributions are as follows:  
+
+> •
+
+We propose 3D-MC-SAGAN, a unified 3D conditional WGAN-GP framework for multi-contrast MRI synthesis. Conditioned on a T2 volume and a target-contrast code, the model generates T2F, T1c, or T1n within a single architecture, eliminating the need for separate modality-specific networks and reducing both training and deploy-ment complexity. A conditional PatchGAN critic with an auxiliary domain-classification head further enforces contrast-consistent synthesis.  
+
+> •
+
+We introduce a Memory-Bounded Hybrid Attention (MBHA) block, designed for efficient attention in high-resolution 3D volumes . MBHA adaptively downsamples query and key-value tensors to keep attention computa-tions within fixed token and matrix-size budgets, ensuring predictable GPU memory usage. When attention becomes infeasible, the block falls back to a lightweight squeeze-and-excitation mechanism, maintaining contextual mod-ulation while avoiding excessive computational cost.  
+
+> •
+
+We design a multi-scale 3D encoder-decoder generator integrating residual blocks, attention-gated skip connec-tions, standard non-local self-attention, and the proposed MBHA module. This architecture improves global-local feature aggregation while preserving fine-grained anatom-ical details, particularly in tumour regions.  
+
+> •
+
+We incorporate tumour-aware learning objectives to en-courage pathology-preserving synthesis. A frozen 3D U-Net provides segmentation guidance through a tumour-consistency loss combining BCE-with-logits and Dice terms, while MS-SSIM and a masked 3D perceptual loss based on MedicalNet features enhance perceptual fidelity and structural preservation. Extensive experiments on BraTS2023 demonstrate consistent improvements over strong state-of-the-art baselines. 
+
+II. R ELATED WORKS 
+
+Early deep learning approaches to medical image synthesis often relied on patch-based or locally constrained convolu-tional models trained with pixel-wise reconstruction losses [27], [36]–[41]. Operating on limited spatial neighbourhoods, these methods lacked the capacity to model long-range de-pendencies and global anatomical structure. To address this limitation, whole-image encoder-decoder architectures, such as fully convolutional networks and U-Nets, were developed to capture broader contextual information. However, despite this architectural shift, optimisation was still typically driven by per-pixel ℓ1 or ℓ2 losses, which tend to favour local intensity accuracy [42]–[44]. A well-documented drawback of purely pixel-aligned loss functions is the tendency to produce blurry outputs that lack high-frequency detail. In essence, minimising mean squared error encourages an average of plausible tex-tures, yielding high PSNR but over-smoothed images that are not perceptually sharp. This limitation motivated the adoption of adversarial training and more sophisticated objectives to recover realistic details [30], [45], [46]. Generative Adversarial Networks (GANs) [60] introduced an adversarial framework in which a discriminator guides the generator to approximate the target data distribution. Condi-tional GANs (cGANs) [61] extend this idea by conditioning both generator and discriminator on an observed input x,enabling supervised mappings x → y rather than unconditional sampling. In image-to-image translation, adversarial loss is AUTHOR et al. : BRAIN MR IMAGE SYNTHESIS WITH MULTI-CONTRAST SELF-ATTENTION GAN 3
+
+commonly combined with a pixel-wise term (e.g., ℓ1) to preserve structural correspondence while improving percep-tual fidelity [30]. For example, pix2pix [30] demonstrates that augmenting reconstruction loss with adversarial training reduces over-smoothing and restores sharper high-frequency detail compared with reconstruction-only optimisation. Unpaired translation frameworks, such as CycleGAN [31], further relaxed the requirement for paired training data by in-troducing cycle-consistency constraints alongside distribution alignment. However, methods that primarily enforce target-domain distribution matching may introduce bias, potentially distorting source-specific structures or subtle anatomical de-tails. If certain clinical features are under- or over-represented in the target distribution, the model may introduce or suppress structures (e.g., tumours) to better match the distribution. Cycle-consistency alone does not guarantee a correct mapping, so features can still be hallucinated or improperly encoded, and translated images may fail to preserve clinically relevant labels, posing a risk for misdiagnosis. Thus, while adversarial losses are essential for restoring high-frequency detail, they are often combined with additional constraints, such as identity, cycle-consistency, or content losses, to preserve anatomy in medical image synthesis [47]. A prominent line of research incorporates edge- or structure-aware objectives to preserve anatomical boundaries and tex-tural fidelity. Ea-GANs [19], for example, extract Sobel-based edge maps and integrate them into both generator and discriminator, encouraging boundary-consistent synthesis. By enabling the discriminator to exploit explicit edge cues, the generator is steered toward sharper structural boundaries. MT-Net [67] extends this idea by replacing handcrafted edge oper-ators with a self-supervised Edge-MAE that learns structural and contextual representations from both paired and unpaired data, thereby enhancing robustness and representation quality. To further improve anatomical consistency, subsequent work transitioned from 2D slice-wise synthesis to 3D volumetric and multi-resolution frameworks [19], [45], [48]–[51]. Slice-wise (2D) models are prone to inter-slice discontinuities when volumes are reconstructed, whereas 3D cGANs explic-itly enforce coherence across all axes [19]. Multi-Resolution Guided 3D GANs employ multi-resolution U-Nets on both generator and discriminator, together with voxel-wise losses at multiple scales, to sharpen fine-grained detail while stabilising training [50]. Comparative analyses indicate that off-plane discontinuities are more pronounced in 2D pix2pix than in 3D cGANs, supporting the transition to volumetric synthesis [19]. Additionally, 3D patch-based formulations have demonstrated improved robustness to anatomical outliers [52]. More recently, synthesis networks have increasingly adopted hybrid convolutional neural network (CNN)-transformer archi-tectures [20], [62]. In these designs, convolutional layers pre-serve local spatial precision, while self-attention mechanisms model long-range contextual dependencies. A common design pattern places transformers at lower spatial resolution inside an encoder–decoder framework, while retaining convolutional pathways to support fine-detail reconstruction. Transformer-GAN follows this paradigm by embedding a transformer bottleneck within a convolutional encoder-decoder [62], while the Fully Convolutional Transformer (FCT) demonstrates how transformer-style blocks can be integrated into skip-connected encoder-decoders to improve long-distance feature aggregation [53]. Following this line of work, ResViT introduces aggre-gated residual transformer (ART) blocks in the bottleneck, combining transformer and residual CNN modules through residual connections to jointly model global context and localized representations [20]. Alongside hybrids, transformer-centric synthesizers explore convolution-free or transformer-heavy pipelines and their as-sociated trade-offs. PTNet3D addresses 3D MRI synthesis with pyramid transformers, demonstrating that transformer layers bring strong representational capacity but entail high computational and memory costs for volumetric data; conse-quently, designs prioritise parameter efficiency and careful bot-tlenecking [51]. More generally, the self-attention mechanism offers long-range modelling advantages, motivating selective attention use or hybridisation [20], [51]. Where applicable, adversarial components (e.g., 3D patch-level discriminators) and hybrid losses (pixel-wise and perceptual) are used to stabilise optimisation and enhance realism [51]. In cross-modality brain MRI synthesis, several representa-tive models highlight remaining limitations. Ea-GANs [19] introduce a 3D edge-aware cGAN trained on large overlapping 
+
+128 × 128 × 128 patches from BraTS volumes. However, they are still restricted to single-contrast one-to-one mappings and rely on low-level edge cues without explicit tumour semantics or cross-contrast consistency constraints, and thus can still ex-hibit residual blurring of lesion interiors under a simple L1 and edge objective. MT-Net [67] proposes a two-stage, slice-wise transformer framework with Edge-MAE pretraining and dual-scale Swin-Transformer refinement, optimised using ℓ1 and feature-consistency losses but without adversarial supervision. ResViT [20], although combining convolutional encoder-s/decoders with a transformer bottleneck, operates in a 2D slice-wise manner and is mainly configured for one-to-one or many-to-one mappings without explicit tumour-aware con-straints. PTNet3D [51] employs a 3D pyramid transformer trained on fixed 64 3 patches with GAN, ℓ2, and percep-tual losses, yet remains patch-limited and strictly one-to-one in tumour-bearing settings, lacking mechanisms to preserve pathological anatomy. Multi-resolution 3D-mADUNet [50] uses a dense-attention 3D generator with a multi-resolution discriminator and a 2.5D VGG-19 perceptual loss, but requires separate networks for each contrast pair and inherits limited global context and potential inter-patch inconsistencies from patch-wise inference. Diffusion-based approaches, such as cWDM [66], implements 3D wavelet-domain diffusion with a 3D U-Net denoiser operating on full-resolution volumes. However, synthesis is realised via multiple independent three-to-one models trained with an MSE objective in wavelet space, limiting cross-contrast structural sharing and often yielding over-smoothed solutions. Moreover, tumour-specific or clini-cally salient structures are not explicitly constrained. 
+
+III. M ETHODOLOGY 
+
+The proposed 3D-MC-SAGAN jointly optimises two ob-jectives. A single conditional model synthesises the T2f, T1c, 4 SUBMITTED TO arXiv 
+
+## C Classification (FLAIR/T1ce/T1) Classification Loss 
+
+> Wasserstein Critic Loss
+
+Real/Fake Score 
+
+> Gradient Penalty (GP)
+> MAE Loss
+
+## S
+
+Dice_Loss (Pred,Seg) 
+
+SSIM Loss 
+
+## G
+
+> Perceptual Loss
+
+Fake MRI 
+
+T1ce 
+
+T1 
+
+Flair Flair 
+
+T1 
+
+T1ce 
+
+Domain Code 
+
+> Wasserstein Generator Loss
+
+Real MRI 
+
+T2 
+
+Domain Code 
+
+Seg 
+
+Fig. 1 : 3D-MS-SAGAN Framework. and T1n modalities from a T2 input, where a one-hot domain code c ∈ {0, 1}3 selects the target contrast. In parallel, the framework improves tumour segmentation performance in the synthesised domain. To support these objectives, the overall system is composed of four core components: the critic, the segmentor, the generator, and the memory-bounded hybrid attention block. Fig.1 illustrates the overall architecture of the proposed framework and interactions between these components. 
+
+A. Critic C
+
+The critic C serves a dual role: it estimates the Wasser-stein distance between real and generated target volumes and performs auxiliary domain classification over the three target contrasts T2f , T1c , T1n. Given a source T2 volume xs and a domain label c, the generator produces a target prediction 
+
+ˆyc = G(xs, c ). For each training sample, the critic receives the concatenation of a target volume, either real (yc) or generated ( ˆyc), with the source volume xs. It outputs a 3D patch realism map together with a three-way class logit vector. The scalar critic score used in the loss is obtained by averaging the patch map over spatial locations. Under the WGAN-GP formulation [65], the adversarial loss for the critic is 
+
+LWGAN  
+
+> C
+
+= Exs,y c [ Cadv (ˆ yc, x s)] − Exs,y c [ Cadv (yc, x s)] , (1) where Cadv (·, ·) denotes the spatially averaged realism score, 
+
+yc is the real target volume in contrast c, and ˆyc = G(xs, c )
+
+is the corresponding synthetic volume. Minimizing this loss encourages higher scores for real targets than for generated targets. To enforce the 1-Lipschitz constraint, we regularize the critic with a gradient penalty term: 
+
+LGP = Exs,y c,ˆyc,α 
+
+[(∥∥∇˜yc Cadv (˜ yc, x s)∥∥2 − 1
+
+)2]
+
+, (2) where α ∼ U[0 , 1] and ˜yc = α y c + (1 − α) ˆ yc is arandom interpolation between real and generated targets. In the implementation, this penalty is scaled by a factor λGP .The critic also learns to classify each real target volume into its correct contrast. Let Ccls (c | yc, x s) denote the softmax probability assigned to class c by the classification head of C
+
+when fed the pair (yc, x s). The domain classification loss for the critic is: 
+
+LG 
+
+> cls
+
+= Exs,c 
+
+[ℓCE 
+
+(Ccls (ˆ yc, x s), c )] , ˆyc = G(xs, c ), (3) where ℓCE denotes the cross-entropy loss. The overall objective for the critic in 3D-MC-SAGAN is: 
+
+LC = LWGAN  
+
+> C
+
++ λGP LGP + λcls LC
+
+> cls
+
+, (4) where λGP and λcls control the strength of the gradient penalty and domain classification terms, respectively. AUTHOR et al. : BRAIN MR IMAGE SYNTHESIS WITH MULTI-CONTRAST SELF-ATTENTION GAN 5
+
+B. Segmentor S
+
+We employ a 3D U-Net S as a tumour segmentor within the 3D-MC-SAGAN framework. This network is pre-trained on a standalone tumour segmentation task. For each training sample, one of the three target contrasts {T2f , T1c , T1n } is randomly selected as input, and the network is trained to predict the corresponding tumour mask. The segmentor is optimised with a soft Dice loss LDice that measures the overlap between the predicted mask ˆy and the ground-truth mask gt :
+
+LDice = 1 − 2 ∑ 
+
+> i
+
+ˆy(i) gt( i) + 1 
+
+∑ 
+
+> i
+
+ˆy(i) + ∑ 
+
+> i
+
+gt( i) + 1 . (5) After pre-training, we load the learned parameters into S
+
+and keep all weights frozen during GAN training. In the 3D-MC-SAGAN stage, S is applied to the generated target volumes and its output is compared with the ground-truth tumour masks using the same Dice loss. Thus, S acts as a fixed segmentation backbone that imposes a tumour-aware constraint on the generator and helps preserve lesion structure in the synthesized volumes. 
+
+C. Generator G
+
+The Generator G is implemented as a 3D attention U-Net with residual blocks and domain conditioning, as illustrated in Fig. 2. It maps a T2 input volume and a contrast code to a synthesized target contrast. The network operates on full 3D volumes rather than slices. This design preserves through-plane consistency and volumetric tumour morphology during synthesis. Its overall structure follows encoder-decoder generators used in cross-modality MR synthesis, but extends them with volumetric attention, attention-gated skips, and multi-domain conditioning. Given a source T2 volume xs ∈ R1×D×H×W and a one-hot domain code c ∈ { 0, 1}3. The code c is reshaped to 
+
+(3 , D, H, W ) and concatenated with xs along the channel dimension to form a four-channel input xin ∈ R4×D×H×W .The contrast code selects the desired target domain within a single shared generator. The network outputs a single-channel synthetic target volume ˆyk = G(xs, c ) ∈ [−1, 1] 1×D×H×W
+
+for a domain index k ∈ { 0, 1, 2} (T2f, T1c, or T1n). 
+
+Encoder: The encoder path consists of a sequence of 3D convolutional layers followed by residual blocks and MBHA Block (described in Section III-D). Each level reduces spatial resolution and increases the number of feature channels. Instance normalisation and leaky ReLU activations are applied after each downsampling convolution except at the final bot-tleneck. The residual blocks refine features within each scale. They stabilise training and improve gradient flow through the deep 3D stack. Each encoder level is then followed by a MBHA module that operates on the corresponding 3D feature map. This module preserves global context where feasible while keeping memory usage bounded. The overall design enables the encoder to capture both local texture and larger-scale anatomical context. It also enhances long-range contex-tual interactions between distant tumour and tissue regions. 
+
+Bottleneck: The bottleneck operates on the most compressed volumetric representation. It receives the deepest encoder features and applies additional residual refinement. Group Normalisation replaces Instance Normalisation at this point. This prevents degenerate statistics when the spatial support collapses to a very small number of voxels. A 3D self-attention is then applied at the bottleneck. This step enriches the latent code with long-range interactions before decoding. 
+
+Decoder: The decoder mirrors the encoder with a sequence of 3D upsampling convolutions that progressively upsample the feature maps back to the original resolution. At each scale, an attention gate modulates the corresponding encoder skip connection using the current decoder features as a gating signal. The gate produces a voxel-wise attention map over the encoder features. This mechanism reduces the influence of less relevant features and focuses the network on spatial regions that are most informative for the synthesis task. The gated encoder features are concatenated with the upsampled decoder features. A residual block then fuses these streams and refines the combined representation. This is then followed by a MBHA block. 
+
+Generator Loss Functions: We train G using a weighted combination of adversarial, classification, reconstruction, per-ceptual, SSIM, and segmentation losses. 
+
+Adversarial loss ( Ladv ): An adversarial term is used to match the distribution of synthesized 3D target volumes to that of real targets conditioned on the same T2 source. The generator is trained to increase this score for its outputs. The adversarial loss for the generator follows the WGAN formulation and uses the critic output on fake samples: 
+
+Ladv  
+
+> G
+
+= −Exs,c 
+
+[Cadv 
+
+(ˆyc, x s
+
+)] (6) 
+
+Domain classification loss ( Lcls ): A domain classification loss encourages the generator to produce a volume whose contrast matches the requested label: 
+
+LG 
+
+> cls
+
+= Exs,c 
+
+[ℓCE 
+
+(Ccls (ˆ yc, x s), c )] (7) where ℓCE denotes the cross-entropy loss. 
+
+Reconstruction loss (Lrec ): To promote faithful cross-modality synthesis while emphasising clinically relevant re-gions, we use a segmentation-weighted voxel-wise ℓ1 recon-struction loss, assigning higher penalties to voxels inside the tumour mask than to background voxels. Let m ∈ 0, 1H×W ×D
+
+denote the binary tumour mask derived from the ground-truth segmentation, and let α > 0 controls the degree of emphasis. A spatial weight map is defined as w = 1 + αm , and the weighted reconstruction objective is computed as: 
+
+Lrec = Exs,c 
+
+[
+
+1
+
+|Ω|
+
+∑
+
+> v∈Ω
+
+w(v) ∣∣yc(v) − ˆyc(v)∣∣]
+
+, (8) where Ω indexes all voxels. This formulation retains anatom-ical fidelity while encouraging accurate reconstruction within tumour regions, consistent with the weighted ℓ1 implementa-tion used during training. 
+
+Perceptual loss ( Lperc ): Voxel-wise objectives are insufficient for enforcing high-level anatomical structure and modality-specific contrast. A 3D perceptual constraint is therefore applied in a deep feature space extracted from a fixed 3D MedicalNet ResNet-50 backbone. Feature activations are 6 SUBMITTED TO arXiv      
+
+> Atten
+> Atten
+> Atten
+> Atten
+> Atten
+> Atten
+> Encoder :
+> Decoder: Upsample + Conv3D + Norm
+> 3D ResNet-style residual block :
+> Atten Attention Gate Concatenation
+> LekeyRelu conv3D 3*3*3 S = 1, P =1
+> Norm+LekeyRelu Norm Add
+> conv3D 4*4*4 Stride = 2
+> Norm+LekeyRelu
+> Conv3D 4*4*4 Stride = 2
+> Norm+Relu
+> Atten
+> Upsample
+> conv3D 3*3*3 S = 1, P = 1
+> conv3D(x) 1*1*1 S = 1, P = 0
+> XC_in=Chanelin C_out=Chanelout
+> if C_in!=C_out Yes
+> No
+> Where :
+> Self-Attention Block
+> ttten
+
+Fig. 2 : Generator architecture. taken from four residual stages, namely layer1 , layer2 ,
+
+layer3 , and layer4 . An ℓ1 distance is computed between the generated and real feature maps. Layer-wise weighting is used to balance low-level detail and higher-level structural cues. The corresponding weights are set to (λ1, λ 2, λ 3, λ 4) = (1 .0, 0.5, 0.25 , 0.1) . The perceptual loss is then computed as follows: 
+
+Lperc = Exs,c 
+
+[ 4∑
+
+k=1 
+
+λk ‖Φk(yc) − Φk(ˆ yc)‖1
+
+]
+
+(9) where Φk(·) denotes the feature tensor extracted at stage 
+
+k of the MedicalNet backbone. The ℓ1 norm is evaluated as the mean absolute difference over all feature elements. This term encourages anatomically plausible synthesis and preserves contrast characteristics that are not fully captured by reconstruction losses. 
+
+MS-SSIM loss ( LMS-SSIM ): Structural similarity is enforced through a multi-scale SSIM loss. The loss is defined as: 
+
+LMS -SSIM = Exs,c 
+
+[1 − MS -SSIM (yc, ˆyc
+
+)] . (10) This term encourages the synthesized volumes to preserve local structural patterns and contrast relationships that are not fully constrained by voxel-wise reconstruction. 
+
+Segmentation-consistency loss (Lseg ): A segmentation-consistency term is introduced to preserve pathology during cross-modality synthesis. A pretrained conditional 3D seg-mentation network S is kept frozen and used as an auxiliary supervisor. The generated volume ˆyc and the contrast code 
+
+c are forwarded through S to obtain voxel-wise logits ℓ =
+
+S(ˆ yc, c ) and probabilities ˆm = σ(ℓ), where σ(·) denotes the sigmoid function. Supervision is provided by the binary tumour mask m. The segmentation-consistency objective is defined as an equal-weight combination of a voxel-wise binary cross-entropy loss on logits and a soft Dice loss: 
+
+Lseg = Exs,c 
+
+[ 1
+
+2 LBCE (ℓ, m ) + 1
+
+2 LDice ( ˆ m, m )
+
+]
+
+,ℓ = S(ˆ yc, c ), ˆm = σ(ℓ).
+
+(11) The overall generator objective is a weighted sum of the individual loss terms: 
+
+LG = Ladv 
+
+G + λcls LG
+
+cls + λrec Lrec 
+
++λseg Lseg + λperc Lperc + λSSIM LSSIM . (12) 
+
+D. Memory-Bounded Hybrid Attention Block 
+
+The proposed Memory-Bounded Hybrid Attention (MBHA) block implements a 3D self-attention module that fuses chan-nel recalibration and non-local spatial attention under an explicit memory budget. It is build in two established attention paradigms: SE-based channel gating [56] and embedded-Gaussian non-local operators with tokenised spatial dimen-sions [58]. The block is conceptually related to global-context modelling [57], self-attention GANs [55], and asymmetric non-local designs [59]. While prior approaches – such as GCNet’s query-independent global context vectors on 2D feature maps [57], non-local GAN blocks without attention-size control [55], and asymmetric pooling strategies to reduce computational cost [59] – have explored combinations of channel and spatial attention, they are typically limited to 2D formulations and lack explicit mechanisms for memory regulation. In contrast, MBHA unifies and extends these ideas within a single volumetric module that enforces predictable, resolution-robust memory usage, thereby preventing out-of-memory failures in high-resolution 3D MRI synthesis while still enabling adaptive long-range attention when computa-tional budgets permit. Figure 3 illustrates the overall archi-tecture of MBHA. Given an input feature map x ∈ RB×C×D×H×W (batch 
+
+B, channels C, spatial dimensions D × H × W ), the block computes an output y of the same shape via two branches: a squeeze-and-excitation (SE) channel attention branch [56] and a pooled self-attention branch operating on adaptively downsampled feature maps. Both branches are combined in a residual fashion. 
+
+SE channel gating. The SE branch follows the formulation of Hu et al. [56]. A global channel descriptor is obtained by adaptive average pooling: 
+
+z = GAP( x) ∈ RB×C×1×1×1,
+
+which then passes through a bottleneck of 1 × 1 × 1 con-volutions with ReLU and sigmoid to generate channel-wise modulation weights as follows:, 
+
+s(x) = σ(W2 δ(W1z)) ∈ RB×C×1×1×1,
+
+where δ(·) denotes ReLU and σ(·) denotes the sigmoid. The resulting gate rescales the input channels via broadcasting, AUTHOR et al. : BRAIN MR IMAGE SYNTHESIS WITH MULTI-CONTRAST SELF-ATTENTION GAN 7
+
+GAP Conv3d 1×1×1 (C C′) ReLU Conv3d 1×1×1 (C′ C) Sigmoid x + β*(x w) 
+
+> N_full > 160,000
+
+Memory Budgets Tq = 20K Tkv = 5K Tattn = 32M N_full = D*H*W β = α = 0.2     
+
+> s_q = stride(D,H,W, Tq ) s_kv = stride(D,H,W, Tkv)
+> xR^{B×C×D×H×W} wR^{B×C×1×1×1}
+> (D,H,W, T)
+> s=1
+> Computetokencount: N(s)=max(1, ⌊D/s ⌋)·max(1, ⌊H/s ⌋)·max(1,
+> ⌊W/s ⌋)
+> Return s
+> Is N(s) > T?
+> min(D/(s+1), H/(s+1), W/(s+1)) ≥1?
+> s = s + 1
+> No Yes
+> No
+> Yes
+> Yes
+> Is Nq*Mk > Tattan?
+
+Spectral Norm 
+
+Transpose (1, 2) 
+
+θ (B, Nq, C′) ϕ (B, C′, Mk) g (B, Mk, C′) 
+
+> MatMul (ϕ×θ)× (1/√C′)
+
+Softmax 
+
+> MatMul (attn×g)
+
+Transpose 
+
+> (B,C′,Nq)
+
+Reshape 
+
+> (B,C′,Dq,Hq,Wq)
+> (Dq,Hq,Wq) != (D,H,W)
+> Upsample (D,H,W)
+
+Spectral Norm   
+
+> x+(α*y) + β*(x w)
+> Is S_q = 1 Is kv_q = 1 q_in = x kv_in = x
+> q_in = AVG_pooling (K=s_q, S=s_q) kv_in = AVG_pooling (K=kv_q, S=kv_q)
+
+q_in 
+
+R^{B×C×Dq×Hq×Wq} kv_in 
+
+R^{B×C×Dk×Hk×Wk} Nq=Dq·Hq·Wq Mk=Dk·Hk·Wk     
+
+> No
+> Yes No
+> out R^{B×C×D×H×W}
+> Yes
+> Calculate stride for Q & K/V
+> No
+> Conv3d 1×1×1 (C C′)
+> q_in
+> kv_in
+> Yes No
+> Conv3d 1×1×1 (C C′)
+
+Fig. 3 : Memory-Bounded Hybrid Attention (MBHA) block. 
+
+xSE = x ⊙ s(x), with ⊙ denoting channel-wise multiplica-tion. The SE bottleneck uses an intermediate width C′ =max( C/r, 8) with reduction ratio r = 8 , and this reduced dimension is shared with the non-local branch. 
+
+Memory-limited self-attention. Direct 3D non-local attention on x requires an affinity matrix of size N × N with N =
+
+DHW , which is prohibitive at volumetric resolutions [57]– [59]. To bound the memory footprint, the block introduces three caps. These are Tq (maximum number of query tokens), 
+
+Tkv (maximum number of key/value tokens) and Tattn (maxi-mum number of attention elements Nq Mk). We first compute the total number of voxels as Nfull = DHW . If Nfull exceeds a constant multiple of the query budget (in practice Nfull > κT q
+
+with κ = 8 ), the block activates a fail-safe mode and bypasses the non-local branch. In that case the attention reduces to SE-only, described later in this section. When Nfull is within this range, the module derives separate downsampling strides for queries and keys/values. For a given budget T , the stride s is chosen as the smallest integer s ≥ 1
+
+such that the token count after strided average pooling does not exceed T and at least one voxel remains along each spatial axis. Formally, the query and key/value strides are: 
+
+sq = min 
+
+{
+
+s ≥ 1 : 
+
+⌊ D
+
+s
+
+⌋ ⌊ H
+
+s
+
+⌋ ⌊ W
+
+s
+
+⌋
+
+≤ Tq
+
+}
+
+,skv = min 
+
+{
+
+s ≥ 1 : 
+
+⌊ D
+
+s
+
+⌋ ⌊ H
+
+s
+
+⌋ ⌊ W
+
+s
+
+⌋
+
+≤ Tkv 
+
+}
+
+.
+
+Average pooling with kernel size and stride equal to sq or skv 
+
+gives pooled tensors: 
+
+xq = Psq (x), xkv = Pskv (x).
+
+Let Dq × Hq × Wq and Dk × Hk × Wk denote the spatial sizes of xq and xkv respectively. We define Nq and Mk as follows: 
+
+Nq = Dq HqWq , Mk = DkHkWk.
+
+If the product NqMk exceeds Tattn , the non-local computation is skipped and the block again falls back to SE-only. These two checks, on Nfull and Nq Mk respectively, impose an explicit token and affinity budget, which is not present in previous non-local formulations [57]–[59]. 
+
+Fail-safe SE-only mode. When either budget constraint is violated, the output is computed as a purely channel-wise refinement. The block adds a scaled SE residual to the input, 
+
+y = x + β x SE ,
+
+with a small scaling factor β = 0.2. This fail-safe mode keeps memory usage bounded for arbitrarily large volumetric inputs, while still exploiting SE-based global channel recal-ibration [56]. In practice, this mode is active at very high spatial resolutions, where full non-local attention would be 8 SUBMITTED TO arXiv 
+
+most expensive [57]–[59]. 
+
+Pooled non-local attention. When the budgets are satisfied, the block computes a pooled non-local self-attention on xq and 
+
+xkv . Query, key and value tensors are respectively obtained by spectral-normalised 1 × 1 × 1 convolutions, 
+
+Q = Θ( xq ), K = Φ( xkv ), V = G(xkv ),
+
+where Θ,Φ, and G map C channels to C′ = max( C/r, 8) 
+
+channels respectively. After flattening spatial dimensions, we obtain: 
+
+Q ∈ RB×Nq ×C′
+
+, K ∈ RB×C′×Mk , V ∈ RB×Mk ×C′
+
+.
+
+A scaled dot-product affinity is then computed as 
+
+A = softmax 
+
+( QK √C′
+
+)
+
+∈ RB×Nq ×Mk ,
+
+with the softmax applied along the key dimension. This corresponds to the embedded-Gaussian instantiation of the non-local operator [58], using a Transformer-style scaling and asymmetric tokens as in self-attention GANs and asymmetric non-local networks [55], [59]. The attended response is 
+
+Y = AV ∈ RB×Nq ×C′
+
+,
+
+which is reshaped into a feature map of size B × C′ × Dq ×
+
+Hq × Wq . If pooling was applied ( sq > 1), this tensor is upsampled back to (D, H, W ) by trilinear interpolation. A spectral-normalised 1 × 1 × 1 convolution WO then projects this map to C channels. We denote this non-local output as 
+
+xNL = WO (Up( Y )) .
+
+Finally, the block returns 
+
+y = x + α x NL + β x SE ,
+
+with α = 0.2 and β = 0.2 in our implementation. The residual scaling keeps the non-local correction small at the start of training and improves stability, following the spirit of self-attention GANs [55] while also controlling the SE contribution. 
+
+IV. E XPERIMENTS 
+
+A. Data Preparation and Experimental Settings 
+
+The Brain Tumor Segmentation Challenge (BraTS 2023) dataset [68] comprises 1251 subjects, each providing four co-registered MRI sequences and a tumour segmentation label with spatial dimension of 240 × 240 × 155 . Each subject includes T2, T2f, T1n, T1c, and the corresponding tumour mask label volumes. T2 is used as the source modality to synthesis T2f, T1c, and T1n. All modalities are loaded as 3D NIfTI volumes. Each sequence is independently clipped to the 
+
+0.1th– 99 .9th intensity percentile to suppress outliers and then rescaled to [−1, 1] using min–max normalisation. Each volume is embedded into a 256 × 256 × 160 grid by padding the last 5 axial slices with the background value and applying symmetric in-plane padding. The tumour mask is binarised and padded to the same spatial size using zero-padding. The 1251 subjects are randomly partitioned at the subject level into disjoint subsets: 1071 subjects for training 3D-MC-SAGAN, 100 subjects for training the 3D tumour segmentation network used for downstream evaluation, and 80 subjects reserved for final testing. The same fixed split is used for all compared models to ensure fairness. Training is conducted for 200 epochs with a batch size of 2. The generator and critic are optimised using Adam ( β1 = 0 .0, β2 = 0 .9) with an initial learning rate of 1 × 10 −4, reduced by a factor of 0.5 at epochs 80 and 140. The critic is updated three times per generator step, and a gradient penalty ( λGP = 10 ) is applied on interpolated real and synthetic volumes to stabilise training. The generator is optimised with a weighted combi-nation of adversarial, domain-classification, reconstruction, segmentation-consistency, perceptual, and MS-SSIM losses. Loss weights are selected via random search on the validation set: for each trial, candidate weights are randomly sampled and evaluated under the same training protocol. Configurations are ranked based on a validation criterion reflecting both synthesis fidelity (PSNR/SSIM/MSE) and downstream faithfulness (seg-mentation performance), and the best-performing set is fixed for all experiments. The final weights are λrec = 29 .8016 ,
+
+λSSIM = 13 .7866 , λperc = 1 .7760 , λseg = 1 .0421 , λcls =0.4613 , and λGP = 10 .
+
+B. Evaluation Metrics 
+
+We evaluate synthesis fidelity using peak signal-to-noise ratio (PSNR), structural similarity index (SSIM) [54], and mean square error (MSE) and compare the proposed 3D-MC-SAGAN against state-of-the-art methods. To assess distribu-tional similarity, we compute a Fr´ echet-distance metric in the feature space of a 3D ResNet-50 backbone from MedicalNet, pre-trained on large-scale medical imaging datasets. This met-ric, referred to as MedicalNet Fr´ echet Distance (MFD), follows the FID principle but replaces the Inception network with a domain-specific 3D encoder [63], [64]. For downstream evalu-ation, tumour segmentation performance is measured using the Dice score by concatenating the synthesised modalities (T1n, T1c, and T2f) with the original T2 input and feeding them to the segmentation network. 
+
+C. Quantitative MRI Synthesis and Downstream Tumour Segmentation 
+
+We evaluate the performance of 3D-MC-SAGAN for multi-contrast MRI synthesis from a single source modality and compare it with alternative methods. At inference, the gen-erator receives a T2 test volume xs and a target code c ∈
+
+T2f , T1n , T1c, producing the corresponding synthesised vol-ume ˆyc. Synthesis fidelity is quantified using PSNR, SSIM, and MSE between ˆyc and the paired ground-truth volume yc.Table I summarises the performance of the proposed method against recent 2D and 3D baselines, with results reported as mean ± standard deviation over the test set. The results show that 3D-MC-SAGAN achieves the best performance across all target contrasts. Improvements are consistent across PSNR, SSIM, and MSE, indicating reduced voxel-wise error and better structural preservation. Importantly, these improvements are consistently observed across T2f, T1n, and T1c, demon-strating the robustness and generalisability of the proposed AUTHOR et al. : BRAIN MR IMAGE SYNTHESIS WITH MULTI-CONTRAST SELF-ATTENTION GAN 9
+
+TABLE I : Quantitative evaluation results (PSNR ↑, SSIM ↑, MSE ↓) for T2f, T1n, and T1c. The best results are in bold .                                                                       
+
+> Method PSNR ↑SSIM ↑MSE ↓2D/3D
+> T2f T1n T1c T2f T1n T1c T2f T1n T1c
+> Pix2Pix 21.955 ±1.689 24.406 ±1.471 20.295 ±2.652 0.866 ±0.0255 0.903 ±0.0310 0.865 ±0.025 0.0068 ±0.0028 0.0038 ±0.0017 0.0116 ±0.0097 2D
+> Cycle Gan 21.404 ±2.609 22.418 ±2.390 20.277 ±2.670 0.849 ±0.050 0.853 ±0.044 0.826 ±0.053 0.0085 ±0.0048 0.0066 ±0.0037 0.0111 ±0.0068 2D
+> 3D-mADUNet 24.914 ±3.386 21.030 ±4.375 28.314 ±3.186 0.926 ±0.026 0.927 ±0.034 0.947 ±0.013 0.0042 ±0.0032 0.0115 ±0.0082 0.0017 ±0.0011 3D
+> PTNet3D 21.201 ±0.928 22.091 ±0.624 22.311 ±0.674 0.896 ±0.016 0.929 ±0.013 0.904 ±0.016 0.0077 ±0.0017 0.0062 ±0.0010 0.0059 ±0.0010 3D
+> Ea-GAN 26.653 ±1.873 28.518 ±1.762 26.041 ±1.470 0.939 ±0.010 0.958 ±0.009 0.945 ±0.011 0.0024 ±0.0010 0.0016 ±0.0006 0.0026 ±0.0010 3D
+> MT-Net 25.075 ±2.383 25.579 ±2.863 26.342 ±2.970 0.881 ±0.027 0.907 ±0.026 0.891 ±0.021 0.0039 ±0.0024 0.0039 ±0.0038 0.0033 ±0.0029 2D
+> ResViT 26.623 ±2.213 28.253 ±2.288 25.556 ±2.164 0.925 ±0.024 0.942 ±0.022 0.914 ±0.030 0.0025 ±.0016 0.0017 ±0.0013 0.0031 ±0.0018 2D
+> Cwdm 27.857 ±2.073 29.348 ±1.907 27.124 ±2.244 0.943 ±0.015 0.961 ±0.013 0.935 ±0.011 0.0018 ±0.0010 0.0013 ±0.0007 0.0022 ±0.0014 3D
+> TC-MGAN 26.816 ±3.227 27.854 ±3.738 28.196 ±3.696 0.941 ±0.028 0.959 ±0.025 0.944 ±0.025 0.0028 ±0.0026 0.0025 ±0.0032 0.0022 ±0.0025 2D
+> 3D-MC-SAGAN 28.705 ±1.800 29.688 ±1.646 28.344 ±2.062 0.957 ±0.009 0.973 ±0.007 0.953 ±0.009 0.0014 ±0.0007 0.0011 ±0.0004 0.0016 ±0.0011 3D
+
+TABLE II : MFD results ( ×10 3) for synthesised MRI modalities (T2F, T1, and T1c). Lower is better ( ↓). 
+
+Method MFD ↓ (T2F) MFD ↓ (T1) MFD ↓ (T1c) 
+
+Pix2Pix 0.459320505 0.602117531 0.761267577 
+
+Cycle Gan 0.263539391 0.231009085 0.427092829 
+
+3D-mADUNet 0.926080304 1.443890237 1.467241151 
+
+PTNet3D 2.869154261 1.248626758 1.891104211 
+
+Ea-GAN 0.324672964 0.448689283 0.481706336 
+
+MT-Net 1.089344618 0.361566750 1.283264417 
+
+ResViT 0.056911624 0.070882724 0.212961528 
+
+Cwdm 0.136639662 0.121504790 0.199397986 
+
+TC-MGAN 0.202971832 0.400044933 0.716611078 
+
+ours 0.053044786 0.069701657 0.194853967 
+
+model across different contrast synthesis tasks rather than being limited to a single modality. The comparative results in Table I highlight the clear advantages of the proposed 3D-MC-SAGAN over alternative frameworks. Slice-wise 2D methods, such as MT-Net, ResVit, and TC-MGAN, can achieve competitive scores, but their lack of through-plane contextual modelling often compromises volumetric coherence, leading to lower PSNR values compared to our method. Patch-based 3D approaches incorporate local volumetric context, yet their limited effective field-of-view can hinder global consistency and introduce boundary artefacts during patch blending, resulting in less reliable structural con-tinuity. Diffusion-based models may perform well under MSE-driven objectives; however, they often produce overly smooth outputs, which can suppress fine contrast details and subtle texture variations. In contrast, 3D-MC-SAGAN effectively preserves global structure and volumetric continuity while maintaining sharper and more accurate anatomical details across all target contrasts. Fig.4 illustrates qualitative results for T2 →T2f, T1n, and T1c synthesis. These results demonstrate that the proposed 3D-MC-SAGAN consistently produces sharper tissue boundaries, clearer contrast transitions, and better preserves subtle anatom-ical details, particularly in challenging regions. In contrast, several baseline methods often exhibit visible artifacts and blurred structures. These visual improvements closely reflect the quantitative gains reported in TableI, highlighting the model’s ability to generate anatomically coherent and high-fidelity multi-contrast volumes. To further evaluate the realism of the generated volumes at the distribution level, we report the MFD for each target modality for both the proposed and alternative methods in 
+
+TABLE III : Dice score results. Higher values indicate better segmentation performance.                               
+
+> Method
+> Dice Score (Real Data only T2)
+> Dice Score (Real Data)
+> Dice Score (Generated Data)
+> Pix2Pix 0.6975 0.8085 0.6556
+> Cycle Gan 0.6975 0.8085 0.5914
+> 3D-mADUNet 0.7136 0.8618 0.8082
+> PTNet3D 0.7136 0.8618 0.5747
+> Ea-GAN 0.6926 0.8397 0.8093
+> MT-Net 0.6967 0.8068 0.7416
+> ResViT 0.6975 0.8085 0.7699
+> Cwdm 0.7136 0.8618 0.8418
+> TC-MGAN 0.7218 0.8047 0.7832
+> 3D-MC-SAGAN 0.7136 0.8618 0.8631
+
+Table II, where lower values indicate closer alignment between generated and real-image feature distributions. The results show that the proposed 3D-MC-SAGAN achieves the lowest MFD across all three modalities, with some baseline methods showing significantly higher values. These results suggest that our model not only preserves contrast-specific appearance statistics more effectively but also ensures improved global consistency beyond voxel-wise similarity, demonstrating its ability to capture the overall structural and textural charac-teristics of multi-contrast MRI. We next evaluate the downstream utility of the generated volumes via tumour segmentation using a fixed segmentation network. For each synthesis method, the three generated modalities (T1n, T1c, T2f) are concatenated with the original T2 input to form a four-channel volume, which is then fed to the segmenter to produce tumour predictions. Dice scores are reported against the reference tumour mask, alongside two real-data baselines: using only T2, and using all real modalities. As shown in Table III, 3D-MC-SAGAN achieves the highest Dice score when using generated modalities (0.8631), slightly bigger than all-real-modality setting (0.8618). The table also shows that several baseline methods exhibit larger drops in Dice, even when their synthesis fidelity appears reasonable. This gap suggests that pixel-level similarity alone does not guarantee accurate pathology preservation. Methods lacking mechanisms to maintain volumetric consistency often blur tumour boundaries or alter lesion extent. By enforcing global structural and volumetric coherence, 3D-MC-SAGAN more effectively preserves tumour-relevant features while maintain-ing high synthesis fidelity. 10 SUBMITTED TO arXiv                                                              
+
+> Input(T2) Pix2Pix CycleGan TC-MGAN ResVit PTNet3D EA-GAN 3D-mADUNet CWDM 3D-MS-SAGAN T1c(GT) Seg MT-Net
+> Input(T2) Pix2Pix CycleGan TC-MGAN ResVit PTNet3D EA-GAN 3D-mADUNet CWDM 3D-MS-SAGAN T2F(GT) Seg MT-Net
+> Input(T2) Pix2Pix CycleGan TC-MGAN ResVit PTNet3D EA-GAN 3D-mADUNet CWDM 3D-MS-SAGAN T1n(GT) Seg MT-Net
+> Input(T2)Pix2PixCycleGanTCMGANResVitPTNet3DEAGAN3DmADUNetCWDM3DMSSAGANT2F(GT)SegMTNet
+> Input(T2)Pix2PixCycleGanTC-MGANResVitPTNet3DEA-GAN3D-mADUNetCWDM3D-MS-SAGANT1n(GT)SegMT-Net
+
+Fig. 4 : Comparison of synthesised MRIs. 
+
+D. Ablation Study 
+
+We conduct ablation study to eavaluate the contribution of three key components in 3D-MC-SAGAN: MBHA block, the 3D perceptual loss, and the segmentation-consistency loss computed via the frozen segmentor. In each variant, a single component is removed while the remaining architecture, objectives, and training protocol are kept fixed. A reduced baseline that removes all three components is also included. Table IV summarises synthesis fidelity using PSNR, SSIM, and MSE for each target contrast (T2f, T1n, and T1c) and reports Dice to reflect tumour segmentation performance in the synthesised domain. Across all targets, the full 3D-MC-SAGAN configuration achieves the best balance between synthesis fidelity and seg-mentation accuracy. Removing MBHA consistently degrades both image quality and Dice, indicating the importance of memory-aware attention for modelling long-range dependen-cies and maintaining structural coherence. Excluding the per-ceptual loss results in a smaller but systematic drop in fidelity and Dice, showing that feature-level supervision complements voxel-wise objectives to produce anatomically plausible ap-pearances. The removal of the segmentation-consistency loss leads to the largest reduction in Dice among single ablations and also reduces synthesis metrics, highlighting its key role in preserving tumour morphology during translation. The reduced baseline, which omits all three components, performs worst overall, confirming that these elements are complementary and jointly contribute to robust, pathology-preserving 3D synthesis. 
+
+V. C ONCLUSION 
+
+In this work, we introduced 3D-MC-SAGAN, a unified framework for synthesising missing multi-contrast brain MRI modalities from a single T2 input while preserving tumour-relevant features. The proposed architecture combines amulti-scale encoder-decoder generator with a novel Memory-Bounded Hybrid Attention (MBHA) block and a Wasserstein-based adversarial formulation to produce high-fidelity re-constructions. A U-Net style segmentation module provides tumour-consistency guidance through a Dice-driven loss, pre-serving clinically important lesion features during synthesis. Experimental results on the BraTS 2023 dataset demonstrate that the proposed model generates higher-quality contrasts in tumour regions and supports improved downstream segmenta-tion performance. These findings highlight the potential of 3D-MC-SAGAN to reduce the need for exhaustive MRI acquisi-tion while maintaining diagnostically meaningful information. 
+
+REFERENCES 
+
+[1] Torrents-Barrena J, Piella G, Masoller N, Gratac´ os E, Eixarch E, Ceresa M, et al. Segmentation and classification in MRI and US fetal imaging: recent trends and future prospects. Medical Image Analysis . 2019. [2] Chang C, Yao L, Zhao X. A weakly supervised model for incomplete multimodal MRI synthesis with tumor-aware approach. Medical Physics .2025;52(1):362-374. [3] Moya-S´ aez E, de Luis-Garc´ ıa R, Alberola-L´ opez C. Toward deep learn-ing replacement of gadolinium in neuro-oncology: A review of contrast-enhanced synthetic MRI. Frontiers in Neuroimaging . 2023;2:1055463. [4] Xie Q, et al. Synthesis of gadolinium-enhanced glioma images on multisequence magnetic resonance images using contrastive learning. 
+
+Medical Physics . 2024;51(7):4888-4897. [5] Wang W, et al. Utilization of nanomaterials in MRI contrast agents and their role in therapy guided by imaging. Frontiers in Bioengineering and Biotechnology . 2024;12:1484577. [6] Sims JR, et al. Role of structural, metabolic, and functional MRI in monitoring visual system impairment and recovery. Journal of Magnetic Resonance Imaging . 2021;54(6):1706-1729. [7] Powers AM, et al. Fetal MRI neuroradiology: indications. Clinics in Perinatology . 2022;49(3):573-586. [8] Zhu R, et al. A Multimodal Fusion Generation Network for High-quality MR Image Synthesis. In: 2024 27th International Conference on Computer Supported Cooperative Work in Design (CSCWD) . 2024. [9] Bakas S, et al. Advancing the cancer genome atlas glioma MRI collec-tions with expert segmentation labels and radiomic features. Scientific Data . 2017;4(1):1-13. [10] Menze BH, et al. The multimodal brain tumor image segmenta-tion benchmark (BRATS). IEEE Transactions on Medical Imaging .2014;34(10):1993-2024. [11] Roy AKF; Keesey R; Davis K. 3.04 - fMRI and Other Neuroimaging Methods. In: Asmundson GJG, editor. Comprehensive Clinical Psychol-ogy . 2nd ed. Elsevier; 2022. p. 62-82. [12] Shukla G, et al. Advanced magnetic resonance imaging in glioblastoma: a review. Chinese Clinical Oncology . 2017;6(4):40-40. [13] Kleesiek J, et al. Can virtual contrast enhancement in brain MRI replace gadolinium?: a feasibility study. Investigative Radiology .2019;54(10):653-660. [14] Liu C, et al. A digital 3D atlas of the marmoset brain based on multi-modal MRI. NeuroImage . 2018;169:106-116. [15] Shen Y, Gao M. Brain tumor segmentation on MRI with missing modalities. In: International Conference on Information Processing in Medical Imaging . 2019. [16] Tong T, et al. Multi-modal classification of Alzheimer’s disease using nonlinear graph fusion. Pattern Recognition . 2017;63:171-181. [17] Ramakrishnan D, et al. Evolution and implementation of radio-graphic response criteria in neuro-oncology. Neuro-Oncology Advances .2023;5(1):vdad118. [18] Pandey M, et al. Bridging the modality gap: Generative adversarial networks for T1-T2 MRI image translation. In: 2024 15th International Conference on Computing Communication and Networking Technologies (ICCCNT) . 2024. IEEE. AUTHOR et al. : BRAIN MR IMAGE SYNTHESIS WITH MULTI-CONTRAST SELF-ATTENTION GAN 11 
+
+TABLE IV : Ablation study results. PSNR, SSIM, and MSE are reported for T2f, T1n, and T1c. Dice score reflects downstream tumour segmentation performance. Best results are in bold .                                
+
+> Method PSNR SSIM MSE Dice score
+> T2f T1n T1c T2f T1n T1c T2f T1n T1c
+> w/o MBHA 27.359 ±2.069 28.388 ±1.493 27.479 ±2.049 0.948 ±0.009 0.959 ±0.010 0.941 ±0.008 0.0020 ±0.0011 0.0015 ±0.0005 0.0020 ±0.0012 0.8472
+> w/o Perc. Loss 28.120 ±1.601 28.827 ±1.687 27.833 ±1.898 0.951 ±0.007 0.961 ±0.010 0.945 ±0.008 0.0016 ±0.0006 0.0014 ±0.0006 0.0018 ±0.0009 0.8518
+> w/o Seg. Loss 27.735 ±2.087 28.753 ±1.474 27.243 ±2.209 0.952 ±0.009 0.967 ±0.009 0.943 ±0.008 0.0019 ±0.0010 0.0014 ±0.0005 0.0022 ±0.0015 0.8237
+> w/o All above 26.808 ±1.837 27.756 ±1.710 26.663 ±1.741 0.941 ±0.008 0.951 ±0.009 0.933 ±0.008 0.0022 ±0.0010 0.0018 ±0.0008 0.0023 ±0.0009 0.8121
+> Ours 28.705 ±1.800 29.688 ±1.646 28.344 ±2.062 0.957 ±0.009 0.973 ±0.007 0.953 ±0.009 0.0014 ±0.0007 0.0011 ±0.0004 0.0016 ±0.0011 0.8631
+
+[19] Yu B, et al. Ea-GANs: edge-aware generative adversarial networks for cross-modality MR image synthesis. IEEE Transactions on Medical Imaging . 2019;38(7):1750-1762. [20] Dalmaz O, Yurt M, C ¸ ukur T. ResViT: Residual vision transformers for multimodal medical image synthesis. IEEE Transactions on Medical Imaging . 2022;41(10):2598-2614. [21] Cordier N, et al. Extended modality propagation: image synthe-sis of pathological cases. IEEE Transactions on Medical Imaging .2016;35(12):2598-2608. [22] Van Tulder G, de Bruijne M. Why does synthesized data improve multi-sequence classification? In: International Conference on Medical Image Computing and Computer-Assisted Intervention . 2015. [23] Huang Y, Shao L, Frangi AF. Simultaneous super-resolution and cross-modality synthesis of 3D medical images using weakly-supervised joint convolutional sparse coding. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 2017. [24] Chen C, et al. Robust multimodal brain tumor segmentation via feature disentanglement and gated fusion. In: International Conference on Medical Image Computing and Computer-Assisted Intervention . 2019. [25] Havaei M, et al. HEMIS: Hetero-modal image segmentation. In: Interna-tional Conference on Medical Image Computing and Computer-Assisted Intervention . 2016. Springer. [26] Kong L, et al. Breaking the dilemma of medical image-to-image translation. Advances in Neural Information Processing Systems .2021;34:1964-1978. [27] Li R, et al. Deep learning based imaging data completion for improved brain disease diagnosis. In: International Conference on Medical Image Computing and Computer-Assisted Intervention . 2014. Springer. [28] Zhou T, et al. Brain tumor segmentation with missing modalities via latent multi-source correlation representation. In: International Confer-ence on Medical Image Computing and Computer-Assisted Intervention .2020. Springer. [29] Ali H, et al. The role of generative adversarial networks in brain MRI: a scoping review. Insights into Imaging . 2022;13(1):98. [30] Isola P, et al. Image-to-image translation with conditional adversarial networks. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 2017. [31] Zhu J-Y, et al. Unpaired image-to-image translation using cycle-consistent adversarial networks. In: Proceedings of the IEEE Interna-tional Conference on Computer Vision . 2017. [32] Xin B, et al. Multi-modality generative adversarial networks with tumor consistency loss for brain MR image synthesis. In: 2020 IEEE 17th International Symposium on Biomedical Imaging (ISBI) . 2020. IEEE. [33] Choi Y, et al. StarGAN: Unified generative adversarial networks for multi-domain image-to-image translation. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 2018. [34] Tomczak A, et al. What can we learn about a generated image corrupting its latent representation? In: International Conference on Medical Image Computing and Computer-Assisted Intervention . 2022. Springer. [35] Li X, et al. Deep learning attention mechanism in medical image anal-ysis: Basics and beyonds. International Journal of Network Dynamics and Intelligence . 2023:93-116. [36] Jain V, Seung S. Natural image denoising with convolutional networks. 
+
+Advances in Neural Information Processing Systems . 2008;21. [37] Xie J, Xu L, Chen E. Image denoising and inpainting with deep neural networks. Advances in Neural Information Processing Systems . 2012;25. [38] Burger HC, Schuler CJ, Harmeling S. Image denoising with multi-layer perceptrons, part 1: comparison with existing algorithms and with bounds. arXiv preprint arXiv:1211.1544. 2012. [39] Kim J, Lee JK, Lee KM. Accurate image super-resolution using very deep convolutional networks. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 2016. [40] Kim J, Lee JK, Lee KM. Deeply-recursive convolutional network for image super-resolution. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 2016. [41] Shi W, et al. Real-time single image and video super-resolution using an efficient sub-pixel convolutional neural network. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 2016. [42] Chen H, et al. Low-dose CT with a residual encoder-decoder con-volutional neural network. IEEE Transactions on Medical Imaging .2017;36(12):2524-2535. [43] Mao X, Shen C, Yang Y-B. Image restoration using very deep con-volutional encoder-decoder networks with symmetric skip connections. 
+
+Advances in Neural Information Processing Systems . 2016;29. [44] Tao X, et al. Scale-recurrent network for deep image deblurring. In: 
+
+Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 2018. [45] Nie D, et al. Medical image synthesis with deep convolutional ad-versarial networks. IEEE Transactions on Biomedical Engineering .2018;65(12):2720-2730. [46] Larsen ABL, et al. Autoencoding beyond pixels using a learned simi-larity metric. In: International Conference on Machine Learning . 2016. PMLR. [47] Cohen JP, Luck M, Honari S. Distribution matching losses can halluci-nate features in medical image translation. In: International Conference on Medical Image Computing and Computer-Assisted Intervention .2018. Springer. [48] Wang Y, et al. 3D conditional generative adversarial networks for high-quality PET image estimation at low dose. NeuroImage . 2018;174:550-562. [49] Yu B, et al. 3D cGAN based cross-modality MR image synthesis for brain tumor segmentation. In: 2018 IEEE 15th International Symposium on Biomedical Imaging (ISBI 2018) . 2018. IEEE. [50] Ha J, et al. Multi-Resolution Guided 3D GANs for Medical Image Translation. In: 2025 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV) . 2025. IEEE. [51] Zhang X, et al. PTNet3D: A 3D high-resolution longitudinal infant brain MRI synthesizer based on transformers. IEEE Transactions on Medical Imaging . 2022;41(10):2925-2940. [52] Dinkla AM, et al. Dosimetric evaluation of synthetic CT for head and neck radiotherapy generated by a patch-based three-dimensional convolutional neural network. Medical Physics . 2019;46(9):4095-4104. [53] Jiang M, et al. Cross2SynNet: cross-device-cross-modal synthesis of routine brain MRI sequences from CT with brain lesion. Magnetic Resonance Materials in Physics, Biology and Medicine . 2024;37(2):241-256. [54] Wang Z, Bovik AC, Sheikh HR, Simoncelli EP. Image quality assess-ment: from error visibility to structural similarity. IEEE Transactions on Image Processing . 2004;13(4):600-612. [55] Zhang H, Goodfellow I, Metaxas D, Odena A. Self-attention generative adversarial networks. In: Proceedings of the 36th International Confer-ence on Machine Learning (ICML) . PMLR; 2019. [56] Hu J, Shen L, Sun G. Squeeze-and-excitation networks. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) . 2018. [57] Cao Y, Xu J, Lin S, Wei F, Hu H. GCNet: Non-local networks meet squeeze-excitation networks and beyond. In: Proceedings of the IEEE/CVF International Conference on Computer Vision Workshops (ICCVW) . 2019. [58] Wang X, Girshick R, Gupta A, He K. Non-local neural networks. In: 
+
+Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) . 2018. [59] Zhu Z, Xu M, Bai S, Huang T, Bai X. Asymmetric non-local neural networks for semantic segmentation. In: Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) . 2019. [60] Goodfellow IJ, Pouget-Abadie J, Mirza M, Xu B, Warde-Farley D, Ozair 12 SUBMITTED TO arXiv 
+
+S, Courville A, Bengio Y. Generative adversarial nets. Advances in Neural Information Processing Systems . 2014;27. [61] Mirza M, Osindero S. Conditional generative adversarial nets. arXiv preprint arXiv:1411.1784 . 2014. [62] Luo Y, et al. 3D transformer-GAN for high-quality PET reconstruc-tion. In: International Conference on Medical Image Computing and Computer-Assisted Intervention (MICCAI) . Springer; 2021. [63] Heusel M, et al. GANs trained by a two time-scale update rule converge to a local Nash equilibrium. Advances in Neural Information Processing Systems . 2017;30. [64] Chen S, Ma K, Zheng Y. Med3D: Transfer learning for 3D medical image analysis. arXiv preprint arXiv:1904.00625 . 2019. [65] Gulrajani, I., et al., Improved training of wasserstein gans. Advances in neural information processing systems, 2017. 30. [66] Friedrich P, et al. cWDM: Conditional Wavelet Diffusion Mod-els for Cross-Modality 3D Medical Image Synthesis. arXiv preprint arXiv:2411.17203 . 2024. [67] Li Y, et al. Multi-scale Transformer Network With Edge-Aware Pre-Training for Cross-Modality MR Image Synthesis. IEEE Transactions on Medical Imaging . 2023;42(11):3395–3407. [68] Baid U, et al. The RSNA-ASNR-MICCAI BraTS 2021 Benchmark on Brain Tumor Segmentation and Radiogenomic Classification. arXiv preprint arXiv:2107.02314 . 2021. doi:10.48550/arXiv.2107.02314.

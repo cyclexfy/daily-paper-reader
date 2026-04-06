@@ -6,61 +6,60 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-05
-- 运行时间：2026-04-05 19:25:51 UTC
+- 最新运行日期：2026-04-06
+- 运行时间：2026-04-06 20:03:50 UTC
 - 运行状态：成功
 - 本次总论文数：13
 - 精读区：2
 - 速读区：11
 
 ### 今日简报（AI）
-聚焦医疗AI前沿，今日深度解析以 MOOZY 为首的 13 篇计算病理与视觉定位重磅研究。
-重点推荐“患者优先”的病理基础模型及知识引导的空间提示技术，实现了诊断精度与逻辑性的双重突破。
-建议深入探索多模态融合在慢病管理与肿瘤免疫中的应用，并关注主动学习框架下的避坑指南。
-- 详情：[/202604/05/README](/202604/05/README)
+今日深挖13篇前沿成果，重点攻克生物医学领域泛化瓶颈并探索多功能脑部MRI大模型。
+核心结论揭示了单纯不变性在医学泛化中的局限，并展示了指令微调如何让
+- 详情：[/202604/06/README](/202604/06/README)
 
 ### 精读区论文标签
-1. [MOOZY: A Patient-First Foundation Model for Computational Pathology](/202604/05/2603.27048v2-moozy-a-patient-first-foundation-model-for-computational-pathology)  
-   标签：评分：10.0/10、query:cpath
-   evidence：以患者为中心的计算病理学全切片图像基础模型
-2. [Enhancing Medical Visual Grounding via Knowledge-guided Spatial Prompts](/202604/05/2604.01915v1-enhancing-medical-visual-grounding-via-knowledge-guided-spatial-prompts)  
-   标签：评分：9.0/10、query:cpath
-   evidence：用于医学视觉定位的视觉语言模型
+1. [Why Invariance is Not Enough for Biomedical Domain Generalization and How to Fix It](/202604/06/2604.02564v1-why-invariance-is-not-enough-for-biomedical-domain-generalization-and-how-to-fix-it)  
+   标签：评分：8.0/10、query:cpath
+   evidence：利用领域稳定的基础模型表示进行生物医学分割
+2. [Visual Instruction-Finetuned Language Model for Versatile Brain MR Image Tasks](/202604/06/2604.02748v1-visual-instruction-finetuned-language-model-for-versatile-brain-mr-image-tasks)  
+   标签：评分：8.0/10、query:cpath
+   evidence：用于脑部核磁共振任务的视觉指令微调语言模型
 
 ### 速读区论文标签
-1. [Multimodal Deep Learning for Diabetic Foot Ulcer Staging Using Integrated RGB and Thermal Imaging](/202604/05/2603.26952v1-multimodal-deep-learning-for-diabetic-foot-ulcer-staging-using-integrated-rgb-and-thermal-imaging)  
+1. [Efficient Inference of Large Vision Language Models](/202604/06/2603.27960v1-efficient-inference-of-large-vision-language-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于临床诊断的多模态深度学习
-2. [Pan-Cancer Mapping of the Tumor Immune Landscape through Metagene Clustering and Predictive Modeling](/202604/05/2603.27145v1-pan-cancer-mapping-of-the-tumor-immune-landscape-through-metagene-clustering-and-predictive-modeling)  
+   evidence：大型视觉语言模型高效推理综述
+2. [A Self supervised learning framework for imbalanced medical imaging datasets](/202604/06/2604.01947v1-a-self-supervised-learning-framework-for-imbalanced-medical-imaging-datasets)  
    标签：评分：7.0/10、query:cpath
-   evidence：肿瘤免疫图谱的泛癌映射与预测建模
-3. [Mind the Gap: A Framework for Assessing Pitfalls in Multimodal Active Learning](/202604/05/2603.29677v1-mind-the-gap-a-framework-for-assessing-pitfalls-in-multimodal-active-learning)  
+   evidence：针对不平衡医学图像分类的自监督学习
+3. [Steerable Visual Representations](/202604/06/2604.02327v1-steerable-visual-representations)  
    标签：评分：7.0/10、query:cpath
-   evidence：评估多模态主动学习陷阱的框架
-4. [Genetic algorithms for multi-omic feature selection: a comparative study in cancer survival analysis](/202604/05/2604.00065v1-genetic-algorithms-for-multi-omic-feature-selection-a-comparative-study-in-cancer-survival-analysis)  
+   evidence：使用自然语言引导视觉语言模型的视觉表示
+4. [An Explainable Vision-Language Model Framework with Adaptive PID-Tversky Loss for Lumbar Spinal Stenosis Diagnosis](/202604/06/2604.02502v1-an-explainable-vision-language-model-framework-with-adaptive-pid-tversky-loss-for-lumbar-spinal-stenosis-diagnosis)  
    标签：评分：7.0/10、query:cpath
-   evidence：癌症生存分析中的多组学特征选择
-5. [UCell: rethinking generalizability and scaling of bio-medical vision models](/202604/05/2604.00243v1-ucell-rethinking-generalizability-and-scaling-of-bio-medical-vision-models)  
+   evidence：用于临床诊断的可解释视觉语言模型
+5. [SD-FSMIS: Adapting Stable Diffusion for Few-Shot Medical Image Segmentation](/202604/06/2604.03134v1-sd-fsmis-adapting-stable-diffusion-for-few-shot-medical-image-segmentation)  
    标签：评分：7.0/10、query:cpath
-   evidence：生物医学视觉基础模型与缩放
-6. [Excite, Attend and Segment (EASe): Domain-Agnostic Fine-Grained Mask Discovery with Feature Calibration and Self-Supervised Upsampling](/202604/05/2604.00276v1-excite-attend-and-segment-ease-domain-agnostic-fine-grained-mask-discovery-with-feature-calibration-and-self-supervised-upsampling)  
+   evidence：将Stable Diffusion作为医学分割的基础模型进行适配
+6. [CoME-VL: Scaling Complementary Multi-Encoder Vision-Language Learning](/202604/06/2604.03231v1-come-vl-scaling-complementary-multi-encoder-vision-language-learning)  
    标签：评分：7.0/10、query:cpath
-   evidence：利用基础模型在复杂形态中进行细粒度掩码发现
-7. [TMTE: Effective Multimodal Graph Learning with Task-aware Modality and Topology Co-evolution](/202604/05/2603.27723v1-tmte-effective-multimodal-graph-learning-with-task-aware-modality-and-topology-co-evolution)  
+   evidence：扩展互补多编码器视觉语言学习
+7. [Building evidence-based knowledge graphs from full-text literature for disease-specific biomedical reasoning](/202604/06/2603.28325v2-building-evidence-based-knowledge-graphs-from-full-text-literature-for-disease-specific-biomedical-reasoning)  
    标签：评分：6.0/10、query:cpath
-   evidence：适用于多种下游任务的多模态图学习框架
-8. [MAESIL: Masked Autoencoder for Enhanced Self-supervised Medical Image Learning](/202604/05/2604.00514v1-maesil-masked-autoencoder-for-enhanced-self-supervised-medical-image-learning)  
+   evidence：从全文文献中构建特定疾病的知识图谱
+8. [CT-to-X-ray Distillation Under Tiny Paired Cohorts: An Evidence-Bounded Reproducible Pilot Study](/202604/06/2603.29167v1-ct-to-x-ray-distillation-under-tiny-paired-cohorts-an-evidence-bounded-reproducible-pilot-study)  
    标签：评分：6.0/10、query:cpath
-   evidence：自监督医学图像学习
-9. [An Approach to Enriching Surgical Video Datasets for Fine-Grained Spatial-Temporal Understanding of Vision-Language Models](/202604/05/2604.00784v1-an-approach-to-enriching-surgical-video-datasets-for-fine-grained-spatial-temporal-understanding-of-vision-language-models)  
+   evidence：用于计算机辅助诊断的跨模态蒸馏
+9. [Exploring the Impact of Skin Color on Skin Lesion Segmentation](/202604/06/2603.29694v1-exploring-the-impact-of-skin-color-on-skin-lesion-segmentation)  
    标签：评分：6.0/10、query:cpath
-   evidence：手术领域的视觉语言模型
-10. [AdaLoRA-QAT: Adaptive Low-Rank and Quantization-Aware Segmentation](/202604/05/2604.01167v1-adalora-qat-adaptive-low-rank-and-quantization-aware-segmentation)  
+   evidence：肤色对皮肤癌病变分割的影响
+10. [Brain MR Image Synthesis with Multi-contrast Self-attention GAN](/202604/06/2604.00070v1-brain-mr-image-synthesis-with-multi-contrast-self-attention-gan)  
    标签：评分：6.0/10、query:cpath
-   evidence：在计算机辅助诊断中部署大型基础模型
-11. [AffordTissue: Dense Affordance Prediction for Tool-Action Specific Tissue Interaction](/202604/05/2604.01371v1-affordtissue-dense-affordance-prediction-for-tool-action-specific-tissue-interaction)  
+   evidence：用于神经肿瘤评估的多模态MRI合成
+11. [Perturb-and-Restore: Simulation-driven Structural Augmentation Framework for Imbalance Chromosomal Anomaly Detection](/202604/06/2604.00854v1-perturb-and-restore-simulation-driven-structural-augmentation-framework-for-imbalance-chromosomal-anomaly-detection)  
    标签：评分：6.0/10、query:cpath
-   evidence：使用视觉-语言-动作模型的手术组织交互多模态框架
+   evidence：用于遗传病诊断的染色体结构异常检测
 
 
 <div class="dpr-home-promo-card">
