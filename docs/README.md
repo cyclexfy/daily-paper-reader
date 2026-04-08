@@ -6,67 +6,73 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-07
-- 运行时间：2026-04-07 20:10:19 UTC
+- 最新运行日期：2026-04-08
+- 运行时间：2026-04-08 20:22:07 UTC
 - 运行状态：成功
-- 本次总论文数：15
-- 精读区：4
+- 本次总论文数：17
+- 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今日聚焦多模态生物医学大模型，深度解析空间转录组与病理影像融合的突破性进展。
-两篇满分论文展示了生成式基础模型在组织病理学及临床预测中的卓越性能，标志着AI驱动的生物发现进入新阶段。
-建议重点关注多模态表征学习在复杂临床任务中的迁移效率，并探索跨模态拓扑结构的解耦应用。
-- 详情：[/202604/07/README](/202604/07/README)
+今日深度解析17篇前沿论文，聚焦多模态基础模型在病理学与空间转录组学的巅峰突破。
+两项满分研究揭示了生成式大模型在组织病理分析与临床预测中的巨大潜力，同时图推理技术显著提升了肺部与皮肤癌筛查精度。
+建议重点研读多模态融合技术，把握AI从单一影像识别向复杂生物发现跨越的行业趋势。
+- 详情：[/202604/08/README](/202604/08/README)
 
 ### 精读区论文标签
-1. [A Multimodal Foundation Model of Spatial Transcriptomics and Histology for Biological Discovery and Clinical Prediction](/202604/07/2604.03630v1-a-multimodal-foundation-model-of-spatial-transcriptomics-and-histology-for-biological-discovery-and-clinical-prediction)  
+1. [A Multimodal Foundation Model of Spatial Transcriptomics and Histology for Biological Discovery and Clinical Prediction](/202604/08/2604.03630v1-a-multimodal-foundation-model-of-spatial-transcriptomics-and-histology-for-biological-discovery-and-clinical-prediction)  
    标签：评分：10.0/10、query:cpath
-   evidence：组织学与空间转录组学的多模态基础模型
-2. [A Generative Foundation Model for Multimodal Histopathology](/202604/07/2604.03635v1-a-generative-foundation-model-for-multimodal-histopathology)  
+   evidence：连接组织学和空间转录组学的多模态基础模型
+2. [A Generative Foundation Model for Multimodal Histopathology](/202604/08/2604.03635v1-a-generative-foundation-model-for-multimodal-histopathology)  
    标签：评分：10.0/10、query:cpath
-   evidence：整合H&E、RNA和文本的多模态组织病理学生成式基础模型
-3. [Good Rankings, Wrong Probabilities: A Calibration Audit of Multimodal Cancer Survival Models](/202604/07/2604.04239v1-good-rankings-wrong-probabilities-a-calibration-audit-of-multimodal-cancer-survival-models)  
+   evidence：整合H&E和分子数据的多模态组织病理学生成式基础模型
+3. [PRIME: Prototype-Driven Multimodal Pretraining for Cancer Prognosis with Missing Modalities](/202604/08/2604.04999v1-prime-prototype-driven-multimodal-pretraining-for-cancer-prognosis-with-missing-modalities)  
    标签：评分：10.0/10、query:cpath
-   evidence：融合全切片图像和基因组学的多模态癌症生存模型
-4. [OkanNet: A Lightweight Deep Learning Architecture for Classification of Brain Tumor from MRI Images](/202604/07/2604.01264v1-okannet-a-lightweight-deep-learning-architecture-for-classification-of-brain-tumor-from-mri-images)  
+   evidence：结合组织病理学全切片图像和基因表达的癌症预后多模态预训练
+4. [MedGemma 1.5 Technical Report](/202604/08/2604.05081v1-medgemma-15-technical-report)  
+   标签：评分：10.0/10、query:cpath
+   evidence：将组织病理学全扫描图像集成到医学基础模型中
+5. [A Semi-Automated Annotation Workflow for Paediatric Histopathology Reports Using Small Language Models](/202604/08/2604.04168v2-a-semi-automated-annotation-workflow-for-paediatric-histopathology-reports-using-small-language-models)  
    标签：评分：8.0/10、query:cpath
-   evidence：脑肿瘤的自动检测与分类
+   evidence：使用语言模型从儿科组织病理学报告中提取信息
+6. [PDMP: Rethinking Balanced Multimodal Learning via Performance-Dominant Modality Prioritization](/202604/08/2604.05773v1-pdmp-rethinking-balanced-multimodal-learning-via-performance-dominant-modality-prioritization)  
+   标签：评分：8.0/10、query:cpath
+   evidence：通过性能主导模态优先级优化多模态学习
 
 ### 速读区论文标签
-1. [SciLT: Long-Tailed Classification in Scientific Image Domains](/202604/07/2604.03687v1-scilt-long-tailed-classification-in-scientific-image-domains)  
+1. [Semantic-Topological Graph Reasoning for Language-Guided Pulmonary Screening](/202604/08/2604.05620v1-semantic-topological-graph-reasoning-for-language-guided-pulmonary-screening)  
+   标签：评分：8.0/10、query:cpath
+   evidence：使用视觉基础模型的语言引导筛查
+2. [Automated Prostate Gland Segmentation in MRI Using nnU-Net](/202604/08/2604.01964v1-automated-prostate-gland-segmentation-in-mri-using-nnu-net)  
    标签：评分：7.0/10、query:cpath
-   evidence：研究科学图像领域中基础模型的微调
-2. [Multimodal Structure Learning: Disentangling Shared and Specific Topology via Cross-Modal Graphical Lasso](/202604/07/2604.03953v1-multimodal-structure-learning-disentangling-shared-and-specific-topology-via-cross-modal-graphical-lasso)  
+   evidence：用于前列腺分割的多模态MRI数据
+3. [Learning Superpixel Ensemble and Hierarchy Graphs for Melanoma Detection](/202604/08/2604.03710v1-learning-superpixel-ensemble-and-hierarchy-graphs-for-melanoma-detection)  
    标签：评分：7.0/10、query:cpath
-   evidence：将多模态特征对齐到共享潜空间
-3. [Learning Robust Visual Features in Computed Tomography Enables Efficient Transfer Learning for Clinical Tasks](/202604/07/2604.04133v1-learning-robust-visual-features-in-computed-tomography-enables-efficient-transfer-learning-for-clinical-tasks)  
+   evidence：皮肤镜图像中的黑色素瘤检测
+4. [Gram-Anchored Prompt Learning for Vision-Language Models via Second-Order Statistics](/202604/08/2604.03980v1-gram-anchored-prompt-learning-for-vision-language-models-via-second-order-statistics)  
    标签：评分：7.0/10、query:cpath
-   evidence：CT基础模型与视觉语言系统
-4. [A Semi-Automated Annotation Workflow for Paediatric Histopathology Reports Using Small Language Models](/202604/07/2604.04168v1-a-semi-automated-annotation-workflow-for-paediatric-histopathology-reports-using-small-language-models)  
+   evidence：用于将视觉语言模型（VLM）适配到下游任务的参数高效提示学习方法
+5. [Simultaneous Dual-View Mammogram Synthesis Using Denoising Diffusion Probabilistic Models](/202604/08/2604.05110v1-simultaneous-dual-view-mammogram-synthesis-using-denoising-diffusion-probabilistic-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：使用语言模型的组织病理学报告标注工作流
-5. [Uncertainty-Aware Foundation Models for Clinical Data](/202604/07/2604.04175v1-uncertainty-aware-foundation-models-for-clinical-data)  
+   evidence：用于乳腺癌筛查和诊断的乳腺机合成
+6. [Unifying VLM-Guided Flow Matching and Spectral Anomaly Detection for Interpretable Veterinary Diagnosis](/202604/08/2604.05482v1-unifying-vlm-guided-flow-matching-and-spectral-anomaly-detection-for-interpretable-veterinary-diagnosis)  
    标签：评分：7.0/10、query:cpath
-   evidence：针对异构临床数据的不确定性感知基础模型
-6. [Entropy, Disagreement, and the Limits of Foundation Models in Genomics](/202604/07/2604.04287v1-entropy-disagreement-and-the-limits-of-foundation-models-in-genomics)  
+   evidence：视觉语言模型引导的医学影像诊断
+7. [Analogical Reasoning as a Doctor: A Foundation Model for Gastrointestinal Endoscopy Diagnosis](/202604/08/2604.05649v1-analogical-reasoning-as-a-doctor-a-foundation-model-for-gastrointestinal-endoscopy-diagnosis)  
    标签：评分：7.0/10、query:cpath
-   evidence：基因组学基础模型
-7. [Decoupling Wavelet Sub-bands for Single Source Domain Generalization in Fundus Image Segmentation](/202604/07/2603.28463v1-decoupling-wavelet-sub-bands-for-single-source-domain-generalization-in-fundus-image-segmentation)  
+   evidence：胃肠内镜诊断的基础模型
+8. [Toward Aristotelian Medical Representations: Backpropagation-Free Layer-wise Analysis for Interpretable Generalized Metric Learning on MedMNIST](/202604/08/2604.06017v1-toward-aristotelian-medical-representations-backpropagation-free-layer-wise-analysis-for-interpretable-generalized-metric-learning-on-medmnist)  
+   标签：评分：7.0/10、query:cpath
+   evidence：使用预训练视觉Transformer的可解释医学表示
+9. [Rich-U-Net: A medical image segmentation model for fusing spatial depth features and capturing minute structural details](/202604/08/2603.29404v1-rich-u-net-a-medical-image-segmentation-model-for-fusing-spatial-depth-features-and-capturing-minute-structural-details)  
    标签：评分：6.0/10、query:cpath
-   evidence：医学眼底图像分割中的领域泛化
-8. [MAESIL: Masked Autoencoder for Enhanced Self-supervised Medical Image Learning](/202604/07/2604.00514v1-maesil-masked-autoencoder-for-enhanced-self-supervised-medical-image-learning)  
+   evidence：用于提高诊断准确性的医学图像分割
+10. [Multicentric thrombus segmentation using an attention-based recurrent network with gradual modality dropout](/202604/08/2604.00817v1-multicentric-thrombus-segmentation-using-an-attention-based-recurrent-network-with-gradual-modality-dropout)  
    标签：评分：6.0/10、query:cpath
-   evidence：用于医学图像分析的自监督学习
-9. [ECG Foundation Models and Medical LLMs for Agentic Cardiovascular Intelligence at the Edge: A Review and Outlook](/202604/07/2604.02501v1-ecg-foundation-models-and-medical-llms-for-agentic-cardiovascular-intelligence-at-the-edge-a-review-and-outlook)  
+   evidence：医学目标分割的异质模态学习
+11. [Ranking-Guided Semi-Supervised Domain Adaptation for Severity Classification](/202604/08/2604.01834v1-ranking-guided-semi-supervised-domain-adaptation-for-severity-classification)  
    标签：评分：6.0/10、query:cpath
-   evidence：心电图基础模型与医学大语言模型综述
-10. [Training a Student Expert via Semi-Supervised Foundation Model Distillation](/202604/07/2604.03841v1-training-a-student-expert-via-semi-supervised-foundation-model-distillation)  
-   标签：评分：6.0/10、query:cpath
-   evidence：视觉基础模型蒸馏用于分割
-11. [Beyond Standard Benchmarks: A Systematic Audit of Vision-Language Model's Robustness to Natural Semantic Variation Across Diverse Tasks](/202604/07/2604.04473v1-beyond-standard-benchmarks-a-systematic-audit-of-vision-language-models-robustness-to-natural-semantic-variation-across-diverse-tasks)  
-   标签：评分：6.0/10、query:cpath
-   evidence：对视觉语言模型在不同任务中的鲁棒性进行系统审计
+   evidence：用于医学图像严重程度分类的半监督领域自适应
 
 
 <div class="dpr-home-promo-card">
