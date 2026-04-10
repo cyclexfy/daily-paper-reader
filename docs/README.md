@@ -6,76 +6,76 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-09
-- 运行时间：2026-04-09 20:38:30 UTC
+- 最新运行日期：2026-04-10
+- 运行时间：2026-04-10 19:40:02 UTC
 - 运行状态：成功
 - 本次总论文数：18
 - 精读区：7
 - 速读区：11
 
 ### 今日简报（AI）
-今日深度解析 18 篇前沿论文，重点聚焦两篇满分级多模态病理与空间转录组学基础模型。
-满分研究展示了生成式 AI 在组织病理学及生物发现中的核心突破，显著提升了临床预测的精准度。
-建议关注多模态数据融合技术，探索 AI 如何将复杂生物信息转化为高效的临床诊疗方案。
-- 详情：[/202604/09/README](/202604/09/README)
+今日聚焦 18 篇前沿进展，见证空间转录组学与组织病理学多模态大模型的“满分”突破。
+重点关注生成式基座模型在生物发现与临床预测中的深度融合，其在多模态数据整合与推理精度上表现卓越。
+建议优先研读多模态技术如何赋能肺癌精准诊疗，并关注医疗大模型在量化压缩与抗干扰方面的工程优化。
+- 详情：[/202604/10/README](/202604/10/README)
 
 ### 精读区论文标签
-1. [A Multimodal Foundation Model of Spatial Transcriptomics and Histology for Biological Discovery and Clinical Prediction](/202604/09/2604.03630v1-a-multimodal-foundation-model-of-spatial-transcriptomics-and-histology-for-biological-discovery-and-clinical-prediction)  
+1. [A Multimodal Foundation Model of Spatial Transcriptomics and Histology for Biological Discovery and Clinical Prediction](/202604/10/2604.03630v1-a-multimodal-foundation-model-of-spatial-transcriptomics-and-histology-for-biological-discovery-and-clinical-prediction)  
    标签：评分：10.0/10、query:cpath
-   evidence：空间转录组学与组织学的多模态基础模型，用于临床预测
-2. [A Generative Foundation Model for Multimodal Histopathology](/202604/09/2604.03635v1-a-generative-foundation-model-for-multimodal-histopathology)  
+   evidence：组织学与空间转录组学的基础模型
+2. [A Generative Foundation Model for Multimodal Histopathology](/202604/10/2604.03635v1-a-generative-foundation-model-for-multimodal-histopathology)  
    标签：评分：10.0/10、query:cpath
-   evidence：整合组织学和分子数据的多模态病理生成式基础模型
-3. [PRIME: Prototype-Driven Multimodal Pretraining for Cancer Prognosis with Missing Modalities](/202604/09/2604.04999v1-prime-prototype-driven-multimodal-pretraining-for-cancer-prognosis-with-missing-modalities)  
+   evidence：用于多模态组织病理学的生成式基础模型，整合了H&E、RNA和文本
+3. [MedGemma 1.5 Technical Report](/202604/10/2604.05081v1-medgemma-15-technical-report)  
    标签：评分：10.0/10、query:cpath
-   evidence：整合组织病理学全切片图像、基因表达和病理报告进行癌症预后预测
-4. [MedGemma 1.5 Technical Report](/202604/09/2604.05081v1-medgemma-15-technical-report)  
+   evidence：将组织病理学全扫描图像集成到医疗基础模型中
+4. [MorphDistill: Distilling Unified Morphological Knowledge from Pathology Foundation Models for Colorectal Cancer Survival Prediction](/202604/10/2604.06390v1-morphdistill-distilling-unified-morphological-knowledge-from-pathology-foundation-models-for-colorectal-cancer-survival-prediction)  
    标签：评分：10.0/10、query:cpath
-   evidence：将组织病理学全视野图像集成到医学基础模型架构中。
-5. [MorphDistill: Distilling Unified Morphological Knowledge from Pathology Foundation Models for Colorectal Cancer Survival Prediction](/202604/09/2604.06390v1-morphdistill-distilling-unified-morphological-knowledge-from-pathology-foundation-models-for-colorectal-cancer-survival-prediction)  
+   evidence：从病理基础模型中蒸馏知识用于结直肠癌生存预测
+5. [Needle in a Haystack -- One-Class Representation Learning for Detecting Rare Malignant Cells in Computational Cytology](/202604/10/2604.07722v1-needle-in-a-haystack----one-class-representation-learning-for-detecting-rare-malignant-cells-in-computational-cytology)  
    标签：评分：10.0/10、query:cpath
-   evidence：从病理基础模型中提取知识用于结直肠癌预测
-6. [Region-Graph Optimal Transport Routing for Mixture-of-Experts Whole-Slide Image Classification](/202604/09/2604.07298v1-region-graph-optimal-transport-routing-for-mixture-of-experts-whole-slide-image-classification)  
+   evidence：在全切片图像中使用多实例学习和表示学习检测稀有恶性细胞
+6. [Plug-and-Play Logit Fusion for Heterogeneous Pathology Foundation Models](/202604/10/2604.07779v1-plug-and-play-logit-fusion-for-heterogeneous-pathology-foundation-models)  
    标签：评分：10.0/10、query:cpath
-   evidence：使用多实例学习和混合专家模型进行全扫描切片图像分类
-7. [LungCURE: Benchmarking Multimodal Real-World Clinical Reasoning for Precision Lung Cancer Diagnosis and Treatment](/202604/09/2604.06925v1-lungcure-benchmarking-multimodal-real-world-clinical-reasoning-for-precision-lung-cancer-diagnosis-and-treatment)  
-   标签：评分：9.0/10、query:cpath
-   evidence：肺癌诊断的多模态推理
+   evidence：针对异构病理基础模型的逻辑值融合策略
+7. [HistDiT: A Structure-Aware Latent Conditional Diffusion Model for High-Fidelity Virtual Staining in Histopathology](/202604/10/2604.08305v1-histdit-a-structure-aware-latent-conditional-diffusion-model-for-high-fidelity-virtual-staining-in-histopathology)  
+   标签：评分：10.0/10、query:cpath
+   evidence：乳腺癌生物标志物的组织病理学虚拟染色
 
 ### 速读区论文标签
-1. [Hierarchical Contrastive Learning for Multimodal Data](/202604/09/2604.05462v1-hierarchical-contrastive-learning-for-multimodal-data)  
+1. [LungCURE: Benchmarking Multimodal Real-World Clinical Reasoning for Precision Lung Cancer Diagnosis and Treatment](/202604/10/2604.06925v2-lungcure-benchmarking-multimodal-real-world-clinical-reasoning-for-precision-lung-cancer-diagnosis-and-treatment)  
    标签：评分：8.0/10、query:cpath
-   evidence：多模态数据的分层对比学习
-2. [Semantic-Topological Graph Reasoning for Language-Guided Pulmonary Screening](/202604/09/2604.05620v1-semantic-topological-graph-reasoning-for-language-guided-pulmonary-screening)  
+   evidence：肺癌诊断的多模态基准
+2. [Weight Group-wise Post-Training Quantization for Medical Foundation Model](/202604/10/2604.07674v1-weight-group-wise-post-training-quantization-for-medical-foundation-model)  
    标签：评分：8.0/10、query:cpath
-   evidence：用于医学筛查的多模态基础模型
-3. [Vision-Language Model-Guided Deep Unrolling Enables Personalized, Fast MRI](/202604/09/2604.06849v1-vision-language-model-guided-deep-unrolling-enables-personalized-fast-mri)  
+   evidence：医疗基础模型的训练后量化
+3. [Shortcut Learning in Glomerular AI: Adversarial Penalties Hurt, Entropy Helps](/202604/10/2604.07936v1-shortcut-learning-in-glomerular-ai-adversarial-penalties-hurt-entropy-helps)  
    标签：评分：8.0/10、query:cpath
-   evidence：视觉语言模型引导的医学影像重建
-4. [Learning ECG Image Representations via Dual Physiological-Aware Alignments](/202604/09/2604.01526v1-learning-ecg-image-representations-via-dual-physiological-aware-alignments)  
+   evidence：肾脏病理AI中的染色变异和捷径学习，涉及全视野切片
+4. [DBMF: A Dual-Branch Multimodal Framework for Out-of-Distribution Detection](/202604/10/2604.08261v1-dbmf-a-dual-branch-multimodal-framework-for-out-of-distribution-detection)  
+   标签：评分：8.0/10、query:cpath
+   evidence：用于临床离群检测的双支路多模态框架
+5. [BPC-Net: Annotation-Free Skin Lesion Segmentation via Boundary Probability Calibration](/202604/10/2604.05594v1-bpc-net-annotation-free-skin-lesion-segmentation-via-boundary-probability-calibration)  
    标签：评分：7.0/10、query:cpath
-   evidence：图像与文本之间的多模态对比对齐
-5. [When Sinks Help or Hurt: Unified Framework for Attention Sink in Large Vision-Language Models](/202604/09/2604.03316v1-when-sinks-help-or-hurt-unified-framework-for-attention-sink-in-large-vision-language-models)  
+   evidence：用于癌症诊断的皮肤病变分割
+6. [Semantic-Topological Graph Reasoning for Language-Guided Pulmonary Screening](/202604/10/2604.05620v1-semantic-topological-graph-reasoning-for-language-guided-pulmonary-screening)  
    标签：评分：7.0/10、query:cpath
-   evidence：大型视觉语言模型中的注意力汇聚分析
-6. [RCP: Representation Consistency Pruner for Mitigating Distribution Shift in Large Vision-Language Models](/202604/09/2604.04972v1-rcp-representation-consistency-pruner-for-mitigating-distribution-shift-in-large-vision-language-models)  
+   evidence：协同大语言模型与视觉基础模型
+7. [Holistic Optimal Label Selection for Robust Prompt Learning under Partial Labels](/202604/10/2604.06614v1-holistic-optimal-label-selection-for-robust-prompt-learning-under-partial-labels)  
    标签：评分：7.0/10、query:cpath
-   evidence：大型视觉语言模型的剪枝
-7. [Learning What Matters: Dynamic Dimension Selection and Aggregation for Interpretable Vision-Language Reward Modeling](/202604/09/2604.05445v1-learning-what-matters-dynamic-dimension-selection-and-aggregation-for-interpretable-vision-language-reward-modeling)  
+   evidence：通过提示学习适配预训练视觉语言模型
+8. [Time-driven Survival Analysis from FDG-PET/CT in Non-Small Cell Lung Cancer](/202604/10/2604.06885v1-time-driven-survival-analysis-from-fdg-petct-in-non-small-cell-lung-cancer)  
    标签：评分：7.0/10、query:cpath
-   evidence：提出了一种可解释的视觉语言奖励建模框架。
-8. [Efficient Inference for Large Vision-Language Models: Bottlenecks, Techniques, and Prospects](/202604/09/2604.05546v1-efficient-inference-for-large-vision-language-models-bottlenecks-techniques-and-prospects)  
-   标签：评分：7.0/10、query:cpath
-   evidence：大型视觉语言模型的推理效率
-9. [Modality-Aware and Anatomical Vector-Quantized Autoencoding for Multimodal Brain MRI](/202604/09/2604.05171v1-modality-aware-and-anatomical-vector-quantized-autoencoding-for-multimodal-brain-mri)  
+   evidence：利用深度学习对医学图像进行生存分析和癌症预后预测
+9. [SD-FSMIS: Adapting Stable Diffusion for Few-Shot Medical Image Segmentation](/202604/10/2604.03134v2-sd-fsmis-adapting-stable-diffusion-for-few-shot-medical-image-segmentation)  
    标签：评分：6.0/10、query:cpath
-   evidence：多模态脑部MRI重建
-10. [Region-R1: Reinforcing Query-Side Region Cropping for Multi-Modal Re-Ranking](/202604/09/2604.05268v1-region-r1-reinforcing-query-side-region-cropping-for-multi-modal-re-ranking)  
+   evidence：将Stable Diffusion作为医学图像分割的基础模型进行适配
+10. [Beyond Semantics: Disentangling Information Scope in Sparse Autoencoders for CLIP](/202604/10/2604.05724v1-beyond-semantics-disentangling-information-scope-in-sparse-autoencoders-for-clip)  
    标签：评分：6.0/10、query:cpath
-   evidence：使用区域裁剪的多模态重排序
-11. [VLA-InfoEntropy: A Training-Free Vision-Attention Information Entropy Approach for Vision-Language-Action Models Inference Acceleration and Success](/202604/09/2604.05323v1-vla-infoentropy-a-training-free-vision-attention-information-entropy-approach-for-vision-language-action-models-inference-acceleration-and-success)  
+   evidence：解释CLIP视觉编码器的内部表征
+11. [Toward Aristotelian Medical Representations: Backpropagation-Free Layer-wise Analysis for Interpretable Generalized Metric Learning on MedMNIST](/202604/10/2604.06017v1-toward-aristotelian-medical-representations-backpropagation-free-layer-wise-analysis-for-interpretable-generalized-metric-learning-on-medmnist)  
    标签：评分：6.0/10、query:cpath
-   evidence：视觉-语言-动作模型推理加速
+   evidence：利用预训练视觉Transformer进行医学表征
 
 
 <div class="dpr-home-promo-card">
