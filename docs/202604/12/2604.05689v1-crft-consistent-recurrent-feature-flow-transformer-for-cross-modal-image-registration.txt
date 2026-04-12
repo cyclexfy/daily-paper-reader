@@ -1,0 +1,461 @@
+Title: CRFT: Consistent-Recurrent Feature Flow Transformer for Cross-Modal Image Registration
+
+URL Source: https://arxiv.org/pdf/2604.05689v1
+
+Published Time: Wed, 08 Apr 2026 01:03:37 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# CRFT: Consistent–Recurrent Feature Flow Transformer for Cross-Modal Image Registration 
+
+# Xuecong Liu 1 Mengzhu Ding 1 Zixuan Sun 2 Zhang Li 2 Xichao Teng 2* 1Northeastern University, China 2National University of Defense Technology, China  
+
+> liuxuecong@qhd.neu.edu.cn tengari@buaa.edu.cn
+
+# Abstract 
+
+We present Consistent–Recurrent Feature Flow Trans-former (CRFT), a unified coarse-to-fine framework based on feature flow learning for robust cross-modal image reg-istration. CRFT learns a modality-independent feature flow representation within a transformer-based architecture that jointly performs feature alignment and flow estimation. The coarse stage establishes global correspondences through multi-scale feature correlation, while the fine stage refines local details via hierarchical feature fusion and adaptive spatial reasoning. To enhance geometric adaptability, an iterative discrepancy-guided attention mechanism with a Spatial Geometric Transform (SGT) recurrently refines the flow field, progressively capturing subtle spatial incon-sistencies and enforcing feature-level consistency. This design enables accurate alignment under large affine and scale variations while maintaining structural coherence across modalities. Extensive experiments on diverse cross-modal datasets demonstrate that CRFT consistently outperforms state-of-the-art registration methods in both accuracy and robustness. Beyond registration, CRFT provides a generalizable paradigm for multimodal spatial correspondence, offering broad applicability to remote sensing, autonomous navigation, and medical imaging. Code and datasets are publicly available at https:// github.com/NEU-Liuxuecong/CRFT .
+
+# 1. Introduction 
+
+Establishing reliable spatial correspondence between im-ages captured under heterogeneous sensing conditions is a central problem in computer vision [3, 13, 16, 23, 59]. It supports a wide range of applications, including 3D re-construction [11, 18], visual localization [27], autonomous navigation [48], and remote sensing analytics [60, 61]. In practice, images may originate from different modalities (e.g., optical, infrared, SAR, multispectral [25, 33, 35]) 
+
+> *Corresponding author.
+
+or be acquired under distinct viewpoints, focal lengths, or illumination settings [38, 63], resulting in substantial appearance and geometric variability. Cross-modal and deformable registration [24, 31] is particularly difficult because the underlying sensing mechanisms introduce severe nonlinear appearance dis-crepancies and complex geometric variations [4, 18, 46, 50, 62]. Differences in imaging intensity and phase contrast between optical and SAR sensors, as well as the spectral gap between visible and infrared bands, lead to inconsistent feature distributions. Meanwhile, geometric transformations [8, 65] caused by camera motion, scale change, or viewpoint variation further complicate pixel-level alignment [2], rendering traditional feature-based or intensity-driven methods unreliable [1, 5, 49]. To address these challenges, we propose CRFT, a unified coarse-to-fine framework designed to learn modality-independent feature flow for robust cross-modal image registration. At the coarse level, CRFT constructs a global correspondence field through multi-scale feature correlation, enabling reliable alignment even when only weak structural cues are available. At the fine level, we introduce a hierarchical feature fusion process that enhances local details and texture precision. Furthermore, to handle spatial distortions and geometric deformations, we design an iterative discrepancy-guided attention mechanism coupled with a SGT module. This recurrent refinement strategy progressively updates the flow field by dynamically weighting feature discrepancies, achieving pixel-wise alignment with high geometric fidelity. Our contributions are summarized as follows: 
+
+(1) We introduce CRFT, a unified transformer-based framework that formulates cross-modal image registration as a learnable feature flow estimation task, jointly learning modality-independent representations and dense spatial correspondences. 
+
+(2) A coarse-to-fine hierarchical matching strategy is developed, where the coarse stage captures global context using low-resolution correlation, while the fine stage performs local refinement with high-resolution feature 
+
+> arXiv:2604.05689v1 [cs.CV] 7 Apr 2026
+
+fusion, achieving precise hierarchical alignment. 
+
+(3) An iterative discrepancy-guided attention mechanism integrates feature discrepancy weighting with SGT and flow-based recurrent updates, progressively refining spatial alignment and enhancing robustness to nonlinear and affine geometric variations. 
+
+# 2. Related Works 
+
+Hand-Crafted Matching. Classical multimodal registra-tion relies on region-based or feature-based handcrafted descriptors. Region-based methods [28, 29, 44] achieve high precision but are sensitive to rotation, scale, and affine variations. Feature-based approaches such as RIFT [20], RIFT2 [22], LNIFT [21], HOWP [64], MSG [66], and OS-SIFT [51] design modality-invariant descriptors, yet struggle under strong nonlinear intensity shifts or low-texture conditions. 
+
+Sparse Learnable Matching. Learned detectors and descriptors (e.g., SuperPoint [7], SuperGlue [37], Light-Glue [26], OmniGlue [15]) improve sparse matching by integrating contextual reasoning via CNNs and transform-ers. While effective for RGB scenarios, their reliance on keypoint-descriptor coupling limits generalization to cross-modal settings where positional statistics differ significantly. 
+
+(Semi-)Dense Learnable Matching. Detector-free or semi-dense models [17, 53, 57] learn denser correspon-dences. LoFTR [40] and its variants (XoFTR [45], ELoFTR [47]) combine coarse global attention with fine refinement, improving robustness to viewpoint change. ReDFeat [6] extends dense descriptors to cross-domain data. However, many of these methods are still optimized on homogeneous RGB datasets, and their performance degrades when facing large geometric distortions or severe cross-modal appearance gaps [34]. 
+
+Flow-Based Matching. Optical-flow-inspired networks [19, 32, 54] have been widely adopted for dense cor-respondence estimation. RAFT introduced an effective recurrent update paradigm that iteratively refines a flow field via a correlation volume and update operator, setting a new standard for dense flow. Subsequent works [10, 14, 39, 56–58] combine transformer-style global reasoning with recurrent refinement or incorporate memory/attention modules to handle large displacements and complex motion [30, 41]. However, most flow models assume photometric consistency and are trained on RGB optical-flow benchmarks; thus, they do not directly account for cross-modal appearance mismatches without modification to handle modality gaps or to learn modality-robust feature spaces. 
+
+Geometry-Aware and Refinement. A growing line of work integrates explicit geometric modeling or spatial transforms [9, 10, 53, 57] (e.g., spatial transformer networks, learned warping layers) with feature learning to improve robustness to viewpoint, scale, and affine varia-tions. Several advanced flow-based methods [12] employed distinct mechanisms for iterative refinement. RAFT [43] progressively updates flow fields through sequential GRU steps, enabling high-precision estimation even in scenarios with large displacements. GMFlow [56] integrates attention mechanisms into its optimization framework. FlowFormer [14] proposes a recurrent cost decoder that iteratively refines estimated optical flows. GDROS [42] utilizes a geometry-guided mechanism for cross-modal optical flow, based on Least Squares Regression. CRFT leverages global context to establish robust coarse correspondences, it performs dense, recurrent updates for sub-pixel accuracy. Crucially, CRFT departs from traditional optical-flow assumptions by explicitly learning a modality-independent feature flow within a transformer backbone, and by introducing a discrepancy-guided atten-tion mechanism coupled with a SGT to iteratively correct geometric misalignments. This approach bridges the gap between global geometric consistency and local precision, offering a scalable solution for registration tasks. 
+
+# 3. Methodology 
+
+CRFT is a unified coarse-to-fine framework designed to learn modality-independent feature flow for robust cross-modal image registration. Unlike optical-flow architectures such as RAFT or GMFlow that rely on photometric consistency and often collapse under modality gaps, CRFT explicitly models multi-scale structure, cross-modal feature interactions, and geometric constraints. An overview of our framework is shown in Fig. 1. 
+
+3.1. Coarse-Scale Flow Estimation 
+
+The first stage, flow-based coarse matching, aims to generate the initial flow field at coarse scales. Operating at a larger spatial scale, this stage facilitates the effective capture of dominant texture structures within the images. The process involves multi-scale feature extraction at 1/2, 1/4, and 1/8 resolutions, feature enhancement through a Transformer-based module, and initial flow estimation, where global correlation between the coarse-scale features 
+
+F A
+
+> 1/8
+
+and F B 
+
+> 1/8
+
+is computed to predict coarse correspondence coordinates and obtain the initial optical flow. 
+
+Multi-scale Feature Extraction. A ResNet-based CNN encoder shared across modalities extracts features at 1/2, 1/4, and 1/8 scales. Coarse matching is performed at the 1/8 scale, where features capture high-level structures less affected by spectral or radiometric inconsistency, while 1/2 and 1/4 features retain finer spatial details for later refinement. This multi-scale separation is essential: coarse structural cues enable stable global matching despite Concate 
+
+> & SA
+> CA
+> Concate
+> & SA
+> Concate
+> & SA
+> Concate
+> & SA
+> CA
+> Corr-Softmax
+> RU
+> CENet
+> SGT
+> CENet
+> Smoothing
+> Upsampling
+> Flow
+
+Multi-Scale Feature Extraction 
+
+Coarse-Scale Flow Estimation Fine-Scale Flow Refinement  
+
+> Final Flow
+> SA CA
+> Feature
+> Disc.
+> DGFO
+
+⨁
+
+Iterative Discrepancy-Guided Flow Optimization       
+
+> FSFT
+> FSFT
+> 1/8
+> B
+> F1/8
+> A
+> F1/4
+> A
+> F1/4
+> B
+> F1/2
+> B
+> F1/2
+> A
+> F
+> '
+> 1/8
+> A
+> F'
+> 1/8
+> B
+> F
+> 5 5
+> B
+> F
+> 5 5
+> A
+> F
+> N
+> A
+> I
+> B
+> I
+> 1/8
+> A
+> F
+
+Figure 1. Overview of the proposed CRFT framework. CRFT follows a unified coarse-to-fine pipeline for robust cross-modal image registration. (a) Multi-Scale Feature Extraction: A CNN encoder extracts modality-independent features at {1/2, 1/4, 1/8} resolutions from the input image pair (IA, I B ). (b) Coarse-Scale Flow Estimation: At 1/8 resolution, transformer-style self-attention (SA) and cross-attention (CA) operate on low-resolution features to compute global correlation and generate an initial coarse flow field. (c) Fine-Scale Flow Refinement: The 1/2 and 1/4 features are fused through window-based self-attention and cross-attention to inject fine-grained spatial details and locally refine coarse correspondences. (d) Iterative Discrepancy-Guided Flow Optimization: Within N refinement iterations, fine-scale features undergo Fine-Scale Feature Transformation (FSFT), aligned via a Spatial Geometric Transform (SGT), and compared to compute feature discrepancies. These discrepancies guide the Discrepancy-Guided Flow Optimization (DGFO), followed by a Residual Update (RU) and a Confidence Estimation Network (CENet) for smoothing, producing the final high-precision dense flow. 
+
+modality gaps, while higher-resolution features avoid the drift typically observed in coarse-only matching. 
+
+Coarse-Scale Feature Transformation: To mitigate the inherent cross-modal discrepancy, we introduce transformer blocks consisting of self-attention (SA) and cross-attention (CA). Positional encodings are first added to the 1/8-scale features F A 
+
+> 1/8
+
+and F B
+
+> 1/8
+
+, after which repeated SA-CA layers aggregate long-range context within each modality and fuse complementary structural cues across modalities. This design is particularly effective for cross-modal matching: SA stabilizes pixel-to-context embedding, while CA explicitly aligns modality-dependent features, enabling transformation-invariant global descriptors that outperform purely correlation-based methods. 
+
+Flow Initialization via Global Correlation. Subsequent to feature transformation, we apply linear projection and normalization to F A 
+
+> 1/8
+
+and F B
+
+> 1/8
+
+. For each feature vector 
+
+f ∈ RC , the transformed feature ˆf is computed as follows: 
+
+ˆf = Wproj · f + bproj 
+
+√C , (1) where Wproj and bproj are the learnable parameters of the linear projection layer, and C is the feature dimension. Global correlation is calculated to connect the feature from ˆF A, ˆF B ∈ R, the correlation is calculated as follows: 
+
+C≀∇∇ (p, q ) = 
+
+D ˆF A(p), ˆF B (q)
+
+E
+
+, (2) where (p, q ) denotes pixel locations. Matching probabilities are obtained via softmax normalization: 
+
+P (p, q ) = exp( C≀∇∇ (p, q )) 
+
+P 
+
+> q′
+
+exp( C≀∇∇ (p, q ′)) . (3) The coarse correspondence and the coarse flow can be computed as: 
+
+p′ = X
+
+> q
+
+P (p, q ) · q,  (4) 
+
+Tc(p) = p′ − p.  (5) This global matching strategy provides a geometry-aware, modality-insensitive initial flow that remains stable even under large radiometric differences, where optical-flow baselines typically fail. 3.2. Fine-Scale Flow Refinement 
+
+The coarse flow provides globally reliable but spatially imprecise correspondences due to the low resolution and strong modality discrepancy. To recover fine-grained alignment, CRFT introduces a hierarchical fine-scale refinement module that progressively injects high-resolution structural cues while maintaining cross-modal consistency. 
+
+Multi-scale Local Feature Gathering. For each location in the coarse feature map, we extract local feature windows from the 1/4- and 1/2-resolution feature maps using 5 × 5 and 3 × 3 kernels, respectively. This establishes explicit cross-scale correspondence paths: each coarse-level pixel is associated with mid- and fine-scale neighborhoods containing richer spatial and textural information. Such hierarchical windowing is crucial for cross-modal matching, as it provides modality-invariant structural context at multiple resolutions without relying on local intensity patterns. 
+
+Hierarchical Attention-based Refinement. Coarse- and mid-scale windows are first refined using windowed self-attention to enhance local geometric consistency. Cross-attention is then applied to the 3 × 3 mid-scale win-dows to align modality-specific responses at finer scales. These refined features are fused with the 1/2-resolution windows through the same SA-CA operations, allowing progressively finer details to be injected across scales. This hierarchical process produces a multi-scale fused representation that preserves coarse structural reliability while supplying the high-frequency cues needed for precise sub-pixel flow estimation, effectively bridging global coarse matching and dense fine-level alignment. 
+
+3.3. Discrepancy-Guided Flow Optimization 
+
+While the coarse and fine matching modules provide an initial feature flow, accurately aligning cross-modal images requires a mechanism that can continuously correct local geometric errors and modality-induced inconsistencies. To this end, we introduce an iterative discrepancy-guided optimization module coupled with a Spatial Geometric Transform (SGT). This module constitutes the core innovation: it performs recurrent flow refinement inside local windows, explicitly leveraging feature discrepancies to steer geometry-aware flow updates—an ability that conventional optical-flow networks lack under modality gaps. 
+
+Fine-Scale Feature Transformation (FSFT). Before the iterative refinement, the fine-level features from the previous stage are projected into a homogeneous feature space using a lightweight MLP consisting of two linear layers and a GELU activation. This step significantly reduces the appearance discrepancy between modalities and stabilizes the subsequent discrepancy estimation. ×N
+
+> SGT
+> Highest-Confidence
+> Flow
+> Residual Flow
+> Discrepancy-Guided
+> Flow Optimization
+> Discrepancy
+> iFlow
+> iFlow
+> Residual Update
+> Confidence Estimation
+> Network
+
+# ⊕
+
+> 5 5
+> B
+
+F
+
+> 5 5
+> A
+
+F 
+
+> FSFT
+> FSFT
+
+Figure 2. Iterative discrepancy-guided flow refinement. At each iteration, fine-scale features from both modalities are first mapped into a shared feature space (FSFT). The current flow then drives a SGT to align the local window of F B 
+
+> 5×5
+
+with F A
+
+> 5×5
+
+.Feature discrepancies between the aligned windows are computed and used to weight an attention-based refinement module, which predicts a residual flow added to the current estimate. Aconfidence network further smooths the updated flow before the next iteration. This geometry-aware, discrepancy-driven process progressively improves cross-modal alignment. 
+
+Discrepancy-Guided Flow Optimization (DGFO). Fig-ure 2 illustrates the proposed iterative refinement strategy. Given the initial coarse flow Tc, we expand the 1/8-scale flow to match the spatial support of the 5 × 5 window at 1/2
+
+resolution, forming the initialization T 0 
+
+> kc
+
+:
+
+T ik(p) = T i−1 
+
+> kc
+
+, p ∈ [0 , W f − 1] 2. (6) For each iteration, a coordinate grid is generated for IB ,and the current flow T ik is used to warp the features via SGT, aligning the local neighborhood in IA with its counterpart in 
+
+IB . This yields aligned feature pairs whose discrepancy is defined as: ∆F ik = Normalize  FA − W (FB , T ik) , where 
+
+W is the spatial geometric transform (SGT) that warps target features using the current flow estimate. The inverted discrepancy is: 
+
+Fattn = 1 − ∆F ik, (7) This inverted discrepancy serves as a reliability cue—larger consistency leads to stronger attention responses. The discrepancy-modulated feature map produces the queries and keys: 
+
+Q(p) = WQFattn (p), K(q) = WK Fattn (q), (8) while the current flow T ik is treated as the value. Local attention is computed within the neighborhood N (p):
+
+αp,q = exp( ⟨Q(p), K (q)⟩/pCf )
+
+P  
+
+> q′∈N (p)
+
+exp( ⟨Q(p), K (q′)⟩/pCf ) , (9) where Cf is the feature channel dimension of Q and K. The aggregated flow is: 
+
+T ′ik (p) = X 
+
+> q∈N (p)
+
+αp,q T ik(q). (10) 
+
+Residual Update (RU). The aggregated flow is passed through a CNN-Encoder to estimate a residual update. By adding the residual flow ∆T ik to T ′ik , the T i+1  
+
+> k
+
+is returned as the update flow for this iteration, yielding: 
+
+T i+1  
+
+> k
+
+= T ′ik + ∆ T ik. (11) 
+
+Local Flow Aggregation. Each iteration employs aconfidence estimation network (CENet), which is predicted from both the refined features and the original image content, to compute a confidence map for the current local flow window. Within each local window, the highest-confidence flow is selected and aggregated to form a coherent flow field. 
+
+Confidence Smoothing. The refined flow field undergoes confidence smoothing, during which the recomputed confidence map guides a weighted smoothing: 
+
+T ′ 
+
+> f
+
+= α · ConvNet smooth (Tf ⊙ Mf ) + (1 − α) · Tf . (12) Finally, this flow field is upsampled to the full image resolution, generating a high-precision flow estimation. Through repeated refinement iterations, CRFT pro-gressively corrects geometric distortions and cross-modal inconsistencies, ultimately producing a dense, high-fidelity registration field. Unlike conventional optical-flow refinement, our discrepancy-guided, geometry-aware optimization adapts to modality gaps and achieves stable convergence even under large spectral or radiometric variations. 
+
+3.4. Loss Function 
+
+CRFT is trained in a multi-stage fashion, and we design a corresponding hierarchical loss to supervise both coarse-level correspondence estimation and iterative fine-level refinement. The loss consists of two components: a coarse-scale flow loss and a geometrically weighted iterative refinement loss. 
+
+Coarse-Level Flow Supervision. To guide the model toward learning globally consistent correspondences, the initial coarse flow Tc is supervised by a downsampled ground-truth flow Tgt,c . This encourages the network to capture large-scale structural alignment that provides a robust initialization for the subsequent refinement stages: 
+
+Lc = 1
+
+|V c|
+
+X
+
+> p∈V c
+
+∥Tc(p) − Tgt,c (p)∥1 . (13) 
+
+Iterative Fine-Level Supervision. During iterative refinement, a flow prediction T if is produced at each iteration. Each iteration is supervised independently using an L1 flow loss: 
+
+Lif = 1
+
+|V| 
+
+X
+
+> p∈V
+
+T if (p) − Tgt (p) 1 . (14) To reflect the progressive nature of the refinement and encourage convergence toward high-precision alignment, we aggregate all iteration losses using geometrically decaying weights: 
+
+Lf =
+
+> N
+
+X
+
+> i=1
+
+γN −i Lif , (15) where γ = 0 .9 controls the decay rate, assigning larger weights to later (more accurate) predictions. 
+
+Total Loss. The total loss is a weighted combination of the coarse loss and the iterative refinement loss: 
+
+Ltotal = λc Lc + λf Lf . (16) This hierarchical weighting scheme provides strong gradient signals for early iterations while ensuring that the most accurate late-stage predictions dominate supervision. As a result, the refinement process is explicitly driven toward high-precision convergence—an ability that is critical for cross-modal registration and is not provided by single-stage or uniformly weighted loss formulations. 
+
+# 4. Experiments 
+
+4.1. Implementation Details 
+
+We initialize CRFT using the publicly released XoFTR pretrained weights (trained at 640 resolution) and fine-tune the entire framework end-to-end. Training is performed on OSdataset and RoadScene, a batch size of 16, and the AdamW optimizer with a learning rate of 3 × 10 −4.
+
+Datasets. We evaluate CRFT on two representative cross-modal benchmarks: OSdataset [52] with 2673 aligned optical–SAR pairs, and RoadScene [55] with 221 aligned visible–infrared road-scene pairs. We follow the standard splits of 2011/238/424 (train/val/test) for OSdataset and 176/23/22 for RoadScene. All images are resized to 512 ×
+
+512 before patch sampling. To improve robustness to geometric variations, training images are augmented with random scaling in [0 .9, 1.1] , rotations in [−45 ◦, 45 ◦], and Table 1. Quantitative comparison on the OSdataset . AEPE and CMR at thresholds t = {3, 1, 0.7}. Best results are in bold , and second-best are underlined.                                                         
+
+> Methods AEPE ↓CMR ↑(%)
+> @3 px @1 px @0 .7px
+> HOWP [64] ISPRS’23 26.91 14.2 0.0 0.0 LNIFT [21] TGRS’22 48.18 22.9 0.0 0.0 MSG [66] TGRS’25 44.38 28.1 0.0 0.0 RIFT2 [20] TIP’20 23.61 22.9 0.0 0.0 GMFlow [58] TPAMI’23 11.91 17.0 0.0 0.0 RAFT [43] ECCV’20 3.51 69.6 15.9 8.7 ADRNet [53] TGRS’24 1.67 90.1 35.0 20.6 GDROS [42] TGRS’25 1.34 91.1 49.2 35.5 XoFTR+Flow [45] CVPR’24 1.13 96.2 57.6 41.7
+> CRFT (ours) 0.65 99.0 95.1 89.9
+
+up to 30-pixel translations. During training, we randomly crop 64 × 64 patches, and ground-truth flow fields are generated directly from the provided pixel-level alignments for consistent supervision across all stages. 
+
+Evaluation Metrics. We evaluate registration accuracy using two standard metrics: Average End-Point Error (AEPE), which measures the mean flow prediction error, and Correct Match Rate (CMR), which reports the percent-age of samples whose AEPE falls below a threshold τ .We follow prior works by computing CMR across multiple thresholds ( 0.1−5 px), providing a comprehensive view of performance under different geometric tolerances. 
+
+Baselines. Following ELoFTR [47] and MINIMA [36], we compare CRFT with representative methods from three major categories: • Sparse matching methods: HOWP [64], LNIFT [21], MSG [66], RIFT2 [20, 22]. These handcrafted keypoint-descriptor pipelines are robust to structural distortions but fail under severe modality gaps or large geometric variations. • Semi-dense matching methods: XoFTR [45]. It repre-sents modern transformer-based detector-free matchers, but its performance degrades when cross-modal texture distributions diverge. • Dense matching methods: ADRNet [53], GMFlow [58], RAFT [43], GDROS [42]. These approaches directly es-timate pixelwise correspondences, but traditional optical-flow models fail under strong modality discrepancy, while GDROS and ADRNet rely on modality-specific priors and limited resolution. Together, these baselines cover handcrafted, transformer-based, and dense optical-flow paradigms, providing a comprehensive and challenging benchmark to demonstrate the effectiveness of CRFT. 
+
+Figure 3. Visual comparison between the predicted flow and ground-truth flow fields. The proposed CRFT achieves geometrically consistent and dense alignment across challenging optical-SAR and optical-infrared image pairs, demonstrating strong robustness to nonlinear radiation and geometric variations. Table 2. Quantitative comparison on the RoadScene . AEPE and CMR at thresholds t = {3, 1, 0.7}.                                                        
+
+> Methods AEPE ↓CMR ↑(%)
+> @3 px @1 px @0 .7px
+> HOWP [64] ISPRS’23 22.01 31.8 0.0 0.0 LNIFT [21] TGRS’22 24.24 30.7 0.0 0.0 MSG [66] TGRS’25 50.87 45.5 0.0 0.0 RIFT2 [20] TIP’20 17.27 36.4 0.0 0.0 GMFlow [58] TPAMI’23 12.02 18.2 0.0 0.0 RAFT [43] ECCV’20 8.92 66.6 14.1 8.0 ADRNet [53] TGRS’24 4.72 50.1 9.4 4.8 GDROS [42] TGRS’25 8.81 31.6 11.7 8.8
+> XoFTR+Flow [45] CVPR’24 4.83 27.3 0.0 0.0
+> CRFT (ours) 2.37 68.2 18.2 4.5
+
+4.2. Experiment Results 
+
+We evaluate CRFT on OSdataset and RoadScene, compar-ing it against ten representative handcrafted, sparse, semi-dense, and dense correspondence methods. To guarantee a strictly fair comparison, all evaluated baselines were fine-tuned prior to benchmarking. Across all settings, CRFT achieves the best AEPE, the highest CMR under strict thresholds, and the most stable performance under multi-modal appearance shifts and geometric transformations. 
+
+Results on OSdataset. Table 1 and Fig. 5a show that CRFT achieves dominant performance on OSdataset. First, CRFT obtains an AEPE of 0.65, the only sub-pixel result among all evaluated methods, outperforming the second-best XoFTR+Flow (1.13) by 42.5% and GDROS (1.34) by 51.5%. More importantly, CRFT exhibits strong stability under strict thresholds: at 0.7 px it reaches a CMR of 89.9%, which is 4.36 × higher than ADRNet (20.6%), 2.53 × higher than GDROS (35.5%), and 2.15 × higher than XoFTR+Flow (41.7%). Traditional feature-based methods CRFT ours GDROS TGRS’25 GMFlow TPAMI’23 MSG TGRS’25 
+
+> OSdataset  Roadscene
+
+XoFTR CVPR’24 Figure 4. Quantitative comparison with state-of-the-art methods. For each image pair, 5000 candidate correspondences are uniformly sampled, and only the matches with registration error below 2 pixels are visualized. The density and spatial consistency of the displayed inliers reflect the alignment accuracy of different methods across both OSdataset and RoadScene. CRFT produces the largest number of geometrically consistent inliers, demonstrating clear advantages in cross-modal and affine-deformed scenarios.  
+
+> (a) OSdataset (b) RoadScene
+
+Figure 5. CMR curves under varying thresholds on (a) OSdataset and (b) RoadScene. We compare CRFT with representative handcrafted, sparse, and (semi-)dense matching methods by evaluating the CMR across a range of pixel thresholds. CRFT consistently achieves the highest CMR across a wide range of thresholds. 
+
+show severe degradation under cross-modal shifts, with AEPE ranging from 17.27 to 50.87 and CMR falling to zero below 1 px. Optical-flow baselines (GMFlow, RAFT) also fail under modality discrepancies, confirming that homogeneous-domain flow models struggle under large geometric deformation scenarios. Overall, CRFT is the only method maintaining high performance from relaxed to strict thresholds, demonstrating robust global-local matching ability on optical-SAR data. 
+
+Results on RoadScene. RoadScene introduces strong nonlinear intensity variations, blur, and viewpoint distortion across optical-infrared pairs, making it even more challeng-ing. CRFT achieves the best AEPE of 2.37, outperforming ADRNet (4.72) by 49.8% and GMFlow (12.02) by 80.3%. In terms of CMR, CRFT achieves the highest value at the 3 px threshold (68.2%), slightly surpassing RAFT (66.6%), and it leads by a clear margin at the stricter 1 px threshold (18.2% vs. 14.1% for RAFT and 9.4% for ADRNet). Under the 0.7 px threshold, most deep methods degrade sharply, while CRFT maintains competitive performance, reflecting the effectiveness of its discrepancy-guided refinement and SGT-based geometric reasoning. Handcrafted and sparse methods fail almost completely below 2 px, consistent with their limited adaptability to large modality gaps. Figure 6. Ablation study on OSdataset. We evaluate the contribution of each component in CRFT by progressively adding the flow estimation (FE), iterative discrepancy-guided optimization (IDGO), and the Iterative Loss (IL) to the XoFTR baseline. The CMR curves across varying thresholds demonstrate that each module brings a clear performance gain, while integrating all modules (X+FE+IDGO+IL) yields the most significant improvement, especially under strict pixel thresholds. 
+
+Overall Discussion. Across both datasets, CRFT con-sistently surpasses the representative baselines in AEPE, CMR stability, and robustness to multimodal distortions. Its coarse-to-fine hierarchical matching stabilizes global alignment, while the proposed discrepancy-guided atten-tion and SGT-based recurrent refinement enable precise correction of local geometric inconsistencies. These results demonstrate that CRFT provides a superior balance between global structural consistency and fine-grained local accuracy, setting a new performance level for multimodal image registration. 
+
+4.3. Ablation Study 
+
+We perform ablation experiments on the OSdataset using random translation (30 px), scaling within [0.9, 1.1], and rotation of 30 ◦. A smaller rotation is used here (vs. 
+
+90 ◦ in the main evaluation) because the XoFTR baseline fails under large rotations, making incremental analysis impossible. Starting from XoFTR (denoted as X), we progressively add the L1 loss, coarse Flow Estimation (FE), iterative discrepancy-guided optimization (IDGO), and the full iterative loss (IL). Results shown in Fig. 6 and Table 3. 
+
+(1) Baseline (X). The baseline performs poorly, with CMR falling to zero below 2 px, indicating its inability to capture reliable cross-modal fine-grained correspondences. 
+
+(2) X+L1. Adding dense L1 supervision significantly stabilizes training, reducing AEPE from 3.76 to 0.51 and improving CMR across all thresholds. 
+
+(3) X+FE+L1. Coarse-scale FE improves robustness at relaxed thresholds ( τ > 1), but performance still collapses under sub-pixel settings, showing that coarse correlation alone cannot achieve precise alignment. 
+
+(4) X+FE+IDGO+L1. Introducing IDGO yields sub-stantial accuracy gains by iteratively refining local windows via SGT and discrepancy-guided attention. CMR@0.7px increases from 73.3% to 88.9%, confirming its effectiveness for fine-scale correction. 
+
+(5) X+FE+IDGO+IL (CRFT). The full CRFT achieves the best performance, obtaining the lowest AEPE (0.40) and highest sub-pixel accuracy (93.1%@0.7px). The iterative loss further boosts the stability of late-stage refinements. 
+
+Summary. Each module contributes measurable improve-ments; IDGO is essential for sub-pixel precision, and the complete CRFT pipeline delivers the strongest accuracy and robustness.                                  
+
+> Table 3. Ablation experiments on OSdataset . AEPE and CMR at thresholds t={3,1,0.7}.
+> Method AEPE ↓CMR ↑(%)
+> @3 px @1 px @0 .7px
+> (1) X 3.76 23.6 0.0 0.0 (2) X+L1 0.51 80.9 73.3 66.7 (3) X+FE+L1 0.63 99.0 93.4 73.3 (4) X+FE+IDGO+L1 0.43 99.7 97.2 88.9 (5) X+FE+IDGO+IL (CRFT) 0.40 99.7 97.2 93.1
+
+Efficiency Analysis. CRFT contains 11.96M parameters and is trained end-to-end on an RTX 4090 GPU in approximately 4.0 hours on OSdataset and 0.65 hours on RoadScene. CRFT is efficient with 11.96M parameters and 11.47 GFLOPs, running at 0.033s per pair. The DGFO module is lightweight; each iteration adds a marginal cost of 0.93M parameters, 1.90 GFLOPs, and 0.10 ms. 
+
+# 5. Conclusion 
+
+We presented CRFT, a consistent-recurrent feature flow Transformer that unifies coarse-to-fine matching and iterative geometric refinement for image registration. CRFT learns modality-independent feature flow through multi-scale correlation and progressively refines alignment via discrepancy-guided optimization with Spatial Geometric Transform. This design enables robust correspondence estimation under severe appearance gaps, large rotations, scale changes, and affine distortions. Extensive experiments on optical-SAR and optical-infrared datasets demonstrate that CRFT achieves state-of-the-art accuracy, particularly under strict sub-pixel thresholds, highlighting its strong geometric fidelity. Beyond registration, CRFT offers a generalizable and scalable solution for multimodal spatial alignment with broad applicability across remote sensing, autonomous navigation, and medical imaging. Its modular design further ensures compatibility with future advances in large-scale vision models, geometric reasoning, and multimodal correspondence learning. Acknowledgment 
+
+This work was supported by Hebei Natural Science Foundation: F2025501003, and the Fundamental Research Funds for the Central Universities: N2523014. 
+
+# References 
+
+[1] R Archana and PS Eliahim Jeevaraj. Deep learning models for digital image processing: a review. Artificial Intelligence Review , 57(1):11, 2024. 1 [2] Lin Bie, Shouan Pan, Siqi Li, Yining Zhao, and Yue Gao. Graphi2p: Image-to-point cloud registration with exploring pattern of correspondence via graph learning. In Proceedings of the Computer Vision and Pattern Recognition Conference ,pages 22161–22171, 2025. 1 [3] Junyu Chen, Yihao Liu, Shuwen Wei, Zhangxing Bian, Shalini Subramanian, Aaron Carass, Jerry L Prince, and Yong Du. A survey on deep learning in medical image registration: New technologies, uncertainty, evaluation metrics, and beyond. Medical Image Analysis , 100:103385, 2025. 1 [4] Yuedong Chen, Haofei Xu, Chuanxia Zheng, Bohan Zhuang, Marc Pollefeys, Andreas Geiger, Tat-Jen Cham, and Jianfei Cai. Mvsplat: Efficient 3d gaussian splatting from sparse multi-view images. In European Conference on Computer Vision , pages 370–386. Springer, 2024. 1 [5] Kun Dai, Ke Wang, Tao Xie, Tao Sun, Jinhang Zhang, Qingjia Kong, Zhiqiang Jiang, Ruifeng Li, Lijun Zhao, and Mohamed Omar. Dsap: Dynamic sparse attention perception matcher for accurate local feature matching. 
+
+IEEE Transactions on Instrumentation and Measurement ,73:1–16, 2024. 1 [6] Yuxin Deng and Jiayi Ma. Redfeat: Recoupling detection and description for multimodal feature learning. IEEE Transactions on Image Processing , 32:591–602, 2022. 2 [7] Daniel DeTone, Tomasz Malisiewicz, and Andrew Rabi-novich. Superpoint: Self-supervised interest point detection and description. In Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. Workshops , pages 224–236, 2018. 2 [8] Zijian Dong, Yilei Wu, Chongyao Chen, Yingtian Zou, Yichi Zhang, and Juan Helen Zhou. Improve representation for imbalanced regression through geometric constraints. In 
+
+Proceedings of the Computer Vision and Pattern Recognition Conference , pages 5082–5091, 2025. 1 [9] Johan Edstedt, Ioannis Athanasiadis, M˚ arten Wadenb¨ ack, and Michael Felsberg. Dkm: Dense kernelized feature matching for geometry estimation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 17765–17775, 2023. 2 [10] Johan Edstedt, Qiyu Sun, Georg B¨ okman, M˚ arten Wadenb¨ ack, and Michael Felsberg. Roma: Robust dense feature matching. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,pages 19790–19800, 2024. 2 [11] Johan Edstedt, Andr´ e Mateus, and Alberto Jaenal. Colabsfm: Collaborative structure-from-motion by point cloud registra-tion. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 6573–6583, 2025. 1 [12] Yuxiang Fu, Qi Yan, Lele Wang, Ke Li, and Renjie Liao. Moflow: One-step flow matching for human trajectory forecasting via implicit maximum likelihood estimation based distillation. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 17282–17293, 2025. 2 [13] Daniel Gehrig and Davide Scaramuzza. Low-latency automotive vision with event cameras. Nature , 629(8014): 1034–1040, 2024. 1 [14] Zhaoyang Huang, Xiaoyu Shi, Chao Zhang, Qiang Wang, Ka Chun Cheung, Hongwei Qin, Jifeng Dai, and Hongsheng Li. Flowformer: A transformer architecture for optical flow. In Proc. Eur. Conf. Comput. Vis. , pages 668–685, 2022. 2 [15] Hanwen Jiang, Arjun Karpur, Bingyi Cao, Qixing Huang, and Andr´ e Araujo. Omniglue: Generalizable feature matching with foundation model guidance. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 19865–19875, 2024. 2 [16] Xingyu Jiang, Jiayi Ma, Guobao Xiao, Zhenfeng Shao, and Xiaojie Guo. A review of multimodal image matching: Methods and applications. Information Fusion , 73:22–71, 2021. 1 [17] JongMin Lee and Sungjoo Yoo. Dense-sfm: Structure from motion with dense consistent matching. In Proceedings of the Computer Vision and Pattern Recognition Conference ,pages 6404–6414, 2025. 2 [18] Vincent Leroy, Yohann Cabon, and J´ erˆ ome Revaud. Grounding image matching in 3d with mast3r. In European Conference on Computer Vision , pages 71–91. Springer, 2024. 1 [19] Hanlin Li, Wenming Weng, Yueyi Zhang, and Zhiwei Xiong. Genflow3d: Generative scene flow estimation and prediction on point cloud sequences. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 27488– 27497, 2025. 2 [20] Jiayuan Li, Qingwu Hu, and Mingyao Ai. Rift: Multi-modal image matching based on radiation-variation insensitive feature transform. IEEE Trans. Image Process. , 29:3296– 3310, 2019. 2, 6 [21] Jiayuan Li, Wangyi Xu, Pengcheng Shi, Yongjun Zhang, and Qingwu Hu. Lnift: Locally normalized image for rotation invariant multimodal feature matching. IEEE Trans. Geosci. Remote Sens. , 60:1–14, 2022. 2, 6 [22] Jiayuan Li, Pengcheng Shi, Qingwu Hu, and Yongjun Zhang. Rift2: Speeding-up rift with a new rotation-invariance technique. arXiv , 2023. 2, 6 [23] Wuxin Li, Qian Chen, Guohua Gu, and Xiubao Sui. Object matching of visible–infrared image based on attention mechanism and feature fusion. Pattern Recognition , 158: 110972, 2025. 1 [24] Xinjun Li, Wenfei Yang, Jiacheng Deng, Zhixin Cheng, Xu Zhou, and Tianzhu Zhang. Implicit correspondence learning for image-to-point cloud registration. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 16922–16931, 2025. 1 [25] Yuxuan Li, Xiang Li, Weijie Li, Qibin Hou, Li Liu, Ming-Ming Cheng, and Jian Yang. Sardet-100k: Towards open-source benchmark and toolkit for large-scale sar object detection. Advances in Neural Information Processing Systems , 37:128430–128461, 2024. 1 [26] Philipp Lindenberger, Paul-Edouard Sarlin, and Marc Pollefeys. Lightglue: Local feature matching at light speed. In Proceedings of the IEEE/CVF international conference on computer vision , pages 17627–17638, 2023. 2 [27] Xuecong Liu, Xichao Teng, Zhang Li, Qifeng Yu, and Yijie Bian. A fast algorithm for high accuracy airborne sar geolocation based on local linear approximation. IEEE Trans. Instrum. Meas. , 71:1–12, 2022. 1 [28] Xuecong Liu, Xichao Teng, Yijie Bian, Zhang Li, and Qifeng Yu. Shape-adaptive modality independent region descriptor for multimodal remote sensing image matching. 
+
+IEEE J. Sel. Top. Appl. Earth Obs. Remote Sens. , 17:18139– 18155, 2024. 2 [29] Xuecong Liu, Xichao Teng, Jing Luo, Zhang Li, Qifeng Yu, and Yijie Bian. Robust multi-sensor image matching based on normalized self-similarity region descriptor. Chin. J. Aeronaut. , 37(1):271–286, 2024. 2 [30] Xuecong Liu, Zixuan Sun, Hongwei Ding, Xin Song, Shuaiying Zhang, and Yongsheng Sun. Gaff: Global attention feature flow network for optical and sar image registration under geometric transformations. IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing , 2026. 2 [31] Shasha Mao, Shiming Lu, Zhaolong Du, Licheng Jiao, Shuiping Gou, Luntian Mou, Xuequan Lu, Lin Xiong, and Yimeng Zhang. Cross-rejective open-set sar image registration. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 23027–23036, 2025. 1[32] Henrique Morimitsu, Xiaobin Zhu, Roberto M. Cesar, Xiangyang Ji, and Xu-Cheng Yin. Dpflow: Adaptive optical flow estimation with a dual-pyramid framework. In 
+
+Proceedings of the Computer Vision and Pattern Recognition Conference , pages 17810–17820, 2025. 2 [33] Matteo Poggi and Fabio Tosi. Flowseek: Optical flow made easier with depth foundation models and motion bases. In 
+
+Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 5667–5679, 2025. 1 [34] Guilherme Potje, Felipe Cadar, Andr´ e Araujo, Renato Martins, and Erickson R Nascimento. Xfeat: Accelerated features for lightweight image matching. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 2682–2691, 2024. 2 [35] Haolin Qin, Tingfa Xu, Tianhao Li, Zhenxiang Chen, Tao Feng, and Jianan Li. Must: The first dataset and unified framework for multispectral uav single object tracking. In 
+
+Proceedings of the Computer Vision and Pattern Recognition Conference , pages 16882–16891, 2025. 1 [36] Jiangwei Ren, Xingyu Jiang, Zizhuo Li, Dingkang Liang, Xin Zhou, and Xiang Bai. Minima: Modality invariant image matching. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2025. 6 [37] Paul-Edouard Sarlin, Daniel DeTone, Tomasz Malisiewicz, and Andrew Rabinovich. Superglue: Learning feature matching with graph neural networks. In Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. , pages 4938–4947, 2020. 2 [38] Johannes Schusterbauer, Ming Gui, Frank Fundel, and Bj¨ orn Ommer. Diff2flow: Training flow matching models via diffusion model alignment. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 28347– 28357, 2025. 1 [39] Xiaoyu Shi, Zhaoyang Huang, Dasong Li, Manyuan Zhang, Ka Chun Cheung, Simon See, Hongwei Qin, Jifeng Dai, and Hongsheng Li. Flowformer++: Masked cost volume autoencoding for pretraining optical flow estimation. In 
+
+Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. , pages 1599–1610, 2023. 2 [40] Jiaming Sun, Zehong Shen, Yuang Wang, Hujun Bao, and Xiaowei Zhou. Loftr: Detector-free local feature matching with transformers. In Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. , pages 8922–8931, 2021. 2 [41] Zixuan Sun, Shuaifeng Zhi, Kai Huo, Xuecong Liu, Weidong Jiang, and Yongxiang Liu. Os 3 flow: Optical and sar image registration using symmetry-guided semi-dense optical flow. IEEE Geoscience and Remote Sensing Letters ,21:1–5, 2024. 2 [42] Zixuan Sun, Shuaifeng Zhi, Ruize Li, Jingyuan Xia, Yongxiang Liu, and Weidong Jiang. Gdros: A geometry-guided dense registration framework for optical-sar images under large geometric transformations. arXiv preprint arXiv:2511.00598 , 2025. 2, 6 [43] Zachary Teed and Jia Deng. Raft: Recurrent all-pairs field transforms for optical flow. In Proc. Eur. Conf. Comput. Vis. ,2020. 2, 6 [44] Xichao Teng, Xuecong Liu, Zhang Li, Qifeng Yu, and Yijie Bian. Omird: Orientated modality independent region descriptor for optical-to-sar image matching. IEEE Geosci. Remote Sens. Lett. , 20:1–5, 2023. 2 [45] ¨Onder Tuzcuo˘ glu, Aybora K¨ oksal, Bu˘ gra Sofu, Sinan Kalkan, and A. Aydin Alatan. Xoftr: Cross-modal feature matching transformer. In Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. , pages 4275–4286, 2024. 2, 6 [46] Haiqiao Wang, Dong Ni, and Yi Wang. Recursive deformable pyramid network for unsupervised medical image registration. IEEE Transactions on Medical Imaging ,43(6):2229–2240, 2024. 1 [47] Yifan Wang, Xingyi He, Sida Peng, Dongli Tan, and Xiaowei Zhou. Efficient loftr: Semi-dense local feature matching with sparse-like speed. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition ,pages 21666–21675, 2024. 2, 6 [48] Yanan Wang, Yaobin Tian, Jiawei Chen, Kun Xu, and Xilun Ding. A survey of visual slam in dynamic environment: The evolution from geometric to semantic approaches. IEEE Transactions on Instrumentation and Measurement , 73:1– 21, 2024. 1 [49] Sheng Wu, Yimi Wang, Xudong Liu, Yuguang Yang, Runqi Wang, Guodong Guo, David Doermann, and Baochang Zhang. Dfm: Differentiable feature matching for anomaly detection. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 15224–15233, 2025. 1[50] Zongwei Wu, Jilai Zheng, Xiangxuan Ren, Florin-Alexandru Vasluianu, Chao Ma, Danda Pani Paudel, Luc Van Gool, and Radu Timofte. Single-model and any-modality for video object tracking. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 19156– 19166, 2024. 1 [51] Yuming Xiang, Feng Wang, and Hongjian You. Os-sift: A robust sift-like algorithm for high-resolution optical-to-sar image registration in suburban areas. IEEE Trans. Geosci. Remote Sens. , 56(6):3078–3090, 2018. 2 [52] Yuming Xiang, Rongshu Tao, Feng Wang, Hongjian You, and Bing Han. Automatic registration of optical and sar images via improved phase congruency model. IEEE Journal of Selected Topics in Applied Earth Observations and Remote Sensing , 13:5847–5861, 2020. 5 [53] Yun Xiao, Chunlei Zhang, Yuan Chen, Bo Jiang, and Jin Tang. Adrnet: Affine and deformable registration networks for multimodal remote sensing images. IEEE Transactions on Geoscience and Remote Sensing , 62:1–13, 2024. 2, 6 [54] Zebin Xing, Xingyu Zhang, Yang Hu, Bo Jiang, Tong He, Qian Zhang, Xiaoxiao Long, and Wei Yin. Goalflow: Goal-driven flow matching for multimodal trajectories generation in end-to-end autonomous driving. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 1602–1611, 2025. 2 [55] Han Xu, Jiayi Ma, Junjun Jiang, Xiaojie Guo, and Haibin Ling. U2fusion: A unified unsupervised image fusion network. IEEE Transactions on Pattern Analysis and Machine Intelligence , 2020. 5 [56] Haofei Xu, Jing Zhang, Jianfei Cai, Hamid Rezatofighi, and Dacheng Tao. Gmflow: Learning optical flow via global matching. In Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. , pages 8121–8130, 2022. 2 [57] Han Xu, Jiteng Yuan, and Jiayi Ma. Murf: Mutually reinforcing multi-modal image registration and fusion. IEEE Trans. Pattern Anal. Mach. Intell. , 45(10):12148–12166, 2023. 2 [58] Haofei Xu, Jing Zhang, Jianfei Cai, Hamid Rezatofighi, Fisher Yu, Dacheng Tao, and Andreas Geiger. Unifying flow, stereo and depth estimation. IEEE Transactions on Pattern Analysis and Machine Intelligence , 2023. 2, 6 [59] Bin Yang, Jun Chen, and Mang Ye. Towards grand unified representation learning for unsupervised visible-infrared person re-identification. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 11069– 11079, 2023. 1 [60] Yibin Ye, Xichao Teng, Hongrui Yang, Shuo Chen, Yuli Sun, Yijie Bian, Tao Tan, Zhang Li, and Qifeng Yu. 3mos: a multi-source, multi-resolution, and multi-scene optical-sar dataset with insights for multi-modal image matching. Visual Intelligence , 3(1):1–27, 2025. 1 [61] Chuang Yu, Jinmiao Zhao, Yunpeng Liu, Sicheng Zhao, Yimian Dai, and Xiangyu Yue. From easy to hard: Pro-gressive active learning framework for infrared small target detection with single point supervision. In Proceedings of the IEEE/CVF International Conference on Computer Vision ,pages 2588–2598, 2025. 1 [62] Jintao Zhang, Zimin Xia, Mingyue Dong, Shuhan Shen, Linwei Yue, and Xianwei Zheng. Comatcher: Multi-view collaborative feature matching. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 21970–21980, 2025. 1 [63] Kaining Zhang, Yuxin Deng, Jiayi Ma, and Paolo Favaro. Adapting dense matching for homography estimation with grid-based acceleration. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 6294– 6303, 2025. 1 [64] Yongjun Zhang, Yongxiang Yao, Yi Wan, Weiyu Liu, Wupeng Yang, Zhi Zheng, and Rang Xiao. Histogram of the orientation of the weighted phase descriptor for multi-modal remote sensing image matching. ISPRS Journal of Photogrammetry and Remote Sensing , 196:1–15, 2023. 2, 6 [65] Ji Zhao, Banglei Guan, Zibin Liu, and Laurent Kneip. Full-dof egomotion estimation for event cameras using geometric solvers. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 11515–11524, 2025. 1 [66] Chongyue Zheng, Shanshan Li, Chengyou Wang, and Bing Zhang. Msg: Robust multimodal remote sensing image matching using side window gaussian space. IEEE Transactions on Geoscience and Remote Sensing , 2025. 2, 6 CRFT: Consistent–Recurrent Feature Flow Transformer for Cross-Modal Image Registration 
+
+# Supplementary Material 
+
+# A. Visualization of Registration Results 
+
+To provide deeper insight into the behavior of CRFT, we present additional qualitative visualizations on both OSdataset and RoadScene. These examples highlight the model’s robustness across heterogeneous modalities and challenging geometric conditions. 
+
+Flow prediction visualization. Figs. 7 and 8 show dense flow predictions on OSdataset and RoadScene. CRFT produces smooth and structurally coherent flow fields that closely follow the scene geometry. The difference maps contain only small residuals, indicating accurate displacement estimation despite strong modality-induced appearance variations. These results confirm the stability of CRFT’s iterative discrepancy-guided flow refinement mechanism across different sensing modalities. 
+
+Registration comparison across modalities. Fig. 9presents large-scale qualitative comparisons on both OS-dataset (top) and RoadScene (bottom). Classical methods such as HOWP and MSG, as well as deep learning-based approaches including GMFlow and XoFTR, exhibit reduced robustness under large rotations, scale variations, and substantial optical-SAR/infrared appearance gaps, often resulting in angular or translational misalignments. In contrast, CRFT produces registration results that align closely with the ground-truth quadrilaterals, yielding lower end-point errors and more stable geometric fidelity. 
+
+Checkerboard fusion and fine-scale alignment. To further evaluate pixel-level correspondence, Fig. 10 visu-alizes checkerboard fusion results on OSdataset (left) and RoadScene (right). CRFT achieves coherent grid alignment across both datasets without tearing or ghosting artifacts. The zoomed-in patches demonstrate precise matching of fine structural elements such as field boundaries, edges, and textures. These observations validate CRFT’s ability to recover fine-scale geometric correspondence in complex cross-modal registration scenarios. 
+
+# B. Limitations and Failure Cases. 
+
+While our method demonstrates strong robustness under standard augmentations, we acknowledge a performance drop under extreme geometric distortions. when subjected to extreme 90 ◦ rotations coupled with random scaling in the range of [0 .5, 1.5] , the AEPE on the OSdataset rises significantly to 9.75 . This reveals a vulnerability to extreme affine variations, highlighting the need for scale-and rotation-invariant representations in future research. 
+
+Figure 7. Flow prediction visualization on OSdataset. For each pair, we visualize the predicted dense flow, the ground-truth flow, and the corresponding difference map. CRFT produces smooth and geometrically consistent flow fields across optical-SAR modality gap, indicating accurate geometric correspondence and robustness to strong appearance variations 
+
+Figure 8. Flow prediction visualization on RoadScene. For each pair, we visualize the predicted dense flow, the ground-truth flow, and the corresponding difference map. CRFT maintains stable and consistent flow behavior across heterogeneous modalities, demonstrating robustness to illumination changes, noise patterns, and texture inconsistencies in complex driving environments. Figure 9. Qualitative comparison on the OSdataset (top) and RoadScene (Bottom). The red quadrilateral denotes the ground-truth alignment, while the yellow quadrilateral shows the predicted registration result. CRFT achieves more accurate and geometrically consistent registration under large geometric deformation and modality gaps compared with existing optical-SAR registration baselines. 
+
+Figure 10. Checkerboard registration on OSdataset (left) and RoadScene (right). CRFT yields geometrically coherent checkerboard fusion across both optical-SAR and optical-infrared modalities. Zoomed-in regions demonstrate precise alignment of boundaries and textures, confirming the model’s ability to recover fine-scale geometric correspondence under large cross-modal appearance differences.
