@@ -1,0 +1,286 @@
+Title: Persistence-Augmented Neural Networks
+
+URL Source: https://arxiv.org/pdf/2604.08469v1
+
+Published Time: Fri, 10 Apr 2026 01:32:08 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+# Persistence-Augmented Neural Networks 
+
+## Elena Xinyi Wang 1, Arnur Nigmetov 2, and Dmitriy Morozov 21Department of Informatics, University of Fribourg 
+
+> 2Lawrence Berkeley National Laboratory
+
+Abstract 
+
+Topological Data Analysis (TDA) provides tools to describe the shape of data, but in-tegrating topological features into deep learning pipelines remains challenging, especially when preserving local geometric structure rather than summarizing it globally. We pro-pose a persistence-based data augmentation framework that encodes local gradient flow re-gions and their hierarchical evolution using the Morse–Smale complex. This representation, compatible with both convolutional and graph neural networks, retains spatially localized topological information across multiple scales. Importantly, the augmentation procedure itself is efficient, with computational complexity O(n log n), making it practical for large datasets. We evaluate our method on histopathology image classification and 3D porous material regression, where it consistently outperforms baselines and global TDA descriptors such as persistence images and landscapes. We also show that pruning the base level of the hierarchy reduces memory usage while maintaining competitive performance. These results highlight the potential of local, structured topological augmentation for scalable and interpretable learning across data modalities. 
+
+# 1 Introduction 
+
+Topological Data Analysis (TDA) is an area of applied mathematics that combines tools from algebraic topology and computer science to describe the shape of data in succinct, informative summaries. It has achieved prominent success in a wide range of scientific domains, including neuroscience [1, 2], materials science [3], sensor networks [4], and molecular biology [5]. In recent years, TDA summaries have also proven useful as input to machine learning (ML) models [6, 7, 8, 9]. The features extracted by TDA complement the features learned by the models and thus improve their performance. Such integration typically relies on stable, vector-ized representations of persistence diagrams. In particular, the introduction of the persistence image [10] and persistence landscape [11]—two popular methods for vectorizing persistence diagrams—has spurred advances in domains such as shape classification [12] and graph learn-ing [7]. These representations offer compact, differentiable, and interpretable features that can be appended to standard learning pipelines. On the other hand, because they are derived from persistence diagrams, all such vector-ization schemes contain only coarse information: each feature is represented by two values (its birth and death). Meanwhile, the underlying topological features in the domain describe a great deal more about how the shape evolves over the lifetime of the feature. 1
+
+> arXiv:2604.08469v1 [cs.LG] 9 Apr 2026
+
+Our contribution. While persistence diagrams are among the most widely used descriptors in TDA, they provide only a global summary of topological features and discard local spa-tial structure. In contrast, Morse–Smale (MS) complexes decompose a domain into regions of uniform gradient flow that retain both topological and geometric locality. Our main contribu-tion is an efficient framework for incorporating MS-based topological information into machine learning models. We focus on two types of neural networks: Convolutional Neural Networks (CNNs) and Graph Neural Networks (GNNs). Despite their effectiveness, they do not inherently take ad-vantage of the topological structure in the data, simply because they are not aware of it. To address this limitation, we introduce a novel topological data augmentation framework that enhances neural network performance on both image and graph data. Given a grayscale image or a graph with scalar functions on its vertices, we compute its associated Morse–Smale com-plex. From this, we construct a dual representation that encodes the persistence information. This yields a hierarchical topological simplification where components with lifetimes below a threshold ε are iteratively removed. The resulting persistence-augmented representations can be stacked as multi-channel images for input to CNNs, or organized into hierarchical graphs for GNNs. We evaluate our method on two tasks: histopathology image classification and porous ma-terial regression. Our approach consistently improves performance across both modalities and network types, highlighting the utility of topological priors in deep learning. 
+
+Related Work. The Morse–Smale complex is a classical construction. In computational topol-ogy, it has been successfully applied across a broad range of scientific and engineering domains. Its effectiveness in summarizing the topological structure of scalar fields has been demonstrated in applications such as molecular modeling [13], materials science [3, 14], shape segmenta-tion [15, 16], and visualization [17, 18]. These works highlight the MS complex’s utility in capturing essential geometric and functional structures in complex data. Recent years have seen a wealth of work on incorporating topological information into machine learning pipelines. Persistence diagrams, persistence images and landscapes have been used to encode global topological summaries into fixed-length vectors suitable for processing by neural networks [6, 7]. In addition, some works have explored incorporating structural topological priors through learned topological loss functions [19], or by designing TDA-informed models [20, 21]. However, these approaches primarily emphasize global summaries and do not preserve spatial or local topological structure. Preserving local topological information remains an open challenge in TDA-ML integration. A few notable works address this by studying topology-guided optimization and thus relating the coarse topological features in persistence diagrams to the specific subsets of the data that produce them [22, 23, 24, 25]. These are driven by specific tasks, such as shape correspondence or point cloud classification, formulated as losses on persistence diagrams. Our approach is agnostic to the task and constructs a hierarchical dual graph that retains local topological regions and their adjacency across simplification levels. In contrast to prior work that relies on global summaries or custom architectures, we in-troduce a general-purpose persistence-augmented pipeline that supports both image and graph data. Our method can be integrated with standard convolutional and graph neural networks, enabling local topological information to be leveraged in classification and regression tasks across multiple domains. 2Outline. The remainder of this paper is organized as follows. In Section 2, we review relevant background on topological data analysis and persistence representations. Section 3 introduces our persistence-based data augmentation pipeline and describes how it integrates with standard neural network architectures. In Section 4, we evaluate our method on two datasets—one for image classification and one for 3D regression—using both convolutional and graph neural networks. Section 5 discusses the results, limitations, and future directions, and we conclude in Section 6. 
+
+# 2 Background 
+
+In this section, we briefly review Morse theory for smooth scalar functions and its discrete counterpart, discrete Morse theory. For full details, we refer the reader to Milnor [26] for the smooth setting and Forman [27] for the discrete case. 
+
+## 2.1 Morse Function and the Morse–Smale Complex 
+
+Let f : M → R be a smooth real-valued function defined on a compact d-dimensional manifold 
+
+M . The function f is a Morse function if all of its critical points are nondegenerate, meaning the Hessian matrix at each critical point is non-singular, and all critical values are distinct. The 
+
+index of a critical point is the number of negative eigenvalues of the Hessian. An integral line of 
+
+f is a maximal path within M whose tangent vectors are aligned with the gradient of f . These paths begin and end at critical points where the gradient vanishes. Ascending and descending manifolds are defined by grouping integral lines that originate from or terminate at the same critical point, respectively. The Morse–Smale complex Γ partitions the manifold into regions comprising integral lines with common origin and destination. In Morse–Smale functions, such lines connect critical points of differing indices. A critical point of index n is the origin of an ascending manifold of dimension d − n, and likewise, the destination of a descending manifold of dimension n. These manifolds intersect transversely. For a pair of critical points a and b such that the index of a is one less than that of b, the intersection of the ascending manifold of a and the descending manifold of b is either empty or forms a 1-dimensional manifold. The nodes and arcs of the Morse–Smale complex correspond to the critical points and these 1-dimensional intersections, respectively. Together, they form the one-skeleton—a combinatorial graph structure that captures essential features of 
+
+f . The neighborhood Na of a node a in Γ consists of all nodes connected to a via arcs in the complex. 
+
+## 2.2 Discrete Morse Theory 
+
+Discrete Morse theory [27] generalizes smooth Morse theory to combinatorial settings, enabling critical point analysis on discrete structures such as CW-complexes. In this framework, a function defined on a regular CW–complex satisfies specific conditions that allow identifying critical cells and constructing discrete gradient fields, analogous to gradient flows in the smooth case. The resulting combinatorial structures, particularly discrete Morse–Smale complexes, capture essential topological features of the domain. A brief overview is as follows: a discrete Morse function assigns scalar values to cells under constraints that limit how many faces and cofaces can have nonincreasing or nondecreasing values. Critical cells are those not paired via these constraints, and discrete vector fields are 3formed by matching adjacent cells to model flow. Paths along these vectors, known as V -paths, behave analogously to integral lines in smooth theory. We use discrete Morse–Smale complexes derived from these vector fields to obtain topologi-cal summaries of images and graphs. Full definitions, including the formal properties of discrete Morse functions, vector fields, and cancellation operations, are provided in Appendix A. 
+
+## 2.3 Persistence-based Simplification 
+
+A scalar function f can be simplified by canceling pairs of critical points, smoothing both the gradient vector field and f itself, see [13] for details. Critical point pairs are prioritized by persistence , defined as the absolute difference in f -values between the two points, so that low-persistence features are removed first. See Appendix B for definitions of persistence and persistence diagram. A cancellation is valid if the two critical points are connected by exactly one arc in the Morse–Smale (MS) complex and their indices differ by one. Configurations where multiple arcs connect two points, known as strangulations or pouches , cannot be canceled through local perturbations. Let Γ denote the MS complex of f on a closed d-manifold M . Consider an arc a connecting a lower node l of index i and an upper node u of index i + 1. Let Nl and Nu denote the sets of nodes adjacent to l and u, respectively. The combinatorial cancellation modifies Γ by connecting each critical point of index i + 1 in Nl to each critical point of index i in Nu, and then removing all arcs incident to l and u along with the nodes themselves. This combinatorial change also induces a geometric modification. The descending manifolds of u are merged with the descending manifolds of its neighboring ( i + 1)-index nodes, while the ascending manifolds of l are merged with the ascending manifolds of its neighboring i-index nodes. After cancellation, the MS complex differs only where new intersections between the updated ascending and descending manifolds occur. Although up to |Nl| × | Nu| new arcs and corresponding cells may be introduced, the total number of critical points decreases by two, and many newly introduced arcs are typically removed during subsequent cancellations, such as in saddle-extremum simplifications. 
+
+# 3 Methodology 
+
+Instead of resolving the boundaries of the cells in the Morse–Smale complex, which is the source of most complications for their algorithmic construction [13], we simply identify the source and destination of the integral lines of every vertex in our domain. For most vertices, these source and destination are minima and maxima. If a vertex falls on an integral line that goes to a saddle, we continue it from the saddle until we reach an extremum, effectively assigning every vertex a unique minimum–maximum pair. This has the effect of perturbing the function infinitesimally, breaking any degeneracies at saddle points. This perturbation offers several advantages: it allows us to construct the base MS complex directly on discrete domains such as images or graphs, without requiring higher-dimensional cells, and it reduces the complexity of the construction. Specifically, the base MS complex can be built in O(n) time, where n is the number of vertices or pixels, by tracing gradient paths from each vertex. The full k-level simplification hierarchy can then be computed in O(n log n + kn )4time: the O(n log n) term accounts for sorting the persistence pairs by their persistence values, and each of the k simplification levels requires a linear pass to update region labels. 
+
+## 3.1 Constructing the Morse–Smale Complex 
+
+We begin by constructing the Morse–Smale complex on two types of discrete domains: grayscale images and graphs with scalar functions on their vertices. In both cases, the domain is modeled as a discrete scalar field, and the MS complex captures the topological structure induced by the gradient of the scalar function. 
+
+Image data. Let I : Ω → R be a grayscale image, where Ω ⊂ Z2 denotes the pixel grid and I(p) is the intensity value at pixel p ∈ Ω. Each pixel is treated as a vertex in a regular grid graph, and we use 4-connectivity to define adjacency: two pixels p and q are neighbors if 
+
+∥p − q∥1 = 1, i.e., they share a horizontal or vertical edge. The intensity values I(p) define a discrete scalar function on this graph. Using discrete Morse theory, we construct a discrete gradient vector field by pairing each vertex with a neigh-bor of higher intensity, when possible. Vertices that are unmatched under this rule are des-ignated as critical points—corresponding to local minima or maxima depending on their local configuration. We trace discrete gradient paths (or integral lines) by following these pairings. Pixels that share a common origin (minimum) or destination (maximum) under these paths are grouped into ascending and descending manifolds, respectively. Because all points on a gradient path share their origin and destination, all such labels can be computed in linear time. The inter-sections of these manifolds partition the image into cells that define the MS complex. 
+
+Graph data. Let G = ( V, E ) be an undirected graph, and let f : V → R assign a scalar value to each vertex. We interpret this as a discrete scalar field over the graph domain. Two vertices 
+
+u, v ∈ V are adjacent if ( u, v ) ∈ E.The MS complex is constructed analogously: edges are directed from lower to higher function value to simulate gradient flow. Critical vertices are those not matched via the gradient vector field. By tracing discrete gradient paths along the edges of the graph, we obtain a segmentation of the vertex set into ascending and descending regions centered at critical points. Their intersections define the cells of the Morse–Smale complex on the graph. This construction encodes the topological structure of the input data, capturing how re-gions of the domain are organized by the flow of the underlying scalar function. It can be computed in linear time, in contrast to the common perception of topological data analysis as computationally intensive. 
+
+## 3.2 Dual Representation as a Topological Graph 
+
+To obtain a compressed and structured representation of this topological information, we con-struct a dual graph G = ( V, E). Each vertex v ∈ V corresponds to a 2-cell R(m,M ) ⊆ Ω in the MS complex, where all points in R(m,M ) flow from a common local minimum m to a common local maximum M under the discrete gradient field. That is, 
+
+V = v(m,M ) R(m,M ) = {x ∈ Ω | ϕ(x) = ( m, M )} ,
+
+5Figure 1: Dual graph and simplification where ϕ(x) denotes the ordered pair of critical points reached by following the gradient path through x.Edges in E are defined between regions that are adjacent in the MS complex. Two nodes 
+
+v(m1,M 1) and v(m2,M 2) are connected by an edge if there exists a shared boundary between their corresponding regions in the domain. Specifically, ( v1, v 2) iff ∃x1 ∈ v1, x 2 ∈ v2 and (x1, x 2) ∈ E. This dual graph encapsulates the flow-based partitioning of the domain in a condensed, combinatorial form. We define a persistence weight for each edge based on the birth-death pair corresponding to the saddle point that lies between the two adjacent regions. Specifically, let ( ci, c j ) be a persistence pair of index ( i, i + 1) whose cancellation would merge 
+
+R(m1,M 1) and R(m2,M 2); then we define: 
+
+w  v(m1,M 1), v (m2,M 2)
+
+ = |f (ci) − f (cj )|.
+
+The resulting weighted graph G provides a topologically-informed abstraction of the original data. It reduces redundancy by grouping all vertices (pixels or original graph nodes) that exhibit identical topological behavior under f , and captures adjacency and persistence structure in the edge set. This dual representation forms the basis for hierarchical simplification and serves as input to graph-based learning models. See Figure 1 for an example. 
+
+## 3.3 Hierarchical Simplification via Persistence 
+
+Topological simplification is performed by canceling critical point pairs in the MS complex based on their persistence. For a pair ( ci, c j ) consisting of a saddle and an extremum, persistence is defined as the absolute difference |f (ci) − f (cj )|. Lower-persistence pairs typically correspond to topological noise, while higher-persistence features represent more prominent structures. To build a hierarchy, we define a sequence of increasing thresholds ε1 < ε 2 < · · · < ε k, and iteratively cancel all persistence pairs with pers( ci, c j ) < ε ℓ at each level ℓ. This yields a series of simplified MS complexes Γ (ε1), Γ(ε2), . . . , Γ(εk ), and corresponding dual graphs G(ε1), G(ε2), . . . .Each graph G(εℓ) = ( Vℓ, Eℓ) encodes the MS regions as nodes and their adjacency as edges. In addition to intra-level structure, we retain inter-level edges that track the merging of regions across simplification steps. Specifically, if a region R ∈ V ℓ is merged into R′ ∈ V ℓ+1 , we add a directed edge from R to R′. This defines a hierarchical graph structure with cross-scale connectivity: 
+
+H =
+
+> k
+
+[
+
+> ℓ=1
+
+Vℓ,
+
+> k
+
+[
+
+> ℓ=1
+
+Eℓ ∪ E ℓ→ℓ+1 
+
+!
+
+.
+
+This hierarchy supports two representations for learning: 6• For CNNs , we discard the inter-level edges and encode the region structure of each sim-plification level into separate image channels. Each channel corresponds to the partition of the domain into regions in Vℓ, where each pixel is assigned a label identifying its as-sociated minimum–maximum pair ( m, M ). This representation retains local minima and maxima at different scales but does not preserve explicit topological transitions between levels. Instead they are encoded implicitly by the labels in the channels of individual pixels. 
+
+• For GNNs , we retain the full hierarchical graph H, where each node represents a re-gion from a given simplification level Vℓ, and edges include both intra-level connections (capturing spatial adjacency) and inter-level edges (capturing merge relationships across levels). This structure supports message passing both within and between scales, allow-ing the model to learn how local topological features evolve through the simplification hierarchy. See Figure 2 for an illustration. 
+
+Figure 2: Construction of the hierarchical graph input for GNNs. Each layer represents a simplification level Vℓ, where nodes correspond to Morse–Smale regions defined by ( m, M )pairs. Intra-level edges (dashed lines) connect adjacent regions, while inter-level edges (solid lines) indicate merge relationships as simplification progresses. 
+
+## 3.4 Neural Network Architectures 
+
+To evaluate the effectiveness of persistence-augmented representations, we employ standard baseline models for both image and graph data. Our focus is on isolating the contribution of the augmented topological features, so we intentionally use minimal neural architectures without architectural tuning or task-specific modifications. For image data, we use a conventional convolutional neural network (CNN) consisting of two convolutional layers with ReLU activations, followed by max pooling and two fully connected layers. Persistence-augmented inputs are provided as multi-channel images, with each channel corresponding to a different level of topological simplification. All image inputs are processed with the same CNN architecture. For graph data, we adopt a basic graph neural network (GNN) designed for graph-level prediction. Each input graph represents the dual MS complex, where 7nodes correspond to topological regions and edges encode both intra-level adjacency and inter-level hierarchical merges. The GNN consists of two message passing layers, followed by global pooling to aggregate node features into a graph-level representation, and a fully connected layer to produce the final prediction. Both CNN and GNN models are used for classification and regression tasks, depending on the dataset. Specific task setups are detailed in the experimental sections. 
+
+# 4 Experiments 
+
+We evaluate the effectiveness of persistence-based topological augmentation on both image and graph data by comparing classification and regression performance using standard CNN and GNN architectures. Our goal is to isolate the contribution of topological information in learned representations, rather than optimize architectural complexity. All experiments were conducted using consistent training setups, including five-fold cross-validation, standardized data preprocessing, and model selection via grid search over learning rate and weight decay parameters. 
+
+## 4.1 Histopathology Image Classification 
+
+The first dataset consists of 1,144 RGB histopathology images, each of resolution 1024 × 1024, categorized into three classes: non-tumorous (47%), necrotic tumor (23%), and viable tumor (30%) [28]. We convert all images to grayscale and treat them as discrete scalar fields. From each image, we compute a MS complex using 4-connectivity and construct a corresponding dual representation. To generate hierarchical representations, we define four levels of simplification based on persistence thresholds: the original unsimplified image (level 0), removal of low-persistence features representing approximately 30% and 65% of components (levels 1 and 2), and an extreme simplification retaining only the global minimum and maximum (level 3). See Figure 3 for a visualization of these levels of simplification with respect to minimum and maximum. These simplification levels serve as input for two neural architectures. For CNNs, the scalar values of each simplification level are encoded as separate image channels, yielding a multi-channel input. For GNNs, we construct a dual graph at each level and connect consecutive levels through inter-layer edges that record which regions were merged during simplification. In addition to this persistence-augmented pipeline, we evaluate two topological descriptors commonly used in prior TDA literature: the persistence image and the persistence landscape .Both summarize a persistence diagram as a vectorized feature map that can be appended to standard model inputs. The persistence image discretizes the birth-death plane into a fixed-resolution grid, applying a Gaussian kernel centered on each persistence point. The persistence landscape encodes a collection of piecewise-linear functions representing feature lifetimes across scales. A detailed description of both constructions is provided in Appendix C. These representations provide compact global summaries of the topological structure but discard spatial localization and adjacency relationships. In contrast, our persistence-augmented input preserves local topological information through region-based grouping and hierarchical adjacency across simplification levels. This enables our models to learn not only what features are persistent, but also where and how they interact within the data domain. We evaluate six model configurations: (1) CNN on original grayscale images, (2) CNN with 8Minimum Simplification Maximum Simplification Figure 3: Visualization of different levels of simplification multi-channel persistence augmentation, (3) CNN with appended persistence image, (4) CNN with appended persistence landscape, (5) GNN trained on the full hierarchical dual graph, and (6) GNN trained on the same graph with the base level removed. All models are trained using cross-entropy loss, and performance is measured using accuracy and Cohen’s kappa. 
+
+## 4.2 3D Porous Material Regression 
+
+The second dataset consists of 1,700 volumetric samples generated via the Puma and Palabos simulation tools. Each sample is a 256 3 binary volume, where 0 represents air and 1 represents solid material. The dataset includes associated porosity values and permeability estimates, with higher porosity typically correlating with higher permeability. Each sample is labeled with a single target value. We compute a distance transform for each voxel to its nearest obstacle cell and treat this distance field as the input scalar function for persistence computation. We then extract the MS complex and construct the corresponding dual graph. As in the image domain, we generate four simplification levels using increasing persistence thresholds and encode the results as either multi-channel volumetric inputs (for CNNs) or hierarchical graphs (for GNNs). To increase task difficulty and better assess the quality of the topological signal, we restrict our evaluation to samples with fixed porosity levels of 0.6, 0.7, and 0.75. When the task is performed on 735 sampled data points across the full range of porosity values using the original voxel input, we achieve a high test R2 score of 0.96, and a further improvement to 0.99 with persistence-augmented input. Therefore, we focus on the more challenging and restricted setting of single-porosity subsets. For each porosity level, we randomly sample 245 data points from the available samples at that porosity and train separate models using mean squared error loss. 9Performance is evaluated using mean and standard deviation of test R2 scores across five-fold cross-validation. 
+
+## 4.3 Results 
+
+Table 1 presents classification results on the histopathology dataset. CNNs trained with persistence-augmented multi-channel inputs significantly outperform the baseline, and further gains are observed when using GNNs trained on the full hierarchical dual graph. While persis-tence images and landscapes yield modest improvements over the original input, their perfor-mance remains consistently lower than that of our structured topological augmentation. Regression results for the porous material dataset are shown in Table 2. Across all porosity levels, persistence-augmented inputs improve model generalization compared to the baseline, with particularly large gains in the more challenging settings at porosity levels 0.6 and 0.7. GNNs that incorporate hierarchical structure achieve the highest performance overall, reinforc-ing the benefit of preserving topological relationships across simplification levels. Table 1: Classification performance on the histopathology dataset. Results are reported as mean accuracy / Cohen’s kappa with standard deviation over 5-fold cross-validation. 
+
+Model Accuracy (%) Cohen’s Kappa (%) 
+
+CNN (Original) 84.0 ± 0.7 71.0 ± 0.6 CNN + Persistence Image 88.5 ± 0.5 80.2 ± 0.8 CNN + Persistence Landscape 89.1 ± 0.6 82.3 ± 0.9 CNN + Persistence Augmentation 95.0 ± 0.5 91.0 ± 0.6 GNN (Full Hierarchy) 92.0 ± 1.1 89.0 ± 1.0 GNN (w/o Base Layer) 90.5 ± 1.0 86.5 ± 1.3 Table 2: Regression performance on the porous material dataset. Results are reported as mean test R2 scores ± standard deviation over 5-fold cross-validation. 
+
+Model Porosity 0.6 Porosity 0.7 Porosity 0.75 
+
+CNN (Original) 0.74 ± 0.04 0.28 ± 0.06 0.88 ± 0.02 CNN + Persistence Image 0.80 ± 0.03 0.53 ± 0.05 0.90 ± 0.01 CNN + Persistence Landscape 0.81 ± 0.03 0.56 ± 0.04 0.91 ± 0.01 CNN + Persistence Augmentation 0.88 ± 0.02 0.72 ± 0.03 0.95 ± 0.01 GNN (Full Hierarchy) 0.86 ± 0.03 0.76 ± 0.04 0.92 ± 0.01 GNN (w/o Base Layer) 0.84 ± 0.03 0.70 ± 0.04 0.91 ± 0.01 
+
+# 5 Discussion 
+
+Our experiments demonstrate that persistence-based topological augmentation substantially improves performance across both classification and regression tasks, outperforming models trained on original data as well as those enhanced with global persistence summaries such as persistence images and landscapes. These results validate the utility of fine-grained topological 10 information, particularly when encoded through region-based representations and hierarchical simplification. Unlike prior work relying on global persistence features, our framework is compatible with both convolutional and graph-based architectures. This flexibility enables application to a wider variety of data types, including domains where graph structures arise naturally or must be constructed from spatial adjacency. Notably, persistence image and landscape descriptors are fundamentally limited to vector representations and are therefore not easily applicable in graph-based learning frameworks. In contrast, our method enables learning over rich, struc-tured topological and geometric signals using GNNs. Regression results also show that GNNs outperform CNNs primarily at porosity level 0.7. While the performance gap is more modest at other porosity levels, it is important to note that we have used simple, baseline architectures for both CNNs and GNNs to ensure fair comparisons. We did not explore architectural tuning or deeper models, particularly for the GNN setting. With more sophisticated designs, such as attention mechanisms, residual connections, or advanced pooling strategies, we expect GNNs could better exploit the hierarchical graph structure and achieve further improvements. We note that the persistence-augmented CNN receives a multi-channel input encoding mul-tiple simplification levels, which provides the network with strictly more information than the single-channel baseline. Part of the performance gain may therefore reflect the richer input representation rather than the topological signal alone. However, the fact that our structured augmentation substantially outperforms persistence images and landscapes—which also aug-ment the baseline with additional topological information, albeit in a different form—suggests that the spatially localized, hierarchical encoding is a key factor in the improvement. One practical challenge of our approach lies in the increased cost of training with augmented data. The augmented inputs lead to increased memory usage and longer training times, particu-larly in the GNN setting where message passing must account for hierarchical interconnections. Optimizing training efficiency, for example, through data compression, batching strategies, or sparsity-aware architectures, presents an important direction for future work. Additionally, while our current pipeline uses fixed simplification thresholds across all datasets, this uniform strategy may not capture dataset-specific variations in scale or complexity. Apromising extension would be to make the simplification process differentiable and data-adaptive, allowing the model to learn which topological features are most relevant during training. Finally, our current GNN pipeline focuses on graph-level prediction tasks, but the structured nature of the hierarchical graph also lends itself to finer-grained analysis. Given appropriate supervision, this framework could be extended to node-level or edge-level tasks such as re-gion labeling, boundary detection, or spatial segmentation, which would enable more localized topological inference and broader application to scientific and biomedical domains. While removing the base level from the hierarchical GNN representation results in a modest drop in predictive performance, we observe a corresponding reduction in memory usage and computational cost. For large-scale datasets or applications where resources are limited, this trade-off may be worthwhile, particularly when top-level structural features dominate the task. This suggests that the granularity of the hierarchy can be tuned to balance performance and efficiency depending on application needs. Overall, this work highlights the potential of local, structured topological representations to enhance neural learning across modalities. Our results suggest that topology-aware representa-tions can offer a generalizable approach to improving model performance on complex scientific and geometric data. 11 6 Conclusion 
+
+We introduced a persistence-based data augmentation framework that integrates topological summaries with standard neural network architectures for both image and graph data. By leveraging the Morse–Smale complex and its hierarchical simplification, our method encodes local topological structure in a form compatible with convolutional and graph neural networks. Through experiments on both classification and regression tasks, we demonstrated that this augmentation strategy consistently improves performance over original inputs and global topo-logical descriptors such as persistence images and landscapes. Our framework offers a general and scalable approach to incorporating topological priors in deep learning, without requiring task-specific architectures or losses. Future work will focus on optimizing computational efficiency, extending the method to node- and edge-level prediction tasks, and exploring learnable topological simplification as part of the training pipeline. Overall, our results highlight the value of local topological information for improving model performance and interpretability across domains. 
+
+# References 
+
+[1] Chad Giusti, Eva Pastalkova, Carina Curto, and Vladimir Itskov. Clique topology reveals intrinsic geometric structure in neural correlations. Proceedings of the National Academy of Sciences , 112(44):13455–13460, 2015. [2] Michael W. Reimann, Max Nolte, Martina Scolamiero, Katharine Turner, Rodrigo Perin, Giuseppe Chindemi, Pawel Dlotko, Ran Levi, Kathryn Hess, and Henry Markram. Cliques of neurons bound into cavities provide a missing link between structure and function. 
+
+Frontiers in Computational Neuroscience , Volume 11 - 2017, 2017. [3] Yasuaki Hiraoka, Takenobu Nakamura, Akihiko Hirata, Emerson G. Escolar, Kaname Mat-sue, and Yasumasa Nishiura. Hierarchical structures of amorphous solids characterized by persistent homology. Proceedings of the National Academy of Sciences , 113(26):7035–7040, 2016. [4] Vin de Silva and Robert Ghrist. Coverage in sensor networks via persistent homology. In 
+
+Algebraic & Geometric Topology , volume 7, pages 339 – 358. MSP, 2007. [5] Kelin Xia and Guo-Wei Wei. Persistent homology analysis of protein structure, flexibility, and folding. Int. J. Numer. Method. Biomed. Eng. , 30(8):814–844, August 2014. [6] Christoph Hofer, Roland Kwitt, Marc Niethammer, and Andreas Uhl. Deep learning with topological signatures. In Proceedings of the 31st International Conference on Neural Information Processing Systems , NIPS’17, page 1633–1643, Red Hook, NY, USA, 2017. Curran Associates Inc. [7] Mathieu Carri` ere, Frederic Chazal, Yuichi Ike, Theo Lacombe, Martin Royer, and Yuhei Umeda. Perslay: A neural network layer for persistence diagrams and new graph topo-logical signatures. In Silvia Chiappa and Roberto Calandra, editors, Proceedings of the Twenty Third International Conference on Artificial Intelligence and Statistics , volume 108 of Proceedings of Machine Learning Research , pages 2786–2796. PMLR, 26–28 Aug 2020. 12 [8] Aditi S. Krishnapriyan, Maciej Haranczyk, and Dmitriy Morozov. Topological descriptors help predict guest adsorption in nanoporous materials. The Journal of Physical Chemistry C, 124(17):9360–9368, Apr 2020. [9] Felix Hensel, Michael Moor, and Bastian Rieck. A survey of topological machine learning methods. Frontiers in Artificial Intelligence , Volume 4 - 2021, 2021. [10] Henry Adams, Tegan Emerson, Michael Kirby, Rachel Neville, Chris Peterson, Patrick Shipman, Sofya Chepushtanova, Eric Hanson, Francis Motta, and Lori Ziegelmeier. Per-sistence images: A stable vector representation of persistent homology. Journal of Machine Learning Research , 18(8):1–35, 2017. [11] Peter Bubenik. Statistical topological data analysis using persistence landscapes. Journal of Machine Learning Research , 16(3):77–102, 2015. [12] Mathieu Carri` ere, Steve Y. Oudot, and Maks Ovsjanikov. Stable topological signatures for points on 3d shapes. Computer Graphics Forum , 34(5):1–12, August 2015. [13] Herbert Edelsbrunner, John Harer, and Afra Zomorodian. Hierarchical morse complexes for piecewise linear 2-manifolds. Proceedings of the Seventeenth Annual Symposium on Computational Geometry , page 70–79, 2001. [14] Chen Cai, Nikolaos Vlassis, Lucas Magee, Ran Ma, Zeyu Xiong, Bahador Bahmani, Teng-Fong Wong, Yusu Wang, and WaiChing Sun. Equivariant geometric learning for digital rock physics: Estimating formation factor and effective permeability tensors from morse graph. International Journal for Multiscale Computational Engineering , 21(5):1–24, 2023. [15] Xiaoling Hu, Yusu Wang, Fuxin Li, Dimitris Samaras, and Chao Chen. Topology-aware segmentation using discrete morse theory. In 9th International Conference on Learning Representations, ICLR 2021, Virtual Event, Austria, May 3-7, 2021 . OpenReview.net, 2021. [16] Leila De Floriani, Ulderico Fugacci, Federico Iuricich, and Paola Magillo. Morse complexes for shape segmentation and homological analysis: discrete models and algorithms. Comput. Graph. Forum , 34(2):761–785, May 2015. [17] A. Gyulassy and Vijay Natarajan. Topology-based simplification for feature extraction from 3d scalar fields. In VIS 05. IEEE Visualization, 2005. , pages 535–542, 2005. [18] Attila Gyulassy, Natallia Kotava, Mark Kim, Charles D. Hansen, Hans Hagen, and Valerio Pascucci. Direct feature visualization using morse-smale complexes. IEEE Transactions on Visualization and Computer Graphics , 18(9):1549–1562, September 2012. [19] Michael Moor, Max Horn, Bastian Rieck, and Karsten Borgwardt. Topological autoen-coders. In Hal Daum´ e III and Aarti Singh, editors, Proceedings of the 37th International Conference on Machine Learning , volume 119 of Proceedings of Machine Learning Re-search , pages 7045–7054. PMLR, 13–18 Jul 2020. [20] Jose A. Perea, Elizabeth Munch, and Firas A. Khasawneh. Approximating continuous functions on persistence diagrams using template functions. Foundations of Computational Mathematics , jun 2022. 13 [21] Bastian Rieck, Matteo Togninalli, Christian Bock, Michael Moor, Max Horn, Thomas Gumbsch, and Karsten Borgwardt. Neural persistence: A complexity measure for deep neural networks using algebraic topology. In International Conference on Learning Repre-sentations (ICLR) , 2019. [22] Rickard Br¨ uel Gabrielsson, Bradley J. Nelson, Anjan Dwaraknath, Primoz Skraba, Leonidas J. Guibas, and Gunnar Carlsson. A topology layer for machine learning. In Silvia Chiappa and Roberto Calandra, editors, Proceedings of the Twenty Third Interna-tional Conference on Artificial Intelligence and Statistics , volume 108 of Proceedings of Machine Learning Research , pages 1553–1563. PMLR, 26–28 Aug 2020. [23] Adrien Poulenard, Primoz Skraba, and Maks Ovsjanikov. Topological function optimiza-tion for continuous shape matching. In Computer Graphics Forum , volume 37, pages 13–25, 2018. [24] Arnur Nigmetov and Dmitriy Morozov. Topological optimization with big steps. Discrete & Computational Geometry , 72(1):310–344, Jul 2024. [25] Mathieu Carri` ere, Marc Theveneau, and Th´ eo Lacombe. Diffeomorphic interpolation for ef-ficient persistence-based topological optimization. In A. Globerson, L. Mackey, D. Belgrave, A. Fan, U. Paquet, J. Tomczak, and C. Zhang, editors, Advances in Neural Information Processing Systems , volume 37, pages 27274–27294. Curran Associates, Inc., 2024. [26] John Milnor. Morse theory , volume 51 of Annals of Mathematics Studies . Princeton University Press, 1963. [27] Robin Forman. Morse theory for cell complexes. Advances in Mathematics , 134(1):90–145, 1998. [28] Patrick Leavey, Anita Sengupta, Dinesh Rakheja, Ovidiu Daescu, Harish Babu Arunacha-lam, and Rashika Mishra. Osteosarcoma ut southwestern/ut dallas for viable and necrotic tumor assessment. https://doi.org/10.7937/TCIA.2019.BVHJHDAS , 2019. The Cancer Imaging Archive. [29] David Cohen-Steiner, Herbert Edelsbrunner, and John Harer. Stability of persistence diagrams. Discrete & Computational Geometry , 37(1):103–120, Jan 2007. 
+
+# A Discrete Morse Theory Formal Definitions 
+
+We summarize the main notions of discrete Morse theory following Forman [27]. A d-cell is a topological space homeomorphic to a d-dimensional closed ball Bd = {x ∈ Rd :
+
+∥x∥ ≤ 1}. Given two cells σ and τ , we write σ < τ to indicate that σ is a face of τ , meaning the vertices of σ form a proper subset of those of τ . If dim( σ) = dim( τ ) − 1, then σ is called a 
+
+facet of τ , and τ a cofacet of σ.A finite CW-complex X is a topological space built from a finite sequence 
+
+∅ = X−1 ⊂ X0 ⊂ X1 ⊂ · · · ⊂ Xn = X, 
+
+where Xi is formed by attaching i-cells to Xi−1. A regular CW-complex imposes additional structure: for any two incident cells ρ and τ with dim( τ ) = dim( ρ) − 2, there exist exactly 14 two distinct intermediate cells σ1 and σ2 such that τ < σ j < ρ for j = 1 , 2. This ensures well-behaved attachments, forcing boundaries of cells to be homeomorphic to spheres of appropriate dimension. Let K denote a regular CW-complex approximating the manifold M . A function f : K → R
+
+assigning real values to each cell of K is called a discrete Morse function if for every d-cell σ ∈ K,
+
+|{ τ (d+1) > σ | f (τ ) ≤ f (σ)}| ≤ 1 and |{ γ(d−1) < σ | f (γ) ≥ f (σ)}| ≤ 1.
+
+A cell σ is critical if both counts are zero: no lower-dimensional faces have greater function values and no higher-dimensional cofaces have smaller function values. In the discrete setting, a vector is an ordered pair ( σ(d), τ (d+1) ) where σ is a facet of τ ,intuitively indicating a direction of flow from σ to τ . A discrete vector field V is a collection of such pairs where each cell appears in at most one pair. Given a discrete vector field V on K, a V -path is a sequence 
+
+σ(d)0 , τ (d+1) 0 , σ (d)1 , τ (d+1) 1 , . . . , τ (d+1)  
+
+> r
+
+, σ (d)
+
+> r+1
+
+such that for each i, ( σi, τ i) ∈ V and τi > σ i+1 ̸ = σi. A V -path represents the discrete analogue of an integral curve in a smooth vector field. A discrete vector field is called a discrete gradient field if it contains no nontrivial closed 
+
+V -paths (i.e., no cycles). In our framework, we use V -paths to construct the Morse–Smale complex associated with a discrete gradient field. 
+
+# B Topological Notions 
+
+Persistent homology is a method from computational topology that captures the multiscale topological structure of data. It does so by analyzing how homological features (e.g., connected components, loops, voids) appear and disappear across a filtration of simplicial complexes. 
+
+## B.1 Simplicial Complexes and Filtrations 
+
+Let X be a finite metric space or a scalar function f : X → R. A simplicial complex K is a finite set of simplices (vertices, edges, triangles, etc.) that is closed under inclusion of faces. Given a function f , we define a sublevel set filtration by taking 
+
+Kt := {σ ∈ K | max  
+
+> v∈σ
+
+f (v) ≤ t}, t ∈ R.
+
+This produces a nested sequence of simplicial complexes 
+
+Kt0 ⊆ Kt1 ⊆ · · · ⊆ Ktn ,
+
+called a filtration , where t0 < t 1 < · · · < t n are critical values of f .Alternatively, in the metric setting, one may use a Vietoris–Rips or ˇCech filtration. For a point cloud X ⊂ Rd, the Vietoris–Rips complex VR ϵ(X) is defined as: VR ϵ(X) := {σ ⊆ X | diam( σ) ≤ ϵ},
+
+and we build a filtration VR ϵ0 (X) ⊆ VR ϵ1 (X) ⊆ · · · as ϵ increases. 15 B.2 Homology and Persistence Modules 
+
+For a fixed dimension k ≥ 0, let Hk(Kt; F) denote the k-th simplicial homology group with coefficients in a field F (e.g., F = Z2). The inclusion maps Kti ,→ Ktj for ti ≤ tj induce homomorphisms between homology groups: 
+
+ϕki,j : Hk(Kti ; F) → Hk(Ktj ; F).
+
+The sequence {Hk(Kt; F)} together with the maps ϕki,j forms a persistence module . The struc-ture theorem for persistence modules over a field (when the filtration is finite) states that such a module decomposes uniquely into interval modules: 
+
+Hk(Kt) ∼= M
+
+> i
+
+I[bi,d i),
+
+where each interval [ bi, d i) represents a k-dimensional homological feature that appears (is ”born”) at time bi and disappears (is ”killed”) at time di.
+
+## B.3 Persistence Diagrams 
+
+The multiset Dk = {(bi, d i)} ⊂ R2 of birth-death pairs corresponding to this decomposition is called the persistence diagram in dimension k. It encodes the lifetime of each topological feature across the filtration. Points near the diagonal represent short-lived (low-persistence) features, often considered noise, while points far from the diagonal correspond to prominent topological structures. Formally, persistence diagrams lie in the space of finite multisets of ∆ + := {(x, y ) ∈ R2 |
+
+x < y } ∪ { diagonal }, where the diagonal accounts for zero-persistence features. 
+
+## B.4 Stability and Distance Metrics 
+
+Persistence diagrams are stable under perturbations of the input. For example, given two filtrations K and K′ with corresponding persistence diagrams D, D′, the bottleneck distance is defined as: 
+
+dB (D, D′) := inf  
+
+> γ
+
+sup 
+
+> x∈D
+
+∥x − γ(x)∥∞,
+
+where γ ranges over all bijections between D and D′ ∪ ∆. The bottleneck and Wasserstein distances are commonly used to compare persistence diagrams and are known to satisfy stability theorems under tame filtrations [29]. 
+
+# C Persistence Diagram Representations 
+
+Persistence diagrams are commonly used to summarize the birth and death of topological fea-tures in data. To integrate these summaries into standard machine learning pipelines, various vectorization techniques have been proposed. In our experiments, we compare two such de-scriptors: the persistence image and the persistence landscape .16 C.1 Persistence Images 
+
+A persistence diagram D = {(bi, d i)}ni=1 consists of birth-death pairs where bi and di denote the birth and death times of topological features. To construct a persistence image [10], we first map each point to the birth-persistence plane: (bi, p i) where pi = di − bi.
+
+Each point is then convolved with a Gaussian kernel: 
+
+ρi(x, y ) = exp 
+
+
+
+− (x − bi)2 + ( y − pi)2
+
+2σ2
+
+
+
+,
+
+and the resulting functions are summed to form a continuous surface. This surface is discretized over a grid of fixed resolution, yielding a persistence image P ∈ Rm×m. In practice, the image is flattened and concatenated to the model input or appended to the feature representation. Persistence images are stable with respect to small perturbations of the diagram and allow for direct integration into neural networks as fixed-length vectors. 
+
+## C.2 Persistence Landscapes 
+
+The persistence landscape [11] transforms a persistence diagram into a sequence of piecewise-linear functions. For each birth-death pair ( bi, d i), we define a tent-shaped function: 
+
+λi(t) = max {0, min( t − bi, d i − t)},
+
+which peaks at ( bi + di)/2 with height ( di − bi)/2. The k-th landscape function λk(t) is then defined pointwise as the k-th largest value among all λi(t) at each t:
+
+λk(t) = k-th largest of {λ1(t), λ 2(t), . . . , λ n(t)}.
+
+In practice, a finite number K of landscape layers are retained and discretized over a uniform grid of T evaluation points. This results in a matrix Λ ∈ RK×T , which is flattened and appended to the model input. Persistence landscapes preserve stability and provide interpretable information about fea-ture prominence across scales. They also permit functional operations such as integration and averaging. 
+
+## C.3 Implementation Details 
+
+For both persistence images and landscapes, we use the Giotto-TDA Python library. Persistence diagrams are computed from the sublevel set filtration of the grayscale image or distance-transformed 3D volume. For persistence images, we use a 20 × 20 grid and σ = 0 .1; for landscapes, we retain the top K = 5 landscape layers and evaluate over T = 100 grid points. 17

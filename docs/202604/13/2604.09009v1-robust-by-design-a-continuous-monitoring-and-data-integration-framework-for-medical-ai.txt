@@ -1,0 +1,122 @@
+Title: Robust by Design: A Continuous Monitoring and Data Integration Framework for Medical AI
+
+URL Source: https://arxiv.org/pdf/2604.09009v1
+
+Published Time: Mon, 13 Apr 2026 00:32:07 GMT
+
+Number of Pages: 4
+
+Markdown Content:
+## ROBUST BY DESIGN: A CONTINUOUS MONITORING AND DATA INTEGRATION FRAMEWORK FOR MEDICAL AI 
+
+## Mohammad Daouk 1, Jan Ulrich Becker 2, Neeraja Kambham 3,Anthony Chang 4, Chandra Mohan 1,∗, Hien Nguyen 1,∗
+
+> 1
+
+## University of Houston, Houston, TX, USA 
+
+> 2
+
+## University Hospital Cologne, Cologne, Germany 
+
+> 3
+
+## Stanford University, Stanford, CA, USA 
+
+> 4
+
+## The University of Chicago, Chicago, IL, USA 
+
+ABSTRACT 
+
+Adaptive medical AI models often face performance drops in dynamic clinical environments due to data drift . We propose an autonomous continuous monitoring and data integration framework that maintains robust performance over time. Focusing on glomerular pathology image classi-fication (proliferative vs. non-proliferative lupus nephritis), our three-stage method uses multi-metric feature analysis and Monte Carlo dropout-based uncertainty gating to decide when to retrain on new data. Only images statistically similar to the training distribution (via Euclidean, cosine, Mahalanobis metrics) and with low predictive entropy are integrated. The model is then incrementally retrained with these images under strict performance safeguards (no metric degradation ¿5%). In experiments with a ResNet18 ensemble on a multi-center dataset, the framework prevents performance degradation :new images were added without significant change in AUC ( 0.92) or accuracy ( 89%). This approach addresses data shift and avoids catastrophic forgetting, enabling sustained learning in medical imaging AI. 
+
+Index Terms — Continuous monitoring, Data drift, Con-tinual learning, Uncertainty quantification, Monte Carlo dropout, Medical AI, Renal Pathology, Glomerular classifi-cation, Lupus nephritis, Model robustness, Digital pathology. 
+
+1. INTRODUCTION 
+
+Glomerular classification in lupus nephritis is critical for treatment decisions [1]. However, manual nephropathology review is labor-intensive and prone to inter-observer variabil-ity [2], and AI models can suffer performance degradation as incoming data deviate from the training distribution. Dis-tribution shifts in patient populations or imaging protocols often cause static models to become unreliable [3]. Contin-ual learning paradigms have been proposed to update models continuously, but they risk catastrophic forgetting of prior 
+
+> *These authors jointly supervised this work.
+
+knowledge [4]. There is a need for strategies that allow models to learn from new data while preserving existing performance. We address this by combining drift detection, uncertainty-based filtering, and safe model updates in one framework. 
+
+2. LITERATURE REVIEW 
+
+Continual or lifelong learning methods aim to handle evolv-ing data without retraining from scratch. Surveys highlight catastrophic forgetting and data drift as key challenges in medical AI [5]. Techniques like Elastic Weight Consol-idation add regularization to mitigate forgetting [4], and other strategies use memory replay or dynamic architec-tures. Uncertainty quantification has emerged as vital for model safety: Monte Carlo dropout and related techniques provide confidence estimates to flag unreliable predictions [6]. Lambert et al. (2024) review how uncertainty methods improve trust in deep learning models for medical imaging [6]. These measures can assist in detecting data drift : for instance, Choi et al. (2023) showed that explainability and uncertainty tools help identify when a radiology AI encoun-ters distribution shifts [3]. In general AI literature, concept drift research emphasizes monitoring data statistics to trigger model updates [7]. Our work builds on these insights by using feature-space distances and predictive uncertainty to guide continuous learning. 
+
+3. METHODOLOGY 3.1. Dataset and Problem Setup 
+
+We address a binary classification task: distinguishing pro-liferative versus non-proliferative changes in glomerular im-ages from lupus nephritis per ISN/RPS criteria. “Prolifera-tive” requires any of the following: endocapillary hypercel-lularity, membranoproliferative pattern, fibrinoid necrosis, or crescents; “non-proliferative” is the absence of all four. 
+
+> arXiv:2604.09009v1 [cs.CV] 10 Apr 2026
+
+The dataset includes 9,674 expert-labeled glomerular patches from University Hospital Cologne (Germany), Stan-ford University, and the University of Chicago, spanning brightfield stains (hematoxylin, PAS, trichrome, silver) across ISN/RPS Classes I–V (including III+V and IV+V). Glomeruli were extracted from whole-slide images (WSIs) using nephropathol-ogist (JUB) annotations and labeled by the same expert on Labelbox. Class counts: 7,767 non-proliferative and 1,907 proliferative. 
+
+3.2. Data Partitioning and Cross-Validation 
+
+We split data into: Base (85%) for stratified 5-fold cross-validation; New Images (1.5%) for adaptive monitoring; and Test (13.5%) held out for benchmarking and uncertainty thresholding. Stratification preserves class balance per fold. Each fold yields a model checkpoint for ensemble-based uncertainty estimation. 
+
+3.3. Model Training 
+
+We use ResNet-18 with Monte Carlo (MC) dropout. All mod-els are initialized from ImageNet weights. Training details: Cross-Entropy loss; Adam optimizer with cosine warm-up; up to 50 epochs; early stopping (patience = 7, by validation loss); and AMP mixed precision. The best per-fold check-points (by validation performance) are retained for feature ex-traction and uncertainty estimation. 
+
+3.4. Continuous Monitoring and Data Integration 
+
+3.4.1. Stage 1 (Feature Analysis & Thresholds). 
+
+Using each fold’s checkpoint, we extract D-dimensional penultimate-layer features for all base images, compute mean, variance/standard deviation, and covariance, and derive per-image Euclidean distance, cosine similarity, and Mahalanobis distance to the mean. Percentile gates are set as: 80th for Eu-clidean and Mahalanobis; 20th for cosine (higher is better). 
+
+3.4.2. Stage 2 (Uncertainty & Eligibility). 
+
+Test set: For each image, 50 MC-dropout passes across 5 folds yield 250 predictions. We average softmax probabilities and compute predictive entropy. Relating entropy to correct-ness produces an ROC curve; maximizing Youden’s index yields an entropy threshold (e.g., ∼ 0.247 ) ( Figure 1 ). New images: We apply the same 250-pass procedure, average features/probabilities, and require (i) distances/similarities within Stage-1 gates and (ii) entropy below the test-derived threshold. Only aligned, confident images are eligible. 
+
+3.4.3. Stage 3 (Update & Monitor). 
+
+Eligible images with their predicted labels are added to the training folds. We retrain with identical hyperparameters and 
+
+Fig. 1 : Stage-2: Distribution of misclassified instances across different uncertainty values based on the ResNet18 model outputs on the test dataset. This figure highlights the rela-tionship between predictive uncertainty and misclassification frequency, supporting the determination of an optimal uncer-tainty threshold. re-evaluate on the unchanged test set. Integration is accepted only if performance metrics (AUC, accuracy, sensitivity, specificity) do not degrade by more than 5% and the entropy threshold does not increase by more than 5%, computed as: Percent Change = (X − Y )
+
+Y × 100 
+
+4. EXPERIMENTS AND RESULTS 4.1. Stage 1 
+
+Per-fold feature summaries (mean, variance/std, covariance) define the reference distribution. The 80th/20th percentile gates operationalize in-distribution versus outlier detection (Figure 2, Table 1 ). 
+
+Fig. 2 : Stage-1: Distributions of Euclidean distance, cosine similarity, and Mahalanobis distance for new image (Image ID: 6) computed over 250 Monte Carlo dropout iterations, overlaid with the corresponding base dataset distributions. This visualization demonstrates how the new image aligns with the base dataset according to the selected metrics. 
+
+4.2. Stage 2 Test set: 250 predictions per image yield an ROC AUC of 
+
+∼ 0.84 for predicting misclassification via entropy, sup-porting an entropy threshold near 0.247. New images: 
+
+Five illustrative cases satisfied all Stage-1 gates (low Eu-clidean/Mahalanobis, high cosine) and had mean entropies below ∼ 0.247 (Table 1 ). Table 1 : Distance and similarity metrics along with predictive uncertainty for five new images computed using an ensemble of 5-fold ResNet18 models. For each image, the Euclidean distance, cosine similarity, Mahalanobis distance, and predictive entropy are reported alongside their respective thresholds—80th percentile for Euclidean and Mahalanobis distances, 20th percentile for cosine similarity (both computed on the base dataset), and the predictive entropy threshold computed on the test dataset.                                            
+
+> Image ID Euclidean Distance Euclidean Threshold Cosine Similarity Cosine Threshold Mahalanobis Distance Mahalanobis Threshold Predictive Uncertainty Predictive Uncertainty Threshold
+> 613.29 18.47 0.8345 0.7476 18.81 25.10 0.00911 0.24682 28 11.93 18.47 0.8371 0.7476 18.08 25.10 0.00197 0.24682 57 11.99 18.47 0.8688 0.7476 17.36 25.10 0.11661 0.24682 62 11.15 18.47 0.8454 0.7476 16.11 25.10 0.01079 0.24682 70 13.99 18.47 0.8114 0.7476 21.19 25.10 0.00711 0.24682
+
+Table 2 : Performance metrics of the ensemble of 5-fold ResNet18 models (AUC for distinguishing proliferative from non-proliferative Glomerulonephritis) on the test dataset after retraining with the new image. Metrics such as AUC, accuracy, sensitivity, specificity, and the uncertainty threshold are reported along with the percent change from the original results, demon-strating that retraining results in negligible changes in model performance and uncertainty.                                                   
+
+> Image ID Retrained AUC AUC % Change Retrained Accuracy Accuracy % Change Retrained Sensitivity Sensitivity % Change Retrained Specificity Specificity % Change Uncertainty Threshold Uncrtnty % Change
+> 692.01% 0.20% 88.98% -0.09% 59.92% -4.35% 96.10% 0.60% 0.032 -87.08% 28 92.06% 0.26% 89.14% 0.09% 61.09% -2.48% 96.00% 0.50% 0.165 -33.10% 57 92.03% 0.23% 88.98% -0.09% 60.70% -3.11% 95.90% 0.40% 0.200 -18.78% 62 92.06% 0.26% 89.06% 0.00% 60.70% -3.11% 96.00% 0.50% 0.237 -3.94% 70 91.99% 0.19% 89.06% 0.00% 60.31% -3.73% 96.10% 0.60% 0.024 -90.14%
+
+4.3. Stage 3 
+
+Retraining each fold with a single eligible image produced negligible changes on the test set. AUC, accuracy, sensitivity, and specificity remained within ±5% , and the entropy thresh-old did not rise, indicating stable integration ( Figure 3, Table 2). 
+
+Fig. 3 : Stage-3: Comparison of the ensemble of 5-fold ResNet18 models AUC for distinguishing proliferative from non-proliferative Glomerulonephritis on the test dataset be-fore and after retraining with the new image. The negligible difference in the AUC values confirms that the retraining pro-cess maintains model performance while integrating the new image. 
+
+5. DISCUSSION 
+
+We introduced a continuous learning framework that enables a medical imaging AI model to adapt to new data while preserving its existing accuracy. The combination of feature-space monitoring and uncertainty gating effectively addresses model degradation due to data drift. In our experiments, this approach prevented the kind of performance decay that can occur when a model encounters unseen variations. Unlike naive retraining (which could lead to catastrophic forgetting [4]), our method ensured that each update was validated to be safe. This highlights a practical path toward deploying AI systems that evolve over time in a controlled manner. For instance, online model calibration methods have been explored to adjust predictions under shifting data [8], but our approach provides a different safeguard by using criteria to decide when retraining is necessary. There are some lim-itations. Our threshold-based inclusion may reject unusual cases that fall outside the current distribution; incorporating a mechanism to eventually learn from such outliers (perhaps with human review) could further improve the system. We also added one image at a time – future work should in-vestigate batch updates and dynamic threshold adjustment as data accumulates. Nonetheless, our findings suggest that rigorous continuous monitoring can make AI models more resilient. By selectively learning from new in-distribution, high-confidence examples, the model avoided both drift and forgetting, a key improvement over prior continuous learning approaches. We believe this strategy can generalize to other medical imaging tasks and help close the gap between static model performance in research and the need for ongoing reliability in clinical practice. 
+
+6. COMPLIANCE WITH ETHICAL STANDARDS 
+
+This study was performed in line with the principles of the Declaration of Helsinki. The retrospective use of de-identified human subject data was approved by the institutional review boards (IRBs) of the University of Houston, University Hos-pital Cologne, Stanford University, and the University of Chicago. All data were anonymized prior to analysis. 
+
+7. ACKNOWLEDGMENTS 
+
+This work was supported by NIH R01DK134055. Dr. Mohan has consultancy or sponsored research agree-ments or equity with Boehringer-Ingelheim, Progentec Diag-nostics, and Voyager Therapeutics. Dr. Mohan is on the Med-ical Scientific Advisory Council of the Lupus Foundation of America. Dr. Mohan’s research is supported by NIH RO1 AR074096 and DK134055. 
+
+8. REFERENCES 
+
+[1] Eun Sook Kang, Sung Min Ahn, Jung Soo Oh, Yong Gon Kim, Chang-Keun Lee, Byung Yoo, and Se-ung Hong, “Long-term renal outcomes of patients with non-proliferative lupus nephritis,” Korean Journal of In-ternal Medicine , vol. 38, no. 5, pp. 769–776, Sept. 2023, Epub 2023 Aug 7. [2] A. K. Shashiprakash, B. Lutnick, B. Ginley, D. Govind, N. Lucarelli, K. Y. Jen, A. Z. Rosenberg, A. Uris-man, V. Walavalkar, J. E. Zuckerman, M. Delsante, M. L. Z. Bissonnette, J. E. Tomaszewski, D. Manthey, and P. Sarder, “A distributed system improves inter-observer and ai concordance in annotating interstitial fi-brosis and tubular atrophy,” in Proceedings of SPIE – The International Society for Optical Engineering , Feb. 2021, vol. 11603, p. 116030V, Epub 2021 Feb 15. [3] Y. Choi, W. Yu, M. B. Nagarajan, P. Teng, J. G. Goldin, S. S. Raman, D. R. Enzmann, G. H. J. Kim, and M. S. Brown, “Translating ai to clinical practice: Overcoming data shift with explainability,” Radiographics , vol. 43, no. 5, pp. e220105, May 2023. [4] J. Kirkpatrick, R. Pascanu, N. Rabinowitz, J. Veness, G. Desjardins, A. A. Rusu, K. Milan, J. Quan, T. Ra-malho, A. Grabska-Barwinska, D. Hassabis, C. Clopath, D. Kumaran, and R. Hadsell, “Overcoming catastrophic forgetting in neural networks,” Proceedings of the Na-tional Academy of Sciences of the United States of Amer-ica , vol. 114, no. 13, pp. 3521–3526, Mar. 2017, Epub 2017 Mar 14. [5] Mohammad Areeb Qazi, Anees Ur Rehman Hashmi, Santosh Sanjeev, Ibrahim Almakky, Numan Saeed, Camila Gonzalez, and Mohammad Yaqub, “Continual learning in medical imaging: A survey and practical anal-ysis,” 2024. [6] Benjamin Lambert, Florence Forbes, Alan Tucholka, Senan Doyle, Harmonie Dehaene, and Michel Dojat, “Trustworthy clinical ai solutions: a unified review of un-certainty quantification in deep learning models for med-ical image analysis,” 2022. [7] Jie Lu, Anjin Liu, Fan Dong, Feng Gu, Jo˜ ao Gama, and Guangquan Zhang, “Learning under concept drift: A re-view,” IEEE Transactions on Knowledge and Data Engi-neering , vol. 31, no. 12, pp. 2346–2363, 2019. [8] J. Feng, A. Gossmann, B. Sahiner, and R. Pirracchio, “Bayesian logistic regression for online recalibration and revision of risk prediction models with performance guar-antees,” Journal of the American Medical Informatics Association , vol. 29, no. 5, pp. 841–852, Apr. 2022.
