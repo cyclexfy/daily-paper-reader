@@ -1,0 +1,951 @@
+Title: Hidden in the Multiplicative Interaction: Uncovering Fragility in Multimodal Contrastive Learning
+
+URL Source: https://arxiv.org/pdf/2604.05834v1
+
+Published Time: Wed, 08 Apr 2026 01:02:49 GMT
+
+Number of Pages: 21
+
+Markdown Content:
+# Hidden in the Multiplicative Interaction: Uncovering Fragility in Multimodal Contrastive Learning 
+
+Tillmann Rheude 1,3 †
+
+, Stefan Hegselmann 1, Roland Eils 1,2,3 †
+
+, Benjamin Wild 1†
+
+> 1
+
+Berlin Institute of Health, Charité - Universitätsmedizin Berlin, 2Intelligent Medicine Institute, Fudan University, 3Department of Mathematics and Computer Science, Freie Universität Berlin 
+
+> †
+
+{benjamin.wild, roland.eils, tillmann.rheude}@bih-charite.de 
+
+## Abstract 
+
+Multimodal contrastive learning is increasingly enriched by going beyond image-text pairs. Among recent contrastive methods, Symile is a strong approach for this challenge because its multiplicative interaction objective captures higher-order cross-modal dependence. Yet, we find that Symile treats all modalities symmetri-cally and does not explicitly model reliability differences, a limitation that becomes especially present in trimodal multiplicative interactions. In practice, modalities beyond image-text pairs can be misaligned, weakly informative, or missing, and treating them uniformly can silently degrade performance. This fragility can be 
+
+hidden in the multiplicative interaction : Symile may outperform pairwise CLIP even if a single unreliable modality silently corrupts the product terms. We propose Gated Symile, a contrastive gating mechanism that adapts modality contributions on an attention-based, per-candidate basis. The gate suppresses unreliable inputs by interpolating embeddings toward learnable neutral directions and incorporating an explicit NULL option when reliable cross-modal alignment is unlikely. Across a controlled synthetic benchmark that uncovers this fragility and three real-world tri-modal datasets for which such failures could be masked by averages, Gated Symile achieves higher top-1 retrieval accuracy than well-tuned Symile and CLIP models. More broadly, our results highlight gating as a step toward robust multimodal contrastive learning under imperfect and more than two modalities. 1
+
+## 1 Introduction 
+
+Contrastive learning has become a standard tool for bimodal learning exemplified with image-text pairs [ 46 ]. However, real-world problems require reasoning over more than two modalities, where evidence may be complementary, conflicting, weakly informative, or missing. Beyond image-text pairs, the medical domain often combines more modalities, including imaging, time series, laboratory measurements, proteomics, metabolomics, electrocardiograms (ECGs), and electronic health records (EHRs) [ 1, 4 , 49 , 51 , 55 , 58 ]. Extending bimodal settings, cross-modal alignment does not have to hold universally , i.e., relevant information may appear in only a subset of modalities, while others provide weak or conflicting evidence. Therefore, contrastive learning methods that capture higher-order cross-modal structure are essential to exploit complementary evidence and contradictory signals. Recent work extends bimodal contrastive learning with objectives that model higher-order interactions across modalities rather than only pairwise alignment. Symile [ 51 ] is a prominent example: its multilinear inner product (MIP) directly couples all modalities, however, we find that a single modality can distort the joint score through the product terms. Bimodal CLIP also relies on multiplicative 
+
+> 1The code repository is available on GitHub. Preprint.
+> arXiv:2604.05834v1 [cs.LG] 7 Apr 2026
+
+Figure 1: Illustrative overview of Gated Symile exemplified with the trimodal Symile-MIMIC [ 51 ] dataset. (a) During training, modality-specific encoders Em create embeddings em and our proposed gate G produces target - conditioned weights over the available modalities and a NULL option 
+
+N (heatmap). The gate forms gated embeddings by weighting and interpolating each modality embedding with a modality -specific neutral direction nm (coordinate system), enabling the model to suppress unreliable modalities while preserving useful signal. The gated embeddings are then combined via Symile’s MIP (cube with positives on the diagonal). (b) At inference, the gating is applied to compute candidate scores for zero-shot prediction. feature interactions through the dot product, but trimodality makes failures more pronounced because each modality enters as a factor in a higher-order joint score. As a consequence, unreliable modalities distort the training signal, effectively treating all modalities symmetrically and not explicitly model reliability differences. This may appear surprising, as one might expect the modality encoders to learn to reduce such effects implicitly. A central challenge is therefore to leverage higher-order interactions when modalities are informative, while remaining robust when other modalities are not informative. In this paper, we show an under-emphasized aspect of Symile’s objective , i.e., all modalities influ-ence the multilinear interaction equally. As a result, misaligned or weakly informative modalities can propagate through the MIP and distort the joint score. This assumption may be subtle and 
+
+hidden in the multiplicative interaction because strong average performance can mask architectural fragility: models may still fail silently on subsets of samples where one modality is misaligned or uninformative. Motivated by this observation, we introduce a gating mechanism that allows Symile to adaptively modulate modality contributions. The resulting method, Gated Symile (Figure 1), computes candidate-conditioned gate weights to attenuate unreliable modalities. Further, the gate interpolates the embeddings toward learnable neutral directions, with an explicit NULL option when the target embedding indicates that reliable cross-modal alignment is unlikely. We find that this preserves Symile’s ability to leverage higher-order interactions while adding robustness to modalities which may not be needed for alignment. We evaluate Gated Symile on a synthetic benchmark with controlled misalignment and on three real-world trimodal datasets. Across these settings, gating yields consistent gains in top-1 retrieval accuracy over well-tuned Symile and CLIP models under multi-seed evaluation with cross-validated, re-tuned hyperparameters. The synthetic benchmark uncovers the failure mode of the MIP explicitly by isolating how misalignment in a single non-target modality can distort the contrastive score and degrade learning. Beyond retrieval performance, we analyze gate weights, embedding geometries, scaling behavior, and efficiency. Taken together, our approach improves multimodal contrastive learning with modality-specific reliability and higher-order interactions. Our contributions are therefore: • We identify and derive that Symile’s MIP implicitly treats all modalities symmetrically, which can hide fragility , e.g., under modality misalignment. • We propose Gated Symile, an attention-based per-candidate gating mechanism that down-weights unreliable modalities by interpolating embeddings toward learnable neutral direc-tions and incorporating a NULL option for uninformative evidence. • We show on a synthetic benchmark with controlled misalignment and three real-world trimodal datasets that Gated Symile improves top-1 retrieval accuracy. We provide analyses to interpret gate behavior supporting our theoretical and empirical results. 22 Related Work 
+
+Contrastive Learning Contrastive learning has become a dominant paradigm for representation learning by optimizing objectives that pull together embeddings of related views while pushing unrelated ones apart. In the unimodal setting, this is typically done with instance discrimination under data augmentations , e.g., with the InfoNCE objective [ 44 ], SimCLR [ 6 ], and MoCo [ 27 ]. Bimodal contrastive learning extends this to cross-modal representations, in which pairs are positives across modalities exemplified by image-text pairs in CLIP [ 46 ] and follow-ups such as SigLIP [ 65 ]. Moving beyond two modalities, multimodal methods can benefit from objectives enforcing agreement across all modalities , e.g., by matching relational structure across modalities in addition to instance-level pairing. This is exemplified with methods like AudioClip [ 24 ], ImageBind [ 20 ], GRAM [ 11 ], TRIANGLE [ 10 ], CoMM [ 17 ], and Symile [ 51 ]. However, robustness to modality quality and their interactions which naturally arise in trimodal settings is an open challenge: when one modality is weakly informative or even noisy, naive alignment objectives might not be optimal. 
+
+Gating in Machine Learning Gating modulates information flow by selecting, reweighting, or routing representations. Early and widely used examples include gates in recurrent networks such as LSTMs [ 31 ] and GRUs [ 8], which regulate how much past state is retained and how new evidence is incorporated. Beyond sequence models, gating is often used for conditional feature modulation. For example, FiLM [ 45 ] applies conditioning-dependent scaling and shifting to intermediate activations. In Transformer architectures [ 60 ], attention weights similarly implement soft selection by controlling how strongly tokens contribute to representations. Channel- and spatial-wise gating has also been used for feature recalibration, most prominently in Squeeze-and-Excitation blocks [ 32 ], which learn per-channel importance weights to emphasize informative feature maps. Further, routing-based gates enable conditional computation by selecting subsets of expert modules, as in mixture-of-experts models (MoEs) [ 33 , 36 ] and product-of-experts models (PoEs) [ 30 ]. Most closely related to our setting is contrastive gating such as CDG [ 43 ], CR-MoE [ 35 ], and MCMR [ 41 ] to suppress less informative inputs [ 23 , 61 , 62 , 68 ]. However, unlike prior contrastive gating formulations, we study gating in the presence of multiplicative interaction critics and beyond bimodal datasets. In this setting, a single unreliable modality can distort both training and inference. 
+
+Selective Prediction and Explicit Abstention Early work formalized selective classification , i.e., 
+
+prediction with a reject option, as a principled risk-coverage trade-off [ 9, 18 ], and later instantiated it for deep models such as SelectiveNet [ 19 ]. Further related work include open set recognition , i.e., 
+
+prediction with unknowns at test time [ 52 ], exemplified by architectures such as OpenMax [ 3]. This intersects with Out-of-Distribution (OOD) detection, where abstention is often implemented through an explicit NULL pathway or confidence-based rejection [ 29 , 39 ]. In contrast, in our work, selection and rejection is represented more locally , e.g., as a probability mass and without supervision. This connects to the broader idea of learned neutral placeholders with special tokens such as CLS , MASK ,and REG in BERT [ 14 ] and Vision Transformers (ViTs) [ 12 , 16 ], as well as learned prototypes such as discrete latents in VQ-VAEs [59] and class prototypes in prototypical networks [54]. 
+
+Explainability and Its Limits In unimodal deep learning settings, explainability methods are well established with , e.g., visual explanation methods based on CAMs and their extensions [ 47 , 67 ]. Beyond such modality-specific techniques, model-agnostic attribution methods can be used in both unimodal and multimodal contexts, including SHAP [ 42 ] and Integrated Gradients [ 57 ]. With the rise of Transformer architectures, attention maps are also frequently treated as explanatory signals [ 60 ]. However, a growing body of work highlights that popular explainability approaches can be misleading [ 2, 34 , 37 , 38 , 40 , 50 , 53 ]. While the interpretability of such signals is debated [ 64 ], our results align with the broader takeaway: gate weights and embedding directions are not reliably interpretable on their own, but can still provide coarse, aggregate trends that are useful for analysis. 
+
+## 3 Method 
+
+We first review Symile’s optimization of a lower bound on total correlation (TC), and highlight a failure mode of the MIP. We then present our attention-based gating mechanism, including neutral directions and a NULL option and connect it to the previous derivation by explaining how gating attenuates the score distortion inherent to multiplicative interactions. 33.1 Sensitivity of the MIP 
+
+Symile maximizes a multi-sample contrastive lower bound on TC, a measure of higher-order depen-dence among modalities [51, 63]. For M modalities, 
+
+TC( x(1) , . . . , x (M )) = DKL p(x(1) , . . . , x (M ))
+
+> M
+
+Y
+
+> m=1
+
+p(x(m))
+
+!
+
+, (1) which is zero under mutual independence. Symile uses an InfoNCE-style objective to distinguish a positive tuple from negatives formed by sampling from the product of marginals, yielding a tractable lower bound on TC with a learned critic g. To instantiate g, Symile replaces CLIP’s dot product with the multilinear inner product (MIP). Let em = Em(x(m)) ∈ RD denote the embedding of modality 
+
+m with encoders Em and the shared embedding dimension D, then the MIP is 
+
+⟨e1, . . . , e M ⟩ =
+
+> D
+
+X
+
+> j=1
+> M
+
+Y
+
+> m=1
+
+em,j , (2) and Symile scores tuples via g(x(1) , . . . , x (M )) = ⟨e1, . . . , e M ⟩/τ MIP with temperature τMIP [51 ]. For example, for a retrieval task with target modality t, misalignment in a single non-target modality can strongly distort scores because the MIP multiplies contributions across modalities: 
+
+g(x(1) , . . . , x (M )) = 1
+
+τMIP 
+
+> D
+
+X
+
+> j=1
+
+et,j MY
+
+> m=1
+> m̸=t
+
+em,j 
+
+!
+
+. (3) If a non-target modality c̸ = t is perturbed , i.e., its embedding changes as ˆec = ec + δ, then 
+
+gcorr − gclean = 1
+
+τMIP 
+
+> D
+
+X
+
+> j=1
+
+et,j 
+
+> M
+
+Y
+
+> m=1
+> m̸=t,c
+
+em,j 
+
+!
+
+δj . (4) Thus the score error is linear in δ but scaled by the product of the remaining modalities. This perturbation does not assume any specific source and can reflect , e.g., misalignment to the ideal cross-modal tuple. Writing Equation (4) as an inner product and applying Cauchy-Schwarz (Section A) yields 
+
+|gcorr − gclean | ≤ 1
+
+τMIP 
+
+∥δ∥2 et ⊙
+
+> M
+
+Y
+
+> m=1
+> m̸=t,c
+
+em 2
+
+, (5) highlighting how multiplicative interactions can cause perturbations from a single unreliable modality to scale with the remaining embeddings during both training and inference. 
+
+3.2 Gate Mechanism 
+
+Figure 2: Attention-based gate with sigmoid, NULL option, and neutral directions. We introduce a gate that modulates the contribution of each modality in Symile’s MIP. For a retrieval direction, the gate outputs gated embeddings eG 
+
+> 1
+
+, . . . , e GM by using gate weights 
+
+{wt→m}Mm=1 that control how strongly each modality should influence the MIP score. Intuitively, the gate aims to suppress non-target modalities whose current sample provides unreliable evidence for the retrieval target , e.g., because the modality is mis-aligned, weakly informative, or missing. The gate is summarized in Algorithm 1, illustrated in Figure 2, and explained in the follow-ing paragraphs. Embeddings em, projected queries/keys, neutral prototypes nm, and gated embeddings eGm are ℓ2-normalized. 
+
+Attention-Based, Candidate-Dependent Gating The pro-posed gate is candidate-dependent , i.e., the weights are computed conditioned on the target embedding et and the candidate’s non-target embeddings {em}m̸=t. Concretely, we form a query vector 4from the target modality, qt = Qt(et), and key vectors for each non-target modality, km = Km(em)
+
+for m̸ = t. Due to ℓ2-normalization, the relevance score is a scaled cosine similarity where τgate > 0
+
+controls the sharpness of the gating decisions 2,
+
+st→m = ⟨qt, k m⟩/τ gate , (6) and is mapped to a gate weight with an activation function σ, e.g., a sigmoid or softmax function, 
+
+wt→m = σ(st→m) ∈ (0 , 1) . (7) We set wt→t = 1 so that the target modality is never suppressed. To disentangle the effect of candidate dependence from the act of reweighting itself, we also consider an ablation with a lightweight baseline that replaces attention scores with a learned static matrix of gating logits (per target-modality pair). 
+
+Algorithm 1 Attention-based gate with sigmoid, 
+
+NULL option, and neutral directions. 
+
+Require: e1, . . . , e M ∈ RD , target index t
+
+Require: Qt : RD → Rdk , Km : RD → Rdk
+
+Require: ht : RD → R and ut ∈ R
+
+Require: n1, . . . , n M ∈ RD
+
+Require: τgate > 0, α ∈ [0 , 1]  
+
+> 1:
+
+qt ← norm( Qt(et))  
+
+> 2:
+
+for m ∈ { 1, . . . , M } \ { t} do  
+
+> 3:
+
+km ← norm( Km(em))  
+
+> 4:
+
+st→m ← ⟨ qt, k m⟩/τ gate  
+
+> 5:
+
+wt→m ← σ(st→m) ▷ sigmoid weight  
+
+> 6:
+
+end for  
+
+> 7:
+
+zt ← (ht(et) + ut)/τ gate ▷ NULL logit  
+
+> 8:
+
+pnull ← σ(zt) 
+
+> 9:
+
+for m̸ = t do  
+
+> 10:
+
+wt→m ← (1 − pnull ) wt→m 
+
+> 11:
+
+end for  
+
+> 12:
+
+wt→t ← 1 
+
+> 13:
+
+for m = 1 to M do  
+
+> 14:
+
+˜em ← wt→m em
+
++(1 − wt→m)nm ▷ neutral  
+
+> 15:
+
+eGm ← (1 − α) em + α ˜em ▷ gate strength  
+
+> 16:
+
+eGm ← norm( eGm) ▷ renorm  
+
+> 17:
+
+end for  
+
+> 18:
+
+return gated embeddings eG 
+
+> 1
+
+, . . . , e GM
+
+Neutral Directions We introduce a per-modality neutral prototype nm ∈ RD to make downweighting explicit in representation space. For each modality, we interpolate between the current embedding and its neutral direction: 
+
+˜em = wt→m em + (1 − wt→m) nm. (8) Thus, a small wt→m pushes a modality m
+
+toward a learned neutral embedding, making its contribution to the MIP closer to a non-informative baseline rather than injecting noise. 
+
+Gate Strength and Renormalization We in-clude a strength parameter α ∈ [0 , 1] that blends between the identity and the fully gated embed-ding analogous to a residual connection [26]: 
+
+eGm = (1 − α) em + α ˜em. (9) We ℓ2-normalize eGm after gating to keep magni-tudes comparable across settings and prevent the gate from trivially changing the score via norm scaling. This makes the gate primarily affect the direction of each modality embedding. 
+
+Null Option Since our main gate uses inde-pendent sigmoid activations (and softmax as an ablation), multiple non-target modalities can be downweighted simultaneously. We additionally include a NULL option in the gating mechanism (not an additional embedding in the MIP) to allow the model to down-weight cross-modal evidence when the target embedding indicates that reliable cross-modal alignment is unlikely. Concretely, we compute a NULL logit with a projection head ht
+
+and a bias ut as 
+
+zt =  ht(et) + ut
+
+/τ gate , (10) and set pnull = σ(zt) for the sigmoid case, which multiplicatively shrinks all non-target weights by 
+
+(1 − pnull ). Under the softmax gate, NULL is implemented as an additional logit category appended to the softmax; under the sigmoid gate, it is implemented as an independent probability shared across non-target modalities. In both cases, NULL affects the MIP only indirectly by suppressing non-target contributions, thereby pushing the corresponding gated embeddings toward their neutral directions. 
+
+## 4 Experiments 
+
+We evaluate Gated Symile on a synthetic benchmark and three real-world medical datasets. We first describe the datasets and evaluation protocol, including cross-validation and retrieval metrics. We then compare retrieval performances to baselines, followed by analyses of alignment robustness, gate weight values and embedding geometries, ablations of gate components, and scaling bevavior.         
+
+> 2We use the same temperature τgate for the modality relevance scores and the NULL gating logit, so that τgate jointly controls the sharpness of both gating weights and the NULL decision.
+
+5Table 1: Overview of benchmark datasets for our evaluation. For the Synthetic-XNOR dataset, 
+
+u, v ∈ { 0, 1}K with K = 16 , and uv = XNOR (u, v ) applied element-wise.                          
+
+> Dataset # Samples Modalities Retrieval
+> Synthetic-XNOR 30 ,000 A= [ u, v, uv ],B= [ u, 1, u ],C= [1 , v, v ]A
+> Symile-MIMIC [51] 10 ,345 Chest X-ray, Laboratory, ECG Chest X-ray UKB [56] 37 ,888 Proteomics, Metabolomics, EHR Proteomics UKB-Union [56] 486 ,400 Proteomics, Metabolomics, EHR Proteomics
+
+4.1 Datasets 
+
+Analogous to Saporta et al. [51] , we focus on trimodal retrieval settings ( M = 3 ), since multiplicative interaction objectives become increasingly challenging to optimize and scale as M grows. The datasets used in this work are summarized in Table 1. 
+
+Synthetic-XNOR We introduce a synthetic trimodal benchmark to study retrieval under controlled modality misalignment with a known ground-truth interaction. The core idea is to study retrieval when one of the two non-target modalities is partly misleading. Although one non-target modality remains informative, Symile’s MIP entangles both non-target signals, so a misaligned modality can dominate the interaction and prevent learning from the clean evidence. We sample binary vectors 
+
+u, v ∈ { 0, 1}K (K = 16 ) with i.i.d. Bernoulli(0 .5) bits and define the interaction uv := XNOR (u, v ).The target modality encodes A = [ u, v, uv ], while the non-target modalities encode complementary signals B = [ u, 1, u ] and C = [1 , v, v ], so that for clean samples B ⊙ C = [ u, v, uv ] matches the signal coordinates of A. Each bit is embedded as {− s, +s} on signal coordinates ( s = 1 ) and remaining dimensions contain Gaussian distractors ( σ = 3 ), producing a low signal-to-noise setting. With probability p, we replace the signal coordinates of exactly one modality in {B, C } with those from another randomly sampled example to simulate in-distribution misalignment. This swapping preserves marginal statistics but breaks cross-modal alignment, preventing trivial noise detection. 
+
+Symile-MIMIC The Symile-MIMIC dataset [ 51 ] comprises 10 , 345 samples collected from pa-tients in an intensive care unit. The dataset contains three modalities: laboratory tests, chest X-ray images, and ECGs. The retrieval task is set up for the most expensive modality , i.e., the chest X-rays (Figure 1b), so the evaluation can be interpreted as zero-shot prediction or prioritization of an expen-sive target modality from cheaper complementary evidence. For the whole setup including the actual implementation of the retrieval task and the encoders, we follow Saporta et al. [51] . Therefore, we use a Multi-Layer Perceptron (MLP) for laboratory tests, while for the vision and ECGs modalities, ResNets [26] are used. 
+
+UK Biobank (UKB) The UK Biobank (UKB) [ 56 ] is a large prospective biomedical cohort including a diverse range of modalities and possible tasks. We focus on proteomics, metabolomics and EHRs for the modalities and on a retrieval task analogous to the other datasets. We choose proteomics to be retrieved, since this represents one of the most expensive modalities for acquisition [ 49 ]. We use both the intersection of modalities , i.e., no missing modalities and 37 , 888 samples, and the union of modalities , i.e., missing modalities and 486 , 400 samples. Missing modalities are implemented analogous to Saporta et al. [51] by appending a binary mask indicating missingness to the input modality. We use normalized, raw modality inputs except for the EHR modality. Here, we use QWEN [66] embeddings [28]. Modalities are encoded with MLPs. 
+
+4.2 Experimental Setup 
+
+We follow best practices for multimodal evaluation [ 48 ] with consistent optimizer choices, coherent initializations, and hyperparameter tuning (Section D). For non-synthetic datasets (UKB and Symile-MIMIC), we use 5-fold cross-validation and report mean ± standard error (SE) over three random seeds per fold. For Synthetic-XNOR , we use a fixed train/validation/test split. 
+
+Optimization We use ScheduleFree-AdamW [ 13 ] and apply gradient clipping to stabilize training. We use a learned logit scale s = exp( γ) to control the softmax temperature, and for Symile-style objectives we additionally apply a fixed (d, M )-dependent normalization to the MIP before the 6Table 2: Comparison of Gated Symile with well-tuned state-of-the-art (sota) baselines on synthetic (p = 1 .0) and real-world datasets. Values represent top-1 accuracy of the retrieval task (mean ± SE).                                                                
+
+> Method Synthetic-XNOR ↑Symile-Mimic ↑UKB ↑UKB-Union ↑
+> CLIP [46] 0.2434 0.4103 ±0.016 0.4089 ±0.015 0.0516 ±0.007
+> TRIANGLE [10] 0.6093 0.0948 ±0.003 0.5651 ±0.012 0.3597 ±0.020
+> GRAM [11] 0.4864 0.2516 ±0.015 0.1848 ±0.007 0.2008 ±0.014
+> Symile [51] 0.3310 0.4556 ±0.006 0.6570 ±0.012 0.5278 ±0.009
+> Gated Symile 0.8733 0.4670 ±0.005 0.6819 ±0.010 0.6000 ±0.007 0.0 0.2 0.4 0.6 0.8 1.0
+
+p                       
+
+> 20
+> 30
+> 40
+> 50
+> 60
+> 70
+> 80
+> 90
+> 100
+> Accuracy
+> GatedSymile
+> Symile
+> CLIP −0.6 −0.4 −0.2 0.0 0.2 0.4 0.6
+> wA→B−wA→C∣Bcorr wA→B−wA→C∣Ccorr
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+
+p
+
+Figure 3: Analyses of well-tuned models on the Synthetic-XNOR dataset with probability p of one non-target modality being misaligned. (Left) Decreasing retrieval accuracy under increasing misalignment. Symile only slightly outperforms CLIP along different values for p. Our proposed gate preserves the accuracy of Symile as it prevents a collapse of the MIP, demonstrating that the gate improves robustness to misaligned modalities. (Right) Gate selects the reliable modality under misalignment. With two separate bar charts (toward left and right), we report the mean gate weight difference 
+
+wA→B − wA→C . When B is misaligned (left), the difference becomes negative , i.e., the gate assigns a smaller weight to B than to C (pushing B toward its neutral prototype). When C is misaligned (right), the difference becomes positive , i.e., the opposite behavior. learned scaling to stabilize training across embedding dimensions and numbers of modalities. We optimize gate parameters jointly with the encoders but use a separate learning rate multiplier for the gate module parameters. Details in Section C. 
+
+Sampling Symile supports two negative-sampling regimes: n (shuffled negatives) and n2 (all pairings) [ 51 ]. In both cases, negatives are defined over combinations of the non-target modalities: in 
+
+n-sampling, these are mismatched batch tuples, whereas in n2-sampling all pairwise combinations are considered. However, we introduce candidate-dependent scoring and gating to Symile. To make this tractable, we use a pair formulation in which the target modality alone is varied while the remaining modalities are held fixed. For each query, this yields a candidate set consisting of the true positive and K uniformly sampled negatives from the target modality ( K = 128 ). Therefore, the gate is recomputed only for sampled target candidates rather than for all candidate combinations. Methods are, where applicable, trained and evaluated with the same pair -based approximation to ensure a fair comparison. We report n-sampling results separately in the ablation study. Based on preliminary scaling experiments, we fix the batch size to 128 (Synthetic-XNOR ), 280 (Symile-MIMIC, analogous to Saporta et al. [51]), and 512 (UKB). 
+
+4.3 Performance on Synthetic & Real-World Datasets 
+
+For comparing final performances, we report top-1 retrieval accuracy on the Synthetic-XNOR (Figure 3) and the three real-world trimodal datasets (Table 2). Across all datasets, Gated Symile yields the best performance compared to Symile and CLIP. The largest gain occurs on Synthetic-XNOR (from 
+
+0.3310 to 0.8733 ), consistent with the benchmark design in which exactly one non-target modality is intermittently misleading and the gate can suppress the unreliable factor before the multiplicative interaction. On the UKB, Gated Symile improves over Symile from 0.6570 ±0.012 to 0.6819 ±0.010 ,indicating that modulating modality contributions remains beneficial in a heterogeneous real-world 7Table 3: Diagnostic analysis of mean gate statistics with respect to non-target modalities (B / C for Synthetic-XNOR , laboratory / ECG for Symile-MIMIC, and metabolomics / EHR for the UKB). The subscript t denotes the retrieval target modality (chest X-ray for Symile-MIMIC, proteomics for UKB and UKB-Union, A for Synthetic-XNOR ) while m denotes the remaining non-target modalities.                                             
+
+> Dataset wt→mcos( eGm, e m)cos( eGm, n m)
+> Synthetic-XNOR 0.3428 /0.1599 0.4385 /0.1656 0.7171 /0.9581
+> Symile-MIMIC [51] 0.3656 /0.4568 0.9366 /0.9465 0.3596 /0.4837
+> UKB [56] 0.5679 /0.3867 0.8921 /0.8203 0.6541 /0.7451
+> UKB-Union [56] 0.5808 /0.4884 0.7819 /0.6489 0.4854 /0.6408 0.0 0.2 0.4 0.6 0.8 1.0
+
+p     
+
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Accuracy
+> GatedSymile
+> Symile 0.0 0.2 0.4 0.6 0.8 1.0
+
+p
+
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Accuracy
+> GatedSymile
+> Symile
+
+Figure 4: Scaling analyses of well-tuned models on the Synthetic-XNOR dataset under both increasing misalignment probability p and batch sizes ( 128 , 256 , 512 illustrated with decreasing brightness). 
+
+(Left) Joint scaling of B and negatives per anchor K. Symile degrades substantially under mis-alignment, whereas Gated Symile remains markedly more robust, indicating increased fragility at larger contrastive scales. (Right) Scaling of B while keeping negatives per anchor K constant. This mirrors the joint-scaling regime, suggesting that the dominant scaling pathology is driven by the enlarged candidate pool: as B grows, fragility becomes more prevalent. Gating mitigates this effect by suppressing unreliable factors, thereby preserving retrieval performance as scale increases. cohort. On Symile-MIMIC, the improvement is smaller but consistent (from 0.4556 ± 0.006 to 
+
+0.4670 ± 0.005 ), and gating does not degrade performance. On UKB-Union, Gated Symile improves top-1 accuracy from 0.5278 ±0.009 to 0.6000 ±0.007 . Despite the larger dataset, we do not observe a performance boost. Rather, the additional non-target samples introduce greater variability, increasing the risk of overfitting. However, this setting highlights the benefit of adaptive gating when modalities are missing. Overall, our results suggest that Gated Symile improves retrieval accuracy. The strongest benefits appear in settings in which selective suppression is advantageous. 
+
+4.4 Alignment, Weight and Embedding Analyses 
+
+Besides top-1 performances, we analyze how the gate responds to unreliable modalities (Figures 3 and 4 and Table 3). With Figure 3, we stratify analyses by misalignment condition on the Synthetic-
+
+XNOR dataset. As the misalignment probability p increases, CLIP and ungated Symile degrade sharply, whereas Gated Symile remains near-ceiling accuracy. This indicates that explicitly suppressing unreliable modalities prevents the MIP from collapsing under misleading inputs. Further, we report the mean weight difference wA→B − wA→C conditioned on which non-target modality is misaligned. When B is misaligned, the difference is negative (the gate assigns smaller weight to B than to 
+
+C), and when C is misaligned the difference is positive. This shows that the gate consistently shifts emphasis toward the reliable modality. Moreover, besides minor deviations, the magnitude of this signed difference increases with p, consistent with the gate making stronger reliability-driven decisions as misalignment becomes more prevalent. In Table 3, we compare two complementary gate diagnostics: mean gate weights wt→m and cosine-based measures of representation change, 
+
+cos( eGm, e m) and cos( eGm, n m). The former , i.e., the mean weights alone, can be hard to interpret because they average over heterogeneous, sample-dependent decisions and are influenced by the NULL 
+
+option and gate strength. The latter , i.e., cosine similarities, in contrast, directly quantify whether the gate edits a modality embedding or leaves it largely unchanged. On Symile-MIMIC, where improvements are smallest, cos( eGm, e m) ≈ 1 and cos( eGm, n m) remains relatively low, indicating 8that the gate leaves embeddings largely unchanged. On the UKB, the gate shows moderate editing and a higher neutral-direction cosine which matches its intermediate performance gain. For the UKB-Union, cos( eGm, e m) decreases further compared to UKB, indicating stronger embedding edits, but cos( eGm, n m) is not larger, suggesting a richer transformation than simple interpolation toward the neutral direction. Finally, on Synthetic-XNOR , where gating yields the largest gains, cos( eGm, e m)
+
+is substantially reduced and cos( eGm, n m) is high for at least one non-target modality, consistent with pushing unreliable inputs toward the neutral direction. Finally, with Figure 4, we study how alignment robustness behaves under increasing contrastive scale. Larger batch sizes and negative sets typically improve contrastive learning performance [ 5, 7 ]. However, in the presence of modality misalignment we observe the opposite trend for ungated Symile: as the batch size B and candidate pool grow, performance degrades more sharply with increasing misalignment probability p. This effect appears both when jointly scaling B and the number of negatives per anchor K, and when increasing B alone while keeping K fixed. This suggests that the dominant pathology is driven by the enlarged candidate pool. In contrast, Gated Symile remains substantially more stable across scaling regimes, indicating that suppressing unreliable modalities mitigates the scaling fragility. 
+
+4.5 Ablation Study 
+
+Table 4: Well-tuned ablation of the gate on the UKB (mean ± SE, details in Section E).                                             
+
+> Ablation Top-1 Accuracy ↑
+> Gated Symile 0.6819 ±0.010
+> w/ neutral ones 0.6708 ±0.014
+> w/o NULL option 0.6644 ±0.013
+> w/ neutral frozen 0.6629 ±0.013
+> w/ softmax ( w/o sigmoid) 0.6622 ±0.012
+> w/o renorm 0.6578 ±0.013
+> w/o gate (Symile, pair) 0.6570 ±0.012
+> w/o attention ( w/ matrix) 0.6446 ±0.014
+> w/o gate (Symile, n) 0.6419 ±0.024
+> w/o neutral & renorm 0.6314 ±0.014
+
+We report a re-tuned and cross-validated ablation (mean ± SE) of the proposed gate on the UKB (Table 4). Re-tuning is important to avoid con-founding architectural changes with mismatched optimization settings [ 15 , 48 ] (Hyperparameters in Section E). Overall, the attention-based sigmoid gate with the NULL option and trainable neutral directions performs best, indicating that candidate-dependent suppression and an explicit neutral fall-back are both important for stabilizing the MIP. Removing individual components consistently de-grades performance. Using a fixed neutral direc-tion , i.e., either all-ones or frozen random, remains competitive but trails the full model. Notably, the all-ones variant is the next-best option, which is consistent with the intuition that the MIP contribution of a modality becomes weak in this case. Drop-ping renormalization reduces accuracy, and removing both neutral interpolation and renormalization yields the worst gated variant. This aligns with the view that unconstrained magnitudes can exacerbate multiplicative effects rather than suppress them. We further find that sigmoid gating outperforms the softmax alternative. Sigmoid allows multiple modalities to be weighted simultaneously, whereas softmax enforces competition. Finally, the matrix-based (candidate-independent) gate can be harmful, implying that static global weights are insufficient to capture sample-dependent misalignment or weak information. Interestingly, the pair sampling slightly outperforms the n sampling. Pair sampling draws K negatives per anchor from the global candidate pool, which can be larger and more diverse than the in-batch shuffle used by n sampling. We therefore interpret the pair vs n comparison as both an efficiency and negative-diversity trade-off rather than a pure architectural ablation. 
+
+## 5 Conclusion & Future Work 
+
+We studied robustness in multimodal contrastive learning beyond the bimodal setting and identify a failure mode of Symile-style objectives based on multiplicative interactions: misalignment in a single non-target modality can propagate through product terms and distort training. To address this, we proposed Gated Symile, a candidate-conditioned gating mechanism that adaptively downweights unreliable modalities. The gate interpolates embeddings toward learnable neutral directions and allows a NULL option when the target embedding indicates that reliable cross-modal alignment is unlikely. Across a synthetic benchmark and three real-world trimodal retrieval datasets, Gated Symile improves robustness and top-1 retrieval over ungated Symile. Our analyses further suggest that the gate provides useful aggregate signals about modality reliability under misalignment. Future work includes transferring the robustness induced by gating back into the encoders to study downstream tasks beyond retrieval and a deeper mechanistic interpretability analysis of the gate. 9Acknowledgement 
+
+The authors acknowledge the Scientific Computing of the IT Division at the Charité Universitätsmedi-zin Berlin for providing computational resources that have contributed to the research results reported in this paper. This research has been conducted using the UK Biobank Resource under application number 49966. 
+
+## Societal Impact and Ethics 
+
+We do not see concrete societal impact concerns raised by the paper itself. The work is methodological and evaluates robustness in multimodal contrastive learning, with the stated goal of making learning under imperfect modalities more reliable rather than enabling a new high-risk application. 
+
+## References 
+
+[1] Julián N. Acosta, Guido J. Falcone, Pranav Rajpurkar, and Eric J. Topol. Multimodal biomedical ai. Nature Medicine , 28(9):1773–1784, September 2022. ISSN 1078-8956, 1546-170X. doi: 10.1038/s41591-022-01981-2. [2] Julius Adebayo, Justin Gilmer, Michael Muelly, Ian Goodfellow, Moritz Hardt, and Been Kim. Sanity checks for saliency maps. In S. Bengio, H. Wallach, H. Larochelle, K. Grauman, N. Cesa-Bianchi, and R. Garnett, editors, Advances in Neural Information Processing Systems , volume 31. Curran Associates, Inc., 2018. URL https://proceedings.neurips.cc/paper_files/ paper/2018/file/294a8ed24b1ad22ec2e7efea049b8737-Paper.pdf .[3] Abhijit Bendale and Terrance E. Boult. Towards open set deep networks. In 2016 IEEE Conference on Computer Vision and Pattern Recognition, CVPR 2016, Las Vegas, NV, USA, June 27-30, 2016 , page 1563–1572. IEEE Computer Society, 2016. doi: 10.1109/CVPR.2016.173. URL https://doi.org/10.1109/CVPR.2016.173 .[4] Thore Buergel, Jakob Steinfeldt, Greg Ruyoga, Maik Pietzner, Daniele Bizzarri, Dina Vojinovic, Julius Upmeier Zu Belzen, Lukas Loock, Paul Kittner, Lara Christmann, Noah Hollmann, Henrik Strangalies, Jana M. Braunger, Benjamin Wild, Scott T. Chiesa, Joachim Spranger, Fabian Klostermann, Erik B. Van Den Akker, Stella Trompet, Simon P. Mooijaart, Naveed Sattar, J. Wouter Jukema, Birgit Lavrijssen, Maryam Kavousi, Mohsen Ghanbari, Mohammad A. Ikram, Eline Slagboom, Mika Kivimaki, Claudia Langenberg, John Deanfield, Roland Eils, and Ulf Landmesser. Metabolomic profiles predict individual multidisease outcomes. Nature Medicine , 28(11):2309–2320, November 2022. ISSN 1078-8956, 1546-170X. doi: 10.1038/ s41591-022-01980-3. [5] Changyou Chen, Jianyi Zhang, Yi Xu, Liqun Chen, Jiali Duan, Yiran Chen, Son Tran, Belinda Zeng, and Trishul Chilimbi. Why do we need large batchsizes in contrastive learning? a gradient-bias perspective. In S. Koyejo, S. Mohamed, A. Agarwal, D. Belgrave, K. Cho, and A. Oh, editors, Advances in Neural Information Processing Systems , volume 35, page 33860–33875. Curran Associates, Inc., 2022. URL https://proceedings.neurips.cc/paper_files/ paper/2022/file/db174d373133dcc6bf83bc98e4b681f8-Paper-Conference.pdf .[6] Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geoffrey E. Hinton. A simple framework for contrastive learning of visual representations. In Proceedings of the 37th International Conference on Machine Learning, ICML 2020, 13-18 July 2020, Virtual Event , volume 119 of Proceedings of Machine Learning Research , page 1597–1607. PMLR, 2020. URL http: //proceedings.mlr.press/v119/chen20j.html .[7] Zesen Cheng, Hang Zhang, Kehan Li, Sicong Leng, Zhiqiang Hu, Fei Wu, Deli Zhao, Xin Li, and Lidong Bing. Breaking the memory barrier: Near infinite batch size scaling for contrastive loss. arXiv:2410.17243 [cs], October 2024. URL http://arxiv.org/abs/2410.17243 .[8] Kyunghyun Cho, Bart van Merrienboer, Dzmitry Bahdanau, and Yoshua Bengio. On the properties of neural machine translation: Encoder-decoder approaches. In Dekai Wu, Marine Carpuat, Xavier Carreras, and Eva Maria Vecchi, editors, Proceedings of SSST@EMNLP 
+
+10 2014, Eighth Workshop on Syntax, Semantics and Structure in Statistical Translation, Doha, Qatar, 25 October 2014 , page 103–111. Association for Computational Linguistics, 2014. doi: 10.3115/V1/W14-4012. URL https://aclanthology.org/W14-4012/ .[9] C. Chow. On optimum recognition error and reject tradeoff. IEEE Transactions on Information Theory , 16(1):41–46, 1970. doi: 10.1109/TIT.1970.1054406. [10] Giordano Cicchetti, Eleonora Grassucci, and Danilo Comminiello. A triangle enables multi-modal alignment beyond cosine similarity. In The Thirty-ninth Annual Conference on Neu-ral Information Processing Systems , 2025. URL https://openreview.net/forum?id= 3Hjfzh5Eyk .[11] Giordano Cicchetti, Eleonora Grassucci, Luigi Sigillo, and Danilo Comminiello. Gramian mul-timodal representation learning and alignment. In The Thirteenth International Conference on Learning Representations , 2025. URL https://openreview.net/forum?id=ftGnpZrW7P .[12] Timothée Darcet, Maxime Oquab, Julien Mairal, and Piotr Bojanowski. Vision transformers need registers. In The Twelfth International Conference on Learning Representations, ICLR 2024, Vienna, Austria, May 7-11, 2024 . OpenReview.net, 2024. URL https://openreview. net/forum?id=2dnO3LLiJ1 .[13] Aaron Defazio, Xingyu Yang, Ahmed Khaled, Konstantin Mishchenko, Harsh Mehta, and Ashok Cutkosky. The road less scheduled. In Amir Globersons, Lester Mackey, Danielle Belgrave, Angela Fan, Ulrich Paquet, Jakub M. Tomczak, and Cheng Zhang, editors, Ad-vances in Neural Information Processing Systems 38: Annual Conference on Neural In-formation Processing Systems 2024, NeurIPS 2024, Vancouver, BC, Canada, December 10 - 15, 2024 , 2024. URL http://papers.nips.cc/paper_files/paper/2024/hash/ 136b9a13861308c8948cd308ccd02658-Abstract-Conference.html .[14] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. Bert: Pre-training of deep bidirectional transformers for language understanding. In Jill Burstein, Christy Doran, and Thamar Solorio, editors, Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, NAACL-HLT 2019, Minneapolis, MN, USA, June 2-7, 2019, Volume 1 (Long and Short Papers) , page 4171–4186. Association for Computational Linguistics, 2019. doi: 10.18653/V1/N19-1423. URL https://doi.org/10.18653/v1/n19-1423 .[15] Jesse Dodge, Suchin Gururangan, Dallas Card, Roy Schwartz, and Noah A. Smith. Show your work: Improved reporting of experimental results. In Kentaro Inui, Jing Jiang, Vincent Ng, and Xiaojun Wan, editors, Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing, EMNLP-IJCNLP 2019, Hong Kong, China, November 3-7, 2019 , page 2185–2194. Association for Computational Linguistics, 2019. doi: 10.18653/V1/D19-1224. URL https: //doi.org/10.18653/v1/D19-1224 .[16] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby. An image is worth 16x16 words: Transformers for image recognition at scale. In 9th International Conference on Learning Representations, ICLR 2021, Virtual Event, Austria, May 3-7, 2021 . OpenReview.net, 2021. URL https: //openreview.net/forum?id=YicbFdNTTy .[17] Benoit Dufumier, Javiera Castillo Navarro, Devis Tuia, and Jean-Philippe Thiran. What to align in multimodal contrastive learning? In The Thirteenth International Conference on Learning Representations , 2025. URL https://openreview.net/forum?id=Pe3AxLq6Wf .[18] Ran El-Yaniv and Yair Wiener. On the foundations of noise-free selective classification. Journal of Machine Learning Research , 11(53):1605–1641, 2010. [19] Yonatan Geifman and Ran El-Yaniv. Selectivenet: A deep neural network with an integrated reject option. In Kamalika Chaudhuri and Ruslan Salakhutdinov, editors, Proceedings of the 36th International Conference on Machine Learning, ICML 2019, 9-15 June 2019, Long Beach, California, USA , volume 97 of Proceedings of Machine Learning Research , page 2151–2159. PMLR, 2019. URL http://proceedings.mlr.press/v97/geifman19a.html .11 [20] Rohit Girdhar, Alaaeldin El-Nouby, Zhuang Liu, Mannat Singh, Kalyan Vasudev Alwala, Armand Joulin, and Ishan Misra. Imagebind: One embedding space to bind them all. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) ,page 15180–15190, June 2023. [21] Xavier Glorot and Yoshua Bengio. Understanding the difficulty of training deep feedforward neural networks. In Yee Whye Teh and Mike Titterington, editors, Proceedings of the Thirteenth International Conference on Artificial Intelligence and Statistics , volume 9 of Proceedings of Machine Learning Research , page 249–256, Chia Laguna Resort, Sardinia, Italy, May 2010. PMLR. URL https://proceedings.mlr.press/v9/glorot10a.html .[22] Varun Godbole, George E. Dahl, Justin Gilmer, Christopher J. Shallue, and Zachary Nado. Deep learning tuning playbook, 2023. URL http://github.com/google-research/tuning_ playbook . Version 1.0. [23] Satya Krishna Gorti, Noël Vouitsis, Junwei Ma, Keyvan Golestan, Maksims Volkovs, Animesh Garg, and Guangwei Yu. X-pool: Cross-modal language-video attention for text-video retrieval. In IEEE/CVF Conference on Computer Vision and Pattern Recognition, CVPR 2022, New Orleans, LA, USA, June 18-24, 2022 , page 4996–5005. IEEE, 2022. doi: 10.1109/CVPR52688. 2022.00495. URL https://doi.org/10.1109/CVPR52688.2022.00495 .[24] Andrey Guzhov, Federico Raue, Jörn Hees, and Andreas Dengel. Audioclip: Extending clip to image, text and audio. In ICASSP 2022 - 2022 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) , page 976–980, 2022. doi: 10.1109/ICASSP43922. 2022.9747631. [25] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Delving deep into rectifiers: Surpassing human-level performance on imagenet classification. In Proceedings of the 2015 IEEE International Conference on Computer Vision (ICCV) , ICCV ’15, page 1026–1034, USA, 2015. IEEE Computer Society. ISBN 978-1-4673-8391-2. doi: 10.1109/ICCV.2015.123. URL 
+
+https://doi.org/10.1109/ICCV.2015.123 .[26] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In 2016 IEEE Conference on Computer Vision and Pattern Recognition, CVPR 2016, Las Vegas, NV, USA, Jun 27-30, 2016 , page 770–778. IEEE Computer Society, 2016. doi: 10.1109/CVPR.2016.90. URL https://doi.org/10.1109/CVPR.2016.90 .[27] Kaiming He, Haoqi Fan, Yuxin Wu, Saining Xie, and Ross Girshick. Momentum contrast for unsupervised visual representation learning. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , June 2020. [28] Stefan Hegselmann, Georg von Arnim, Tillmann Rheude, Noel Kronenberg, David Sontag, Gerhard Hindricks, Roland Eils, and Benjamin Wild. Large language models are powerful electronic health record encoders. arXiv:2502.17403 [cs], October 2025. URL http://arxiv. org/abs/2502.17403 .[29] Dan Hendrycks and Kevin Gimpel. A baseline for detecting misclassified and out-of-distribution examples in neural networks. In 5th International Conference on Learning Representations, ICLR 2017, Toulon, France, April 24-26, 2017, Conference Track Proceedings . OpenReview.net, 2017. URL https://openreview.net/forum?id=Hkg4TI9xl .[30] Geoffrey E. Hinton. Training products of experts by minimizing contrastive divergence. Neural Comput. , 14(8):1771–1800, 2002. doi: 10.1162/089976602760128018. [31] Sepp Hochreiter and Jürgen Schmidhuber. Long short-term memory. Neural Computation , 9 (8):1735–1780, 1997. [32] Jie Hu, Li Shen, and Gang Sun. Squeeze-and-excitation networks. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , June 2018. [33] Robert A. Jacobs, Michael I. Jordan, Steven J. Nowlan, and Geoffrey E. Hinton. Adaptive mixtures of local experts. Neural Computation , 3(1):79–87, 1991. doi: 10.1162/neco.1991.3.1. 79. 12 [34] Sarthak Jain and Byron C. Wallace. Attention is not explanation. In Jill Burstein, Christy Doran, and Thamar Solorio, editors, Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, Volume 1 (Long and Short Papers) , page 3543–3556, Minneapolis, Minnesota, June 2019. Association for Computational Linguistics. doi: 10.18653/v1/N19-1357. URL https:// aclanthology.org/N19-1357/ .[35] Ziyu Jiang, Guoqing Zheng, Yu Cheng, Ahmed Hassan Awadallah, and Zhangyang Wang. Cr-moe: Consistent routed mixture-of-experts for scaling contrastive learning. Transactions on Machine Learning Research , 2024. ISSN 2835-8856. URL https://openreview.net/ forum?id=qKIvn9xL1R .[36] Michael I. Jordan and Robert A. Jacobs. Hierarchical mixtures of experts and the em algorithm. 
+
+Neural Computation , 6(2):181–214, 1994. doi: 10.1162/neco.1994.6.2.181. [37] Arun Jose. Reasoning models sometimes output illegible chains of thought. In The Thirty-ninth Annual Conference on Neural Information Processing Systems , 2025. URL https: //openreview.net/forum?id=w1TjXJk846 .[38] Pieter-Jan Kindermans, Sara Hooker, Julius Adebayo, Maximilian Alber, Kristof T. Schütt, Sven Dähne, Dumitru Erhan, and Been Kim. The (Un)reliability of Saliency Methods , volume 11700 of Lecture Notes in Computer Science , page 267–280. Springer International Publishing, Cham, 2019. ISBN 978-3-030-28953-9. doi: 10.1007/978-3-030-28954-6_14. URL http: //link.springer.com/10.1007/978-3-030-28954-6_14 .[39] Shiyu Liang, Yixuan Li, and R. Srikant. Enhancing the reliability of out-of-distribution image detection in neural networks. In International Conference on Learning Representations , 2018. URL https://openreview.net/forum?id=H1VGkIxRZ .[40] Zachary C. Lipton. The mythos of model interpretability. Commun. ACM , 61(10):36–43, September 2018. ISSN 0001-0782. doi: 10.1145/3233231. [41] Xuan Lu, Kangle Li, Haohang Huang, Rui Meng, Wenjun Zeng, and Xiaoyu Shen. Beyond global similarity: Towards fine-grained, multi-condition multimodal retrieval. arXiv:2603.01082 [cs], March 2026. URL http://arxiv.org/abs/2603.01082 .[42] Scott M Lundberg and Su-In Lee. A unified approach to interpreting model predictions. In I. Guyon, U. Von Luxburg, S. Bengio, H. Wallach, R. Fergus, S. Vishwanathan, and R. Garnett, editors, Advances in Neural Information Processing Systems , volume 30. Curran Associates, Inc., 2017. URL https://proceedings.neurips.cc/paper_files/paper/2017/file/ 8a20a8621978632d76c43dfd28b67767-Paper.pdf .[43] Jian Meng, Li Yang, Jinwoo Shin, Deliang Fan, and Jae-Sun Seo. Contrastive dual gating: Learning sparse features with contrastive learning. In 2022 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , page 12247–12255, 2022. doi: 10.1109/CVPR52688. 2022.01194. [44] Aaron van den Oord, Yazhe Li, and Oriol Vinyals. Representation learning with contrastive predictive coding. arXiv:1807.03748 [cs], January 2019. URL http://arxiv.org/abs/ 1807.03748 .[45] Ethan Perez, Florian Strub, Harm De Vries, Vincent Dumoulin, and Aaron Courville. Film: Visual reasoning with a general conditioning layer. Proceedings of the AAAI Conference on Artificial Intelligence , 32(1), April 2018. ISSN 2374-3468, 2159-5399. doi: 10.1609/aaai.v32i1. 11671. URL https://ojs.aaai.org/index.php/AAAI/article/view/11671 .[46] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. Learning transferable visual models from natural language supervi-sion. In Marina Meila and Tong Zhang, editors, Proceedings of the 38th International Conference on Machine Learning, ICML 2021, 18-24 July 2021, Virtual Event , volume 139 of Proceedings of Machine Learning Research , page 8748–8763. PMLR, 2021. URL 
+
+http://proceedings.mlr.press/v139/radford21a.html .13 [47] Tillmann Rheude, Andreas Wirtz, Arjan Kuijper, and Stefan Wesarg. Leveraging cam algorithms for explaining medical semantic segmentation. Machine Learning for Biomedical Imaging ,2(iMIMIC 2023 special issue):2089–2102, 2024. ISSN 2766-905X. doi: https://doi.org/10. 59275/j.melba.2024-ebd3. [48] Tillmann Rheude, Roland Eils, and Benjamin Wild. Fusion or confusion? multimodal complexity is not all you need. arXiv:2512.22991 [cs], December 2025. URL http: //arxiv.org/abs/2512.22991 .[49] Tillmann Rheude, Roland Eils, and Benjamin Wild. Cohort-based active modality acquisition. arXiv:2505.16791 [cs], December 2025. URL http://arxiv.org/abs/2505.16791 .[50] Cynthia Rudin. Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead. Nat. Mach. Intell. , 1(5):206–215, 2019. doi: 10.1038/ S42256-019-0048-X. [51] Adriel Saporta, Aahlad Puli, Mark Goldstein, and Rajesh Ranganath. Contrasting with symile: Simple model-agnostic representation learning for unlimited modalities. In Advances in Neural Information Processing Systems , 2024. URL https://arxiv.org/pdf/2411.01053 .[52] Walter J. Scheirer, Anderson de Rezende Rocha, Archana Sapkota, and Terrance E. Boult. Toward open set recognition. IEEE Transactions on Pattern Analysis and Machine Intelligence ,35(7):1757–1772, 2013. doi: 10.1109/TPAMI.2012.256. [53] Leon Sixt, Maximilian Granz, and Tim Landgraf. When explanations lie: Why many modified bp attributions fail. In Proceedings of the 37th International Conference on Machine Learning, ICML 2020, 13-18 July 2020, Virtual Event , volume 119 of Proceedings of Machine Learning Research , page 9046–9057. PMLR, 2020. URL http://proceedings.mlr.press/v119/ sixt20a.html .[54] Jake Snell, Kevin Swersky, and Richard Zemel. Prototypical networks for few-shot learning. In I. Guyon, U. Von Luxburg, S. Bengio, H. Wallach, R. Fergus, S. Vishwanathan, and R. Garnett, editors, Advances in Neural Information Processing Systems , volume 30. Curran Associates, Inc., 2017. URL https://proceedings.neurips.cc/paper_files/paper/2017/file/ cb8da6767461f2812ae4290eac7cbc42-Paper.pdf .[55] Jakob Steinfeldt, Benjamin Wild, Thore Buergel, Maik Pietzner, Julius Upmeier Zu Belzen, Andre Vauvelle, Stefan Hegselmann, Spiros Denaxas, Harry Hemingway, Claudia Langenberg, Ulf Landmesser, John Deanfield, and Roland Eils. Medical history predicts phenome-wide disease onset and enables the rapid response to emerging health threats. Nature Communications ,16(1):585, January 2025. ISSN 2041-1723. doi: 10.1038/s41467-025-55879-x. [56] Cathie Sudlow, John Gallacher, Naomi Allen, Valerie Beral, Paul Burton, John Danesh, Paul Downey, Paul Elliott, Jane Green, Martin Landray, Bette Liu, Paul Matthews, Giok Ong, Jill Pell, Alan Silman, Alan Young, Tim Sprosen, Tim Peakman, and Rory Collins. Uk biobank: An open access resource for identifying the causes of a wide range of complex diseases of middle and old age. PLOS Medicine , 12(3):e1001779, March 2015. ISSN 1549-1676. doi: 10.1371/journal.pmed.1001779. [57] Mukund Sundararajan, Ankur Taly, and Qiqi Yan. Axiomatic attribution for deep networks. In Doina Precup and Yee Whye Teh, editors, Proceedings of the 34th International Conference on Machine Learning , volume 70 of Proceedings of Machine Learning Research , page 3319–3328. PMLR, August 2017. URL https://proceedings.mlr.press/v70/sundararajan17a. html .[58] Divyanshu Tak, Biniam A. Garomsa, Anna Zapaishchykova, Tafadzwa L. Chaunzwa, Juan Car-los Climent Pardo, Zezhong Ye, John Zielke, Yashwanth Ravipati, Suraj Pai, Sri Vajapeyam, Maryam Mahootiha, Mitchell Parker, Luke R. G. Pike, Ceilidh Smith, Ariana M. Familiar, Kevin X. Liu, Sanjay Prabhu, Omar Arnaout, Pratiti Bandopadhayay, Ali Nabavizadeh, Sabine Mueller, Hugo Jwl Aerts, Raymond Y. Huang, Tina Y. Poussaint, and Benjamin H. Kann. A generalizable foundation model for analysis of human brain mri. Nature Neuroscience ,February 2026. ISSN 1097-6256, 1546-1726. doi: 10.1038/s41593-026-02202-6. URL 
+
+https://www.nature.com/articles/s41593-026-02202-6 .14 [59] Aaron van den Oord, Oriol Vinyals, and koray kavukcuoglu. Neural discrete representation learning. In I. Guyon, U. Von Luxburg, S. Bengio, H. Wallach, R. Fergus, S. Vishwanathan, and R. Garnett, editors, Advances in Neural Information Processing Systems , volume 30. Curran Associates, Inc., 2017. URL https://proceedings.neurips.cc/paper_files/paper/ 2017/file/7a98af17e63a0ac09ce2e96d03992fbc-Paper.pdf .[60] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. In Isabelle Guyon, Ulrike von Luxburg, Samy Bengio, Hanna M. Wallach, Rob Fergus, S. V. N. Vishwanathan, and Roman Garnett, editors, Advances in Neural Information Processing Systems 30: Annual Conference on Neural Information Processing Systems 2017, December 4-9, 2017, Long Beach, CA, USA ,page 5998–6008, 2017. [61] David Wan, Han Wang, Elias Stengel-Eskin, Jaemin Cho, and Mohit Bansal. Clamr: Contex-tualized late-interaction for multimodal content retrieval. arXiv:2506.06144 [cs], June 2025. URL http://arxiv.org/abs/2506.06144 .[62] Zihao Wang, Xihui Liu, Hongsheng Li, Lu Sheng, Junjie Yan, Xiaogang Wang, and Jing Shao. Camp: Cross-modal adaptive message passing for text-image retrieval. In 2019 IEEE/CVF International Conference on Computer Vision, ICCV 2019, Seoul, Korea (South), October 27 - November 2, 2019 , page 5763–5772. IEEE, 2019. doi: 10.1109/ICCV.2019.00586. URL 
+
+https://doi.org/10.1109/ICCV.2019.00586 .[63] Satosi Watanabe. Information theoretical analysis of multivariate correlation. IBM Journal of Research and Development , 4(1):66–82, 1960. doi: 10.1147/rd.41.0066. [64] Sarah Wiegreffe and Yuval Pinter. Attention is not not explanation. In Kentaro Inui, Jing Jiang, Vincent Ng, and Xiaojun Wan, editors, Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP) , page 11–20, Hong Kong, China, November 2019. Association for Computational Linguistics. doi: 10.18653/v1/D19-1002. URL https:// aclanthology.org/D19-1002/ .[65] Xiaohua Zhai, Basil Mustafa, Alexander Kolesnikov, and Lucas Beyer. Sigmoid loss for language image pre-training. In Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV) , page 11975–11986, October 2023. [66] Yanzhao Zhang, Mingxin Li, Dingkun Long, Xin Zhang, Huan Lin, Baosong Yang, Pengjun Xie, An Yang, Dayiheng Liu, Junyang Lin, Fei Huang, and Jingren Zhou. Qwen3 embedding: Advancing text embedding and reranking through foundation models. arXiv:2506.05176 [cs], June 2025. URL http://arxiv.org/abs/2506.05176 .[67] Bolei Zhou, Aditya Khosla, Àgata Lapedriza, Aude Oliva, and Antonio Torralba. Learning deep features for discriminative localization. 2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , page 2921–2929, 2015. [68] Fatimah Zohra, Chen Zhao, Hani Itani, and Bernard Ghanem. β-clip: Text-conditioned con-trastive learning for multi-granular vision-language alignment. arXiv:2512.12678 [cs.CV], 2026. URL https://arxiv.org/abs/2512.12678 .15 A Relation to the Cauchy-Schwarz Bound 
+
+To quantify the sensitivity of the MIP critic to corruption in a single modality, we compare its score on a clean tuple and on a corrupted tuple and study the score deviation ∆g := gcorr − gclean . This difference isolates the effect of the corruption and admits a simple closed form because the MIP is multilinear in its arguments. Starting from 
+
+gcorr − gclean = 1
+
+τMIP 
+
+> D
+
+X
+
+> j=1
+
+et,j 
+
+> M
+
+Y
+
+> m=1
+> m̸=t,c
+
+em,j 
+
+!
+
+δj , (11) define the vector 
+
+a := et ⊙
+
+> M
+
+Y
+
+> m=1
+> m̸=t,c
+
+em ∈ RD , i.e., aj = et,j MY
+
+> m=1
+> m̸=t,c
+
+em,j . (12) Then Equation (11) can be written as an inner product, 
+
+gcorr − gclean = 1
+
+τMIP 
+
+> D
+
+X
+
+> j=1
+
+aj δj (13) 
+
+= 1
+
+τMIP 
+
+⟨a, δ ⟩. (14) Taking absolute values yields 
+
+gcorr − gclean = 1
+
+τMIP 
+
+|⟨ a, δ ⟩| , (15) where we use τMIP > 0. By the Cauchy–Schwarz inequality, |⟨ a, δ ⟩| ≤ ∥ a∥2 ∥δ∥2. Since τMIP > 0,multiplying both sides by 1/τ MIP preserves the inequality direction, and thus 
+
+gcorr − gclean ≤ 1
+
+τMIP 
+
+∥a∥2 ∥δ∥2 = 1
+
+τMIP 
+
+∥δ∥2 et ⊙
+
+> M
+
+Y
+
+> m=1
+> m̸=t,c
+
+em 2
+
+. (16) Here Q em denotes elementwise multiplication across modalities, i.e., 
+
+ MY
+
+> m=1
+> m̸=t,c
+
+em
+
+
+
+> j
+
+=
+
+> M
+
+Y
+
+> m=1
+> m̸=t,c
+
+em,j . (17) Applying Cauchy-Schwarz yields a worst-case upper bound on corruption-induced score dis-tortion, separating the perturbation magnitude ∥δ∥2 from a multiplicative amplification term 
+
+et ⊙ QMm=1  
+
+> m̸=t,c
+
+em 2.
+
+## B Compute Environment 
+
+Our experiments are conducted on a High-Performance Cluster (HPC) with the following environ-ment: • 21 Dell PowerEdge R7525 compute nodes, each with 64 AMD Epyc cores (Rome), 512GB RAM and 1 NVIDIA A100 40G GPU • 2 Dell PowerEdge XE8545 compute nodes, each with 128 AMD Epyc cores (Milan), 512GB RAM, 4 NVIDIA A100 40G and 4 NVIDIA A100 80G GPUs (NVLink-connected) 
+
+## C Additional Details 
+
+In the following, we provide additional details for our proposed method, implementations, and comparisons. 16 MIP Normalization Following standard practice in contrastive learning, we use a learned logit scale to control the sharpness of the softmax over candidates [ 46 ]. Concretely, we parameterize the scale as s = exp( γ) > 0 and form logits L = s · S from a raw score matrix S. For Symile-style objectives, S is given by the MIP critic [ 51 ], whose variance increases with embedding dimension 
+
+d and number of modalities M due to multiplicative interactions. To stabilize early training and make temperature initialization comparable across (d, M ), we additionally apply a fixed (d, M )-dependent normalization to the raw MIPs (a variance-style scaling analogous to variance-preserving initialization schemes [ 21 , 25 ]). After this normalization, we multiply by the learned scale s and apply cross-entropy. 
+
+## D Hyperparameter Tuning 
+
+We maximize the validation retrieval accuracy by using Bayesian optimization without incorporating the batch size [ 22 ]. The methods are swept with 100 runs. For experiments on the Synthetic-XNOR 
+
+dataset, hyperparameters are re-tuned , e.g., for different values of p. For the UKB-Union results, sweep runs are reduced to 50 due to longer runtimes. Listings 1 to 5 show the search spaces w.r.t. methods and datasets. 
+
+Listing 1 Hyperparameters related to Symile-MIMIC.           
+
+> 1method: bayes
+> 2metric:
+> 3name: val/max_acc_top1
+> 4goal: maximize
+> 56modelname.emb_dim:
+> 7values: [1024] # initially tuned from 256-8196
+> 8modelname.embedding_norm:
+> 9values: [True]
+> 10 # Encoders fixed to ResNets + MLP analogous to Saporta et al.
+
+Listing 2 Hyperparameters related to Synthetic-XNOR .          
+
+> 1method: bayes
+> 2metric:
+> 3name: val/max_acc_top1
+> 4goal: maximize
+> 56modelname.emb_dim:
+> 7values: [256] # initially tuned from 32-1024
+> 8modelname.embedding_norm:
+> 9values: [True]
+> 10 # Encoders fixed to MLPs
+
+Listing 3 Hyperparameters related to the UKB.                            
+
+> 1method: bayes
+> 2metric:
+> 3name: val/max_acc_top1
+> 4goal: maximize
+> 56modelname.emb_dim:
+> 7values: [6144] # initially tuned from 256-8196
+> 8modelname.embedding_norm:
+> 9values: [True]
+> 10 encoders.nmr.mlp.hidden_dims:
+> 11 values: [[1024,2048,4096]] # initially tuned with 128-4096
+> 12 encoders.nmr.mlp.hidden_dropouts:
+> 13 values: [[0.2,0.2,0.2]] # initially tuned with 0.0-0.6
+> 14 encoders.ehr.mlp.hidden_dims:
+> 15 values: [[1024,2048,4096]] # initially tuned with 128-4096
+> 16 encoders.ehr.mlp.hidden_dropouts:
+> 17 values: [[0.6,0.6,0.6]] # initially tuned with 0.0-0.6
+> 18 encoders.olink.mlp.hidden_dims:
+> 19 values: [[1024,2048,4096]] # initially tuned with 128-4096
+> 20 encoders.olink.mlp.hidden_dropouts:
+> 21 values: [[0.4,0.4,0.4]] # initially tuned with 0.0-0.6
+
+17 Listing 4 Hyperparameters related to Clip, Triangle, Gram and Symile.  
+
+> 1
+
+method: bayes  
+
+> 2
+
+metric:  
+
+> 3
+
+name: val/max_acc_top1  
+
+> 4
+
+goal: maximize  
+
+> 56
+
+modelname.logit_scale_init:  
+
+> 7
+
+min: -3  
+
+> 8
+
+max: 0  
+
+> 9
+
+distribution: "uniform"  
+
+> 10
+
+optimizer.lr:  
+
+> 11
+
+min: 0.00001  
+
+> 12
+
+max: 0.01  
+
+> 13
+
+distribution: "log_uniform_values"  
+
+> 14
+
+optimizer.warmup_steps:  
+
+> 15
+
+values: [0, 10, 50, 100, 200, 500, 1000, 1200]  
+
+> 16
+
+optimizer.weight_decay:  
+
+> 17
+
+values: [0, 0.1, 0.01, 0.001] 
+
+Listing 5 Hyperparameters related to Gated Symile.  
+
+> 1
+
+method: bayes  
+
+> 2
+
+metric:  
+
+> 3
+
+name: val/max_acc_top1  
+
+> 4
+
+goal: maximize  
+
+> 56
+
+modelname.logit_scale_init:  
+
+> 7
+
+min: -3  
+
+> 8
+
+max: 0  
+
+> 9
+
+distribution: "uniform"  
+
+> 10
+
+modelname.gate_strength_init:  
+
+> 11
+
+min: -1  
+
+> 12
+
+max: 6  
+
+> 13
+
+distribution: "uniform"  
+
+> 14
+
+modelname.neutral_type:  
+
+> 15
+
+values: ["random_trainable"]  
+
+> 16
+
+modelname.gate_mode:  
+
+> 17
+
+values: ["attention"]  
+
+> 18
+
+modelname.use_gate:  
+
+> 19
+
+values: [True]  
+
+> 20
+
+modelname.use_null:  
+
+> 21
+
+values: [True]  
+
+> 22
+
+modelname.renormalize:  
+
+> 23
+
+values: [True]  
+
+> 24
+
+modelname.gate_type:  
+
+> 25
+
+values: ["sigmoid"]  
+
+> 26
+
+modelname.gate_temp:  
+
+> 27
+
+min: 0.2  
+
+> 28
+
+max: 1.2  
+
+> 29
+
+distribution: "uniform"  
+
+> 30
+
+optimizer.lr_gate_mul:  
+
+> 31
+
+min: 1.0  
+
+> 32
+
+max: 20.0  
+
+> 33
+
+distribution: "log_uniform_values"  
+
+> 34
+
+modelname.gate_d_k:  
+
+> 35
+
+values: [1024, 3072, 6144]  
+
+> 36
+
+optimizer.lr:  
+
+> 37
+
+min: 0.00001  
+
+> 38
+
+max: 0.01  
+
+> 39
+
+distribution: "log_uniform_values"  
+
+> 40
+
+optimizer.warmup_steps:  
+
+> 41
+
+values: [0, 10, 50, 100, 200, 500, 1000, 1200]  
+
+> 42
+
+optimizer.weight_decay:  
+
+> 43
+
+values: [0, 0.1, 0.01, 0.001] 
+
+## E Ablation Hyperparameter Re-Tuning 
+
+Ablation studies can be misleading if components are removed while keeping the original hyper-parameters fixed: changing the model , e.g., removing a gate, NULL , renormalization, or attention, can substantially shift the optimal learning rate, regularization, temperature, and even effective capacity, so performance differences may reflect suboptimal tuning rather than the true contribution of the ablated component [ 15 , 48 ]. To avoid conflating architectural changes with mismatched hyperparameters, we re-run dataset-specific hyperparameter tuning for every ablation and report the best-performing configuration under the same validation protocol and search budget (Tables 6 to 13). The ablation experiments are swept with 50 runs. Parameter counts are listed in Table 5. 18 Table 5: Parameter counts of (Gated) Symile and our ablated variants. Gate-related parameters (without encoder parameters) per ablation configuration are listed, so they may change across variants. 
+
+Ablation Parameters ↓
+
+Gated Symile 132 M
+
+w/ neutral ones 44 .1M
+
+w/o NULL option 264 M
+
+w/ neutral frozen 44 .1M
+
+w/ softmax ( w/o sigmoid) 44 .1M
+
+w/o renorm 264 M
+
+w/o gate (Symile, pair) 0.0
+
+w/o attention ( w/ matrix) 18 .4K
+
+w/o gate (Symile, n) 0.0
+
+w/o neutral & renorm 264 M
+
+Table 6: Ablation hyperparameters: Gated Symile. 
+
+Parameter Value 
+
+modelname.negative_sampling pair modelname.emb_dim 6144 modelname.logit_scale_init -0.0273882549 optimizer.lr 0.0009146280 optimizer.warmup_steps 1200 optimizer.weight_decay 0.01 optimizer.lr_gate_mul 18.0142950406 modelname.use_gate True modelname.gate_d_k 3072 modelname.gate_mode attention modelname.gate_strength_init 5.1367568069 modelname.gate_temp 0.2859855525 modelname.gate_type sigmoid modelname.neutral_type random_trainable 
+
+Table 7: Ablation hyperparameters: w/ neutral ones. 
+
+Parameter Value 
+
+modelname.negative_sampling pair modelname.emb_dim 6144 modelname.logit_scale_init -0.4172494091 optimizer.lr 0.0008030235 optimizer.warmup_steps 1200 optimizer.weight_decay 0.0 optimizer.lr_gate_mul 11.8582226203 modelname.use_gate True modelname.gate_d_k 1024 modelname.gate_mode attention modelname.gate_strength_init 5.9809122372 modelname.gate_temp 0.8945044902 modelname.gate_type sigmoid modelname.neutral_type ones modelname.renormalize True modelname.use_null True 
+
+19 Table 8: Ablation hyperparameters: w/o NULL option. 
+
+Parameter Value 
+
+modelname.negative_sampling pair modelname.emb_dim 6144 modelname.logit_scale_init -0.0385663517 optimizer.lr 0.0024638659 optimizer.warmup_steps 500 optimizer.weight_decay 0.001 optimizer.lr_gate_mul 5.3507888856 modelname.use_gate True modelname.gate_d_k 6144 modelname.gate_mode attention modelname.gate_strength_init 5.0979182757 modelname.gate_temp 0.4696580431 modelname.gate_type sigmoid modelname.neutral_type random_trainable modelname.renormalize True modelname.use_null False 
+
+Table 9: Ablation hyperparameters: w/ neutral frozen. 
+
+Parameter Value 
+
+modelname.negative_sampling pair modelname.emb_dim 6144 modelname.logit_scale_init -0.0885577025 optimizer.lr 0.0007128068 optimizer.warmup_steps 1200 optimizer.weight_decay 0.001 optimizer.lr_gate_mul 11.8457842440 modelname.use_gate True modelname.gate_d_k 1024 modelname.gate_mode attention modelname.gate_strength_init 5.5512603864 modelname.gate_temp 0.7620343329 modelname.gate_type sigmoid modelname.neutral_type random_frozen modelname.renormalize True modelname.use_null True 
+
+Table 10: Ablation hyperparameters: w/ softmax. 
+
+Parameter Value 
+
+modelname.negative_sampling pair modelname.emb_dim 6144 modelname.logit_scale_init -0.0981230686 optimizer.lr 0.0027758740 optimizer.warmup_steps 1000 optimizer.weight_decay 0.001 optimizer.lr_gate_mul 1.0920241972 modelname.use_gate True modelname.gate_d_k 1024 modelname.gate_mode attention modelname.gate_strength_init 5.3640459076 modelname.gate_temp 0.5666661356 modelname.gate_type softmax modelname.neutral_type random_trainable modelname.renormalize True modelname.use_null True 
+
+20 Table 11: Ablation hyperparameters: w/o renorm. 
+
+Parameter Value 
+
+modelname.negative_sampling pair modelname.emb_dim 6144 modelname.logit_scale_init -0.0676587788 optimizer.lr 0.0033153970 optimizer.warmup_steps 1000 optimizer.weight_decay 0.01 modelname.use_gate True modelname.gate_d_k 6144 modelname.gate_mode attention modelname.gate_strength_init 5.1129839132 modelname.gate_temp 1.0882940326 modelname.gate_type sigmoid modelname.neutral_type random_trainable modelname.renormalize False modelname.use_null True optimizer.lr_gate_mul 1.1935684118 
+
+Table 12: Ablation hyperparameters: w/o attention. 
+
+Parameter Value 
+
+modelname.negative_sampling pair modelname.emb_dim 6144 modelname.logit_scale_init -0.1154340629 optimizer.lr 0.0026584110 optimizer.warmup_steps 1200 optimizer.weight_decay 0.01 optimizer.lr_gate_mul 2.4905551621 modelname.use_gate True modelname.gate_d_k 3072 modelname.gate_mode matrix modelname.gate_strength_init 1.2150563177 modelname.gate_temp 0.5117133726 modelname.gate_type sigmoid modelname.neutral_type random_trainable 
+
+Table 13: Ablation hyperparameters: w/o neutral & random. 
+
+Parameter Value 
+
+modelname.negative_sampling pair modelname.emb_dim 6144 modelname.logit_scale_init -0.1298500657 optimizer.lr 0.0012920771 optimizer.warmup_steps 1200 optimizer.weight_decay 0.01 optimizer.lr_gate_mul 9.8383592465 modelname.use_gate True modelname.gate_d_k 6144 modelname.gate_mode attention modelname.gate_strength_init 0.0530650431 modelname.gate_temp 0.2552342123 modelname.gate_type sigmoid modelname.neutral_type None modelname.renormalize True modelname.use_null True 
+
+21
