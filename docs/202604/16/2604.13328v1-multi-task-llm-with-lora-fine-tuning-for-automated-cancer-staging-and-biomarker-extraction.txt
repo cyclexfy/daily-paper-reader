@@ -1,0 +1,465 @@
+Title: Multi-Task LLM with LoRA Fine-Tuning for Automated Cancer Staging and Biomarker Extraction
+
+URL Source: https://arxiv.org/pdf/2604.13328v1
+
+Published Time: Thu, 16 Apr 2026 00:20:59 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+> 1
+
+# Multi-Task LLM with LoRA Fine-Tuning for Automated Cancer Staging and Biomarker Extraction 
+
+Jiahao Shao, Anam Nawaz Khan, Christopher Brett, Tom Berg, Xueping Li, and Bing Yao 
+
+Abstract —Pathology reports serve as the definitive record for breast cancer staging, yet their unstructured format impedes large-scale data curation. While Large Language Models (LLMs) offer semantic reasoning, their deployment is often limited by high computational costs and halluci-nation risks. This study introduces a parameter-efficient, multi-task framework for automating the extraction of Tumor-Node-Metastasis (TNM) staging, histologic grade, and biomarkers. We fine-tune a Llama-3-8B-Instruct encoder using Low-Rank Adaptation (LoRA) on a curated, expert-verified dataset of 10,677 reports. Unlike generative approaches, our architecture utilizes parallel classification heads to enforce consistent schema adherence. Experimental results demonstrate that the model achieves a Macro F1 score of 0.976, successfully resolving complex contextual ambiguities and heterogeneous reporting formats that challenge traditional extraction methods including rule-based natural language processing (NLP) pipelines, zero-shot LLMs, and single-task LLM baselines. The proposed adapter-efficient, multi-task architecture enables reliable, scalable pathology-derived cancer staging and biomarker profiling, with the potential to enhance clinical decision support and accelerate data-driven oncology research. 
+
+Index Terms —Large language models (LLMs), Clinical NLP, Breast cancer, Tumor staging, Multi-task learning. 
+
+I. I NTRODUCTION 
+
+Breast cancer remains the most diagnosed malig-nancy globally, accounting for substantial morbidity and mortality in women worldwide [1]. Accurate disease characterization is the cornerstone of effective treatment planning and prognostic assessment [7]. This specifically entails determining the Tumor-Node-Metastasis (TNM) stage, which quantifies disease extent based on tumor size (T), lymph node involvement (N), and metastasis (M), and biomarker status, including estrogen receptor (ER), progesterone receptor (PR), and human epidermal growth factor receptor 2 (HER2). While this critical infor-mation is codified in pathology reports, these documents 
+
+J. Shao, A. N. Khan, T. Berg, X. Li, and B. Yao are with the Department of Industrial & Systems Engineering, The University of Tennessee, Knoxville, TN 37996, USA (e-mail: byao3@utk.edu). C. Brett is with The University of Tennessee Medical Center, Knoxville, TN 37920, USA. 
+
+exist primarily as unstructured free-text narratives or scanned PDFs within electronic health records (EHRs). Consequently, cancer registries often rely on manual data abstraction, a process that is notoriously resource-intensive and prone to human error [3], [4]. To automate this curation process, Natural Language Processing (NLP) has been widely explored. This ap-proach mirrors a broader shift in healthcare systems engineering toward automated data-driven frameworks that achieve high efficacy in predicting complex clinical conditions. However, early NLP efforts relied heavily on rule-based systems and keyword matching, which offer high precision for standardized formats but exhibit brittle performance when distinguishing complex linguistic phenomena such as negation (e.g., “No evidence of inva-sive carcinoma”) or fractured syntax caused by Optical Character Recognition (OCR) errors [5], [6]. Subsequent transformer-based models [7], [8], such as Bidirectional Encoder Representations from Transformers (BERT) and its clinical variants (BioBERT, ClinicalBERT), signifi-cantly improved semantic extraction from clinical text by enabling contextualized language representations [9]–[11]. However, these encoder-only architectures remain limited in their ability to capture the broad linguistic variability and complex dependencies present in clinical narratives. In particular, BERT models rely on masked language modeling objectives and typically require extensive task-specific fine-tuning, while operating within relatively constrained context windows (e.g., 512 tokens) and modest model scales (e.g., 110 million parameters for BERT-base). These characteristics restrict their capacity to model long-range relationships and perform flexible reasoning across multi-document clinical records. LLMs represent a paradigm shift in clinical NLP. Recent studies have demonstrated the transformative potential of models like GPT-4 and Llama-3 for zero-shot extraction of structured data [12]. For instance, Lee et al. [13] successfully deployed local LLMs for surgical pathology extraction, and Garcia-Carmona et al. [14] utilized prompt engineering to parse heterogeneous reports. However, these generative approaches encounter significant hurdles in production environments. Treat-ing extraction as an open-ended text generation task 
+
+> arXiv:2604.13328v1 [cs.LG] 14 Apr 2026 2
+
+introduces latency and the risk of hallucinating invalid formats (e.g., generating Stage 2 when the schema requires pT2 ) [15]. Furthermore, prompt-based methods often fails to generalize across diverse hospital tem-plates without resource-intensive full fine-tuning, which remains computationally prohibitive for standard clinical infrastructure [16]. While recent work has explored fine-tuning for extraction [17], relying on generative decoding introduces unavoidable stochasticity, forcing the use of complex, fragile post-processing logic to map probabilistic text tokens back to rigid clinical variables. In this paper, we propose a parameter-efficient, multi-task framework that repurposes the open-weight Llama-3-8B-Instruct architecture as a discriminative encoder. First, we replace the causal language modeling head with parallel, task-specific classification layers. We utilize the final-layer hidden representation of the input sequence as a fixed-dimensional embedding, which is mapped to task-specific outputs via parallel classification heads. By replacing autoregressive decoding with direct discrim-inative prediction, this formulation removes sampling-induced variability and produces outputs consistent with predefined clinical schemas. Second, we employ Low-Rank Adaptation (LoRA) [4] to enable high-performance fine-tuning, significantly reducing computational over-head compared to full-parameter fine-tuning. Third, we integrate an Multi-Task Learning (MTL) strategy to facilitate inductive knowledge transfer across correlated clinical variables. This joint optimization effectively mitigates the impact of class imbalance and enables the model to capture complex inter-task dependencies inherent in oncology narratives. We evaluate our proposed framework on a large-scale dataset of pathology narratives. Experimental results demonstrate that our framework significantly outperforms rule-based NLP and alternative Parameter-Efficient Fine-Tuning (PEFT) strategies in the high-fidelity extraction of structured oncology variables. II. R ESEARCH BACKGROUND 
+
+A. Evolution of Clinical NLP and Generative Paradigm 
+
+The extraction of structured variables from unstructured pathology reports has evolved through three distinct methodological generations. The first generation relied on symbolic NLP, utilizing rule-based systems, Regular Expressions (regex), and dictionary lookups (e.g., UMLS, SNOMED CT) to identify clinical entities [19]–[21]. While these systems offer high precision for standardized reporting templates, they are brittle: minor deviations in phrasing, typos, or OCR artifacts often lead to significant recall degradation [3]. The second generation marked the shift toward statisti-cal learning and early deep learning, specifically discrimi-native models based on the Transformer architecture [22]. Domain-specific pre-trained models such as BioBERT [10] and ClinicalBERT [11] demonstrated superior per-formance by learning contextual word representations from large biomedical corpora. However, these encoder-only models often lack the reasoning depth required to resolve complex long-range dependencies in multi-page pathology narratives. For instance, correctly staging a tumor often requires synthesizing information from the Gross Description (tumor size) and Final Diagnosis (histology) sections, a reasoning task that frequently exceeds the capacity of smaller BERT-based architectures [5]. These limitations paved the way for the third generation: LLMs with billions of parameters, such as GPT-4 and Llama-3. These models possess emergent reasoning capabilities that enable zero-shot or few-shot information extraction [15]. Recent work has attempted to harness this potential for oncology; for example, Wang et al. [23] utilized prompt engineering to automate cancer registry coding, while Lee et al. [13] benchmarked local LLMs for surgical pathology extraction. Despite their promise, current studies highlight critical gaps in the generative paradigm. Lee et al. [13] noted that while local LLMs protect privacy, they often struggle with consistent schema adherence compared to larger cloud-based models. Similarly, Wang et al. [23] observed that prompt-based extraction frequently yields unstructured or variable outputs, necessitating complex post-processing logic to map predictions back to standardized registry codes (e.g., normalizing heterogeneous staging notation). These findings underscore that the dominant generative paradigm, where extraction is framed as probabilistic text generation, introduces unavoidable stochasticity and hallucination risks [12], [24]. Fundamentally, generative decoding optimizes for the most probable next token rather than the most factually accurate category, ren-dering it suboptimal for rigid clinical databases. These limitations suggest that while the reasoning depth of LLMs is necessary, the extraction task is better framed as a discriminative classification problem rather than a generative one. This approach allows the framework to be guided by clinical domain knowledge, mirroring the constrained modeling strategies used to ensure the reliability of high-dimensional medical models. 
+
+B. Parameter-Efficient Fine-Tuning and Multi-Task Learn-ing 
+
+To address the limitations of prompt-based extraction, fine-tuning aligns the internal representations of LLM 3
+
+with the specific target task. However, fully fine-tuning models with over 7 billion parameters requires massive computational resources, often exceeding the memory capacity of standard hospital workstations. PEFT offers a solution by updating only a small subset of parameters. Strategies such as Prefix Tuning [25] and (IA )3 (Infused Adapter by Inhibiting and Amplifying Inner Activations) [26] utilize trainable vectors to steer the frozen activation patterns toward task-specific subspaces. Prefix Tuning achieves this by prepending learnable virtual tokens to the input sequence. In contrast, (IA )3 introduces learnable vectors to rescale internal activations within the attention and feed-forward blocks via element-wise multiplication. Because this influence is mediated through activation modulation rather than direct weight reconfiguration, the expressive capacity of (IA )3 is potentially constrained when substantial internal adaptation is required for complex clinical domain shifts. To enable more flexible yet still efficient adapta-tion, LoRA [4] modifies the parameterization strategy itself. LoRA introduces trainable low-rank decompo-sition matrices directly into selected weight matrices of the transformer architecture. This approach allows task-specific updates to be applied at the weight level while maintaining a compact parameter footprint. By exploiting the empirical observation that fine-tuning up-dates often reside in a low-dimensional subspace, LoRA approximates full fine-tuning with orders-of-magnitude fewer trainable parameters, achieving a stronger balance between adaptation capacity and computational efficiency. However, a significant challenge arises when applying LoRA to clinical datasets with skewed class distribu-tions, which is a common issue in healthcare data analytics [27]–[31]. Recent studies identify a critical vulnerability in standard LoRA: a tendency to exacerbate “Catastrophic Inheritance,” where pre-existing biases and skewed data distributions are amplified through the low-rank bottleneck [32]. This phenomenon is often driven by representation collapse within the adapters, where the constrained parameter space prioritizes global majority patterns at the expense of task-specific nuances, leading to performance deterioration on tail (minority) classes [33]. In oncology datasets, where certain tumor categories are inherently long-tailed, this constraint can cause the adapters to overfit to the majority distribution, degrading performance on rare but clinically significant cases. To address these distributional challenges, we propose to integrate LoRA adaptation with MTL. By employing a hard parameter-sharing architecture [34], the low-rank adapters are shared across all extraction targets. This shared representation forces the model to learn a unified, regularized semantic space, effectively counteracting majority-bias by increasing the “effective sample size” for shared features. This facilitates inductive knowledge trans-fer where data-rich tasks (e.g., ER/PR status) stabilize the feature extraction for tasks with severe class imbalance (e.g., HER2 status) [35]. In the biomedical NLP domain, such multi-task approaches have demonstrated significant efficacy in outperforming single-task baselines [36]. In breast cancer staging specifically, where variables are intrinsically correlated, such as advanced tumor extent (T Stage) typically correlating with the likelihood of lymph node involvement (N Stage), jointly learning these tasks allows the framework to resolve linguistic ambiguities in data-scarce classes by leveraging the collective semantic strength of the entire report context. III. R ESEARCH METHODOLOGY 
+
+We define our dataset formally as D =
+
+{(x(p), y(p))}Sp=1 , where x(p) represents the input sequence for patient p. The target space is a composite vector y(p) ∈ Y T × Y N × · · · × Y HER 2, corresponding to the joint distribution of seven clinical variables: T Stage (tumor size), N Stage (lymph node involvement), M Stage (distant metastasis), histologic grade (cell differentiation), and three biomarkers (ER, PR, and HER2). The learning objective is to approximate the function fθ : x(p) → y(p) that minimizes the prediction error across all task heads simultaneously. Fig. 1 shows our Multi-Task LLM framework, com-prising five integrated phases. The pipeline begins with Data Preprocessing (a), combining text extraction, de-identification, and iterative regex bootstrapping to gener-ate the ground-truth dataset. Data Splitting (b) employs stratified partitioning to preserve class distributions for robust evaluation under class imbalance. The Model Architecture (c) employs a shared Llama-3-8B-Instruct encoder to extract high-dimensional semantic features from the terminal hidden state, which are then projected into parallel task-specific classification heads. Next, the Optimization Loop (d) uses LoRA to minimize joint cross-entropy loss by updating only the low-rank adapter matrices while keeping the pre-trained backbone frozen. Finally, Evaluation (e) generates a structured prediction vector, consolidating the cancer staging and biomarker sta-tus into a unified clinical profile. Each of the components is described in detail in the following subsections. 
+
+A. Data Preprocessing and Ground Truth Construction 
+
+We digitize pathology documents via dual-path ex-traction, which are segmented into site-specific blocks using regex. Labels are generated through human-in-the-loop bootstrapping, incorporating an expert audit of 7,481 4T                 
+
+> N
+> M
+> Grade
+> ER
+> PR
+> Pathology reports
+> Text Extraction
+> De -identification
+> Anonymized,
+> machine -readable
+> pathology reports
+> Train set (80%)
+> Val set (10%)
+> Test set (10%)
+> Regex
+> Shared encoder
+> (LoRA)
+> Softmax
+> (a) Data Preprocess (b)Train/Validation/
+> Test Split
+> (c) Model Training
+> (d) Fine -tuning (e) Evaluation
+
+(a) (b) (c) 
+
+(e)        
+
+> Cross entropy loss
+> Update LoRA +heads weights only
+
+(d)   
+
+> Tokenize
+> Build Ground Truth
+> HER2
+
+Fig. 1: Detailed architecture of the proposed Multi-Task LLM framework. (a) Data Preprocessing: Raw pathology reports undergo native digital text extraction, de-identification, and human-verified ground truth generation before tokenization. (b) Data Splitting: The dataset is partitioned into training (80%), validation (10%), and testing (10%) sets to support model development and unbiased evaluation. (c) Model Architecture: A shared Llama-3 encoder (fine-tuned via LoRA) extracts high-dimensional semantic features from the terminal hidden state, which are simultaneously projected into parallel task-specific classification heads (T, N, M, Grade, ER, PR, HER2). (d) Optimization Loop: The training process minimizes a joint cross-entropy loss, updating only the low-rank adapters and head weights while keeping the heavy LLM backbone frozen. (e) Evaluation: The system produces a structured output vector containing the predicted class for each clinical variable, providing a comprehensive TNM and biomarker profile. (70.1%) reports. Full technical details are documented in Supplementary Appendix I. 
+
+1) Structured Input Representation: To optimize efficiency, we apply semantic window-slicing (±5
+
+lines) around prioritized clinical headers (e.g., FINAL DIAGNOSIS ). Narratives are mapped to a four-block schema ( Field, Classes, Report, Hints ) to bridge text and extraction heads. Hints provide localized anchors via pattern matching, facilitating latent evidence syn-thesis without rigid constraints. The complete logic for the deterministic hint generation engine is detailed in Supplementary Appendix I. 
+
+Field: {Task Name }
+
+Classes: {Fixed Label Set }
+
+Report: {Sliced Report Text }
+
+Hints: 
+
+{Key:Value Regex Matches (e.g., ‘‘T_hint: pT1c’’, ‘‘HER2_hint: IHC 2+, FISH amplified’’) }
+
+B. Multi-Task LLM Architecture with LoRA 
+
+The core of our predictive framework is a pre-trained LLM, i.e., the Llama-3-8B-Instruct architecture [6], which serves as a shared semantic encoder. Llama-3-8B-Instruct demonstrates state-of-the-art performance on reasoning and comprehension benchmarks among models with fewer than 10 billion parameters. Unlike standard base models optimized solely for token perplexity, the “Instruct” variant utilizes semantic representations refined through instruction fine-tuning and Reinforcement Learning from Human Feedback (RLHF) [38]. Mathematically, this alignment process induces a more structured manifold in the latent space, where self-attention weights are condi-tioned to anchor on instruction-relevant tokens [39] (e.g., our structured Field and Hints headers). This creates a linearly separable foundation where high-level task intent is encoded directly into the hidden states [40]. For our application, this architecture facilitates the disambiguation of clinical concepts, such as distinguishing current T Stage from historical data, by leveraging a latent space that is pre-aligned to structured formatting. This provides 5T           
+
+> N
+> M
+> Grade
+> ER
+> PR
+> Shared encoder
+> (LoRA)
+> Softmax
+> (c)
+> Cross -entropy loss
+> Update LoRA
+> (d)
+> Update heads
+> Init: B=0
+> 𝐴 =𝒩 0,𝜎 !
+> r
+> Pretrained
+> weights
+> 𝑊 ∈ℝ!!"# ×!$%
+> ℎ!"
+> 𝑑 #$
+> ℎ#$%
+> HER2
+
+Fig. 2: Schematic of the LoRA mechanism. a robust foundation for complex extraction than standard base models, which lack such intent-driven conditioning. Notably, our approach departs from standard auto-regressive text generation. Instead of retaining the original causal language modeling head, we remove it and repur-pose the Llama-3 backbone as a high-capacity feature extractor. Specifically, we extract the contextualized hidden states from the final transformer layer and utilize the terminal hidden state of the input sequence to form a dense semantic representation of the input. This task-agnostic context vector is then supplied to parallel classification heads for structured multi-task prediction. 
+
+1) LoRA Mechanism: To adapt the general-purpose Llama-3 backbone to the specialized syntax of pathology reports, we employ LoRA [4] to avoid the prohibitive computational cost of full-parameter fine-tuning. LoRA is motivated by a key hypothesis: task- and domain-specific adaptations from a strong pre-trained model lie in a low-dimensional subspace of the full parameter space. As illustrated in Fig. 2, to modify the self-attention mechanism of the Llama-3 backbone, we freeze the pre-trained weights and inject trainable low-rank matrices into four projection layers: query ( W q), key ( W k), value (W v), and output ( W o). Formally, let W 0 ∈ Rdout ×din 
+
+represent one of these frozen projection matrices. Here, 
+
+din corresponds to the model hidden dimension dmodel 
+
+(dmodel = 4 , 096 for Llama-3-8B-Instruct architecture) and dout denotes the projection dimension associated with the corresponding attention head. Instead of optimizing 
+
+W 0 directly, we model the adapted weight matrix as 
+
+W = W 0 + ∆ W (1) where the update ∆W is constrained to have rank at most r ≪ min( din , d out ). This constraint is enforced structurally by factorizing the update as 
+
+∆W = αr BA (2) where A ∈ Rr×din and B ∈ Rdout ×r are the trainable, low-rank adapter matrices. The scaling factor αr ensures that the magnitude of the low-rank update is appropriately calibrated relative to the frozen backbone W 0. Then, given an input hidden state hin ∈ Rdin , the adapted forward pass becomes 
+
+hout = W 0hin + ∆ W h in . (3) To ensure the training trajectory begins from the stable pre-trained solution, we initialize A ∼ N (0 , σ 2) and 
+
+B = 0. This ensures ∆W = 0 at step t = 0 . Let 
+
+ΘLoRA denote the complete collection of these adapter matrices ( A’s and B’s) across all adapted transformer layers. The optimization problem reduces to finding the optimal parameters that minimize the objective: 
+
+min 
+
+> ΘLoRA
+
+L(Φ f rozen + ∆Φ( ΘLoRA ); D), (4) where L(·) is the task-specific loss defined over the pathology report dataset D. The term Φf rozen denotes the collection of all frozen backbone parameters, and 
+
+∆Φ( ΘLoRA ) denotes the induced parameter updates from the LoRA adapters. By optimizing this constrained subspace while holding Φf rozen constant, we enable the model to acquire domain-specific clinical features. Importantly, this approach does not corrupt the general linguistic knowledge encoded in the pre-trained backbone, thereby mitigating the catastrophic forgetting issue. 
+
+2) Multi-Head Classification and Optimization: We develop an MTL framework to exploit the intrinsic semantic correlations among clinical variables. Although T Stage, N Stage, histologic grade, and receptor status represent distinct staging criteria, they are all derived from a unified description of the same biological entity within the pathology report. By training a shared encoder to predict these variables concurrently, we encourage the model to learn a robust semantic representation. This approach offers two key advantages. First, it allows tasks with limited supervision (e.g., rare receptor subtypes) to leverage features learned from data-abundant tasks. This mitigates the impact of class imbalance and prevents overfitting to surface-level artifacts [34]. Second, from a system perspective, this unified architecture minimizes the deployment footprint. It replaces seven standalone models with a single inference pipeline, ensuring scalability in resource-constrained clinical environments. To implement the MTL framework, we con-nect the LoRA-adapted shared encoder to paral-lel task-specific classification heads. This architec-ture is depicted in Fig. 1(c). Each head corre-sponds to one of the target variables in the set 
+
+T = {T, N, M, Grade, ER, P R, HER 2}. Formally, let 6
+
+z(p) = f (x(p); ΘLoRA ) ∈ Rdmodel denote the high-dimensional latent representation extracted from the termi-nal token of the input sequence x(p), where f (·; ΘLoRA )
+
+represents the shared LoRA-adapted encoder. Given the causal attention mechanism of the Llama-3 backbone, this terminal state serves as a global semantic summary, having attended to the entire preceding clinical narrative and structured hints. This contextual embedding is then projected into independent linear classification heads to generate probability distributions for each task t:
+
+ˆy(p) 
+
+> t
+
+= Softmax (W tz(p) + bt), ∀t ∈ T (5) Here, W t ∈ RCt×dmodel and bt ∈ RCt denote the learnable weight matrix and bias vector for task t. The parameter Ct represents the number of classes for that specific variable. The entire network is trained end-to-end by minimizing the joint Multi-Task Cross-Entropy Loss: 
+
+L(Θ; D) = −
+
+> S
+
+X
+
+> p=1
+
+X
+
+> t∈T
+> Ct
+
+X
+
+> c=1
+
+ωt,c · I(y(p) 
+
+> t
+
+= c) log(ˆ y(p) 
+
+> t,c
+
+),
+
+(6) where Θ = ΘLoRA ∪ { W t, bt}t∈T denotes the complete set of trainable parameters, excluding the frozen back-bone, and parameter ωt,c is introduced to address the class imbalance issue. While several variables exhibit distributional skew (e.g., N Stage, Grade), preliminary experiments indicated that the model could robustly learn these categories without intervention. This robustness is likely attributable to the high semantic distinctiveness of their reporting formats, where staging parameters are frequently demarcated by explicit standardized headers (e.g., Regional Lymph Nodes ) or rigid alphanumeric codes (e.g., “pN0”). However, the HER2 task presents unique challenges: the combination of extreme class imbalance and subtle linguistic cues (e.g., distinguishing ”Equivocal” from ”Negative”) caused the model to overfit the majority class. To mitigate this specific failure mode, we calculated 
+
+ωHER 2,c using the balanced inverse-frequency formula: 
+
+ωHER 2,c = Svalid 
+
+CHER 2 · sc
+
+(7) where Svalid is the total number of valid training samples for the task (excluding missing values) and sc is the frequency count of class c. This ensures misclassifications of the minority positive class incur a proportionally higher penalty, preventing the model from converging to a trivial majority-baseline. For all other tasks t ∈ T \ { HER 2},we assign a uniform weight of ωt,c = 1 .IV. M ATERIALS AND EXPERIMENTAL DESIGN 
+
+A. Clinical Dataset and Cohort Selection 
+
+We initialize our pipeline with 285,033 pathology reports collected from the Research Enterprise Dataware-house at University of Tennessee Health Science Center, spanning from 2020 to 2023. This archive is filtered for reports containing structured synoptic variables, es-pecially TNM Stages, histologic grade, and biomarkers. While primarily focused on breast oncology, the cohort intentionally incorporates a diverse range of other malig-nancies, including lung, colorectal, and prostate cancers to facilitate inductive knowledge transfer across solid tumors sharing AJCC staging logic. To resolve data fragmentation, a patient-level consolida-tion algorithm is designed to propagate biomarkers across temporal records and concurrent addenda. Following consolidation and pruning of non-informative reports, the final cohort comprised S = 10 , 677 unique samples containing at least one clinical staging variable. Ground truth labels are generated using the validated symbolic engine described in Supplementary Appendix I. Based on a manual audit of 7,481 cases (70.1%), this dataset is designated a High-Fidelity Ground Truth Composite. Data were partitioned using a stratified 80/10/10 strategy for training, validation, and testing. Detailed clinical definitions and long-tail class distributions are provided in Supplementary Appendix IV. 
+
+B. Experimental Design and Comparative Baselines 
+
+The Multi-Task LLM is developed using the Llama-3-8B-Instruct backbone and fine-tuned via 4-bit QLoRA to maximize computational efficiency. The complete config-uration of hyperparameters and hardware specifications are documented in Supplementary Appendix II. To evaluate our proposed framework, we implement a systematic experimental design targeting four dimensions: methodological baseline, architectural efficiency, learning paradigm, and input robustness (Fig. 3). Methodological Baseline establishes legacy clinical extraction perfor-mance via a Naive Rule-Based model applying deter-ministic regex and proximity-based keyword matching to unsegmented reports. For TNM staging, the algorithm captures standard clinical patterns (e.g., “pT” followed by an integer), while for biomarkers, it employs a window-based search ( ±75 characters). This method lacks the context-aware disambiguation utilized in our proposed system, serving as a measure of raw task complexity. Architectural Efficiency benchmarks our LoRA-adapted Multi-Task LLM (targeting W q, W k, W v, W o)against alternative neural adaptation strategies. We imple-mented three comparative methods using the Llama-3-8B-7
+
+Fig. 3: Fishbone diagram of the experimental design and ablation framework. TABLE I: Performance comparison on the held-out test set ( Stest = 1 , 068 ).                                                  
+
+> Clinical Task Naive Baseline Multi-Task LLM Accuracy F1 AUC Accuracy F1 AUC
+> T Stage 0.627 0.447 0.747 0.994 0.993 1.000
+> N Stage 0.911 0.739 0.933 1.000 1.000 1.000
+> Histologic Grade 0.543 0.498 0.752 0.969 0.969 0.995
+> ER Status 0.919 0.618 0.950 0.977 0.961 0.986
+> PR Status 0.937 0.635 0.964 0.962 0.957 0.990
+> HER2 Status 0.558 0.387 0.659 0.985 0.967 0.989 Overall Average 0.749 0.554 0.834 0.981 0.976 0.996
+
+Instruct backbone: (1) Frozen (Linear Probing), updating only the classification heads to quantify pre-trained semantic features; (2) (IA) 3 [26], which rescales inner activations via element-wise multiplication ( ≈ 0.01% 
+
+of parameters). (3) Prefix Tuning [25], which prepends 
+
+Lpre = 32 learnable virtual tokens to every transformer layer. All neural baselines utilize identical window-slicing inputs and are constrained to a fixed training budget of 3 epochs with a 1 × 10 −4 learning rate. The Learning Paradigm compares our proposed MTL framework with Single-Task Learning (STL), where independent adapters are trained for each variable. This comparison quantifies how a shared semantic encoder facilitates inductive transfer to mitigate extreme class im-balance. Input Robustness further evaluates our Semantic Window Slicing strategy ( ±5 lines surrounding relevant headers) against two baseline conditions: (1) a Full-Text baseline, truncated only by the model’s 512-token limit, and (2) a Random Window baseline of equivalent token length. By retaining the Hints block across all condi-tions, we isolate the windowing mechanism to investigate trade-offs between input density, computational latency, and semantic completeness. Performance was measured across predictive accuracy, Macro F1, AUROC, training time, and peak GPU memory utilization. V. R ESULTS AND DISCUSSION 
+
+A. Performance Comparison with Rule-Based Baselines 
+
+We benchmark the performance of our Multi-Task LLM against the Naive Rule-Based Baseline on the held-out test set. Table I summarizes the performance across the extraction tasks. Because the clinical cohort utilized in this study consists exclusively of non-metastatic (M0) cases, the M Stage task was excluded from the results tables. According to Table I, while the Naive Baseline achieved competitive accuracy for standardized variables like N Stage (0.911) and PR status (0.937), these high accuracy scores overestimate the model’s reliability by concealing its failure to distinguish minority classes. For instance, the Macro F1 score of the baseline for PR status is only 0.635, indicating a severe bias toward the majority class. In contrast, our Multi-Task LLM maintains high Macro F1 scores across all tasks, demonstrating robust-ness to the inherent class imbalances. The performance disparity is most pronounced in tasks requiring contextual disambiguation, specifically T Stage and HER2. For example, the baseline achieves an accuracy of only 0.627 for T Stage, a substantial gap compared to the Multi-Task LLM (0.994). Error analysis reveals that the Naive Baseline frequently captures historical T-stages mentioned in the Clinical History section (e.g., extracting a prior “T1” diagnosis) rather than current findings in the 
+
+Final Diagnosis . Our Multi-Task LLM effectively suppresses these historical mentions, correctly identifying current diagnostic findings in 99.4% of cases. Similarly, tasks involving complex syntax, such as histologic grade and HER2 status, prove challenging for the rigid baseline. For histologic grade, the baseline conflates the primary tumor grade with unrelated numeric descriptors (e.g., “Nuclear Grade”), resulting in an accuracy of only 0.543. For HER2, it fails to parse non-standard formats such as “Equivocal (2+)”, leading to a Macro F1 score of 0.387, which approaches the performance of a trivial majority-class baseline. The Multi-Task LLM generalizes effectively across these heterogeneous formats, achieving a HER2 accuracy of 0.985 and a Macro F1 of 0.967. Even in tasks where the baseline is competitive (e.g., ER status), our Multi-Task LLM provides consistent improvements by capturing the full spectrum of linguistic variation in the reports. Moreover, our Multi-Task LLM demonstrates high training efficiency, reaching performance saturation early in the training cycle. Our framework also maintains high sensitivity and specificity on minority classes, effectively resolving the challenges posed by the severe class imbalance issue in biomarker status. Detailed training convergence curves, validation loss plateaus, and the task-8
+
+TABLE II: Comparison of classification performance and computational resource utilization across PEFT strategies.                         
+
+> Method Trainable Params Time (s) Memory (MB) Accuracy Macro F1 AUROC
+> Frozen (Head) 81,940 5,539 5,433 0.664 0.490 0.762 (IA) 3606,228 9,198 12,553 0.673 0.512 0.756 Prefix Tuning 213,012 8,517 10,716 0.978 0.972 0.994
+> LoRA (Ours) 13,713,428 3,434 14,211 0.981 0.976 0.996
+
+specific confusion matrix for HER2 status are provided in Supplementary Appendix III. 
+
+B. Performance Comparison with PEFT Strategies 
+
+Table II presents a comparative analysis between our LoRA strategy and the alternative adaptation methods. The IA 3 method failed to substantially outperform the Frozen baseline (Accuracy 0.673 vs. 0.664). This suggests that modifying activation magnitudes alone lacks the representational capacity to bridge the semantic gap between general-domain pre-training and the highly specialized, hierarchical schema of oncology staging. In contrast, both Prefix Tuning and LoRA achieved high performance, with accuracies of 0.978 and 0.981, respectively. However, the operational metrics highlight a distinct trade-off between memory footprint and training throughput. Prefix Tuning proved more memory-efficient (10.7 GB vs. 14.2 GB peak VRAM) but suffered from severe computational latency, requiring 8,517 seconds to train, nearly 2.5× slower than LoRA. This latency is likely attributable to the implementation overhead of virtual tokens, which extend the effective sequence length and can disrupt the efficacy of hardware-optimized attention kernels (e.g., Flash Attention) by altering the contiguous memory layout required for tiling operations. While the per-step computational cost of LoRA is marginally higher due to the larger parameter count ( 13 .7
+
+million), it achieves optimal convergence in a single epoch (3,434 seconds). In contrast, alternative methods required a full three-epoch schedule to reach peak performance, resulting in a significantly longer total training duration. Although LoRA incurs a higher peak VRAM cost due to the storage of adapter states, this footprint fits comfortably within modern enterprise GPU budgets (e.g., NVIDIA A100 or L40S). 
+
+C. Impact of Multi-Task Learning on Efficiency and Inductive Transfer 
+
+To validate the structural advantages of our unified architecture, we further benchmark the MTL framework against a STL baseline. In the STL configuration, we train six independent LoRA adapters, one for each clinical variable analyzed in the results, maintaining identical hyperparameters to the joint model. Table III summa-rizes the comparative resource utilization, aggregate predictive power, and task-specific performance across both architectures. Our MTL approach demonstrates superior efficiency, reducing the deployment footprint by a factor of six ( 13 .7 million vs. 82 .2 million trainable parameters). This consolidation ensures scalability for resource-constrained clinical environments while main-taining comparable training latency. Additionally, the unified model achieves superior aggregate metrics, raising the mean Accuracy from 0.928 to 0.981 and Macro F1 from 0.914 to 0.976. The granular breakdown of task-specific performance reveals that while Single-Task models performs compe-tently on data-rich variables like N Stage and T Stage, the STL baseline exhibits a performance collapse on HER2 status, yielding a Macro F1 score of only 0.309. This task is characterized by high class imbalance (as detailed in Supplementary Material II) and limited training support for positive cases, exhibiting a severe 6.4:1 imbalance ratio. The results indicate that the isolated HER2 model, lacking sufficient supervision signals, fails to generalize. In stark contrast, our Multi-Task framework achieves a Macro F1 of 0.967 on HER2. This confirms that the joint training objective facilitates effective inductive knowledge transfer, enabling the data-scarce HER2 task (with 1,597 training samples) to leverage high-level semantic features learned from data-abundant tasks such as T Stage and N Stage, with 6,240 and 3,947 training samples, respectively. 
+
+D. Input Robustness and Semantic Slicing Ablation 
+
+Table IV presents the impact of the input processing strategies described in Research Methodology section. Note that the Llama-3 architecture demonstrated remark-able robustness to unstructured noise introduced by the unpruned narratives containing extensive administrative metadata, with the Full Text configuration achieving a Macro F1 of 0.977, which is statistically on par with our Window Slicing approach. Despite this parity, the Window Slicing strategy is the preferred deployment configuration because it mitigates the quadratic computational overhead of self-attention ( O(L2)) by significantly reducing the average input sequence length, which directly lowers inference latency. Moreover, the validity of our slicing strategy is confirmed by comparing with the Random Window baseline with Accuracy of 0.854 and Macro F1 of 0.790. This is due to the fact that relevant context might be removed in Random Window slicing. This sharp deterioration confirms that the model’s high performance 9
+
+TABLE III: Comparative analysis of efficiency, aggregate performance, and task-specific Macro F1 scores                                       
+
+> Resource Efficiency Aggregate Performance Task-specific Macro F1 Architecture Models Params Time Accuracy Macro F1 AUROC TNGrade ER PR HER2
+> STL Baseline 682.2 M 3,473 s 0.928 0.914 0.946 0.991 1.000 0.970 0.919 0.900 0.309
+> MTL (Ours) 113.7 M 3,434 s 0.981 0.976 0.996 0.993 1.000 0.969 0.961 0.957 0.967
+
+TABLE IV: Ablation study on Input Robustness.              
+
+> Configuration Accuracy Macro F1 AUROC
+> Full Text (No Slicing) 0.982 0.977 0.995 Random Window Baseline 0.854 0.790 0.921
+> Window Slicing ( ±5lines) 0.981 0.976 0.996
+
+relies on attending to specific, semantically relevant diagnostic segments, whether identified implicitly via global attention or extracted explicitly by our slicer. VI. C ONCLUSION 
+
+This paper proposes a novel Multi-Task LLM frame-work for automated breast cancer staging and biomarker extraction from pathology narratives. By repurposing the Llama-3-8B-Instruct model as a discriminative en-coder and leveraging LoRA, the framework effectively addresses the prohibitive computational costs of full-parameter fine-tuning and brittle rule-based systems. Specifically, the parallel classification architecture ensures consistent schema adherence by replacing the auto-regressive decoding with classification heads. Concur-rently, the MTL architecture facilitates inductive knowl-edge transfer, effectively mitigating severe class imbal-ance challenges for data-scarce variables. Experimental results demonstrate that the framework achieves a Macro F1 score of 0.976, significantly outperforming legacy rule-based baselines and single-task LLM counterparts. Our framework provides healthcare systems with a scal-able, high-fidelity tool for modernizing cancer registries and accelerating data-driven oncology research, with a methodology broadly applicable to other clinical domains that require robust, evidence-based information extraction. DATA AVAILABILITY STATEMENT 
+
+This study was approved by the Institutional Review Board (IRB) at University of Tennessee Knoxville, ap-proval ID #5156. The study was conducted in accordance with relevant institutional guidelines and regulations. The clinical pathology reports were sourced from the Research Enterprise Datawarehouse at the University of Tennessee Health Science Center. These data contain protected health information and are not publicly available due to institutional privacy policies and HIPAA regulations. De-identified data and the extraction logic may be made available to qualified researchers upon reasonable request to the corresponding author, subject to IRB approval and the execution of a Data Use Agreement. VII. A CKNOWLEDGMENT 
+
+This research has been supported by a seed grant from the Human Health and Wellness Gateway at the University of Tennessee, Knoxville. We acknowledge with deep gratitude Dr. John Bell, former Director of the Cancer Institute at the University of Tennessee Medical Center, whose mentorship, collaboration, and original initiation of this work were central to its development. His intellectual leadership and generosity continue to inspire us. This paper is dedicated to his memory. REFERENCES                             
+
+> [1] R. L. Siegel, A. N. Giaquinto, and A. Jemal, “Cancer statistics, 2024,” CA: a cancer journal for clinicians , vol. 74, no. 1, pp. 12–49, 2024. [2] M. B. Amin, S. B. Edge, F. L. Greene, D. R. Byrd, R. K. Brookland, M. K. Washington, J. E. Gershenwald, C. C. Compton, K. R. Hess, D. C. Sullivan et al. ,AJCC cancer staging manual .Springer, 2017, vol. 1024. [3] M. Alawad, S. Gao, J. X. Qiu, H. J. Yoon, J. Blair Christian, L. Penberthy, B. Mumphrey, X.-C. Wu, L. Coyle, and G. Tourassi, “Automatic extraction of cancer registry reportable information from free-text pathology reports using multitask convolutional neural networks,” Journal of the American Medical Informatics Association , vol. 27, no. 1, pp. 89–98, 2020. [4] X. Wang, Z. Wang, J. Williams, J. T. Silva, B. Yao, X. Li, E. Perkins, and J. Bell, “Rule-based automated cancer staging from scanned pathology reports,” in IISE Annual Conference. Proceedings .Institute of Industrial and Systems Engineers (IISE), 2024, pp. 1–6. [5] S. Wu, K. Roberts, S. Datta, J. Du, Z. Ji, Y. Si, S. Soni, Q. Wang, Q. Wei, Y. Xiang et al. , “Deep learning in clinical natural language processing: a methodical review,” Journal of the American Medical Informatics Association , vol. 27, no. 3, pp. 457–470, 2020. [6] W.-w. Yim, M. Yetisgen, W. P. Harris, and S. W. Kwan, “Natural language processing in oncology: a review,” JAMA oncology ,vol. 2, no. 6, pp. 797–804, 2016. [7] Z. Wang and B. Yao, “Transformer with koopman-enhanced graph convolutional network for spatiotemporal dynamics fore-casting,” arXiv preprint arXiv:2507.03855 , 2025. [8] Z. Wang, T. Liu, and B. Yao, “Muse-net: Missingness-aware multi-branching self-attention encoder for irregular longitudinal electronic health records,” IEEE Transactions on Automation Science and Engineering , 2026. 10
+
+[9] J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova, “Bert: Pre-training of deep bidirectional transformers for language understanding,” in Proceedings of the 2019 conference of the North American chapter of the association for computational linguistics: human language technologies, volume 1 (long and short papers) , 2019, pp. 4171–4186. [10] J. Lee, W. Yoon, S. Kim, D. Kim, S. Kim, C. H. So, and J. Kang, “Biobert: a pre-trained biomedical language representation model for biomedical text mining,” Bioinformatics , vol. 36, no. 4, pp. 1234–1240, 2020. [11] E. Alsentzer, J. Murphy, W. Boag, W.-H. Weng, D. Jindi, T. Naumann, and M. McDermott, “Publicly available clinical bert embeddings,” in Proceedings of the 2nd clinical natural language processing workshop , 2019, pp. 72–78. [12] A. J. Thirunavukarasu, D. S. J. Ting, K. Elangovan, L. Gutierrez, T. F. Tan, and D. S. W. Ting, “Large language models in medicine,” Nature medicine , vol. 29, no. 8, pp. 1930–1940, 2023. [13] D. Lee, A. Vaid, K. M. Menon, R. Freeman, D. S. Matteson, M. L. Marin, G. N. Nadkarni et al. , “Using large language models to automate data extraction from surgical pathology reports: Retrospective cohort study,” JMIR Formative Research ,vol. 9, no. 1, p. e64544, 2025. [14] A. M. Garcia-Carmona, M.-L. Prieto, E. Puertas, and J.-J. Beunza, “Leveraging large language models for accurate retrieval of patient information from medical reports: Systematic evaluation study,” JMIR AI , vol. 4, no. 1, p. e68776, 2025. [15] M. Agrawal, S. Hegselmann, H. Lang, Y. Kim, and D. Son-tag, “Large language models are few-shot clinical information extractors,” arXiv preprint arXiv:2205.12689 , 2022. [16] N. Ding, Y. Qin, G. Yang, F. Wei, Z. Yang, Y. Su, S. Hu, Y. Chen, C.-M. Chan, W. Chen et al. , “Parameter-efficient fine-tuning of large-scale pre-trained language models,” Nature machine intelligence , vol. 5, no. 3, pp. 220–235, 2023. [17] L. Liu, L. Lian, Y. Hao, A. Pace, E. Kim, N. Homsi, Y. Pershad, L. Lai, T. Gracie, A. Kishtagari et al. , “Human level information extraction from clinical reports with finetuned language models,” 
+
+Scientific Reports , 2025. [18] E. J. Hu, Y. Shen, P. Wallis, Z. Allen-Zhu, Y. Li, S. Wang, L. Wang, W. Chen et al. , “Lora: Low-rank adaptation of large language models.” ICLR , vol. 1, no. 2, p. 3, 2022. [19] G. K. Savova, J. J. Masanz, P. V. Ogren, J. Zheng, S. Sohn, K. C. Kipper-Schuler, and C. G. Chute, “Mayo clinical text analysis and knowledge extraction system (ctakes): architecture, component evaluation and applications,” Journal of the American Medical Informatics Association , vol. 17, no. 5, pp. 507–513, 2010. [20] O. Bodenreider, “The unified medical language system (umls): integrating biomedical terminology,” Nucleic acids research ,vol. 32, no. suppl 1, pp. D267–D270, 2004. [21] K. Donnelly et al. , “Snomed-ct: The advanced terminology and coding system for ehealth,” Studies in health technology and informatics , vol. 121, p. 279, 2006. [22] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, Ł. Kaiser, and I. Polosukhin, “Attention is all you need,” 
+
+Advances in neural information processing systems , vol. 30, 2017. [23] C.-K. Wang, C.-R. Ke, M.-S. Huang, I.-W. Chong, Y.-H. Yang, V. S. Tseng, and H.-J. Dai, “Using large language models for efficient cancer registry coding in the real hospital setting: A feasibility study,” in Biocomputing 2025: Proceedings of the Pacific Symposium . World Scientific, 2024, pp. 121–137. [24] M. Wornow, Y. Xu, R. Thapa, B. Patel, E. Steinberg, S. Fleming, M. A. Pfeffer, J. Fries, and N. H. Shah, “The shaky foundations of large language models and foundation models for electronic health records,” npj digital medicine , vol. 6, no. 1, p. 135, 2023. [25] X. L. Li and P. Liang, “Prefix-tuning: Optimizing continuous prompts for generation,” in Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on Natural Language Processing (Volume 1: Long Papers) , 2021, pp. 4582–4597. [26] H. Liu, D. Tam, M. Muqeeth, J. Mohta, T. Huang, M. Bansal, and C. A. Raffel, “Few-shot parameter-efficient fine-tuning is better and cheaper than in-context learning,” Advances in Neural Information Processing Systems , vol. 35, pp. 1950–1965, 2022. [27] Z. Wang, S. Chen, T. Liu, and B. Yao, “Multi-branching temporal convolutional network with tensor data completion for diabetic retinopathy prediction,” IEEE journal of biomedical and health informatics , vol. 28, no. 3, pp. 1704–1715, 2024. [28] J. Shao, Z. Wang, A. Khojandi, T. Liu, and B. Yao, “Multi-branching tabnet for interpretable data-driven prediction of diabetic retinopathy,” IISE Transactions on Healthcare Systems Engineering , vol. 15, no. 4, pp. 303–317, 2025. [29] J. Xie, S. Stavrakis, and B. Yao, “Automated identification of atrial fibrillation from single-lead ecgs using multi-branching resnet,” Frontiers in Physiology , vol. 15, p. 1362185, 2024. [30] Z. Wang, S. Stavrakis, and B. Yao, “Hierarchical deep learning with generative adversarial network for automatic cardiac diagnosis from ecg signals,” Computers in Biology and Medicine ,vol. 155, p. 106641, 2023. [31] Z. Wang and B. Yao, “Multi-branching temporal convolutional network for sepsis prediction,” IEEE journal of biomedical and health informatics , vol. 26, no. 2, pp. 876–887, 2021. [32] Y. Chang, Y. Chang, and Y. Wu, “Ba-lora: Bias-alleviating low-rank adaptation to mitigate catastrophic inheritance in large language models,” arXiv preprint arXiv:2408.04556 , 2024. [33] J.-X. Shi, T. Wei, Z. Zhou, X.-Y. Han, J.-J. Shao, and Y.-F. Li, “Parameter-efficient long-tailed recognition,” arXiv preprint arXiv:2309.10019 , 2023. [34] S. Ruder, “An overview of multi-task learning in deep neural networks,” arXiv preprint arXiv:1706.05098 , 2017. [35] Y. Zhang and Q. Yang, “A survey on multi-task learning,” IEEE transactions on knowledge and data engineering , vol. 34, no. 12, pp. 5586–5609, 2021. [36] G. Crichton, S. Pyysalo, B. Chiu, and A. Korhonen, “A neural network multi-task learning approach to biomedical named entity recognition,” BMC bioinformatics , vol. 18, no. 1, p. 368, 2017. [37] A. Dubey, A. Jauhri, A. Pandey, A. Keshwam, A. Al-dahle et al. ,“The llama 3 herd of models,” arXiv preprint arXiv:2407.21783 ,2024. [38] L. Ouyang, J. Wu, X. Jiang, D. Almeida, C. Wainwright, P. Mishkin, C. Zhang, S. Agarwal, K. Slama, A. Ray et al. ,“Training language models to follow instructions with human feedback,” Advances in neural information processing systems ,vol. 35, pp. 27 730–27 744, 2022. [39] G. Xiao, Y. Tian, B. Chen, S. Han, and M. Lewis, “Efficient streaming language models with attention sinks,” arXiv preprint arXiv:2309.17453 , 2023. [40] B. Saglam, P. Kassianik, B. Nelson, S. Weerawardhena, Y. Singer, and A. Karbasi, “Large language models encode semantics and alignment in linearly separable representations,” in Proceedings of the 14th International Joint Conference on Natural Language Processing and the 4th Conference of the Asia-Pacific Chapter of the Association for Computational Linguistics , 2025, pp. 2282– 2303. [41] M. Fenniak, M. Stamy, pubpub zz, M. Thoma, M. Peveler, exiledkingcc, and PyPDF2 Contributors, “The PyPDF2 library,” 2022. [Online]. Available: https://pypi.org/project/PyPDF2/ [42] Jaided AI, “EasyOCR: Ready-to-use ocr with 80+ supported lan-guages,” https://github.com/JaidedAI/EasyOCR, 2023, accessed: 2024-01-01. 11 
+
+[43] T. Dettmers, A. Pagnoni, A. Holtzman, and L. Zettlemoyer, “Qlora: Efficient finetuning of quantized llms,” Advances in neural information processing systems , vol. 36, pp. 10 088– 10 115, 2023. [44] V. Lialin, V. Deshpande, and A. Rumshisky, “Scaling down to scale up: A guide to parameter-efficient fine-tuning,” arXiv preprint arXiv:2303.15647 , 2023. [45] N. C. C. Network et al. , “Nccn clinical practice guidelines in oncology (nccn guidelines®) breast cancer version 6. 2024,” 2024. S1 
+
+# Supplementary Material 
+
+This supplementary document provides additional details that support the main manuscript titled: “Multi-Task LLM with LoRA Fine-Tuning for Automated Cancer Staging and Biomarker Extraction” 
+
+S1. D ATA PREPROCESSING AND GROUND TRUTH CONSTRUCTION 
+
+The initial phase converts raw, heterogeneous pathology documents into anonymized, machine-readable text. As depicted in Figure 1(a) of the main manuscript, we prioritize native digital text extraction to handle the variability of clinical formats while preserving original character encodings. While the majority of records are digital-born and parsed via PyPDF2 , the system includes a contingency module to handle flattened records or documents with unmapped font encodings. This fallback ensures dataset continuity by utilizing an image-based extraction path, powered by EasyOCR , for the documents that fail standard parsing. This ensures that the clinical narrative is recovered accurately before proceeding to the de-identification and ground-truth generation phases [1], [2]. Following extraction, the raw text undergoes strict de-identification using automated pattern matching to redact Protected Health Information (PHI). This includes direct identifiers such as names, medical record numbers, and dates of birth, ensuring compliance with privacy standards (HIPAA). The input is strictly anonymized prior to analysis. Finally, we address ambiguity in multi-specimen reports, such as those describing concurrent bilateral breast procedures. We implement a regex-driven segmentation module that scans the text stream for a prioritized set of anchor headers. These include SYNOPTIC SUMMARY (LEFT/RIGHT BREAST) and INVASIVE DUCTAL/LOBULAR CARCINOMA . By resolving the start indices of these headers, the system partitions the document into discrete diagnostic blocks. This spatial slicing ensures that the subsequent input text provided to the model contains only the relevant clinical context for a specific tumor site, preventing feature cross-contamination from adjacent diagnoses. 
+
+A. Expert-Verified Ground Truth Construction 
+
+To establish high-quality ground truth labels y(p) at scale, we developed an iterative regex-based labeling engine based on the semi-automated human-in-the-loop strategy illustrated in Figure S1. We first analyzed a seed sample to construct a hierarchical library of regex patterns. Unlike simple keyword matching, this engine employs context-aware priority logic to resolve conflicts. For instance, to distinguish between historical data and the current diagnosis, the logic prioritizes values found under explicit section headers (e.g., FINAL DIAGNOSIS ) over conflicting mentions in summary lines or clinical histories. Furthermore, specific negative assertions (e.g., “No evidence of malignancy”) are prioritized to override keyword matches for tumor types found elsewhere in the document. A canonicalization module subsequently maps heterogeneous clinical descriptions into standardized class labels. Examples include mapping Roman numerals (“Grade III”), fractional scores (“3/3”), or qualitative terms (“Poorly Differentiated”) into uniform G3 classification. As depicted in Figure S1 (b) of the main manuscript, the workflow integrates two distinct quality assurance cycles. The Coverage Loop (red arrows) identifies unparsed reports to capture unhandled formats and edge cases. Simultaneously, the Accuracy Loop (blue arrows) involves a rigorous Manual Audit phase where provisional regex outputs are cross-verified against the original source documents by domain experts. This iterative refinement process ensures that the expert-level logic, such as negation handling and assay prioritization, is accurately captured within the regex engine before generating the final ground truth labels y(p). To validate the integrity of this iterative process, we performed a comprehensive manual audit of 7,481 pathology reports (70.1% of the cohort). During this phase, we refined the regex logic under clinical expert guidance to maximize sensitivity (minimizing extraction misses) and resolve complex linguistic ambiguities, such as distinguishing addendum updates from primary diagnoses. This dual-loop process was repeated until the engine achieved performance saturation, demonstrating near-perfect alignment with human clinical judgment across the verified cohort. We utilize these verified regex-derived labels as high-fidelity supervision targets, establishing an automated regex-supervised training strategy. By fine-tuning the Multi-Task LLM on this dataset, the model internalizes complex clinical rules within its learned parameters, effectively approximating the decision logic of the iterative regex engine. Crucially, while the regex engine is used as a deterministic labeling oracle during the training phase, the final extraction and inference are performed solely by the neural model. This approach demonstrates that a neural network architecture can successfully capture expert diagnostic logic without requiring the deployment of a cumbersome rule-based engine in the final inference pipeline. S2 Pathology reports   
+
+> Text Extraction
+> De -identification
+> Anonymized,
+> machine -readable
+> pathology reports
+> Tokenize
+> (a) Data Preprocess
+
+(a)            
+
+> Regex
+> Seed sample
+> Write patterns
+> Parsed? Add patterns
+> Provisional labels
+> Refine patterns
+> Manual Audit
+> Ground truth labels
+> (b) Ground truth (regex -bootstrapped)
+
+(b)  
+
+> Stop? No
+> Yes
+> Yes
+> No
+
+Coverage Loop Accuracy Loop 
+
+Fig. S1: Detailed workflow of the ground truth generation process. (a) Data Preprocessing: The pipeline begins with native PDF text extraction and de-identification to produce machine-readable text. (b) Human-Verified Bootstrapping: The core iterative loop initialized with a seed sample. The process splits into two feedback cycles: a Coverage Loop (red arrows) for unparsed reports, and an Accuracy Loop (blue arrows) where provisional regex outputs are rigorously validated via manual expert audit against the source documents. The cycle repeats until the logic stabilizes, yielding no further rule refinements on the manually verified cohort. 
+
+B. Structured Input Representation 
+
+To optimize computational efficiency and input density, we applied a window-slicing strategy extracting a context window of ±K lines (where K = 5 ) around prioritized anchor headers (e.g., FINAL DIAGNOSIS ). This constructs a dense input representation x(p) that reduces token usage while retaining high-clinical context. We utilize a structured four-block schema to serve as a bridge between unstructured clinical narratives and the model’s extraction heads: (1) Field , identifying the task; (2) Classes , derived from American Joint Committee on Cancer (AJCC) standards to constrain the output space; (3) Report , containing the sliced narrative; and (4) Hints , providing raw symbolic cues. Complementing this structural constraint, we generate hints via a symbolic rule-based engine that localizes task-relevant headers through deterministic pattern matching. For standard fields like T/N Stage, the hint captures the raw substring immediately following the section header (e.g., extracting “pT1c” after Primary Tumor: ). For complex biomarkers like HER2, the module identifies and concatenates fragmented text segments from multiple heterogeneous diagnostic assays, such as Immunohistochemistry (IHC) intensity and Fluorescence In Situ Hybridization (FISH) amplification status, into a single raw string (e.g., HER2_hint: IHC 2+, FISH amplified ). Rather than attempting to deterministically reconcile these heterogeneous signals using handcrafted rules, the system preserves the original assay-level evidence and presents it directly to the LLM model. The LLM model must learn to filter, contextualize, and reason over these noisy cues. Because pathology reports are often lengthy and multi-focal, these hints serve as localized semantic anchors that guide the model’s self-attention mechanism toward clinically salient regions. This hint format conditions the shared encoder’s hidden representations without imposing rule-based constraints. We pool the resulting contextualized embeddings by extracting the hidden state corresponding to the terminal token of the input sequence. By selecting this terminal state, we ensure the representation captures the global semantic integration across the entire structured prompt. S3 
+
+S2. I MPLEMENTATION DETAILS AND TRAINING CONFIGURATION 
+
+We implemented the Multi-Task LLM framework using PyTorch and the Hugging Face PEFT library. We initialized the encoder with the official meta-llama/Meta-Llama-3-8B-Instruct checkpoint. To maximize computational efficiency on available hardware, we utilized 4-bit NormalFloat quantization (QLoRA) [3], which significantly reduces memory footprint without degrading predictive performance. All experiments were conducted on a single NVIDIA Ada Lovelace (L40S) GPU (48 GB VRAM) with a fixed random seed (42). For hyperparameter selection, we adopted standard configurations from established parameter-efficient fine-tuning benchmarks [4]. We fixed the rank at r = 16 and the scaling factor at α = 16 . Low-rank adapters were applied to the self-attention projection matrices ( W q, W k, W v, W o). Empirical studies suggest that low-rank adaptations within this range are sufficient to capture domain-specific semantic shifts without the overfitting risks associated with higher-rank updates [4], [5]. This targeted configuration resulted in approximately 13 .7 million trainable parameters (≈ 0.34% of total weights). To ensure robust generalization, we applied a dropout rate of 0.05 and a weight decay of 0.01 .The model was trained for a maximum of 3 epochs using the Paged AdamW (8-bit) optimizer with a peak learning rate of 1 × 10 −4 and a cosine annealing schedule (3% linear warmup). While the Llama-3 architecture is format-agnostic, we adopted this structured schema as a methodological design choice to align the input with the structural inductive bias of the pre-trained instruction priors [6]. To ensure numerical stability, we utilized bfloat16 (bf16) compute precision. While the model weights were stored in 4-bit NormalFloat (NF4) to minimize VRAM usage, all forward and backward passes were executed in bf16 to leverage its wider dynamic range, which is critical for preventing gradient underflow in large-scale models. We enforced a global maximum sequence length of L = 512 
+
+tokens, truncating longer inputs to fit the context window. To accommodate GPU memory limits, we employed a micro-batch size of 2 with 8 gradient accumulation steps, simulating a stable effective batch size of 16 [3]. By aggregating the gradients from eight consecutive forward and backward passes before performing a single weight update, this approach ensures that the optimization trajectory remains robust despite the restricted per-step memory footprint. Given the rapid convergence observed in preliminary trials, we employed an early stopping strategy based on validation loss to prevent overfitting and minimize computational waste. The experimental design and ablation framework targets four critical dimensions: methodological baseline, architectural efficiency, learning paradigm, and input robustness, as summarized in the fishbone diagram in Figure 3 of the main manuscript. S3. R ESULTS DISCUSSION AND EXTENDED TRAINING ANALYSIS 
+
+To further validate training efficiency, we analyzed the learning trajectory of the Multi-Task LLM (see Figure S2 (a)). The model exhibits rapid convergence, reaching a validation loss plateau of 0.0537 within the first epoch. While we maintained a uniform 3-epoch budget for experimental consistency, these results confirm that LoRA-based adaptation is highly efficient for clinical domain-tuning, offering a significant throughput advantage for hospital deployment. This efficiency does not compromise performance; as shown in the HER2 confusion matrix in Figure S2 (b), the model correctly identified 92.6% of positive cases in a highly imbalanced subset. This confirms that the low-rank updates to the self-attention matrices are sufficient to capture complex diagnostic nuances without overfitting. The consolidation of tasks into a single architecture ensures scalability for resource-constrained clinical environments while maintaining high-fidelity extraction across correlated clinical variables. S4. C LINICAL VARIABLE DEFINITIONS AND CLASS DISTRIBUTION 
+
+Table S1 provides the clinical definitions for the cancer staging variables, derived from the AJCC TNM Staging System (8th Ed.) and National Comprehensive Cancer Network (NCCN) Clinical Practice Guidelines in Oncology (v6.2024) [7], [8]. To further characterize the clinical composition of our study cohort ( S = 10 , 677 ), we provide a detailed breakdown of label frequencies across the six targeted variables. This distribution, illustrated in Fig. S3, reflects the inherent variability of a real-world clinical population treated at a regional oncology center. The histograms reveal a pronounced “long-tail” distribution in tumor staging, where earlier stages (“T1”, “N0”) dominate the cohort. This reflects contemporary early-detection trends in breast cancer screening. Conversely, advanced stages (e.g., “T4”, “N3”) and specific biomarker states (“HER2-positive”) represent a small fraction of the total population. These minority classes represent significant challenges for automated extraction. Infrequent clinical findings, such as “T4” S4 (a) (b) 
+
+Fig. S2: (a) Training Efficiency and (b) HER2 Classification Performance. pTis T0 T1 T2 T3 T4  
+
+> Class Label
+> 0
+> 500
+> 1000
+> 1500
+> 2000
+> 2500
+> 3000
+> 3500
+> Count
+> 417
+> 87
+> 3260
+> 1765 1691
+> 581
+
+T Stage Distribution     
+
+> N0 N1** N1*** N2 N3
+> Class Label
+> 0
+> 500
+> 1000
+> 1500
+> 2000
+> 2500
+> 3000
+> 3500
+> 4000
+> Count
+> 3527
+> 295
+> 657
+> 347
+> 109
+
+N Stage Distribution   
+
+> G1 G2 G3
+> Class Label
+> 0
+> 500
+> 1000
+> 1500
+> 2000
+> 2500
+> Count
+> 1075
+> 2336
+> 1460
+
+Grade Distribution  
+
+> Negative Positive
+> Class Label
+> 0
+> 500
+> 1000
+> 1500
+> 2000
+> 2500
+> 3000
+> 3500
+> 4000
+> Count
+> 833
+> 3479
+
+ER Distribution  
+
+> Negative Positive
+> Class Label
+> 0
+> 500
+> 1000
+> 1500
+> 2000
+> 2500
+> 3000
+> Count
+> 1275
+> 2669
+
+PR Distribution  
+
+> Negative Positive
+> Class Label
+> 0
+> 250
+> 500
+> 750
+> 1000
+> 1250
+> 1500
+> 1750
+> Count
+> 1724
+> 271
+
+HER2 Distribution 
+
+Fig. S3: Class Distributions across Clinical Tasks. The histograms illustrate the frequency of ground truth labels for (a) T Stage, (b) N Stage, (c) Histologic Grade, (d) ER, (e) PR, and (f) HER2. or “HER2-positive” status, provide sparse training data, making it difficult for models to learn their specific linguistic patterns. Furthermore, pathology reports often contain historical staging information, for example, a prior “T1” diagnosis mentioned alongside a current “T3” finding, that can mislead simpler systems. Successfully resolving these cases requires the model to differentiate between past and present clinical status, a task where rigid, keyword-based approaches typically fail. S5 
+
+TABLE S1: Clinical Definitions of Extracted Variables. Definitions derived from AJCC TNM Staging System (8th Ed.) and NCCN Guidelines (v6.2024). Asterisks (*, **, ***) denote specific prognostic grouping conventions observed in the dataset labels. 
+
+Variable Class Label Clinical Definition 
+
+T Stage pTis Ductal carcinoma in situ (early stage, non-invasive). T0 No evidence of primary tumor. T1* Small tumor ( ≤ 20mm). Includes microinvasive cases ( ≤ 1mm). T2 Medium tumor ( > 20mm but ≤ 50mm). T3 Large tumor ( > 50mm). T4 Tumor of any size that has spread directly to the chest wall or skin. N Stage N0 No cancer found in regional lymph nodes. N1** Macrometastases in 1–3 axillary lymph nodes (standard spread). N1*** Micrometastases (N1mi) ; small cancer cells ( > 0.2mm but ≤ 2.0mm). N2 Metastases in 4–9 axillary lymph nodes; or nodes are fixed/matted together. N3 Extensive spread ( ≥ 10 nodes) or spread to collarbone/internal chest nodes. M Stage M0 No clinical or radiographic evidence of distant metastases. M1 Distant metastases detected by clinical, radiographic or histologically means. Grade G1 Low Grade (Well-differentiated); cells look normal and grow slowly. G2 Intermediate Grade (Moderately differentiated); growing faster than normal. G3 High Grade (Poorly differentiated); cells look abnormal and grow aggressively. Biomarkers (ER, PR, HER2) Positive Cells have receptors that fuel cancer growth (responds to targeted therapy). Negative Cells lack these receptors (requires different treatment approaches). Equivocal Borderline result requiring further testing (e.g., genetic amplification test). S6 
+
+REFERENCES 
+
+[1] Fenniak M, Stamy M, pubpub-zz, et al. The PyPDF2 library. 2022. https://pypi.org/project/PyPDF2/ (accessed 1 April 2026). [2] Jaided AI. EasyOCR: Ready-to-use OCR with 80+ Supported Languages. 2023. https://github.com/JaidedAI/EasyOCR (accessed 1 Jan 2024). [3] Dettmers T, Pagnoni A, Holtzman A, et al. Qlora: Efficient finetuning of quantized llms. Adv Neural Inf Process Syst 2023;36:10088–115. [4] Hu EJ, Shen Y, Wallis P, et al. Lora: Low-rank adaptation of large language models. ICLR 2022;1(2):3. [5] Lialin V, Deshpande V, Rumshisky A. Scaling down to scale up: a guide to parameter-efficient fine-tuning. arXiv preprint arXiv:230315647 
+
+2023. [6] Dubey A, Jauhri A, Pandey A, et al. The Llama 3 herd of models. arXiv preprint arXiv:240721783 2024. [7] Amin MB, Edge SB, Greene FL, et al., eds. AJCC Cancer Staging Manual . 8th ed. New York, NY: Springer; 2017. [8] National Comprehensive Cancer Network. NCCN Clinical Practice Guidelines in Oncology (NCCN Guidelines®): Breast Cancer . Version 6.2024. Plymouth Meeting, PA: National Comprehensive Cancer Network; 2024.
