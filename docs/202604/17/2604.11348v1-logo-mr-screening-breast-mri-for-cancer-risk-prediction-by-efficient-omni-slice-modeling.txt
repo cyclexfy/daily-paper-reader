@@ -1,0 +1,314 @@
+Title: LoGo-MR: Screening Breast MRI for Cancer Risk Prediction by Efficient Omni-Slice Modeling
+
+URL Source: https://arxiv.org/pdf/2604.11348v1
+
+Published Time: Tue, 14 Apr 2026 02:08:23 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# LoGo-MR: Screening Breast MRI for Cancer Risk Prediction by Efficient Omni-Slice Modeling 
+
+Xin Wang 1,2†, Yuan Gao 1,3†, George Yiasemis 1, Antonio Portaluri 1,2,Zahra Aghdam 1,2, Muzhen He 1, Luyi Han 1,2, Yaofei Duan 1, Chunyao Lu 1,2,Xinglong Liang 1,2, Tianyu Zhang 1,2, Vivien van Veldhuizen 1, Yue Sun 4,Tao Tan 4, Ritse Mann 1,2, and Jonas Teuwen 1,2∗ 
+
+> 1
+
+Netherlands Cancer Institute  
+
+> 2
+
+Radboud University Medical Center  
+
+> 3
+
+University Medical Center Utrecht  
+
+> 4
+
+Macao Polytechnic University  
+
+> †
+
+These authors contributed equally to this work.  
+
+> ∗
+
+Corresponding author: j.teuwen@nki.nl 
+
+Abstract. Efficient and explainable breast cancer (BC) risk prediction is critical for large-scale population-based screening. Breast MRI pro-vides functional information for personalized risk assessment. Yet effec-tive modeling remains challenging as fully 3D CNNs capture volumetric context at high computational cost, whereas lightweight 2D CNNs fail to model inter-slice continuity. Importantly, breast MRI modeling for short- and long-term BC risk stratification remains underexplored. In this study, we propose LoGo-MR, a 2.5D local–global structural modeling framework for five-year BC risk prediction. Aligned with clinical interpre-tation, our framework first employs neighbor-slice encoding to capture subtle local cues linked to short-term risk. It then integrates transformer-enhanced multiple-instance learning (MIL) to model distributed global patterns related to long-term risk and provide interpretable slice impor-tance. We further apply this framework across axial, sagittal, and coronal planes as LoGo 3-MR to capture complementary volumetric information. This multi-plane formulation enables voxel-level risk saliency mapping, which may assist radiologists in localizing risk-relevant regions during breast MRI interpretation. Evaluated on a large breast MRI screening cohort ( ∼7.5K), our method outperforms 2D/3D baselines and existing SOTA MIL methods, achieving AUCs of 0.77-0.69 for 1- to 5-year predic-tion and improving C-index by ∼6% over 3D CNNs. LoGo 3-MR further improves overall performance with interpretable localization across three planes, and validation across seven backbones shows consistent gains. These results highlight the clinical potential of efficient MRI-based BC risk stratification for large-scale screening. Code will be released publicly. 
+
+Keywords: Breast cancer screening · MRI · Risk prediction · MIL  
+
+> arXiv:2604.11348v1 [cs.CV] 13 Apr 2026 2X. Wang, Y. Gao, et al.
+
+1 Introduction 
+
+Population-based breast cancer (BC) screening programs, which invite eligible women to undergo routine examinations, are implemented worldwide to enable earlier detection and reduce BC mortality [1]. For women with higher lifetime risk, guidelines escalate screening intensity and often recommend breast dynamic contrast-enhanced (DCE) MRI because of its high sensitivity [1]. However, this approach is constrained by cost and limited clinical capacity [2, 3], underscoring the need to reserve MRI for women who could benefit more. Further risk stratifi-cation within this high-risk population is therefore critical for tailoring screening pathways and allocating MRI resources efficiently. Beyond traditional risk factor-based approaches [4], deep learning has enabled risk stratification directly from routinely acquired 2D screening mammograms [1, 5, 6]. However, for breast MRI, prior work has primarily relied on quantitative MRI-derived biomarkers, such as background parenchymal enhancement (BPE), with modest predictive performance reported [7, 8]. Modeling MRI is inherently challenging, as clinically relevant cues often span contiguous slices, necessitat-ing volumetric modeling, yet fully 3D CNNs (Fig. 1 A) remain computationally intensive and difficult to train efficiently [9–11]. In screening settings requir-ing rapid AI inference, such computational demands may increase operational burden and hinder large-scale deployment. To balance efficiency and limited con-textual modeling, recent approaches explored 2D architectures with slice-level encoding (e.g., multi-slice inputs or sparse sampling) [11, 12]. However, these strategies leverage limited through-plane context from MRI, which may con-strain risk prediction performance. In clinical interpretation, risk-related cues span multiple spatial scales, ranging from subtle short-range local lesion changes to long-range global patterns such as BPE and bilateral asymmetry [13]. Both types of cues are essential for accurate risk prediction with different temporal horizons, with local variations often reflecting short-term risk and global patterns indicating longer-term risk [14, 15]. Inspired by prior multiple-instance learning (MIL) approaches [16–20], an MRI volume can be treated as a bag of instances (2D slices) associated with an exam-level label. Features extracted from individual slices by 2D CNNs are then aggregated by MIL to capture structural information of the 3D volume. The commonly used attention-based MIL (e.g., ABMIL [17]) approaches im-prove interpretability by learning instance importance weights. However, such MIL frameworks provide limited modeling of long-range slice interactions, which is essential when global risk-related patterns (e.g., BPE and asymmetry) are dis-tributed across many slices [13]. Transformer-based MIL variants such as Trans-MIL [18] introduce global self-attention, but their positional encodings are de-signed for 2D spatial tokens in whole-slide images rather than the 1D sequential order of MRI slices. Moreover, because slice features are extracted independently and aggregated as per-slice global descriptors, fine-grained local variations across adjacent slices are difficult to preserve. As a result, existing methods do not fully model both local and global cross-slice dependencies, potentially limiting short-and long-term BC risk prediction. Screening Breast MRI for Cancer Risk Prediction 3
+
+In this study, we propose LoGo-MR, a 2.5D local–global omni-slice structural framework for efficient MRI-based 5-year BC risk prediction. Our main contri-butions are as follows: 1) We jointly model both short- and long-range cross-slice dependencies while maintaining 2D CNN efficiency. To align with clinical interpretation, the model first encodes local continuity via lightweight neighbor-slice stacking within 2D backbones to identify short-term risk cues. Subsequently, long-range slice interactions associated with long-term BC risk are captured by transformer-based MIL with MRI-aware positional encoding, producing inter-pretable slice importance. 2) To capture complementary anatomical structure across orientations, we extend the method to a multi-plane version, LoGo 3-MR, which models axial, sagittal, and coronal planes. The multi-plane slice impor-tance enables projection of exam-level risk to voxel-level saliency. 3) We conduct comprehensive validation on a large clinical screening cohort ( ∼7.5K MRIs). For both short- to long-term risk prediction, LoGo-MR consistently outperforms 3D CNNs and prior 2D-MIL methods while being substantially more efficient than 3D CNNs. The LoGo 3-MR further improves predictive performance. 
+
+2 Methods 
+
+Given a breast MRI volume V ∈ RD×H×W , we treat it as an ordered sequence of axial slices S = {s1, s 2, . . . , s D }. Our proposed LoGo-MR (Fig. 1 B) consists of two main modules: 1) Local structural encoding, where neighboring slices are fused into a pseudo-RGB representation, followed by slice-level feature extraction using a 2D CNN; 2) Global structural modeling is performed by a transformer-Pretrained                     
+
+> 3D CNN
+> BC Risk
+> 3D volume
+> 3D Method
+> üLearns cross -slice
+> ×Computationally heavy
+> ×Slow convergence
+> üMore Efficient
+> üFast and lightweight
+> ×Lack of cross -slice
+> information
+> 2D slices
+> Pretrained
+> 2D CNN
+> BC Risk
+> 2D Method
+
+LoGo -MR 
+
+RISK 
+
+Model                     
+
+> Local Cross -
+> slice
+> Modeling
+> Pretrained
+> 2D CNN
+> backbones
+> Global
+> Cross -slice
+> Modeling
+> Breast
+> Cancer Risk
+> Embedding feature
+> of each slice
+> Slice i:
+> (i-g, i, i+g )
+> üLearns cross -slice
+> üFast and lightweight
+> üMore Efficient
+> Global (long -distance )Cross -slice Modeling
+> Lo cal (neighbor -level) Cross -
+> slice Modeling
+> Gray slices
+> 2D slices
+> Channel -wise
+> Concatenation
+> Pseudo -
+> RGB slices
+> Layer Norm
+> Multi -head
+> Self -attention
+> Layer Norm
+> ⊕
+> Positional
+> Encoding
+> FFN
+> ×N
+> Slice
+> tokens
+> Risk
+> Prediction Head
+> LoGo -MR
+> RISK Model
+> (Axial  plane)
+> x
+> y
+> z
+> x
+> y
+> z
+> x
+> y
+> z
+> LoGo -MR
+> RISK Model
+> (Sagittal  plane)
+> LoGo -MR
+> RISK Model
+> (Coronal  plane)
+
+LoGo 3-MR RISK 
+
+Model    
+
+> Weights
+> on Y-axis
+> Weights
+> on X-axis
+> Weights
+> on Z-axis
+> ⊕
+> Transformer
+> Attention  Scores
+> Attention MIL
+> Attention
+> Mechanism
+> Final
+> Feature
+
+A
+
+B
+
+C
+
+Fig. 1: Comparison of 3D, 2D, and the proposed LoGo-MR and LoGo 3-MR frameworks for BC risk prediction. LoGo-MR combines local slice fusion with global MIL-based sequence modeling to capture both short-range anatom-ical continuity and long-range slice dependencies, while providing interpretable slice-level importance. LoGo 3-MR extends this strategy across axial, sagittal, and coronal planes to capture complementary anatomical cues. 4 X. Wang, Y. Gao, et al. 
+
+enhanced MIL aggregator that captures long-range slice relationships and pro-duces interpretable slice-level importance scores. Moreover, LoGo 3-MR extends the same local–global modeling across the axial, sagittal, and coronal directions to enable complementary volumetric representation. 
+
+Local cross-slice structural encoding (Lo): To encode short-range inter-slice anatomical continuity, we augment each target slice with its neighboring slices to form a 2.5D input (i.e., a pseudo-3D slice representation [21]). Specif-ically, for slice si, we construct a pseudo-RGB representation by concatenating 
+
+si−g , si, and si+g along the channel dimension: xi = concat( si−g , s i, s i+g ) ∈
+
+R3×H×W , where g denotes the slice gap. This three-channel design is well aligned with standard 2D CNN backbones and facilitates transfer learning from stan-dard 2D vision backbones. For boundary slices, we replicate the nearest valid slice. This input formulation introduces local volumetric context while retaining the efficiency of 2D CNN architectures. A very small gap produces highly redun-dant neighbors, whereas a large gap may weaken local anatomical continuity. We therefore evaluate multiple gap sizes, g ∈ { 0, 1, 3, 5, 7}, in ablation studies to quantify the effect of neighborhood context. Each pseudo-RGB slice xi is then en-coded independently by a 2D CNN backbone (e.g., ResNet18), hi = fθ (xi) ∈ RC ,yielding an ordered sequence of slice embeddings H = {h1, h 2, . . . , h D }. This de-sign provides an efficient approximation of local volumetric continuity without adding trainable parameters [21]. 
+
+Global structural modeling (Go): To model global structural dependen-cies across the ordered slice sequence, we employ an order-aware transformer and attention based MIL aggregator. First, given the slice embeddings ( H =
+
+{h1, h 2, . . . , h D }) from local encoding, we integrate slice-order information us-ing a non-trainable continuous sinusoidal positional encoding [5]. The positional encoding is broadcast to the slice sequence and added to H. Then, the position-aware sequence is processed by a transformer encoder: H′ = Transformer( H) ∈
+
+RD×C . We use a lightweight transformer setting with 2 encoder layers and 8 attention heads to balance global dependency modeling and model complexity. Through the transformer, each slice representation is updated using information from all slices in the volume, enabling modeling of long-range inter-slice depen-dencies and global structural interactions beyond local neighborhood context. We subsequently apply attention-based MIL pooling [17] for volume-level aggre-gation: zbag , α = AttnMIL( H′), where zbag is the bag-level representation and 
+
+α denotes normalized slice-level importance scores. The pooling layer aggregates contextualized slice features into a volume representation, while the attention weights quantify each slice contribution to the volume-level risk prediction. This yields interpretable slice-level importance estimates and enables identification of risk-relevant slices. Finally, a linear prediction head maps zbag to the final risk. 
+
+Multi-plane LoGo 3-MR: To exploit complementary anatomical structure across orientations, LoGo 3-MR extends LoGo-MR to axial, coronal, and sagit-tal planes (Fig. 1 C). The input MRI volume is processed independently in the axial, coronal, and sagittal planes, and each plane is modeled by a sepa-rate LoGo-MR network to produce a plane-specific risk score. The final risk Screening Breast MRI for Cancer Risk Prediction 5226 347 464 568 637             
+
+> 7226 7105 6641 5993 5255
+> 00347 891 1560
+> 0K
+> 2K
+> 4K
+> 6K
+> 8K
+> 1-Year 2-Year 3-Year 4-Year 5-Year
+> Censored
+> Healthy
+> Cancer
+
+Fig. 2: Distribution of censored, healthy, and cancer cases.                      
+
+> Subset Whole Train Val Test 0–1 Year 226 (3.37%) 112 (3.56%) 66 (3.55%) 48 (2.52%) 1–2 Year 121 (2.21%) 59 (2.53%) 36 (1.94%) 26 (1.37%) 2–3 Year 117 (1.94%) 54 (2.09%) 34 (1.83%) 29 (1.53%) 3–4 Year 104 (1.69%) 42 (1.72%) 40 (2.15%) 22 (1.16%) 4–5 Year 69 (1.15%) 24 (1.12%) 30 (1.61%) 15 (0.79%) Total MR 7452 3692 1859 1901
+
+Table 1: Dataset composition by time-to-cancer interval for all splits. prediction is computed by averaging the three plane-specific scores. This late-fusion design enables orientation-specific representation learning while reducing cross-plane feature coupling, resulting in stable and robust multi-plane risk esti-mation. When attention-based MIL pooling is used, LoGo 3-MRalso provides in-terpretable slice-level importance along each axis. These plane-wise importance weights can be combined to construct a three-dimensional risk saliency map: 
+
+A(d, h, w ) = wz (d) wy (h) wx(w), which provides an approximate voxel-level at-tribution of risk-relevant regions within the breast volume. 
+
+Risk formulation: Following prior BC risk prediction studies [22, 5], all models predict an (n + 1) -dimensional probability vector after sigmoid activa-tion, p = ( p1, . . . , p n, p n+1 ), where pt denotes the probability that BC is di-agnosed in year t after the index MRI, and pn+1 denotes the probability of remaining healthy within n years. For each exam, the ground truth is encoded as a binary vector y ∈ { 0, 1}n+1 with a single positive entry. If BC is diag-nosed in year t ∈ { 1, . . . , n }, then yt = 1 ; if no BC is observed within the 
+
+n-year prediction window, then yn+1 = 1 . To handle right-censored follow-up, we use a time-dependent mask δt that excludes unobservable years be-yond the available follow-up duration for healthy cases. The network is trained using a masked binary cross-entropy loss applied independently across years: 
+
+L = 1P 
+
+> tδt
+
+Pn+1  
+
+> t=1
+
+δt [−yt log pt − (1 − yt) log(1 − pt)] , where δt ∈ { 0, 1} indicates whether the outcome at year t is observable given the follow-up duration. This loss ensures that learning is driven only by reliable supervision while properly handling censored samples. Then, the cumulative risk scores of developing BC within m years are computed as Risk ≤m = Pmt=1 pt, allowing simultaneous esti-mation of one- to five-year risk from a single model output. 
+
+3 Experiments 
+
+Dataset: The in-house dataset includes breast DCE-MRIs acquired between 2004 and 2020 with institutional review board approval. All exams are linked to longitudinal follow-up records indicating time to BC diagnosis or censoring. Data are split at the patient level into training, validation, and test sets with a ratio of 0.5/0.25/0.25 to prevent information leakage. The distribution of time-to-cancer labels across splits is summarized in Table 1 and visualized in Fig. 2. 
+
+Evaluation: Model performance is evaluated using the concordance index (C-index) [23] to assess overall risk ranking consistency under censoring. In addi-6 X. Wang, Y. Gao, et al. 
+
+Table 2: Performance comparison of different methods across prediction horizons. 
+
+Method FLOPs FPS 1Y AUC 2Y AUC 3Y AUC 4Y AUC 5Y AUC Mean AUC C-index 
+
+> ResNet18
+
+3D Baseline 1170 4 56 .8± 8.1 58 .1± 6.6 56 .7± 5.6 55 .1± 5.1 55 .6± 4.7 56 .5± 5.4 56 .4± 4.6 
+
+3D MFFN[9] 1187 3 62 .4± 7.5 60 .6± 6.3 58 .9± 5.5 56 .8± 4.9 56 .6± 4.7 59 .1± 5.1 56 .7± 4.6 
+
+2D Baseline (Mean) 354 18 63 .7± 9.3 61 .1± 7.2 60 .0± 5.7 55 .6± 5.3 54 .7± 5.1 59 .0± 5.9 56 .2± 4.9 
+
+2D MoE [16] 354 17 61 .4± 7.9 59 .6± 6.7 57 .9± 5.6 59 .0± 5.0 59 .9± 4.8 59 .6± 5.3 57 .6± 4.6 
+
+2D LSTM-MIL [20] 354 17 67 .8± 8.0 64 .6± 6.5 61 .6± 5.5 58 .5± 5.1 57 .5± 4.8 62 .0± 5.4 58 .8± 4.7 
+
+2D MambaMIL [19] 354 17 68 .3± 7.7 60 .2± 6.8 58 .0± 5.9 57 .3± 5.2 56 .8± 5.0 60 .1± 5.4 56 .2± 4.8 
+
+2D ABMIL [17] 354 18 71 .5± 7.6 68 .5± 6.1 64 .7± 5.5 63 .5± 5.0 62 .4± 4.8 66 .1± 5.0 61 .9± 4.7 
+
+2D TransMIL [18] 354 17 68 .7± 8.7 63 .5± 6.9 61 .5± 5.8 60 .3± 5.3 60 .4± 5.0 62 .9± 5.6 59 .4± 4.9 
+
+LoGo-MR-RISK 354 18 77 .1± 6.7 69 .6± 6.7 65 .8± 5.5 63 .9± 5.0 63 .3± 4.8 67 .9± 5.2 63 .1± 4.8 
+
+LoGo 3-MR-RISK 1082 6 75 .4± 7.2 69 .7± 6.0 67 .5± 5.1 65 .9± 4.9 65 .0± 4.7 68 .7± 4.8 63 .0± 4.6 
+
+> ResNet50
+
+3D Baseline 1518 2 60 .0± 8.7 57 .6± 7.0 57 .4± 6.0 58 .3± 5.5 58 .5± 5.1 58 .4± 5.8 55 .9± 4.9 
+
+3D MFFN [9] 1575 2 67 .7± 5.0 64 .0± 8.8 62 .5± 7.1 61 .5± 6.0 61 .3± 5.3 63 .4± 5.2 61 .3± 5.8 
+
+2D Baseline (Mean) 801 5 61 .6± 8.1 61 .2± 6.0 59 .8± 5.3 57 .8± 5.0 57 .5± 4.8 59 .6± 5.2 57 .4± 4.6 
+
+2D MoE [16] 803 5 70 .8± 7.7 65 .8± 6.2 64 .2± 5.4 63 .4± 5.0 63 .4± 4.7 65 .5± 5.1 61 .1± 4.6 
+
+2D LSTM-MIL [20] 810 5 71 .4± 7.8 65 .2± 6.6 62 .7± 5.6 62 .0± 5.2 62 .1± 5.0 64 .6± 5.2 59 .8± 4.8 
+
+2D MambaMIL [19] 809 5 68 .1± 8.8 62 .9± 6.9 59 .6± 6.1 57 .7± 5.6 58 .7± 5.2 61 .4± 5.8 57 .7± 5.2 
+
+2D ABMIL [17] 802 5 72 .4± 8.7 65 .1± 7.1 62 .5± 5.9 60 .6± 5.3 60 .6± 5.0 64 .2± 5.7 58 .9± 5.0 
+
+2D TransMIL [18] 802 5 70 .9± 6.8 63 .7± 6.0 61 .5± 5.3 62 .1± 4.8 63 .8± 4.4 64 .4± 4.8 60 .3± 4.4 
+
+LoGo-MR-RISK 811 5 72 .1± 8.2 68 .0± 6.6 65 .4± 5.5 63 .9± 4.9 63 .1± 4.7 66 .5± 5.4 62 .5± 4.7 
+
+LoGo 3-MR-RISK 2482 2 72 .9± 8.0 69 .1± 6.5 66 .2± 5.2 63 .9± 4.8 62 .7± 4.7 67 .0± 5.2 62 .9± 4.6 
+
+tion, we report the AUC for one- to five-year risk prediction horizons, following prior BC risk modeling studies [22, 5]. For all performance metrics, 95% confi-dence intervals were estimated using 1,000 bootstrap resamples of the test set and reported as mean ± 1.96 standard deviations [22]. In this paper, all C-index and AUC metrics are reported as value ×100. To assess efficiency, we report FLOPs and inference throughput (FPS) per MRI volume on the same hardware. 
+
+Implementation: All MRI volumes are preprocessed following the method described in prior breast MRI studies [24]. Volumes are resampled and cropped to a spatial resolution of 352 ×192 ×144 while preserving the original aspect ratio. During training, whole volume-based data augmentations are applied includes random flipping, rotation, affine transformation, and translation. All 2D back-bones are initialized with ImageNet-pretrained weights, while 3D backbones are initialized with weights pretrained on large-scale 3D medical images [25]. Models are trained using the Adam optimizer with a learning rate of 5 × 10 −5 and a batch size of 1–4, depending on GPU memory. Early stopping is applied based on the validation C-index. 
+
+4 Results and Discussion 
+
+Comparison experiments: Table 2 compares LoGo-MR with 3D baseline, the 3D multi-scale feature fusion network (MFFN) [9], and representative 2D SOTA MIL approaches. Across both ResNet-18 and -50 backbones, LoGo-MR consis-tently ranks among the top methods in C-index and AUCs for one- to five-year risk prediction. In particular, LoGo-MR improves the C-index by ∼5–7% over the 2D mean-pooling baseline and by a substantial margin over the fully 3D baseline. In addition, LoGo-MR reduces computational cost relative to the fully 3D CNNs, with lower FLOPs and FPS. These results indicate that explicitly encoding inter-slice anatomical structure through architectural design can be more effective than increasing model dimensionality alone, especially in data-Screening Breast MRI for Cancer Risk Prediction 7A. Performance across backbones and methods B. Ensemble performance across 
+
+> metrics
+
+Fig. 3: Comparison of 3D CNNs, 2D baselines, and the proposed LoGo-MR-RISK and LoGo 3-MR-RISK across seven backbones. Table 3: Ablation study of local and global structural modeling.                                                                                                                                                                    
+
+> Lo Go Method 1Y AUC 2Y AUC 3Y AUC 4Y AUC 5Y AUC Mean AUC C-index
+> ResNet18
+> ××2D Baseline: g= 0 63 .7±9.3 61 .1±7.2 60 .0±5.7 55 .6±5.3 54 .7±5.1 59 .0±5.9 56 .2±4.9
+> ✓×Gap: g= 1 66 .0±9.1 59 .5±7.1 55 .8±6.1 53 .3±5.6 52 .9±5.2 57 .5±5.9 55 .1±5.0
+> ✓×Gap: g= 3 68 .9±8.2 63 .2±6.6 59 .0±5.6 56 .8±5.1 56 .2±4.9 60 .8±5.4 57 .5±4.7
+> ✓×Gap: g= 5 67 .8±8.4 63 .0±6.8 60 .6±5.6 58 .3±5.0 59 .0±4.8 61 .8±5.4 59 .2±4.7
+> ✓×Gap: g= 7 63 .9±8.8 62 .0±6.9 59 .3±5.8 56 .1±5.2 54 .7±5.0 59 .2±5.6 56 .8±4.8
+> ×✓w/o Lo & w/o Pos 64 .9±9.0 60 .2±7.4 59 .8±6.0 58 .7±5.3 58 .7±5.0 60 .5±5.9 58 .3±5.0
+> ×✓w/o Lo 72 .6±7.4 68 .8±6.2 64 .8±5.4 63 .2±5.1 63 .2±4.9 66 .5±5.0 62 .0±4.8
+> ✓✓LoGo-MR-RISK 77 .1±6.7 69 .6±6.7 65 .8±5.5 63 .9±5.0 63 .3±4.8 67 .9±5.2 63 .1±4.8
+> ✓✓LoGo 3-MR-RISK 75 .4±7.2 69 .7±6.0 67 .5±5.1 65 .9±4.9 65 .0±4.7 68 .7±4.8 63 .0±4.6
+
+constrained clinical settings. Compared with other MIL-based 2D models, in-cluding MoE [16], LSTM-MIL [20], ABMIL [17], TransMIL [18], and MambaMIL [19], LoGo-MR yields better overall performance across short- to long-term risk prediction, suggesting improved modeling of spatially extended risk patterns in MRI volumes. Moreover, the multi-plane extension LoGo 3-MR slightly improves performance over single-plane LoGo-MR. Fig. 3 summarizes model performance across seven backbones. LoGo-MR and LoGo 3-MR consistently outperform the 2D and 3D baselines, indicating that the gains are mainly from the proposed local–global structural modeling rather than backbone choice. The framework may further benefit from advances in 2D feature extractors and adapt to different computational constraints without ar-chitectural modification. Moreover, we leverage an ensemble strategy that com-bines predictions from multiple backbones. The ensemble LoGo 3-MR achieves the best performance across metrics (Fig. 3B), suggesting complementary rep-resentations across backbones and improved robustness. 
+
+Visualization analysis: Fig. 4 presents multi-plane risk localization exam-ples from LoGo 3-MR, including exams acquired 2 years before diagnosis and at diagnosis. The model produces slice-level importance weights along three direc-8 X. Wang, Y. Gao, et al. At Diagnosis 2 Years Before Diagnosis     
+
+> 2Years Before Diagnosis At Diagnosis
+> Case  1Case  2
+
+Fig. 4: Multi-plane risk localization with LoGo 3-MR. For each case, we present: (Left) Slice-level importance weights learned along the axial (Z), coronal (Y), and sagittal (X) planes. (Right) The maximum intensity projection (MIP) view and corresponding high-importance regions onto orthogonal views, illustrating spatially consistent risk-relevant areas localization across planes over time. tions, and projects the corresponding high-importance regions onto orthogonal MRI views. In both cases, the multi-plane local-global modeling captures co-herent volumetric risk patterns. Notably, high-risk regions in the pre-diagnosis exams are consistent with the tumor regions at the time of diagnosis. These visu-alizations support the interpretability of LoGo 3-MR and suggest that the learned multi-plane importance can provide meaningful cues for risk localization. 
+
+Ablation studies: Table 3 analyzes the contribution of individual compo-nents in LoGo-MR. For the local module, using neighbor-slice fusion with an intermediate slice gap improves performance over the 2D baseline, while too small or too large gaps are less effective. In particular, g = 5 provides the best overall trade-off across horizons and is therefore used in the final model. For the global module, transformer-based MIL aggregation improves risk prediction over the baseline setting, and adding positional encoding further improves both AUC and C-index, indicating the importance of preserving slice order in se-quence modeling. The full LoGo-MR configuration, which jointly combines local cross-slice encoding and global sequence-level aggregation, achieves the best over-all performance, supporting the complementary roles of short-range anatomical continuity and long-range slice dependency modeling. Screening Breast MRI for Cancer Risk Prediction 9
+
+5 Conclusion 
+
+We presented LoGo-MR, a 2.5D local-global inter-slice structural modeling frame-work for breast MRI-based cancer risk prediction. It combines local neighbor-slice encoding and global transformer-based MIL aggregation, for effective volu-metric structure modeling. Experiments on a large institutional screening cohort show that LoGo-MR consistently outperforms 2D/3D baselines and MIL-based methods across seven backbones. The multi-plane extension LoGo 3-MR fur-ther improves risk prediction and provides interpretable slice-level importance across axial, sagittal, and coronal planes, offering meaningful cues for risk local-ization without requiring a fully 3D architecture. Overall, these results support explicit inter-slice structural modeling as an effective and efficient strategy for breast MRI risk stratification, and position LoGo-MR/LoGo 3-MR as a practical foundation for future multi-modal BC risk prediction. 
+
+References 
+
+1. Adam Yala, Peter G Mikhael, Fredrik Strand, Gigin Lin, Kevin Smith, Yung-Liang Wan, Leslie Lamb, Kevin Hughes, Constance Lehman, and Regina Barzilay. Toward robust mammography-based models for breast cancer risk. Science Trans-lational Medicine , 13(578):eaba4373, 2021. 2. Constance D Lehman, Janie M Lee, Wendy B DeMartini, Daniel S Hippe, Mara H Rendi, Grace Kalish, Peggy Porter, Julie Gralow, and Savannah C Partridge. Screening mri in women with a personal history of breast cancer. Journal of the National Cancer Institute , 108(3):djv349, 2016. 3. Ritse M Mann, Regina Hooley, Richard G Barr, and Linda Moy. Novel approaches to screening for breast cancer. Radiology , 297(2):266–285, 2020. 4. Jonathan Tyrer, Stephen W Duffy, and Jack Cuzick. A breast cancer predic-tion model incorporating familial and personal risk factors. Statistics in medicine ,23(7):1111–1130, 2004. 5. Xin Wang, Tao Tan, Yuan Gao, Ruisheng Su, Jonas Teuwen, Jaap Kroes, Tianyu Zhang, Anna D’Angelo, Luyi Han, Caroline A Drukker, et al. Predicting short-to long-term breast cancer risk from longitudinal mammographic screening history. 
+
+npj Breast Cancer , 11(1):118, 2025. 6. Xin Wang, Tao Tan, Yuan Gao, Hong-Yu Zhou, Tianyu Zhang, Luyi Han, Antonio Portaluri, Eric Marcus, Chunyao Lu, Caroline A Drukker, et al. Mammo-age: deep learning estimation of breast age from mammograms. Nature Communications ,16(1):10934, 2025. 7. Kai Geißler, Tom L. Koller, Ani Ambroladze, E. M. Fallenbüchel, Michael Ingrisch, and Horst K. Hahn. Breast cancer risk prediction using background parenchymal enhancement, radiomics, and symmetry features on mri. In Medical Imaging 2025: Computer-Aided Diagnosis , volume 13407 of Proceedings of SPIE , page 134072A. SPIE, 2025. 8. Hui Wang, Bas H M van der Velden, Erik Verburg, Marije F Bakker, Ruud M Pijnappel, Wouter B Veldhuis, Carla H van Gils, and Kenneth G A Gilhuijs. As-sessing quantitative parenchymal features at baseline dynamic contrast-enhanced mri and cancer occurrence in women with extremely dense breasts. Radiology ,308(2):e222841, 2023. 10 X. Wang, Y. Gao, et al. 9. Jian Wang, Qiongying Ni, Hongkui Yu, Ruixuan Yao, Jinqiao Ying, Bin Zhang, Xingyi Yang, Jin Peng, Jiongquan Chen, Junxuan Yu, et al. Accurate and efficient fetal birth weight estimation from 3d ultrasound. In International Conference on Medical Image Computing and Computer-Assisted Intervention , pages 34–44. Springer, 2025. 10. Maolin Li, Chenwei Zhou, and Shengnan Cao. 2d, 2.5 d, or 3d? comparing dimen-sional approaches in deep neural networks for 3d medical image analysis. Journal of Imaging Informatics in Medicine , pages 1–23, 2026. 11. Xin Wang, Ruisheng Su, Weiyi Xie, Wenjin Wang, Yi Xu, Ritse Mann, Jungong Han, and Tao Tan. 2.75 d: Boosting learning by representing 3d medical imaging to 2d features for small data. Biomedical Signal Processing and Control , 84:104858, 2023. 12. Shuting Pang, Yidi Chen, Xiaoshuang Shi, Rui Wang, Mingzhe Dai, Xiaofeng Zhu, Bin Song, and Kang Li. Interpretable 2.5 d network by hierarchical attention and consistency learning for 3d mri classification. Pattern Recognition , 164:111539, 2025. 13. Raymond J Acciavatti, Su Hyun Lee, Beatriu Reig, Linda Moy, Emily F Conant, Despina Kontos, and Woo Kyung Moon. Beyond breast density: risk measures for breast cancer in multiple imaging modalities. Radiology , 306(3):e222575, 2023. 14. Andreas D Lauritzen, My C von Euler-Chelpin, Elsebeth Lynge, Ilse Vejborg, Mads Nielsen, Nico Karssemeijer, and Martin Lillholm. Assessing breast cancer risk by combining ai for lesion detection and mammographic texture. Radiology ,308(2):e230227, 2023. 15. Xin Wang, Tao Tan, Yuan Gao, Eric Marcus, Hong-Yu Zhou, Chunyao Lu, Luyi Han, Antonio Portaluri, Ruisheng Su, Tianyu Zhang, et al. Incorporating global-local tissue changes to predict future breast cancer from longitudinal screening mammograms. Medical Image Analysis , page 103990, 2026. 16. Noam Shazeer, Azalia Mirhoseini, Krzysztof Maziarz, Andy Davis, Quoc Le, Geof-frey Hinton, and Jeff Dean. Outrageously large neural networks: The sparsely-gated mixture-of-experts layer. arXiv preprint arXiv:1701.06538 , 2017. 17. Maximilian Ilse, Jakub Tomczak, and Max Welling. Attention-based deep multiple instance learning. In International conference on machine learning , pages 2127– 2136. PMLR, 2018. 18. Zhuchen Shao, Hao Bian, Yang Chen, Yifeng Wang, Jian Zhang, Xiangyang Ji, et al. Transmil: Transformer based correlated multiple instance learning for whole slide image classification. Advances in neural information processing systems ,34:2136–2147, 2021. 19. Shu Yang, Yihui Wang, and Hao Chen. Mambamil: Enhancing long sequence modeling with sequence reordering in computational pathology. In International conference on medical image computing and computer-assisted intervention , pages 296–306. Springer, 2024. 20. Kaili Wang, Jose Oramas, and Tinne Tuytelaars. In defense of lstms for addressing multiple instance learning problems. In Proceedings of the Asian Conference on Computer Vision , 2020. 21. Minh H Vu, Guus Grimbergen, Tufve Nyholm, and Tommy Löfstedt. Evaluation of multislice inputs to convolutional neural networks for medical image segmentation. 
+
+Medical Physics , 47(12):6216–6231, 2020. 22. Xin Wang, Tao Tan, Yuan Gao, Eric Marcus, Luyi Han, Antonio Portaluri, Tianyu Zhang, Chunyao Lu, Xinglong Liang, Regina Beets-Tan, et al. Ordinal learning: Longitudinal attention alignment model for predicting time to future breast cancer Screening Breast MRI for Cancer Risk Prediction 11 events from mammograms. In International Conference on Medical Image Com-puting and Computer-Assisted Intervention , pages 155–165. Springer, 2024. 23. Hajime Uno, Tianxi Cai, Michael J Pencina, Ralph B D’Agostino, and Lee-Jen Wei. On the c-statistics for evaluating overall adequacy of risk prediction procedures with censored survival data. Statistics in medicine , 30(10):1105–1117, 2011. 24. Yuan Gao, Sofia Ventura-Diaz, Xin Wang, Muzhen He, Zeyan Xu, Arlene Weir, Hong-Yu Zhou, Tianyu Zhang, Frederieke H van Duijnhoven, Luyi Han, et al. An explainable longitudinal multi-modal fusion model for predicting neoadjuvant therapy response in women with breast cancer. Nature communications , 15(1):9613, 2024. 25. Sihong Chen, Kai Ma, and Yefeng Zheng. Med3d: Transfer learning for 3d medical image analysis. arXiv preprint arXiv:1904.00625 , 2019.

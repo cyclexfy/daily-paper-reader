@@ -6,73 +6,73 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-16
-- 运行时间：2026-04-16 19:55:38 UTC
+- 最新运行日期：2026-04-17
+- 运行时间：2026-04-17 20:36:57 UTC
 - 运行状态：成功
 - 本次总论文数：17
 - 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今日聚焦病理图像分割与肿瘤微环境分析，深度解读 UniSemAlign 等 17 篇医疗 AI 前沿论文。
-重点推荐半监督病理分割的文本-原型对齐技术，以及大规模 TCGA 肿瘤微环境开源数据集 OpenTME。
-建议关注医疗多模态大模型在分类中的性能退化风险，审慎评估基础模型在复杂临床任务中的泛化能力。
-- 详情：[/202604/16/README](/202604/16/README)
+今日深度解析 17 篇医学 AI 论文，重点聚焦肿瘤微环境分析与病理图像分割的前沿突破。
+满分力作 OpenTME 提供了大规模 AI 驱动的肿瘤微环境数据集，UniSemAlign 则通过文本原型对齐显著提升了半监督病理分割性能。
+建议关注多模态对齐与基础模型在医疗影像中的融合，这是解决低标注数据场景下精准诊断的关键。
+- 详情：[/202604/17/README](/202604/17/README)
 
 ### 精读区论文标签
-1. [UniSemAlign: Text-Prototype Alignment with a Foundation Encoder for Semi-Supervised Histopathology Segmentation](/202604/16/2604.09169v1-unisemalign-text-prototype-alignment-with-a-foundation-encoder-for-semi-supervised-histopathology-segmentation)  
+1. [OpenTME: An Open Dataset of AI-powered H&E Tumor Microenvironment Profiles from TCGA](/202604/17/2604.12075v1-opentme-an-open-dataset-of-ai-powered-he-tumor-microenvironment-profiles-from-tcga)  
    标签：评分：10.0/10、query:cpath
-   evidence：基于基础模型编码器的半监督病理图像分割
-2. [OpenTME: An Open Dataset of AI-powered H&E Tumor Microenvironment Profiles from TCGA](/202604/16/2604.12075v1-opentme-an-open-dataset-of-ai-powered-he-tumor-microenvironment-profiles-from-tcga)  
-   标签：评分：10.0/10、query:cpath
-   evidence：基于H&E全切片图像的AI肿瘤微环境分析
-3. [Cross-Modal Knowledge Distillation from Spatial Transcriptomics to Histology](/202604/16/2604.09076v1-cross-modal-knowledge-distillation-from-spatial-transcriptomics-to-histology)  
+   evidence：使用病理基础模型从全切片图像中提取肿瘤微环境特征的数据集
+2. [UniSemAlign: Text-Prototype Alignment with a Foundation Encoder for Semi-Supervised Histopathology Segmentation](/202604/17/2604.09169v1-unisemalign-text-prototype-alignment-with-a-foundation-encoder-for-semi-supervised-histopathology-segmentation)  
    标签：评分：9.0/10、query:cpath
-   evidence：从空间转录组学到组织学的跨模态蒸馏
-4. [Learning Class Difficulty in Imbalanced Histopathology Segmentation via Dynamic Focal Attention](/202604/16/2604.13479v1-learning-class-difficulty-in-imbalanced-histopathology-segmentation-via-dynamic-focal-attention)  
+   evidence：用于组织病理学分割的病理预训练基础编码器
+3. [MApLe: Multi-instance Alignment of Diagnostic Reports and Large Medical Images](/202604/17/2604.13970v1-maple-multi-instance-alignment-of-diagnostic-reports-and-large-medical-images)  
    标签：评分：9.0/10、query:cpath
-   evidence：计算病理学中的组织病理学分割与类别不平衡问题
-5. [Artificial intelligence application in lymphoma diagnosis with Vision Transformer using weakly supervised training](/202604/16/2604.13795v1-artificial-intelligence-application-in-lymphoma-diagnosis-with-vision-transformer-using-weakly-supervised-training)  
+   evidence：大型医学图像的视觉语言对齐
+4. [A deep learning framework for glomeruli segmentation with boundary attention](/202604/17/2604.14263v1-a-deep-learning-framework-for-glomeruli-segmentation-with-boundary-attention)  
    标签：评分：9.0/10、query:cpath
-   evidence：使用弱监督训练的Vision Transformer进行淋巴瘤诊断
-6. [MApLe: Multi-instance Alignment of Diagnostic Reports and Large Medical Images](/202604/16/2604.13970v1-maple-multi-instance-alignment-of-diagnostic-reports-and-large-medical-images)  
-   标签：评分：9.0/10、query:cpath
-   evidence：诊断报告与大型医学图像的多实例对齐
+   evidence：利用病理基础模型进行分割
+5. [Delving Aleatoric Uncertainty in Medical Image Segmentation via Vision Foundation Models](/202604/17/2604.10963v1-delving-aleatoric-uncertainty-in-medical-image-segmentation-via-vision-foundation-models)  
+   标签：评分：8.0/10、query:cpath
+   evidence：视觉基础模型用于医学图像不确定性分析
+6. [CLIP Architecture for Abdominal CT Image-Text Alignment and Zero-Shot Learning: Investigating Batch Composition and Data Scaling](/202604/17/2604.13561v1-clip-architecture-for-abdominal-ct-image-text-alignment-and-zero-shot-learning-investigating-batch-composition-and-data-scaling)  
+   标签：评分：8.0/10、query:cpath
+   evidence：用于医学图像-文本对齐的视觉语言模型
 
 ### 速读区论文标签
-1. [Lost in the Hype: Revealing and Dissecting the Performance Degradation of Medical Multimodal Large Language Models in Image Classification](/202604/16/2604.08333v1-lost-in-the-hype-revealing-and-dissecting-the-performance-degradation-of-medical-multimodal-large-language-models-in-image-classification)  
-   标签：评分：8.0/10、query:cpath
-   evidence：医学多模态大语言模型在图像分类中的评估
-2. [Self-supervised Pretraining of Cell Segmentation Models](/202604/16/2604.10609v1-self-supervised-pretraining-of-cell-segmentation-models)  
-   标签：评分：8.0/10、query:cpath
-   evidence：显微图像中细胞分割的自监督预训练
-3. [Representation geometry shapes task performance in vision-language modeling for CT enterography](/202604/16/2604.13021v1-representation-geometry-shapes-task-performance-in-vision-language-modeling-for-ct-enterography)  
-   标签：评分：8.0/10、query:cpath
-   evidence：用于医学影像分析的视觉语言迁移学习
-4. [Multi-Task LLM with LoRA Fine-Tuning for Automated Cancer Staging and Biomarker Extraction](/202604/16/2604.13328v1-multi-task-llm-with-lora-fine-tuning-for-automated-cancer-staging-and-biomarker-extraction)  
-   标签：评分：8.0/10、query:cpath
-   evidence：大语言模型用于病理报告中的癌症分期和生物标志物提取
-5. [DBMF: A Dual-Branch Multimodal Framework for Out-of-Distribution Detection](/202604/16/2604.08261v2-dbmf-a-dual-branch-multimodal-framework-for-out-of-distribution-detection)  
+1. [CWCD: Category-Wise Contrastive Decoding for Structured Medical Report Generation](/202604/17/2604.10410v2-cwcd-category-wise-contrastive-decoding-for-structured-medical-report-generation)  
    标签：评分：7.0/10、query:cpath
-   evidence：结合文本和图像的多模态临床分布外检测框架
-6. [Parameter Efficient Fine-tuning for Domain-specific Gastrointestinal Disease Recognition](/202604/16/2604.10451v1-parameter-efficient-fine-tuning-for-domain-specific-gastrointestinal-disease-recognition)  
+   evidence：放射学基础模型和多模态大语言模型
+2. [TAMISeg: Text-Aligned Multi-scale Medical Image Segmentation with Semantic Encoder Distillation](/202604/17/2604.10912v1-tamiseg-text-aligned-multi-scale-medical-image-segmentation-with-semantic-encoder-distillation)  
    标签：评分：7.0/10、query:cpath
-   evidence：医学识别基础模型的参数高效微调
-7. [Architecture-Agnostic Modality-Isolated Gated Fusion for Robust Multi-Modal Prostate MRI Segmentation](/202604/16/2604.10702v1-architecture-agnostic-modality-isolated-gated-fusion-for-robust-multi-modal-prostate-mri-segmentation)  
+   evidence：利用临床语言提示和语义蒸馏进行文本引导的分割
+3. [LoGo-MR: Screening Breast MRI for Cancer Risk Prediction by Efficient Omni-Slice Modeling](/202604/17/2604.11348v1-logo-mr-screening-breast-mri-for-cancer-risk-prediction-by-efficient-omni-slice-modeling)  
    标签：评分：7.0/10、query:cpath
-   evidence：基于门控融合的多模态前列腺MRI分割
-8. [MMRareBench: A Rare-Disease Multimodal and Multi-Image Medical Benchmark](/202604/16/2604.10755v1-mmrarebench-a-rare-disease-multimodal-and-multi-image-medical-benchmark)  
+   evidence：使用MRI建模进行乳腺癌风险预测
+4. [A Multi-Stage Optimization Pipeline for Bethesda Cell Detection in Pap Smear Cytology](/202604/17/2604.13939v1-a-multi-stage-optimization-pipeline-for-bethesda-cell-detection-in-pap-smear-cytology)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于诊断的多模态、多图像医学基准测试
-9. [Benchmarking Deep Learning for Future Liver Remnant Segmentation in Colorectal Liver Metastasis](/202604/16/2604.07999v1-benchmarking-deep-learning-for-future-liver-remnant-segmentation-in-colorectal-liver-metastasis)  
+   evidence：使用计算机视觉进行巴氏涂片细胞学中的细胞检测
+5. [Seeing Through Experts Eyes A Foundational Vision Language Model Trained on Radiologists Gaze and Reasoning](/202604/17/2604.14316v1-seeing-through-experts-eyes-a-foundational-vision-language-model-trained-on-radiologists-gaze-and-reasoning)  
+   标签：评分：7.0/10、query:cpath
+   evidence：用于胸部X射线解释的基础视觉语言模型
+6. [Co-distilled attention guided masked image modeling with noisy teacher for self-supervised learning on medical images](/202604/17/2604.14506v1-co-distilled-attention-guided-masked-image-modeling-with-noisy-teacher-for-self-supervised-learning-on-medical-images)  
+   标签：评分：7.0/10、query:cpath
+   evidence：使用掩码图像建模在医学图像上进行自监督学习
+7. [TrajOnco: a multi-agent framework for temporal reasoning over longitudinal EHR for multi-cancer early detection](/202604/17/2604.10386v1-trajonco-a-multi-agent-framework-for-temporal-reasoning-over-longitudinal-ehr-for-multi-cancer-early-detection)  
    标签：评分：6.0/10、query:cpath
-   evidence：结直肠癌肝转移的分割
-10. [Camyla: Scaling Autonomous Research in Medical Image Segmentation](/202604/16/2604.10696v1-camyla-scaling-autonomous-research-in-medical-image-segmentation)  
+   evidence：用于多种癌症早期检测的多智能体大模型框架
+8. [RADA: Region-Aware Dual-encoder Auxiliary learning for Barely-supervised Medical Image Segmentation](/202604/17/2604.11164v1-rada-region-aware-dual-encoder-auxiliary-learning-for-barely-supervised-medical-image-segmentation)  
    标签：评分：6.0/10、query:cpath
-   evidence：医学图像分割的自主研究系统
-11. [Revisiting Compositionality in Dual-Encoder Vision-Language Models: The Role of Inference](/202604/16/2604.11496v1-revisiting-compositionality-in-dual-encoder-vision-language-models-the-role-of-inference)  
+   evidence：极低监督下的医学图像分割
+9. [Development, Evaluation, and Deployment of a Multi-Agent System for Thoracic Tumor Board](/202604/17/2604.12161v1-development-evaluation-and-deployment-of-a-multi-agent-system-for-thoracic-tumor-board)  
    标签：评分：6.0/10、query:cpath
-   evidence：双编码器视觉语言模型（如CLIP）的组合性
+   evidence：用于肿瘤委员会审查病理数据的多智能体系统
+10. [A Hybrid Architecture for Benign-Malignant Classification of Mammography ROIs](/202604/17/2604.12437v1-a-hybrid-architecture-for-benign-malignant-classification-of-mammography-rois)  
+   标签：评分：6.0/10、query:cpath
+   evidence：用于癌症早期诊断的良恶性分类
+11. [Scaling In-Context Segmentation with Hierarchical Supervision](/202604/17/2604.12752v1-scaling-in-context-segmentation-with-hierarchical-supervision)  
+   标签：评分：6.0/10、query:cpath
+   evidence：医学图像分割中的上下文学习
 
 
 <div class="dpr-home-promo-card">
