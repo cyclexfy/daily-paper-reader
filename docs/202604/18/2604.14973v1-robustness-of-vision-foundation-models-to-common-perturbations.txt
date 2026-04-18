@@ -1,0 +1,2123 @@
+Title: Robustness of Vision Foundation Models to Common Perturbations
+
+URL Source: https://arxiv.org/pdf/2604.14973v1
+
+Published Time: Fri, 17 Apr 2026 00:58:55 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+## Robustness of Vision Foundation Models to Common Perturbations 
+
+Hongbin Liu 1, Zhengyuan Jiang 1, Cheng Hong 2, Neil Zhenqiang Gong 11Duke University, 2Ant Group 
+
+{hongbin.liu, zhengyuan.jiang, neil.gong }@duke.edu vince.hc@antgroup.com 
+
+Abstract 
+
+A vision foundation model outputs an embedding vector for an image, which can be affected by common editing operations (e.g., JPEG compression, brightness, contrast adjustments). These common perturbations alter embedding vectors and may impact the performance of downstream tasks using these embeddings. In this work, we present the 
+
+first systematic study on foundation models’ robustness to such perturbations. We propose three robustness metrics and formulate five desired mathematical properties for these metrics, analyzing which properties they satisfy or violate. Using these metrics, we evaluate six industry-scale founda-tion models (OpenAI, Meta) across nine common perturba-tion categories, finding them generally non-robust. We also show that common perturbations degrade downstream appli-cation performance (e.g., classification accuracy) and that robustness values can predict performance impacts. Finally, we propose a fine-tuning approach to improve robustness without sacrificing utility. 
+
+1. Introduction 
+
+A vision foundation model is a general-purpose feature ex-tractor that outputs an embedding vector for an image. Typ-ically, these models are pre-trained on vast collections of unlabeled images or image-text pairs in a self-supervised manner [ 18 , 21 ] by major providers like OpenAI, Meta, and Google. For instance, OpenAI’s CLIP [ 21 ] jointly trains vi-sion and language foundation models on 400 million image-text pairs, while Meta’s DINO v2 [ 18 ] trains a vision foun-dation model on a large set of unlabeled images. Foundation models empower various downstream applications like im-age classification and depth estimation. Images in real-world settings often undergo common edit-ing operations for various purposes. For instance, JPEG compression is widely used to reduce communication costs online, while brightness and contrast adjustments are also common (Table 8 in the Appendix lists 9 editing operations used in our experiments). These operations introduce com-mon perturbations to an image, unlike adversarial perturba-tions [ 4 , 23 ], which are worst-case modifications designed to mislead models. Common perturbations, by contrast, occur frequently in non-adversarial, real-world scenarios. The robustness of foundation models and their down-stream applications to adversarial perturbations has been widely studied [ 7, 11 – 14 , 16 , 20 , 22 ]. However, robust-ness to common perturbations remains largely unexplored. Specifically, three key questions arise regarding robustness to common perturbations: 1) How robust are foundation models, i.e., how much does an embedding vector change when an image undergoes common perturbations? 2) How robust are downstream applications, i.e., to what extent does classifier accuracy degrade with perturbed images? 3) How can we improve robustness in foundation models and their downstream applications against common perturbations? A key challenge in answering these questions is designing a metric to quantify a foundation model’s robustness to com-mon perturbations. Such a metric would enable systematic robustness assessments, facilitating comparisons across self-supervised learning algorithms, model architectures, and sizes. Additionally, a robustness metric could help predict the performance of downstream applications (e.g., accuracy) for perturbed images and provide guidance to enhance foun-dation model robustness. 
+
+Our work: In this work, we answer the three questions above via performing the first systematic study on the robust-ness of foundation models to common perturbations. We begin by tackling the challenge of defining metrics to quantify a foundation model’s robustness to common per-turbations. Given an image, common perturbations produce various perturbed versions, each with its own embedding vector. We quantify robustness by measuring the variations among these embedding vectors, exploring three metrics: one based on cosine similarity , another on Euclidean dis-tance , and a third, DivergenceRadius, which uses the radius of the smallest enclosing ball in the embedding space to capture robustness. A suitable robustness metric should meet several intu-itions, such as not increasing robustness as more perturba-1
+
+> arXiv:2604.14973v1 [cs.CR] 16 Apr 2026
+
+tions are applied. We formalize these intuitions with five 
+
+mathematical properties and analyze which properties the metrics satisfy. We find that DivergenceRadius satisfies all five properties, whereas the other metrics fail to meet one; additionally, the Euclidean and cosine similarity metrics are equivalent. Using our robustness metrics, we address the first ques-tion through a systematic study of six industry-scale founda-tion models from the CLIP (OpenAI) and DINO v2 (Meta) families, covering different self-supervised learning algo-rithms, architectures, and sizes, across nine categories of common perturbations. Our findings are consistent across the three robustness metrics: foundation models generally lack robustness to common perturbations, often producing divergent embeddings for perturbed images. Additionally, we observe that foundation models based on Vision Trans-former architectures are more robust than those based on ResNet architectures. To address the second question, we evaluate the robust-ness of downstream classifiers and depth estimation models built on industry-scale foundation models against common perturbations. We observe that these perturbations degrade both classifier accuracy and depth estimation performance; for example, glass-blurring reduces the accuracy of a zero-shot ImageNet classifier by 9.4%. This occurs due to vari-ations in embedding vectors caused by perturbations. Ad-ditionally, we find that average classification accuracy and mean squared error of depth maps for perturbed images are roughly linear functions of the image’s robustness value (e.g., cosine similarity or DivergenceRadius), enabling accu-rate performance predictions for downstream tasks using a simple linear regression model. Finally, we propose a fine-tuning method to enhance a foundation model’s robustness while preserving utility for downstream tasks. Our approach aims to balance two objec-tives: a robustness goal and a utility goal , each quantified by a corresponding loss term. We fine-tune the model by minimizing a weighted sum of these loss terms, with empiri-cal results showing that our method successfully improves robustness without compromising utility. 
+
+2. Problem Formulation 
+
+Perturbation function: We represent common perturba-tions with a perturbation function P (x, k ), where x is an image and k a perturbation parameter, yielding a perturbed image P (x, k ). For instance, if P represents JPEG compres-sion, k is the quality factor controlling compression level. For some functions, k is multi-dimensional, such as fog blurring , where k includes density and frequency .We denote the domain of k as K, the set from which k is selected when applying P to x. The domain K may include discrete values (e.g., JPEG quality factors) or continuous values (e.g., Gaussian noise standard deviation). We assume a special parameter ⊥ ∈ K, where P (x, ⊥) = x, returning the original image, to simplify descriptions. 
+
+Embedding vector: A foundation model f outputs an em-bedding vector f (x) for an image x. To prevent embedding magnitude from affecting downstream applications, foun-dation models often normalize embeddings to an ℓ2-norm of 1, ensuring || f (x)|| 2 = 1 for any image x. Thus, all embedding vectors lie on a unit-radius hyper-sphere in the embedding space. 
+
+Desired mathematical properties of a robustness met-ric: Given a foundation model f , an image x, and a perturba-tion function P with parameter domain K, our goal is to de-fine a robustness metric R(f, x, P, K) to quantify the robust-ness of f for x under P . This metric essentially measures variations among embedding vectors {f (P (x, k )) }k∈K for perturbed versions of x generated by P .The robustness metric should allow quantitative compar-isons of different foundation models’ robustness to common perturbations. Since foundation models support downstream applications, the metric should also predict downstream per-formance for x under P . For instance, if the downstream task is classification, the robustness value R(f, x, P, K) should help predict the accuracy for perturbed versions of x within the domain K.We have the following mathematical properties: 1. Bounded domain: To ensure interpretability and com-parability, we design a scalar robustness metric with a bounded interval output, normalized to [0 , 1] for simplic-ity. Thus, for any f , x, P , and K, the robustness value 
+
+R(f, x, P, K) should fall within [0 , 1] , where a larger value indicates less robustness :
+
+R(f, x, P, K) ∈ [0 , 1] , ∀f, x, P, K. (1) 2. Monotonicity: When the parameter domain K expands, the model should not become more robust under this larger domain. For instance, greater variation in JPEG quality factors should not decrease R(f, x, P, K). For-mally: 
+
+R(f, x, P, K1) ≤ R (f, x, P, K2), ∀K1 ⊆ K2. (2) 3. Best robustness: The model is maximally robust for 
+
+x under P if all perturbed versions of x have the same embedding as x, resulting in R(f, x, P, K) = 0 if: 
+
+f (P (x, k )) = f (x), ∀k ∈ K. (3) 4. Worst robustness: If the embedding vectors for per-turbed images are uniformly distributed in the embed-ding space (sum to zero), then robustness is at its lowest with R(f, x, P, K) = 1 , if ∃K′ ⊆ K:
+
+X
+
+> k∈K′
+
+f (P (x, k )) = 0. (4) 2Table 1. Three robustness metrics explored in this work and the desired mathematical properties they violate. Robustness Metric Formulation Violating Properties Cosine similarity Rcs (f, x, P, K) = 1−min k1,k 2∈K cos (f (P (x,k 1)) ,f (P (x,k 2))) 2 Worst-robustness Euclidean distance Red (f, x, P, K) = max k1,k 2∈K || f (P (x,k 1)) −f (P (x,k 2)) || 2 
+
+> 2
+
+Worst-robustness DivergenceRadius Rdr (f, x, P, K) = argmin r s.t. ∃c, || f (P (x, k )) − c|| 2 ≤ r, ∀k ∈ K None 
+
+Figure 1. An example for the worst-robustness property. 
+
+where 0 is the zero vector. Figure 1 illustrates this in a two-dimensional space. 5. Rotational invariance: Since embeddings are rotation-free, the robustness metric should be invariant to ro-tations in the embedding space. Let M be a rotation matrix, then: 
+
+R(M · f, x, P, K) = R(f, x, P, K), (5) where M · f denotes rotating f (x) by M .
+
+3. Robustness Metrics 
+
+We explore three robustness metrics and theoretically analyze what desired mathematical properties they sat-isfy/violate, which we summarize in Table 1. 
+
+3.1. Cosine Similarity 
+
+Since embedding vectors lie on a hypersphere, we can use the angles between them to quantify robustness. Specifically, the largest angle (smallest cosine similarity) between any two embedding vectors from perturbed images can define a robustness metric. Formally, for a model f , image x,perturbation function P , and parameter domain K, the cosine similarity-based robustness metric Rcs is: 
+
+Rcs (f, x, P, K)= 1 − min k1,k 2∈K cos (f (P (x, k 1)) , f (P (x, k 2))) 2 , (6) where cos (·, ·) is the cosine similarity. The constants nor-malize the value to [0,1]. We can verify that the robustness metric Rcs satisfies the five mathematical properties except the worst-robustness one. In particular, since cos (·, ·) is in [-1,1], Rcs (f, x, P, K)
+
+lies in [0, 1], meeting the bounded-domain property. As K
+
+expands, min k1,k 2∈K cos (f (P (x, k 1)) , f (P (x, k 2))) does not increase, so Rcs does not decrease, satisfying mono-tonicity. The best-robustness property holds because 
+
+Rcs (f, x, P, K) = 0 when all perturbed versions of x have the same embedding. Finally, Rcs is rotation-invariant since cosine similarity is. However, Rcs does not satisfy the worst-robustness prop-erty. For instance, in Figure 1, Rcs is 0.75, not 1, as Rcs = 1 
+
+only when embedding vectors cover exactly half the hyper-sphere, with cosine similarity of -1. If embedding vectors are more evenly distributed, the smallest cosine similarity is greater than -1, violating worst-robustness. 
+
+Monotonically increasing function of cosine similarity: Arobustness metric based on any monotonically increasing function of Rcs cannot satisfy all five desired properties. Formally, we define such a metric: 
+
+Rg (f, x, P, K) = g(Rcs (f, x, P, K)) , (7) where g is a monotonically increasing function satisfying 
+
+g(0) = 0 and g(1) = 1 . We can show Rg satisfies bounded-domain, best-robustness, and rotation-invariance properties but fails the worst-robustness property. Formally, we have: 
+
+Theorem 1 (Monotonically Increasing Function of Rcs ).
+
+Given any g that is a monotonically increasing function of 
+
+Rcs and satisfies g(0) = 0 and g(1) = 1 , Rg = g(Rcs )
+
+does not satisfy the worst-robustness property. Proof. To prove this, we construct a counter-example. Since 
+
+Rg = g(Rcs ) increases with Rcs , and since g(0) = 0 and 
+
+g(1) = 1 , we have Rg < 1 if Rcs < 1. In Figure 1, Rcs =0.75 < 1, so Rg < 1, countering the worst-robustness property. 
+
+3.2. Euclidean Distance 
+
+Another intuitive robustness metric is to use the Euclidean distances between embedding vectors of perturbed images to quantify their variations. Formally, given a model f , image 
+
+x, perturbation function P , and parameter domain K, we define a Euclidean distance-based robustness metric Red as: 
+
+Red (f, x, P, K)= max k1,k 2∈K || f (P (x, k 1)) − f (P (x, k 2)) || 2
+
+2 , (8) where ||·|| 2 denotes the Euclidean distance, with the constant 2 normalizing the metric to [0,1]. We can show that Red is a monotonically increasing function of Rcs , specifically as follows: 3ℛ𝒅𝒓 
+
+> 𝒄 Figure 2. An example to illustrate the minimum enclosing ball. The red circle is the minimum enclosing ball of the three embedding vectors.
+
+Theorem 2. For any model f , image x, perturbation func-tion P , and parameter domain K, Red is the square root of 
+
+Rcs :
+
+Red (f, x, P, K) = pRcs (f, x, P, K). (9) 
+
+Proof. Please refer to the Appendix. Theorem 2 further shows that Rcs and Red are equivalent, as Rcs can be converted to Red by taking the square root. Therefore, we omit results for Red in our experiments for simplicity. 
+
+3.3. DivergenceRadius 
+
+3.3.1. Formulating an Optimization Problem 
+
+We first outline the intuition behind DivergenceRadius and then present its formulation. 
+
+Intuition: The cosine similarity and Euclidean distance metrics do not satisfy the worst-robustness property, which requires a maximum robustness value of 1 when the embed-ding vectors for perturbed images are equally distributed in the embedding space. Our intuition is that if the embedding vectors are uniformly spread on the unit hyper-sphere, the radius of the smallest ball enclosing these vectors will equal 1. Thus, constructing a minimum enclosing ball for the per-turbed embedding vectors can satisfy the worst-robustness property and indicate robustness: a smaller radius implies greater robustness. 
+
+Optimization problem: We aim to find the smallest-radius high-dimensional ball with center c that encloses all embed-ding vectors of perturbed versions of an image x within the perturbation domain K. This radius r, our DivergenceRadius, is denoted as Rdr (f, x, P, K). Formally: 
+
+Rdr (f, x, P, K) = argmin r, 
+
+s.t. ∃c, || f (P (x, k )) − c|| 2 ≤ r, ∀k ∈ K. (10) Figure 2 illustrates an example of a minimum ball enclos-ing embedding vectors for three perturbed versions of an image x. Note that K includes a special parameter ⊥ where 
+
+P (x, ⊥) = x.
+
+3.3.2. DivergenceRadius Satisfies the Mathematical Properties 
+
+We show that the robustness metric Rdr satisfies all the five mathematical properties. 
+
+Proof. Please refer to the Appendix. 
+
+3.3.3. Solving DivergenceRadius 
+
+We consider both discrete and continuous K.
+
+Discrete K: For a discrete domain K, the embedding vec-tors {f (P (x, k )) }k∈K are discrete points on the unit hyper-sphere. In this case, we can use Welzl’s algorithm [ 25 ] to efficiently find the minimum enclosing ball’s center and ra-dius, solving Equation 10 in O(dn ) time, where d is the embedding dimension and n the number of discrete values in K.
+
+Continuous K: When K is continuous, finding an exact solution is infeasible due to infinite embedding vectors. To approximate, we sample a discrete subset ¯K from K, trans-forming the problem into a discrete one. We use two sam-pling methods: random sampling (uniform random selection) and equally-spaced sampling , where equally spaced values better represent the domain when using fewer samples. For a domain K = [ a, b ] and m samples, equally-spaced sampling yields values a, a +( b−a)/(m−1) , . . . , b . Our experiments show that equally-spaced sampling outperforms random sam-pling for DivergenceRadius estimation accuracy. After obtaining ¯K, we apply Welzl’s algorithm to find an approximate DivergenceRadius. For large discrete domains, a small sample set can similarly reduce computational cost. Random and equally-spaced sampling methods also apply to estimating the cosine similarity-based robustness Rcs and Euclidean distance-based robustness Red .
+
+4 . Measuring Robustness of Real-world Foun-dation Models 
+
+In this section, we evaluate the robustness of industry-scale foundation models using cosine similarity and Diver-genceRadius. Although cosine similarity does not theoreti-cally satisfy the worst-robustness property, we include it in our experiments since the worst-robustness scenario does not occur in the evaluated perturbations. We omit Euclidean distance results due to its equivalence with cosine similarity. 
+
+4.1. Measurement Setup 
+
+Foundation models: We evaluate foundation models pre-trained using various algorithms, architectures, and sizes, allowing comparison of pre-training methods and model ro-bustness. Specifically, we evaluate two popular families of vi-sion foundation models: CLIP [ 21 ] and DINO v2 [ 18 ]. CLIP (by OpenAI) was trained with multi-modal self-supervised learning on 400 million image-text pairs, while DINO v2 41 5 10 15 20 100   
+
+> m
+> 0.02
+> 0.04
+> 0.06
+> 0.08
+> 0.10
+> DivergenceRadius
+> Random sampling
+> Equally-spaced sampling Figure 3. Comparing random sampling and equally-spaced sam-pling at computing DivergenceRadius, where CLIP ViT-L/14 foun-dation model, JPEG compression, and ImageNet images are used.
+> mis the number of discrete values sampled from the domain K.
+
+(by Meta) used self-supervised learning on 142 million un-labeled images. In the CLIP family, we test ViT-B/16, ViT-L/14, RN50, and RN50 ×64 (Vision Transformer and ResNet architectures). In the DINO v2 family, we evaluate ViT-L/14 and ViT-g/14. Details on these models are in Table 5 in the Appendix. 
+
+Datasets: For robustness evaluation, we use two image clas-sification datasets, ImageNet [ 6] and Food101 [ 3 ], and one depth estimation dataset, NYU-Depth V2 [ 17 ]. Details of these datasets are provided in Table 4 (Appendix). Although labels are not required for robustness testing, they are used later to evaluate downstream applications. 
+
+Common perturbations: Following [ 9 ], we use nine com-mon perturbation functions representing typical image edit-ing operations: JPEG compression , Brightness adjustment ,
+
+Contrast adjustment , Defocus blurring , Elastic blurring , Fog blurring , Frost blurring , Gaussian noise , and Glass blur-ring . Each has one variable parameter, with fixed values for additional parameters if present. Table 8 in the Appendix details each perturbation’s pa-rameter domain K, additional fixed parameters, and a visual-ization of a maximally distorted example for each function. Following prior work [ 9], the selected K for each perturba-tion reflects realistic image editing in real-world scenarios. 
+
+4.2. Measurement Results 
+
+Random sampling v.s. equally-spaced sampling: When computing robustness values (i.e., Rcs or Rdr ), we can use 
+
+random sampling , which selects m discrete values from K
+
+at random, or equally-spaced sampling , which selects m
+
+evenly spaced values. We compare these methods by com-puting Rdr for a foundation model, perturbation function, and image. Figure 3 shows the average Rdr on ImageNet images for CLIP ViT-L/14 under JPEG compression as m
+
+varies. We observe that DivergenceRadius initially increases and then saturates with both sampling methods. As m grows, more diverse parameters from K yield a higher Rdr , ap-proaching the true robustness value. Equally-spaced sam-pling converges more quickly, reaching near-saturation at 
+
+m ≥ 5, whereas random sampling requires m ≥ 20 . This indicates that equally-spaced sampling provides a more ef-ficient approximation of Rdr . Thus, for computational ef-ficiency, we use equally-spaced sampling with m = 5 for each perturbation function in other experiments. 
+
+Comparing model architectures: Figure 4, Figure 13 (Ap-pendix), and Figure 15 (Appendix) show the average Rdr 
+
+on ImageNet, Food101, and NYU-Depth V2 datasets across different foundation models and perturbations. Figures 12, 14, and 16 (Appendix) present the corresponding Rcs re-sults. To compare architectures, we examine models with the same pre-training algorithm and similar sizes: specifi-cally, CLIP ViT-B/16 vs. CLIP RN50 and CLIP ViT-L/14 vs. CLIP RN50×64. We observe that ViT-B/16 (or ViT-L/14) is consistently more robust than RN50 (or RN50×64) across all perturbations and datasets, as evidenced by lower Diver-genceRadius values. This suggests that Vision Transformers are generally more robust to common image perturbations than ResNet architectures. Similar results are also observed when using cosine similarity. 
+
+Comparing pre-training algorithms: To compare pre-training algorithms, we evaluate the robustness of CLIP ViT-L/14 and DINO v2 ViT-L/14, which share the same ar-chitecture and model size. We find no consistent trend in robustness across perturbation types. For example, DINO v2 ViT-L/14 has lower DivergenceRadius (i.e., greater robust-ness) than CLIP ViT-L/14 on JPEG compression, Brightness adjustment, Contrast adjustment, Fog blurring, Gaussian noise, and Glass blurring across all datasets. However, DINO v2 ViT-L/14 shows higher DivergenceRadius (i.e., lower ro-bustness) on other perturbations. For instance, under JPEG compression, the average DivergenceRadius for ImageNet images is 0.038 for DINO v2 ViT-L/14 and 0.084 for CLIP ViT-L/14, while under Defocus blurring, it is 0.146 for DINO v2 ViT-L/14 and 0.108 for CLIP ViT-L/14. 
+
+Comparing model sizes: For model size comparisons, we examine foundation models within the same architecture and pre-training algorithm: CLIP ViT-B/16 vs. CLIP ViT-L/14, CLIP RN50 vs. CLIP RN50x64, and DINO v2 ViT-L/14 vs. DINO v2 ViT-g/14. In the CLIP family, larger mod-els are generally less robust to common perturbations than smaller ones. For example, ViT-L/14 shows a higher av-erage Rdr (or Rcs ) than ViT-B/16 across all perturbations and datasets, and RN 50 × 64 has higher robustness met-rics than RN50, except for a few cases on Food101 (e.g., JPEG compression, Defocus blurring). Conversely, in the DINO v2 family, larger models are more robust: ViT-g/14 consistently shows lower Rdr values than ViT-L/14 across 5ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+> Foundation Models
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> DivergenceRadius
+> CLIP
+> DINO v2
+
+(a) JPEG compression ViT-B/16  
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+> Foundation Models
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> DivergenceRadius
+> CLIP
+> DINO v2
+
+(b) Brightness adjustment ViT-B/16  
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+> Foundation Models
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> DivergenceRadius
+> CLIP
+> DINO v2
+
+(c) Contrast adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+> Foundation Models
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> DivergenceRadius
+> CLIP
+> DINO v2
+
+(d) Defocus blurring ViT-B/16  
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+> Foundation Models
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> DivergenceRadius
+> CLIP
+> DINO v2
+
+(e) Elastic blurring ViT-B/16  
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+> Foundation Models
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> DivergenceRadius
+> CLIP
+> DINO v2
+
+(f) Fog blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+> Foundation Models
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> DivergenceRadius
+> CLIP
+> DINO v2
+
+(g) Frost blurring ViT-B/16  
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+> Foundation Models
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> DivergenceRadius
+> CLIP
+> DINO v2
+
+(h) Gaussian noise ViT-B/16  
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+> Foundation Models
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> DivergenceRadius
+> CLIP
+> DINO v2
+
+(i) Glass blurring 
+
+Figure 4. Average DivergenceRadius of ImageNet testing images for different foundation models and perturbation functions. 
+
+perturbations and datasets. This contrast suggests that pre-training settings—multi-modal self-supervised learning for CLIP vs. image-only self-supervised learning for DINO v2—impact robustness differently as model size increases. 
+
+5 . Measuring Performance of Downstream Ap-plications 
+
+In this section, we measure the robustness of downstream applications to common perturbations and demonstrate that an image’s robustness value (i.e., Rdr or Rcs ) can predict the performance of downstream applications on its perturbed versions. We omit Euclidean distance results due to its equiv-alence with cosine similarity. 
+
+5.1. Experimental Setup 
+
+Downstream applications: Given a pre-trained vision foun-dation model, we consider the following three popular down-stream applications: zero-shot classification, linear-probe classification, and depth estimation. The Appendix shows more details of these applications. 
+
+Evaluation metrics (ACC , ACC p, RM SE , and 
+
+RM SE p): For a downstream classifier g ◦ f , where f is a foundation model and g a classifier head, accuracy (ACC )is the fraction of correctly predicted labels. Accuracy under perturbation (ACC p) is calculated for each perturbed image. For depth estimation heads, we use RM SE and RM SE p
+
+Table 2. ACC and average ACC p of ImageNet’s testing images for two downstream classifiers. Zero-shot classification is based on the CLIP ViT-L/14 foundation model and linear-probe classification is based on the DINO v2 ViT-g/14 foundation model. 
+
+Zero-shot Classification Linear-probe Classification 
+
+ACC (%) 68.4 86.6 
+
+ACC p
+
+(%) JPEG compression 65.1 ( ↓ 3.3) 84.6 ( ↓ 2.0) Brightness adjustment 66.3 ( ↓ 2.1) 85.7 ( ↓ 0.9) Contrast adjustment 67.3 ( ↓ 1.1) 86.4 ( ↓ 0.2) Defocus blurring 60.1 ( ↓ 8.3) 82.2 ( ↓ 4.4) Elastic blurring 63.5 ( ↓ 4.9) 85.0 ( ↓ 1.6) Fog blurring 66.0 ( ↓ 2.4) 86.1 ( ↓ 0.5) Frost blurring 61.4 ( ↓ 7.0) 83.6 ( ↓ 3.0) Gaussian noise 66.0 ( ↓ 2.4) 85.7 ( ↓ 0.9) Glass blurring 59.0 ( ↓ 9.4) 82.9 ( ↓ 3.7) 
+
+(definitions in the Appendix). 
+
+Parameter settings: We evaluate the classifiers with the highest accuracy on zero-shot or linear-probe tasks. For zero-shot classification, we use CLIP ViT-L/14; for linear-probing, we use DINO v2 ViT-g/14, training a one-layer classifier for Food101. 
+
+5.2. Experimental Results 
+
+Due to space limits, we discuss results for downstream clas-sifiers and defer depth estimation results to the Appendix. 
+
+ACC vs. ACC p: Table 2 shows ACC and average 60.04 0.08 0.12 0.16 
+
+> DivergenceRadius
+> 0.00
+> 0.20
+> 0.40
+> 0.60
+> 0.80
+> Accuracy under perturbation  ACC p
+> JPEG compression
+> Brightness adjustment
+> Contrast adjustment
+> Defocus blurring
+> Elastic blurring
+> Fog blurring
+> Frost blurring
+> Gaussian noise
+> Glass blurring
+
+(a) Zero-shot classification 0.00 0.06 0.12 0.18 0.24  
+
+> DivergenceRadius
+> 0.20
+> 0.40
+> 0.60
+> 0.80
+> 1.00
+> Accuracy under perturbation  ACC p
+> JPEG compression
+> Brightness adjustment
+> Contrast adjustment
+> Defocus blurring
+> Elastic blurring
+> Fog blurring
+> Frost blurring
+> Gaussian noise
+> Glass blurring
+
+(b) Linear-probe classification 
+
+Figure 5. Accuracy under perturbation ACC p vs. DivergenceRadius of ImageNet testing images for (a) zero-shot classification and (b) linear-probe classification when different perturbation functions are used. Zero-shot classification is based on the CLIP ViT-L/14 foundation model and linear-probe classification is based on the DINO v2 ViT-g/14 foundation model. Table 3. ACC and average ACC p of Food101’s testing images for two downstream classifiers. Zero-shot classification is based on the CLIP ViT-L/14 foundation model and linear-probe classification is based on the DINO v2 ViT-g/14 foundation model. 
+
+Zero-shot Classification Linear-probe Classification 
+
+ACC (%) 92.0 94.1 
+
+ACC p
+
+(%) JPEG compression 87.4 ( ↓ 4.6) 91.2 ( ↓ 2.9) Brightness adjustment 88.4 ( ↓ 3.6) 90.8 ( ↓ 3.3) Contrast adjustment 90.9 ( ↓ 1.1) 91.8 ( ↓ 2.3) Defocus blurring 81.7 ( ↓ 10.3) 87.0 ( ↓ 7.1) Elastic blurring 87.2 ( ↓ 4.8) 89.6 ( ↓ 4.5) Fog blurring 88.3 ( ↓ 3.7) 90.9 ( ↓ 3.2) Frost blurring 79.3 ( ↓ 12.7) 85.0 ( ↓ 9.1) Gaussian noise 86.6 ( ↓ 5.4) 89.7 ( ↓ 4.4) Glass blurring 82.9 ( ↓ 9.1) 87.3 ( ↓ 6.8) 
+
+ACC p under different perturbations for ImageNet; results for Food101 are in Table 3. Common perturbations reduce 
+
+ACC p compared to ACC , indicating degraded accuracy. For example, Glass blurring reduces ImageNet zero-shot ac-curacy by 9.4%, and Frost blurring reduces Food101 linear-probe accuracy by 3.3%. The accuracy drop correlates with the average robustness value across perturbations. For in-stance, in Figure 4, both CLIP ViT-L/14 and DINO v2 ViT-g/14 exhibit the highest DivergenceRadius under Defocus blurring, corresponding to the largest ACC p drop in Table 2. This suggests that higher DivergenceRadius values indicate greater embedding diversity, increasing the chance of mis-classification. 
+
+ACC p vs. robustness value: Figure 5 shows the relation-ship between ACC p and DivergenceRadius for ImageNet images under various perturbations; results for Food101 are in Figure 6. Across datasets and perturbations, ACC p
+
+decreases approximately linearly as DivergenceRadius or co-sine similarity increases, indicating that greater embedding diversity leads to lower accuracy. 
+
+Predicting ACC p using robustness values: The linear trend between ACC p and DivergenceRadius (or cosine sim-ilarity) enables accurate ACC p prediction via linear regres-0.04 0.08 0.12 0.16 
+
+> DivergenceRadius
+> 0.20
+> 0.40
+> 0.60
+> 0.80
+> 1.00
+> Accuracy under perturbation  ACC p
+> JPEG compression
+> Brightness adjustment
+> Contrast adjustment
+> Defocus blurring
+> Elastic blurring
+> Fog blurring
+> Frost blurring
+> Gaussian noise
+> Glass blurring
+
+(a) Zero-shot classification 0.00 0.06 0.12 0.18 0.24  
+
+> DivergenceRadius
+> 0.20
+> 0.40
+> 0.60
+> 0.80
+> 1.00
+> Accuracy under perturbation  ACC p
+> JPEG compression
+> Brightness adjustment
+> Contrast adjustment
+> Defocus blurring
+> Elastic blurring
+> Fog blurring
+> Frost blurring
+> Gaussian noise
+> Glass blurring
+
+(b) Linear-probe classification 
+
+Figure 6. Accuracy under perturbation ACC p vs. DivergenceRa-dius of Food101 testing images for (a) zero-shot classification and (b) linear-probe classification when different perturbation functions are used. Zero-shot classification is based on the CLIP ViT-L/14 foundation model and linear-probe classification is based on the DINO v2 ViT-g/14 foundation model. 
+
+sion. We divide the dataset, train a linear model on the first half (predicting ACC p from DivergenceRadius or cosine similarity), and test it on the second half. Figures 10 and 11 in the Appendix show low mean squared errors, indicat-ing that DivergenceRadius or cosine similarity can reliably predict downstream accuracy under perturbations. 
+
+6. Robustness Enhancement 
+
+6.1. Method 
+
+Robustness and utility goals: We propose a fine-tuning method to enhance a foundation model’s robustness against common perturbations. Given a foundation model f , our goal is to produce a model f ′ that meets both a robustness goal (increased robustness to perturbations) and a utility goal 
+
+(maintaining performance on unperturbed images). 
+
+Formulating an optimization problem: We define two loss terms for robustness and utility. Minimizing these terms involves optimizing a weighted sum. For a set of unlabeled images D, we quantify robustness by the cosine 7similarity between an image’s embedding and those of its perturbed versions. Specifically, the robustness loss term L1
+
+is: L1 = − 1
+
+> ∥D∥
+
+P
+
+> x∈D
+
+cos ( f ′(x), f ′(P (x, k ))) , where P is a perturbation function and k is sampled from K each epoch. To ensure utility, we use cosine similarity between embed-dings of unperturbed images from f and f ′. The utility loss term L2 is: L2 = − 1
+
+> ∥D∥
+
+P
+
+> x∈D
+
+cos ( f (x), f ′(x)) .The optimization problem then minimizes the weighted sum of these terms: min f ′ L1 + λL2, where λ balances robustness and utility. 
+
+Solving the optimization problem: We use a gradient-based method, initializing f ′ as f , and iteratively updating 
+
+f ′ using the gradient computed over mini-batches from D.
+
+6.2. Experimental Setup 
+
+We use CLIP ViT-L/14 for zero-shot classification. Fine-tuning data D includes 20,000 randomly selected ImageNet training images, with JPEG compression as the default per-turbation. Models are fine-tuned for 50 epochs with a learn-ing rate of 1 × 10 −5 and λ = 1 unless otherwise stated. 
+
+6.3. Experimental Results 
+
+Achieving the robustness goal: Figures 7a and 7b show the average cosine similarity and DivergenceRadius for Ima-geNet/Food101 testing images before and after fine-tuning. We observe decreases in both metrics, indicating that embed-ding vectors of perturbed images become closer to those of unperturbed images, thus enhancing robustness. 
+
+Achieving the utility goal: Figure 7c shows that zero-shot classification accuracy ACC remains nearly unchanged on unperturbed images after fine-tuning, indicating that the utility goal is met due to the inclusion of L2.
+
+Impact of λ: Table 9 in the Appendix shows how λ affects the robustness-utility trade-off. When λ is small (e.g., 0), robustness is achieved but utility declines, whereas large λ
+
+(e.g., 5) favors utility over robustness. 
+
+7. Related Work 
+
+Foundation models: Foundation models [ 5 , 8 , 15 , 18 , 21 ]are pre-trained neural networks used as general-purpose fea-ture extractors, often for vision tasks. Vision foundation models are typically pre-trained on large datasets of unla-beled images [ 5 , 18 ] or image-text pairs [ 21 ]. For example, Meta’s DINO v2 [ 18 ] is trained on 142 million images, while OpenAI’s CLIP [ 21 ] is trained on 400 million image-text pairs. 
+
+Common perturbations: Common perturbations fre-quently arise in real-world, non-adversarial settings. While adversarial robustness of foundation models has been widely studied, robustness to common perturbations is less explored. ImageNet Food101    
+
+> 0.00
+> 0.03
+> 0.06
+> 0.09
+> 0.12
+> Cosine Similarity  Before
+> After
+> (a) Cosine similarity ImageNet Food101
+> 0.00
+> 0.03
+> 0.06
+> 0.09
+> 0.12
+> DivergenceRadius  Before
+> After
+> (b) DivergenceRadius ImageNet Food101
+> 0.60
+> 0.70
+> 0.80
+> 0.90
+> 1.00
+> Accuracy  ACC  Before
+> After
+> (c) ACC
+
+Figure 7. (a) Average cosine similarity, (b) average DivergenceRa-dius, and (c) ACC of zero-shot classification for the two datasets before and after robustness enhancement, where the foundation model is CLIP ViT-L/14. 
+
+Zhu et al. [ 26 ] investigated language models’ robustness to prompt perturbations but did not focus on vision mod-els. Hendrycks and Dietterich [ 9] assessed classifier robust-ness to common perturbations, and studies [ 1, 2, 19 , 24 ]compared robustness of vision transformers and CNNs, though they focused on classifiers, not foundation models. Hendrycks et al. [ 10 ] found that common perturbations could improve out-of-distribution robustness for classifiers, while our work centers on in-distribution robustness. 
+
+8. Conclusion and Future Work 
+
+In this work, we introduce three metrics—cosine similar-ity, Euclidean distance, and DivergenceRadius—to quan-tify foundation model robustness to common perturbations. Theoretically, we showed that DivergenceRadius meets all five desired mathematical properties, while cosine similarity and Euclidean distance do not satisfy the worst-robustness property. Using these metrics, we empirically evaluated the robustness of industry-scale foundation models and down-stream applications, finding limited robustness to common perturbations, which impacts downstream performance. We also demonstrated that fine-tuning models to align perturbed embeddings with the original can enhance robustness with-out affecting utility. Future work includes extending these analyses to language models and investigating robustness against adversarial perturbations. 8References 
+
+[1] Yutong Bai, Jieru Mei, Alan L Yuille, and Cihang Xie. Are transformers more robust than cnns? In NeurIPS , 2021. 8 [2] Srinadh Bhojanapalli, Ayan Chakrabarti, Daniel Glasner, Daliang Li, Thomas Unterthiner, and Andreas Veit. Under-standing robustness of transformers for image classification. In ICCV , 2021. 8 [3] Lukas Bossard, Matthieu Guillaumin, and Luc Van Gool. Food-101 – mining discriminative components with random forests. In ECCV , 2014. 5 [4] Nicholas Carlini and David Wagner. Towards evaluating the robustness of neural networks. In S&P , 2017. 1 [5] Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geof-frey Hinton. A simple framework for contrastive learning of visual representations. In ICML , 2020. 8 [6] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. Imagenet: A large-scale hierarchical image database. In CVPR , 2009. 5 [7] Lijie Fan, Sijia Liu, Pin-Yu Chen, Gaoyuan Zhang, and Chuang Gan. When does contrastive learning preserve ad-versarial robustness from pretraining to finetuning? 2021. 1[8] Kaiming He, Haoqi Fan, Yuxin Wu, Saining Xie, and Ross Girshick. Momentum contrast for unsupervised visual repre-sentation learning. In CVPR , 2020. 8 [9] Dan Hendrycks and Thomas Dietterich. Benchmarking neural network robustness to common corruptions and perturbations. In ICLR , 2019. 5, 8 [10] Dan Hendrycks, Steven Basart, Norman Mu, Saurav Kada-vath, Frank Wang, Evan Dorundo, Rahul Desai, Tyler Zhu, Samyak Parajuli, Mike Guo, et al. The many faces of robust-ness: A critical analysis of out-of-distribution generalization. In ICCV , 2021. 8 [11] Jinyuan Jia, Yupei Liu, and Neil Zhenqiang Gong. Baden-coder: Backdoor attacks to pre-trained encoders in self-supervised learning. In S&P , 2022. 1 [12] Ziyu Jiang, Tianlong Chen, Ting Chen, and Zhangyang Wang. Robust pre-training by adversarial contrastive learning. 
+
+NeurIPS , 2020. [13] Zhengyuan Jiang, Jinghuai Zhang, and Neil Zhenqiang Gong. Evading watermark based detection of ai-generated content. In CCS , 2023. [14] Changjiang Li, Ren Pang, Zhaohan Xi, Tianyu Du, Shouling Ji, Yuan Yao, and Ting Wang. An embarrassingly simple backdoor attack on self-supervised learning. In ICCV , 2023. 1[15] Junnan Li, Dongxu Li, Caiming Xiong, and Steven Hoi. Blip: Bootstrapping language-image pre-training for unified vision-language understanding and generation. In ICML , 2022. 8 [16] Hongbin Liu, Jinyuan Jia, and Neil Zhenqiang Gong. Poi-sonedEncoder: Poisoning the unlabeled pre-training data in contrastive learning. In USENIX Security Symposium , 2022. 1[17] Pushmeet Kohli Nathan Silberman, Derek Hoiem and Rob Fergus. Indoor segmentation and support inference from rgbd images. In ECCV , 2012. 5 [18] Maxime Oquab, Timoth ´ee Darcet, Th ´eo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al. Dinov2: Learning robust visual features without supervision. arXiv ,2023. 1, 4, 8 [19] Sayak Paul and Pin-Yu Chen. Vision transformers are robust learners. In AAAI , 2022. 8 [20] Wenjie Qu, Jinyuan Jia, and Neil Zhenqiang Gong. Reaas: En-abling adversarially robust downstream classifiers via robust encoder as a service. In NDSS , 2023. 1 [21] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learning transferable visual models from natural language supervision. In ICML , 2021. 1, 4, 8 [22] Aniruddha Saha, Ajinkya Tejankar, Soroush Abbasi Kooh-payegani, and Hamed Pirsiavash. Backdoor attacks on self-supervised learning. In CVPR , 2022. 1 [23] Christian Szegedy, Wojciech Zaremba, Ilya Sutskever, Joan Bruna, Dumitru Erhan, Ian Goodfellow, and Rob Fergus. Intriguing properties of neural networks. In ICLR , 2014. 1 [24] Zeyu Wang, Yutong Bai, Yuyin Zhou, and Cihang Xie. Can cnns be more robust than transformers? In ICLR , 2023. 8 [25] Emo Welzl. Smallest enclosing disks (balls and ellipsoids). In 
+
+New Results and New Trends in Computer Science . Springer, 2005. 4 [26] Kaijie Zhu, Jindong Wang, Jiaheng Zhou, Zichen Wang, Hao Chen, Yidong Wang, Linyi Yang, Wei Ye, Neil Zhenqiang Gong, Yue Zhang, et al. Promptbench: Towards evaluating the robustness of large language models on adversarial prompts. 
+
+arXiv , 2023. 8 
+
+9A. Impact Statements 
+
+This work strengthens the reliability of vision foundation models by systematically evaluating their robustness to com-mon perturbations and proposing fine-tuning strategies to enhance stability without sacrificing utility. By introducing principled robustness metrics and analyzing industry-scale models, our findings highlight vulnerabilities that can im-pact real-world applications. Addressing these weaknesses improves the robustness of AI systems in practical settings, ensuring consistent performance across diverse conditions. Our work provides a foundation for future research on en-hancing model robustness, including extending robustness analyses to language models and defending against adversar-ial perturbations. 
+
+B. Proof of Theorem 2 
+
+Proof. Since || f (x)|| 2 = 1 for any x, we have the following: 
+
+|| f (P (x, k 1)) − f (P (x, k 2)) || 22
+
+=|| f (P (x, k 1)) || 22 + || f (P (x, k 2)) || 22
+
+− 2f (P (x, k 1)) T · f (P (x, k 2)) =2 − 2 · cos (f (P (x, k 1)) , f (P (x, k 2))) , (11) where T represents transpose and f (P (x, k 1)) T ·
+
+f (P (x, k 2)) is the inner product between two embedding vectors. Therefore, we have: 
+
+Red (f, x, P, K)= max k1,k 2∈K || f (P (x, k 1)) − f (P (x, k 2)) || 2
+
+2= max k1,k 2∈K
+
+p2 − 2cos (f (P (x, k 1)) , f (P (x, k 2))) 2=
+
+r 1 − min k1,k 2∈K cos (f (P (x, k 1)) , f (P (x, k 2))) 2=pRcs (f, x, P, K). (12) Therefore, by Theorem 1, the Euclidean distance-based met-ric Red does not satisfy the worst-robustness property. 
+
+C . DivergenceRadius Satisfies the Mathemati-cal Properties 
+
+Proof. Bounded domain: The radius of any ball is non-negative, and thus Rdr (f, x, P, K) ≥ 0. Moreover, since all embedding vectors outputted by a foundation model lie on the unit hyper-sphere, the unit ball with radius 1 can enclose all embedding vectors. Therefore, we have 
+
+Rdr (f, x, P, K) ≤ 1. Thus, we have Rdr (f, x, P, K) ∈
+
+[0 , 1] .
+
+Monotonicity: Suppose the perturbation parameter domain 
+
+K1 expands to K2. If the embedding vectors of the perturbed images corresponding to the expanded perturbation parame-ters (i.e., parameters in K2-K1) fall outside of the minimum enclosing ball for K1, the minimum enclosing ball for K2
+
+expands to have a larger radius, i.e., Rdr (f, x, P, K1) <
+
+Rdr (f, x, P, K2); otherwise, the minimum enclosing ball re-mains the same, i.e., Rdr (f, x, P, K1) = Rdr (f, x, P, K2).Therefore, we have Rdr (f, x, P, K1) ≤ R dr (f, x, P, K2) if 
+
+K1 ⊆ K2, which satisfies the monotonicity property. 
+
+Best robustness: If all the perturbed versions of the image have the same embedding vector, the minimum enclosing ball has a radius 0. Thus, we have Rdr (f, x, P, K) = 0 in such case, achieving the best-robustness property. 
+
+Worst robustness: In the worst-robustness case, there exists a subdomain K′ ⊆ K, where K′ consists of discrete values and the corresponding embedding vectors are equally dis-tributed in the embedding space, i.e., P 
+
+> k∈K′
+
+f (P (x, k )) = 0. Without loss of generality, we assume the subdomain K′
+
+contains n discrete values k1, · · · , k n. Then, we have the following: 
+
+> n
+
+X
+
+> i=1
+
+f (P (x, k i)) = 0. (13) Based on Equation 10, we have the following equation group: 
+
+
+
+|| f (P (x, k 1)) || 22 − 2f T (P (x, k 1)) · c + || c|| 22 ≤ r2
+
+|| f (P (x, k 2)) || 22 − 2f T (P (x, k 2)) · c + || c|| 22 ≤ r2
+
+· · · || f (P (x, k n)) || 22 − 2f T (P (x, k n)) · c + || c|| 22 ≤ r2
+
+,
+
+(14) where T indicates transpose of a vector. Since the em-bedding vectors lie on the unit hyper-sphere, we have 
+
+|| f (P (x, k i)) || 22 = 1 for i = 1 , · · · , n . After summing up the n inequalities in the equation group 14, we have the following: 
+
+n · 1 − 2( 
+
+> n
+
+X
+
+> i=1
+
+f T (P (x, k i))) · c + n|| c|| 22 ≤ nr 2,
+
+⇔r2 ≥ 1 + || c|| 22 ≥ 1, (15) where r = 1 when c = 0. Since Rdr (f, x, P, K) is the smallest r, we have Rdr (f, x, P, K) = 1 , achieving the worst-robustness property. 
+
+Rotational invariance: Suppose the rotation matrix is 
+
+M . We observe that || M · f (P (x, k )) − M · c|| 2 = || M ·
+
+(f (P (x, k )) −c)|| 2 = || f (P (x, k )) −c|| 2 ≤ R dr (f, x, P, K)
+
+for any k ∈ K. Therefore, we have Rdr (M · f, x, P, K) ≤Rdr (f, x, P, K). We denote the inverse matrix of the rotation matrix as M −1. We have Rdr (f, x, P, K) =
+
+Rdr (M −1 · M · f, x, P, K) ≤ R dr (M · f, x, P, K). Thus, we have Rdr (M · f, x, P, K) = Rdr (f, x, P, K), achieving 10 Table 4. Benchmark datasets.             
+
+> Dataset ImageNet Food101 NYU-Depth V2 #Training images 1,281,167 75,750 50,688 #Testing images 50,000 25,250 654 #Classes 1,000 101 -
+
+the rotation-invariance property. Essentially, the embedding vectors are enclosed in a minimum ball with center c and radius Rdr (f, x, P, K) before rotation, and the embedding vectors are enclosed in a minimum ball with center M c and the same radius after rotation. 
+
+D . Details of Zero-shot Classification, Linear-probe Classification, and Depth Estimation 
+
+• Zero-shot classification: Jointly pre-trained image and text models like CLIP can perform zero-shot classification without labeled training data. Given an image x and a set of text labels Y, CLIP represents x as an image embedding and the labels in Y as text embeddings, selecting the label most similar to x’s embedding. For instance, CLIP’s ViT-L/14 achieves 68.38% accuracy on zero-shot ImageNet classification. • Linear-probe classification: Vision foundation models can be adapted for linear-probe classification using labeled data to fine-tune a simple classification head. With founda-tion model parameters frozen, a feed-forward classification head is added and trained on labeled data. This approach achieves high accuracy with minimal additional parame-ters; for example, DINO-v2 reaches 86.6% accuracy on ImageNet with a single-layer classification head. • Depth estimation: Vision foundation models can also support depth estimation, predicting per-pixel depth in an image. A convolutional decoder head (with batch nor-malization, a 1 × 1 convolution, ReLU activation, and a sigmoid function) is appended to the frozen foundation model and fine-tuned on NYU-Depth V2 training data. For example, DINO-v2 achieves a root mean squared error of 0.35 on NYU-Depth V2. 
+
+E. Evaluation Metrics RM SE and RM SE p
+
+Given a downstream depth estimation model g ◦ f , where 
+
+f is a foundation model and g is a depth estimation head built on top of f . The root mean squared error (denoted as RM SE ) for a testing dataset is the average root mean squared error between model’s predicted depth map and the ground-truth depth map. We evaluate common perturbations to images, and thus we also consider root mean squared error under perturbation (denoted as RM SE p) for each testing image. Specifically, given a testing image x with ground-truth depth map y, we evaluate the root mean squared error of a downstream depth estimation model g ◦ f for x under a perturbation function P . Without loss of generality, we assume the perturbation parameter domain K contains m
+
+discrete values, where m discrete values can be sampled via random sampling or equally-spaced sampling if K contains more than m discrete values or is continuous. Formally, the RM SE of the downstream classifier g ◦ f for x under a perturbation function P with a perturbation parameter domain K is defined as below: 
+
+RM SE p(x, g, f, P, K)= 1
+
+m
+
+X
+
+> k∈K
+
+vuut 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+(yi − g ◦ f (P (x, k )) i)2, (16) where g ◦ f (P (x, k )) is the predicted depth map for image 
+
+P (x, k ) and i is the index of each pixel in a depth map. Intuitively, the smaller RM SE indicates the more accurate depth estimation. 
+
+F . Parameter Settings and Experimental Re-sults of Depth Estimation 
+
+Parameter settings: We consider the downstream depth estimation model that achieves the lowest root mean squared error. Specifically, we use DINO v2 ViT-g/14 foundation model and the one-layer depth estimation head publicly re-leased together with DINO v2 for NYU-Depth V2. 
+
+Root mean squared error RM SE vs. root mean squared error under perturbation RM SE p: Table 6 shows the 
+
+RM SE and average RM SE p under different perturbation functions of NYU-Depth V2 testing images for depth es-timation model. First, we find that common perturbations degrade RMSE of downstream depth estimation models, i.e., average RM SE p is larger than RM SE . For instance, Frost blurring increases the RM SE of depth estimation by 0.12. Second, the increased RM SE caused by a perturbation function is aligned with the average DivergenceRadius under the perturbation function. For example, in Figure 15, DINO v2 ViT-g/14 have the largest average DivergenceRadius un-der Frost blurring compared to other perturbation functions. Correspondingly, in Table 6, average RM SE p under Frost blurring increases the most (0.12). This occurs because a higher average DivergenceRadius indicates more diversity in the embedding vectors of perturbed images, making it more likely that the downstream depth estimation models predict inaccurate depth maps for them. 
+
+Root mean squared error under perturbation RM SE p
+
+vs. robustness value: Figure 8 shows the relationship be-tween an image’s RM SE p under a perturbation function and the image’s corresponding robustness value (cosine sim-ilarity or DivergenceRadius) for the NYU-Depth V2 testing 11 Table 5. Foundation models. Foundation Model Model Family Pre-training Algorithm Architecture # Parameters (M) CLIP ViT-B/16 CLIP Multi-modal self-supervised learning Vision Transformer 86 CLIP ViT-L/14 CLIP Multi-modal self-supervised learning Vision Transformer 304 CLIP RN50 CLIP Multi-modal self-supervised learning ResNet 38 CLIP RN50 ×64 CLIP Multi-modal self-supervised learning ResNet 420 DINO v2 ViT-L/14 DINO v2 Self-supervised learning Vision Transformer 304 DINO v2 ViT-g/14 DINO v2 Self-supervised learning Vision Transformer 1136 Table 6. RM SE and average RM SE p of NYU-Depth V2’s test-ing images for depth estimation when using DINO v2 ViT-g/14 foundation model. 
+
+RM SE 0.35 
+
+RM SE p
+
+JPEG compression 0.37 ( ↑ 0.02) Brightness adjustment 0.36 ( ↑ 0.01) Contrast adjustment 0.35 ( ↑ 0.00) Defocus blurring 0.39 ( ↑ 0.04) Elastic blurring 0.38 ( ↑ 0.03) Fog blurring 0.38 ( ↑ 0.03) Frost blurring 0.47 ( ↑ 0.12) Gaussian noise 0.37 ( ↑ 0.02) Glass blurring 0.38 ( ↑ 0.03) 
+
+images and 9 perturbation functions. Specifically, given a perturbation function, for each testing image, we compute its robustness value and its RM SE p of a downstream depth estimation model, i.e., we obtain a pair (robustness value, 
+
+RM SE p). Then, we rank the pairs of all testing images in an increasing order according to the robustness values and divide the ranked pairs into 4 groups equally. For each group of pairs, we calculate the mean robustness value and mean 
+
+RM SE p, which are shown in Figure 8. Across perturbation functions, we find that RM SE p roughly increases linearly 
+
+when the robustness metrics increases. RM SE p increases as the robustness value increases because a larger robust-ness value indicates more diverse embedding vectors for the perturbed images, leading to less accurate depth estimation. 0.00 0.06 0.12 0.18 0.24 
+
+> Cosine Similarity
+> 0.20
+> 0.40
+> 0.60
+> 0.80
+> 1.00
+> RMSE under perturbation  RMSE p
+> JPEG compression
+> Brightness adjustment
+> Contrast adjustment
+> Defocus blurring
+> Elastic blurring
+> Fog blurring
+> Frost blurring
+> Gaussian noise
+> Glass blurring
+
+(a) Zero-shot classification 0.00 0.06 0.12 0.18 0.24  
+
+> DivergenceRadius
+> 0.20
+> 0.40
+> 0.60
+> 0.80
+> 1.00
+> RMSE under perturbation  RMSE p
+> JPEG compression
+> Brightness adjustment
+> Contrast adjustment
+> Defocus blurring
+> Elastic blurring
+> Fog blurring
+> Frost blurring
+> Gaussian noise
+> Glass blurring
+
+(b) Linear-probe classification 
+
+Figure 8. Root mean squared error under perturbation RM SE p
+
+vs. (a) cosine similarity, (b) DivergenceRadius of NYUd testing images for depth estimation when different perturbation functions are used. We use the DINO v2 ViT-g/14 foundation model. 
+
+Predicting RM SE p of an image using its robustness 0.00 1.00 2.00 3.00 4.00 5.00 6.00   
+
+> Mean Square Error (x 10 3)
+> JPEG Compression
+> Brightness Adjustment
+> Contrast Adjustment
+> Defocus Blurring
+> Elastic Blurring
+> Fog Blurring
+> Frost Blurring
+> Gaussian Noise
+> Glass Blurring Cosine Similarity
+> DivergenceRadius
+
+Figure 9. Mean squared error of predicting an image’s RM SE p
+
+using its cosine similarity or DivergenceRadius for NYU-Depth V2 under different perturbation functions. 
+
+value: The linear relationship between RM SE p and the robustness value indicates that we can predict RM SE p of an image using its robustness value by a linear regression model. We evaluate the performance of such prediction. To-wards this goal, we divide the testing images of a dataset into two halves. We use the pairs (robustness value, RM SE p)of the first half of testing images to train a linear regression model, which takes a robustness value as input and outputs 
+
+RM SE p. Then, we evaluate this linear regression model on the pairs (DivergenceRadius, RM SE p) of the second half of the testing images. Figure 9 shows the mean squared errors of the linear regression models under the 9 perturba-tion functions for the depth estimation model. The mean squared errors are very small, which indicates that an im-age’s DivergenceRadius under a perturbation function can be used to accurately predict a downstream depth estimation model’s RM SE for the image when it is perturbed by the perturbation function. 12 Table 7. Pearson correlations between average ACC -average ACC p and average cosine similarity or DivergenceRadius across the 9 perturbation functions for the two datasets and downstream classifiers. 
+
+(a) Cosine similarity 
+
+Zero-shot Classification Linear-probe Classification ImageNet 0.91 0.89 Food101 0.94 0.92 
+
+(b) DivergenceRadius 
+
+Zero-shot Classification Linear-probe Classification ImageNet 0.92 0.89 Food101 0.94 0.93 0.00 5.00 10.00 15.00 
+
+Mean Square Error (x 10 4)
+
+JPEG Compression 
+
+Brightness Adjustment 
+
+Contrast Adjustment 
+
+Defocus Blurring 
+
+Elastic Blurring 
+
+Fog Blurring 
+
+Frost Blurring 
+
+Gaussian Noise 
+
+Glass Blurring 
+
+Zero-shot 
+
+Linear-probe 
+
+(a) Cosine similarity 0.00 5.00 10.00 15.00 
+
+Mean Square Error (x 10 4)
+
+JPEG Compression 
+
+Brightness Adjustment 
+
+Contrast Adjustment 
+
+Defocus Blurring 
+
+Elastic Blurring 
+
+Fog Blurring 
+
+Frost Blurring 
+
+Gaussian Noise 
+
+Glass Blurring Zero-shot 
+
+Linear-probe 
+
+(b) DivergenceRadius 
+
+Figure 10. Mean squared error of predicting an image’s ACC p
+
+using its (a) cosine similarity or (b) DivergenceRadius for Ima-geNet under different perturbation functions in two downstream classifiers. 0.00 5.00 10.00 15.00 
+
+Mean Square Error (x 10 4)
+
+JPEG Compression 
+
+Brightness Adjustment 
+
+Contrast Adjustment 
+
+Defocus Blurring 
+
+Elastic Blurring 
+
+Fog Blurring 
+
+Frost Blurring 
+
+Gaussian Noise 
+
+Glass Blurring 
+
+Zero-shot 
+
+Linear-probe 
+
+(a) Cosine similarity 0.00 5.00 10.00 15.00 
+
+Mean Square Error (x 10 4)
+
+JPEG Compression 
+
+Brightness Adjustment 
+
+Contrast Adjustment 
+
+Defocus Blurring 
+
+Elastic Blurring 
+
+Fog Blurring 
+
+Frost Blurring 
+
+Gaussian Noise 
+
+Glass Blurring 
+
+Zero-shot 
+
+Linear-probe 
+
+(b) DivergenceRadius 
+
+Figure 11. Mean squared error of predicting an image’s ACC p
+
+using its (a) cosine similarity or (b) DivergenceRadius for Food101 under different perturbation functions in two downstream classi-fiers. 
+
+13 ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (a) JPEG compression ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Models 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+> Cosine Similarity
+
+CLIP 
+
+Dino v2 (b) Brightness adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Models 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+> Cosine Similarity
+
+CLIP 
+
+Dino v2 (c) Contrast adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Models 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+> Cosine Similarity
+
+CLIP 
+
+Dino v2 (d) Defocus blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Models 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+> Cosine Similarity
+
+CLIP 
+
+Dino v2 (e) Elastic blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Models 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+> Cosine Similarity
+
+CLIP 
+
+Dino v2 
+
+(f) Fog blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Models 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+> Cosine Similarity
+
+CLIP 
+
+Dino v2 (g) Frost blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Models 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+> Cosine Similarity
+
+CLIP 
+
+Dino v2 (h) Gaussian noise ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Models 
+
+0.00 
+
+0.05 
+
+0.10 
+
+0.15 
+
+0.20 
+
+> Cosine Similarity
+
+CLIP 
+
+Dino v2 (i) Glass blurring 
+
+Figure 12. Average cosine similarity of ImageNet testing images for different foundation models and perturbation functions. ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 
+
+(a) JPEG Compression ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (b) Brightness adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (c) Contrast adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (d) Defocus blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (e) Elastic blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 
+
+(f) Fog blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (g) Frost blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (h) Gaussian blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (i) Glass blurring 
+
+Figure 13. Average DivergenceRadius of Food101 testing images for different foundation models and perturbation functions. ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 
+
+(a) JPEG Compression ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (b) Brightness adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (c) Contrast adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (d) Defocus blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (e) Elastic blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 
+
+(f) Fog blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (g) Frost blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (h) Gaussian blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.08 
+
+0.16 
+
+0.24 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (i) Glass blurring 
+
+Figure 14. Average cosine similarity of Food101 testing images for different foundation models and perturbation functions. ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 
+
+(a) JPEG Compression ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (b) Brightness adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (c) Contrast adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (d) Defocus blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (e) Elastic blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 
+
+(f) Fog blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (g) Frost blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (h) Gaussian blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> DivergenceRadius
+
+CLIP 
+
+DINO v2 (i) Glass blurring 
+
+Figure 15. Average DivergenceRadius of NYU-Depth V2 testing images for different foundation models and perturbation functions. 
+
+14 ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (a) JPEG Compression ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (b) Brightness adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (c) Contrast adjustment ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (d) Defocus blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (e) Elastic blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 
+
+(f) Fog blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (g) Frost blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (h) Gaussian blurring ViT-B/16 
+
+> ViT-L/14
+> RN50
+> RN50x64
+> ViT-L/14
+> ViT-g/14
+
+Foundation Models 
+
+0.00 
+
+0.06 
+
+0.12 
+
+0.18 
+
+> Cosine Similarity
+
+CLIP 
+
+DINO v2 (i) Glass blurring 
+
+Figure 16. Average cosine similarity of images in NYU-Depth V2 for different foundation models and perturbation functions. 0.04 0.08 0.12 0.16 
+
+Cosine Similarity 
+
+0.00 
+
+0.20 
+
+0.40 
+
+0.60 
+
+0.80 
+
+> Accuracy under perturbation  ACC p
+
+JPEG compression 
+
+Brightness adjustment 
+
+Contrast adjustment 
+
+Defocus blurring 
+
+Elastic blurring 
+
+Fog blurring 
+
+Frost blurring 
+
+Gaussian noise 
+
+Glass blurring 
+
+(a) ImageNet: Zero-shot classification 0.00 0.06 0.12 0.18 0.24 
+
+Cosine Similarity 
+
+0.20 
+
+0.40 
+
+0.60 
+
+0.80 
+
+1.00 
+
+> Accuracy under perturbation  ACC p
+
+JPEG compression 
+
+Brightness adjustment 
+
+Contrast adjustment 
+
+Defocus blurring 
+
+Elastic blurring 
+
+Fog blurring 
+
+Frost blurring 
+
+Gaussian noise 
+
+Glass blurring (b) ImageNet: Linear-probe classifica-tion 0.04 0.08 0.12 0.16 
+
+Cosine Similarity 
+
+0.20 
+
+0.40 
+
+0.60 
+
+0.80 
+
+1.00 
+
+> Accuracy under perturbation  ACC p
+
+JPEG compression 
+
+Brightness adjustment 
+
+Contrast adjustment 
+
+Defocus blurring 
+
+Elastic blurring 
+
+Fog blurring 
+
+Frost blurring 
+
+Gaussian noise 
+
+Glass blurring 
+
+(c) Food101: Zero-shot classification 0.00 0.06 0.12 0.18 0.24 
+
+Cosine Similarity 
+
+0.20 
+
+0.40 
+
+0.60 
+
+0.80 
+
+1.00 
+
+> Accuracy under perturbation  ACC p
+
+JPEG compression 
+
+Brightness adjustment 
+
+Contrast adjustment 
+
+Defocus blurring 
+
+Elastic blurring 
+
+Fog blurring 
+
+Frost blurring 
+
+Gaussian noise 
+
+Glass blurring (d) Food101: Linear-probe classifica-tion 
+
+Figure 17. Accuracy under perturbation ACC p vs. cosine similarity of ImageNet and Food101 testing images for zero-shot classification and linear-probe classification when different perturbation functions are used. Zero-shot classification is based on the CLIP ViT-L/14 foundation model and linear-probe classification is based on the DINO v2 ViT-g/14 foundation model. 
+
+15 Table 8. Details of perturbation functions. 
+
+Perturbation Function Key Perturbation Parameter K Domain K Maximally Distorted Example JPEG Compression Quality factor [30 , 70] 
+
+Brightness Adjustment Value in Hue-Saturation -Value space [0 .1, 0.5] 
+
+Contrast Adjustment Amplifying factor of deviations from the mean [0 .3, 0.7] 
+
+Defocus Blurring Bluring disk kernel [1 , 5] 
+
+Elastic Blurring Scaling factor [0 .01 , 0.05] 
+
+Fog Blurring Density of fog [0 .5, 2.5] 
+
+Frost Blurring Weight of the frost [0 .2, 0.6] 
+
+Gaussian Noise Standard deviation [0 .02 , 0.10] 
+
+Glass Blurring Standard deviation [0 .2, 1.0] 
+
+Table 9. Impact of λ on average DivergenceRadius and ACC of zero-shot classification for two datasets before/after enhancement, where the foundation model is CLIP ViT-L/14. 
+
+λ DivergenceRadius ACC (%) 0.0 0.01 0.16 0.5 0.05 66.61 1.0 0.06 67.99 5.0 0.07 68.31 
+
+16
