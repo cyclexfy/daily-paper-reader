@@ -6,59 +6,58 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-18
-- 运行时间：2026-04-18 19:36:20 UTC
+- 最新运行日期：2026-04-19
+- 运行时间：2026-04-19 19:29:26 UTC
 - 运行状态：成功
-- 本次总论文数：13
-- 精读区：4
-- 速读区：9
+- 本次总论文数：12
+- 精读区：1
+- 速读区：11
 
 ### 今日简报（AI）
-今日聚焦病理图像分割与肿瘤微环境分析，重点发布了 13 篇涵盖半监督学习与多
-- 详情：[/202604/18/README](/202604/18/README)
+今日深度解析 12 篇 AI 前沿进展，重点发布了评分满分的 OpenTME 肿瘤微环境开源数据集。
+医疗 AI 领域在病理图像分析与多智能体临床会诊上取得突破，同时视觉语言模型的 Token 剪枝技术显著提升了推理效率。
+推荐深入研究 OpenTME 数据集以优化肿瘤微环境建模，并关注多智能体系统在复杂医疗决策中的落地潜力。
+- 详情：[/202604/19/README](/202604/19/README)
 
 ### 精读区论文标签
-1. [UniSemAlign: Text-Prototype Alignment with a Foundation Encoder for Semi-Supervised Histopathology Segmentation](/202604/18/2604.09169v1-unisemalign-text-prototype-alignment-with-a-foundation-encoder-for-semi-supervised-histopathology-segmentation)  
+1. [OpenTME: An Open Dataset of AI-powered H&E Tumor Microenvironment Profiles from TCGA](/202604/19/2604.12075v1-opentme-an-open-dataset-of-ai-powered-he-tumor-microenvironment-profiles-from-tcga)  
    标签：评分：10.0/10、query:cpath
-   evidence：基于病理预训练基础编码器和文本原型对齐的组织病理学研究
-2. [OpenTME: An Open Dataset of AI-powered H&E Tumor Microenvironment Profiles from TCGA](/202604/18/2604.12075v1-opentme-an-open-dataset-of-ai-powered-he-tumor-microenvironment-profiles-from-tcga)  
-   标签：评分：10.0/10、query:cpath
-   evidence：利用病理基础模型从全扫描切片图像中提取AI驱动的H&E肿瘤微环境特征
-3. [Architecture-Agnostic Modality-Isolated Gated Fusion for Robust Multi-Modal Prostate MRI Segmentation](/202604/18/2604.10702v2-architecture-agnostic-modality-isolated-gated-fusion-for-robust-multi-modal-prostate-mri-segmentation)  
-   标签：评分：8.0/10、query:cpath
-   evidence：多模态前列腺癌检测与MRI分割
-4. [Development, Evaluation, and Deployment of a Multi-Agent System for Thoracic Tumor Board](/202604/18/2604.12161v1-development-evaluation-and-deployment-of-a-multi-agent-system-for-thoracic-tumor-board)  
-   标签：评分：8.0/10、query:cpath
-   evidence：用于放射学和病理学数据审查的多智能体系统
+   evidence：利用病理基础模型从H&E全切片图像中提取肿瘤微环境特征
 
 ### 速读区论文标签
-1. [AMO-ENE: Attention-based Multi-Omics Fusion Model for Outcome Prediction in Extra Nodal Extension and HPV-associated Oropharyngeal Cancer](/202604/18/2604.09280v1-amo-ene-attention-based-multi-omics-fusion-model-for-outcome-prediction-in-extra-nodal-extension-and-hpv-associated-oropharyngeal-cancer)  
+1. [Do Instance Priors Help Weakly Supervised Semantic Segmentation?](/202604/19/2604.11170v1-do-instance-priors-help-weakly-supervised-semantic-segmentation)  
    标签：评分：7.0/10、query:cpath
-   evidence：利用CT和临床数据进行癌症预后预测的多组学融合
-2. [AC-MIL: Weakly Supervised Atrial LGE-MRI Quality Assessment via Adversarial Concept Disentanglement](/202604/18/2604.10303v1-ac-mil-weakly-supervised-atrial-lge-mri-quality-assessment-via-adversarial-concept-disentanglement)  
+   evidence：使用基础分割模型(SAM)和弱标签
+2. [Decoupled Similarity for Task-Aware Token Pruning in Large Vision-Language Models](/202604/19/2604.11240v1-decoupled-similarity-for-task-aware-token-pruning-in-large-vision-language-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于弱监督的多实例学习 (MIL)
-3. [Dual-Modality Anchor-Guided Filtering for Test-time Prompt Tuning](/202604/18/2604.12403v1-dual-modality-anchor-guided-filtering-for-test-time-prompt-tuning)  
+   evidence：大型视觉语言模型中的任务感知令牌剪枝
+3. [Development, Evaluation, and Deployment of a Multi-Agent System for Thoracic Tumor Board](/202604/19/2604.12161v1-development-evaluation-and-deployment-of-a-multi-agent-system-for-thoracic-tumor-board)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉语言模型的测试时提示微调
-4. [Mamba-SSM with LLM Reasoning for Biomarker Discovery: Causal Feature Refinement via Chain-of-Thought Gene Evaluation](/202604/18/2604.14334v1-mamba-ssm-with-llm-reasoning-for-biomarker-discovery-causal-feature-refinement-via-chain-of-thought-gene-evaluation)  
+   evidence：用于肿瘤委员会审查病理和放射数据的多智能体系统
+4. [Cross-Modal Knowledge Distillation for PET-Free Amyloid-Beta Detection from MRI](/202604/19/2604.12574v1-cross-modal-knowledge-distillation-for-pet-free-amyloid-beta-detection-from-mri)  
    标签：评分：7.0/10、query:cpath
-   evidence：利用大语言模型推理在TCGA-BRCA RNA-seq数据中发现生物标志物
-5. [Robustness of Vision Foundation Models to Common Perturbations](/202604/18/2604.14973v1-robustness-of-vision-foundation-models-to-common-perturbations)  
+   evidence：基于BiomedCLIP的医学影像跨模态知识蒸馏
+5. [Probabilistic Feature Imputation and Uncertainty-Aware Multimodal Federated Aggregation](/202604/19/2604.12970v1-probabilistic-feature-imputation-and-uncertainty-aware-multimodal-federated-aggregation)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉基础模型的鲁棒性
-6. [RadAgent: A tool-using AI agent for stepwise interpretation of chest computed tomography](/202604/18/2604.15231v1-radagent-a-tool-using-ai-agent-for-stepwise-interpretation-of-chest-computed-tomography)  
+   evidence：医疗机构的多模态联邦学习
+6. [CausalDisenSeg: A Causality-Guided Disentanglement Framework with Counterfactual Reasoning for Robust Brain Tumor Segmentation Under Missing Modalities](/202604/19/2604.13409v1-causaldisenseg-a-causality-guided-disentanglement-framework-with-counterfactual-reasoning-for-robust-brain-tumor-segmentation-under-missing-modalities)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于解释医学影像的工具型AI智能体
-7. [SemEnrich: Self-Supervised Semantic Enrichment of Radiology Reports for Vision-Language Learning](/202604/18/2604.09887v1-semenrich-self-supervised-semantic-enrichment-of-radiology-reports-for-vision-language-learning)  
+   evidence：多模态脑肿瘤分割与特征融合
+7. [Visual Late Chunking: An Empirical Study of Contextual Chunking for Efficient Visual Document Retrieval](/202604/19/2604.10167v1-visual-late-chunking-an-empirical-study-of-contextual-chunking-for-efficient-visual-document-retrieval)  
    标签：评分：6.0/10、query:cpath
-   evidence：医学视觉语言学习的自监督语义增强
-8. [Development and evaluation of CADe systems in low-prevalence setting: The RARE25 challenge for early detection of Barrett's neoplasia](/202604/18/2604.11171v1-development-and-evaluation-of-cade-systems-in-low-prevalence-setting-the-rare25-challenge-for-early-detection-of-barretts-neoplasia)  
+   evidence：用于高效视觉文档检索的多模态延迟分块
+8. [WBCBench 2026: A Challenge for Robust White Blood Cell Classification Under Class Imbalance](/202604/19/2604.10797v1-wbcbench-2026-a-challenge-for-robust-white-blood-cell-classification-under-class-imbalance)  
    标签：评分：6.0/10、query:cpath
-   evidence：巴雷特食管肿瘤的早期检测
-9. [Risk-Calibrated Learning: Minimizing Fatal Errors in Medical AI](/202604/18/2604.12693v1-risk-calibrated-learning-minimizing-fatal-errors-in-medical-ai)  
+   evidence：显微图像中的自动白细胞分类
+9. [EmergentBridge: Improving Zero-Shot Cross-Modal Transfer in Unified Multimodal Embedding Models](/202604/19/2604.11043v2-emergentbridge-improving-zero-shot-cross-modal-transfer-in-unified-multimodal-embedding-models)  
    标签：评分：6.0/10、query:cpath
-   evidence：减少恶性肿瘤分类中的致命错误
+   evidence：统一多模态嵌入模型
+10. [RADA: Region-Aware Dual-encoder Auxiliary learning for Barely-supervised Medical Image Segmentation](/202604/19/2604.11164v1-rada-region-aware-dual-encoder-auxiliary-learning-for-barely-supervised-medical-image-segmentation)  
+   标签：评分：6.0/10、query:cpath
+   evidence：基于双编码器辅助学习的极弱监督医学图像分割
+11. [MODIX: A Training-Free Multimodal Information-Driven Positional Index Scaling for Vision-Language Models](/202604/19/2604.12537v1-modix-a-training-free-multimodal-information-driven-positional-index-scaling-for-vision-language-models)  
+   标签：评分：6.0/10、query:cpath
+   evidence：视觉语言模型的训练免除型位置索引缩放
 
 
 <div class="dpr-home-promo-card">
