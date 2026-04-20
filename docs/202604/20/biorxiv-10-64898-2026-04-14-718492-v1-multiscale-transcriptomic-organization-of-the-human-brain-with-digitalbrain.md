@@ -1,0 +1,24 @@
+---
+title: Multiscale transcriptomic organization of the human brain with DigitalBrain
+title_zh: 利用 DigitalBrain 揭示人脑的多尺度转录组组织架构
+authors: "An, J., Hu, X., Jiang, Y., Jiang, M., Qiu, S., Liu, G., Wei, X., Wang, Y., Lin, J. Q., Wang, C., Lu, M."
+date: 2026-04-16
+pdf: "https://www.biorxiv.org/content/10.64898/2026.04.14.718492v1.full.pdf"
+tags: ["query:cpath"]
+score: 7.0
+evidence: 组织人类大脑转录组数据的基座模型框架
+tldr: 针对人类大脑转录组数据碎片化的问题，研究者开发了DigitalBrain框架。该框架包含涵盖1635万个单细胞的大规模图谱及基于Transformer的基础模型。它实现了跨区域、跨年龄和跨疾病的数据整合与细胞注释，揭示了大脑的层次化组织结构，并成功应用于海马体衰老研究，是构建大脑虚拟器官的重要一步。
+source: biorxiv
+selection_source: fresh_fetch
+figures_json: "[{\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-04-14-718492-v1/fig-001.webp\", \"caption\": \"\", \"page\": 13, \"index\": 1, \"width\": 1242, \"height\": 1935}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-04-14-718492-v1/fig-002.webp\", \"caption\": \"\", \"page\": 15, \"index\": 2, \"width\": 2107, \"height\": 639}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-04-14-718492-v1/fig-003.webp\", \"caption\": \"\", \"page\": 17, \"index\": 3, \"width\": 1249, \"height\": 1701}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-04-14-718492-v1/fig-004.webp\", \"caption\": \"\", \"page\": 19, \"index\": 4, \"width\": 1249, \"height\": 1932}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-04-14-718492-v1/fig-005.webp\", \"caption\": \"\", \"page\": 21, \"index\": 5, \"width\": 1857, \"height\": 1293}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-04-14-718492-v1/fig-006.webp\", \"caption\": \"\", \"page\": 23, \"index\": 6, \"width\": 1803, \"height\": 1237}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-04-14-718492-v1/fig-007.webp\", \"caption\": \"\", \"page\": 25, \"index\": 7, \"width\": 1398, \"height\": 1893}, {\"url\": \"assets/figures/biorxiv/biorxiv-10-64898-2026-04-14-718492-v1/fig-008.webp\", \"caption\": \"\", \"page\": 27, \"index\": 8, \"width\": 1202, \"height\": 1935}]"
+motivation: 现有的人类大脑单细胞转录组资源高度碎片化，缺乏统一的生物学模型来整合不同区域、发育阶段和疾病状态下的数据。
+method: 构建了包含1635万个细胞的大规模图谱，并开发了DigitalBrain-M1基础模型，利用Transformer架构联合编码基因身份和表达强度。
+result: 模型实现了稳健的单细胞整合与自动标注，揭示了大脑的大尺度层次结构，并识别出海马体中对衰老敏感的特定细胞群及基因程序重组。
+conclusion: DigitalBrain为跨尺度绘制人类大脑组织图谱提供了专用框架，是迈向人类大脑完整虚拟器官的重要一步。
+---
+
+## 摘要
+人脑在解剖区域、细胞类型、发育、衰老及疾病状态方面存在差异，然而现有的单细胞转录组资源仍然零散，难以整合进统一的生物学模型中。在此，我们提出了 DigitalBrain，这是一个专门针对人脑的图谱和基础模型框架，用于组织跨尺度的多样且碎片化的人脑转录组数据。我们首先构建了 DigitalBrain-Atlas，这是一个协调的全脑单细胞资源，包含来自 2,143 名捐赠者的 1,635 万个转录组，涵盖 165 个脑区，跨越人类寿命周期及多种神经和临床状况。随后，我们开发了 DigitalBrain-M1，这是一种基于 Transformer 的模型，通过联合编码基因身份和表达强度，学习细胞和基因的共享嵌入空间。在留出数据集上，DigitalBrain 支持稳健的单细胞整合、聚类和细胞类型注释，同时保留了主要的生物学结构并减少了技术碎片化。除了这些基准测试外，学习到的嵌入揭示了人脑涌现的大尺度分级组织，将解剖学上不同的区域联系成与已知功能系统一致的高阶模式。应用于人海马体衰老研究时，DigitalBrain 识别出了细胞类型特异性的衰老敏感基因集，强调了齿状回颗粒细胞是特别易受衰老影响的群体，并发现了衰老过程中与突触传递、突触后结构、膜兴奋性和轴突引导相关的基因程序的选择性重组。跨数据集的收敛性在功能模块和循环出现的衰老敏感基因层面表现最为强劲。总之，这些结果表明 DigitalBrain 是一个用于跨尺度绘制人脑组织图谱的脑特异性框架，也是迈向完整人脑虚拟器官的早期一步。
+
+## Abstract
+The human brain varies across anatomical regions, cell types, development, aging and disease states, yet existing single-cell transcriptomic resources remain fragmented and difficult to integrate into a unified biological model. Here we present DigitalBrain, a human brain-specific atlas and foundation-model framework for organizing diverse and fragmented human brain transcriptomic data across scales. We first built DigitalBrain-Atlas, a harmonized whole-brain single-cell resource comprising 16.35 million transcriptomes from 2,143 donors across 165 brain regions, spanning the human lifespan and multiple neurological and clinical conditions. We then developed DigitalBrain-M1, a Transformer-based model that jointly encodes gene identity and expression magnitude to learn a shared embedding space for cells and genes. Across held-out datasets, DigitalBrain supported robust single-cell integration, clustering and cell-type annotation while preserving major biological structure and reducing technical fragmentation. Beyond these benchmarks, the learned embeddings revealed emergent large-scale hierarchical organization of the human brain, linking anatomically distinct regions into higher-order patterns consistent with known functional systems. Applied to human hippocampal aging, DigitalBrain identified cell-type-specific aging sensitive gene sets, highlighted dentate gyrus granule cells as a particularly age-sensitive population, and discovered selective reorganization of gene programs related to synaptic transmission, postsynaptic structure, membrane excitability and axon guidance during aging. Cross-dataset convergence was strongest at the level of functional modules and recurrent aging sensitive genes. Together, these results demonstrate that DigitalBrain is a brain-specific framework for mapping human brain organization across scales, and as an early step towards a complete virtual organ for the human brain.
