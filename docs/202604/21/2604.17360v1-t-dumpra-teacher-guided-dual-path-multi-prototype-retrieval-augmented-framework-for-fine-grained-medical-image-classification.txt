@@ -1,0 +1,878 @@
+Title: T-DuMpRa: Teacher-guided Dual-path Multi-prototype Retrieval Augmented framework for fine-grained medical image classification
+
+URL Source: https://arxiv.org/pdf/2604.17360v1
+
+Published Time: Tue, 21 Apr 2026 01:15:39 GMT
+
+Number of Pages: 25
+
+Markdown Content:
+# T-DuMpRa: Teacher-guided Dual-path Multi-prototype Retrieval Augmented framework for fine-grained medical image classification 
+
+Zixuan Tang 1 and Shen Zhao 1
+
+School of Intelligent Systems Engineering, Sun Yat-sen University, Shenzhen, China 
+
+{tangzx23@mail2,zhaosh35@mail}.sysu.edu.cn 
+
+Abstract. Fine-grained medical image classification is challenged by subtle inter-class variations and visually ambiguous cases, where con-fidence estimates often exhibit uncertainty rather than being overconfi-dent. In such scenarios, purely discriminative classifiers may achieve high overall accuracy yet still fail to distinguish between highly similar cat-egories, leading to miscalibrated predictions. We propose T-DuMpRa ,a teacher-guided dual-path multi-prototype retrieval-augmented frame-work, where discriminative classification and multi-prototype retrieval jointly drive both training and prediction. During training, we jointly optimize cross-entropy and supervised contrastive objectives to learn a cosine-compatible embedding geometry for reliable prototype matching. We further employ an exponential moving average (EMA) teacher to obtain smoother representations and build a multi-prototype memory bank by clustering teacher embeddings in the teacher embedding space. Our framework is plug-and-play : it can be easily integrated into ex-isting classification models by constructing a compact prototype bank, thereby improving performance on visually ambiguous cases. At infer-ence, we combine the classifier’s predicted distribution with a similarity-based distribution computed via cosine matching to prototypes, and ap-ply a conservative confidence-gated fusion that activates retrieval only when the classifier’s prediction is uncertain and the retrieval evidence is decisive and conflicting, otherwise keeping confident predictions un-changed. On HAM10000 and ISIC2019, our method yields 0.68%-0.21% and 0.44%-2.69% improvements on 5 different backbone. And visualiza-tion analysis proves our model can enhance the model’s ability to handle visually ambiguous cases. 
+
+Keywords: Medical Image Classification · Computer Vision · Contrastive Learning 
+
+## 1 Introduction 
+
+Fine-grained medical image classification is a core component of computer-aided diagnosis systems [4, 72]. In dermatology, dermoscopic screening aims to dis-tinguish malignant lesions from benign ones and to refer suspicious cases for 
+
+> arXiv:2604.17360v1 [cs.AI] 19 Apr 2026
+
+2 Z. Tang et al. BKL      
+
+> MEL
+> BKL
+> MEL
+> MEL
+> NV
+> NV
+> (a) Visually ambiguous cases
+> (b) Intra-class diverse samples
+> (c) The shortcomings of the
+> single-path framework
+> classifier
+> Probability distribution
+> of low confidence
+> (d) How our TDMPR works
+> GT: BKL
+> classifier
+> backbone
+> Prototype
+> CNV MEL
+> other class
+> hard sample
+> Confidence
+> gated fusion
+> similarity
+> prob.
+> embedding head classifier head
+> feature
+> cosine similarity
+> BCC
+> GT: BKL
+
+Fig. 1: The challenges in fine-grained medical image classification and our method’s overview. (a) shows visually ambiguous cases where different categories share similar patterns, leading to classifier uncertainty. (b) highlights intra-class diversity, demon-strating the challenge of handling different appearances within the same category. (c) illustrates the shortcomings of the single-path framework, where predictions become miscalibrated in ambiguous cases. (d) shows how T-DuMpRa integrates a classifier and a similarity pathway, with prototype retrieval and confidence-gated fusion for selective decision-making. This dual-path approach enhances performance on ambiguous sam-ples by combining discriminative classification and reliable similarity-based evidence. 
+
+further examination [1, 13]. A key challenge is visually ambiguous cases [3, 59], where different categories share very similar patterns (as shown in Fig. 1(a)) and the decision depends on subtle cues. Under such ambiguity, purely discriminative classifiers can produce poorly calibrated predictions and struggle distinguishing between highly similar categories. Therefore, practical deployment requires not only high overall accuracy but also reliable performance on visually ambiguous cases [43,47,63]. It also requires decision evidence that clinicians can check, such as retrieving similar reference patterns, because single-path framework (i.e., the framework trained with cross-entropy that directly outputs class probabilities predictions) are hard to trust when visual cues are unclear [19, 69]. Modern deep single-path classifiers trained with cross-entropy achieve strong accuracy on standard benchmarks [6, 30, 39, 62]. However, their performance in dermoscopic screening is often limited by visually ambiguous cases. When cate-gories appear similar and discriminative cues are weak, the classifier may output near-equal probabilities for different classes (as shown in Fig. 1(c)), reflecting uncertainty in its decision. Such uncertainty is particularly undesirable as it can mislead clinical decisions on the most challenging samples. Moreover, real-world medical datasets frequently contain under-represented subtypes and diverse ap-pearances due to variations across patients and imaging conditions [65]. A single decision boundary may fit common patterns well but fail on visually ambiguous cases, causing class-balanced metrics to lag behind even when overall accuracy remains high [35]. In dermoscopic screening, such probability uncertainty on vi-T-DuMpRa 3
+
+sually ambiguous cases can directly disrupt triage and biopsy/referral decisions, leading to missed or delayed diagnosis of high-risk lesions while also increasing unnecessary procedures and patient burden [11,31]. These observations motivate a framework that remains reliable on ambiguous samples and provides checkable evidence to support its predictions. To address these limitations, we propose T-DuMpRa, a Teacher-guided Dual-path Multi-Prototype Retrieval-augmented framework for fine-grained medical image classification. As illustrated in Fig. 1(d), T-DuMpRa augments a standard discriminative classifier with a similarity-based retrieval pathway, enabling am-biguous inputs to be supported by reference patterns rather than relying solely on a single decision score. During training, we optimize cross-entropy jointly with supervised contrastive learning to shape a cosine-friendly embedding space, making similarity comparisons more reliable when categories are visually alike. However, the intrinsic diversity of lesion features within the same class poses challenges for similarity retrieval. To address this, we employ an EMA teacher to generate smoother representations and construct a compact multi-prototype memory by clustering the teacher’s embeddings. This memory captures the di-verse appearance modes within each category while reducing sensitivity to noisy features (as shown in Fig. 1(d)). At test time, we compute both the classifier’s logits and a similarity-based distribution derived from cosine matching against the prototype bank. Critically, we introduce a conservative confidence-gated fu-sion mechanism: retrieval is activated only when the classifier is uncertain and the similarity evidence is both strong and disagrees with the classifier’s prediction; otherwise, the original prediction is preserved. This design selectively targets visually ambiguous cases for correction while avoiding unnecessary changes on easy samples. Moreover, T-DuMpRa is plug-and-play, can be integrated on top of existing classifiers with minimal overhead, and provides checkable similarity evidence to support decisions under ambiguity. Our contributions are four-fold: 
+
+– Teacher-guided dual-path framework. We introduce T-DuMpRa, a teacher-guided dual-path multi-prototype retrieval-augmented framework that com-plements standard discriminative classification with a similarity pathway for more reliable decisions on visually ambiguous cases. 
+
+– Stable multi-prototype representation for reliable retrieval. We learn cosine-compatible embeddings and build a compact multi-prototype bank by clustering EMA-teacher representations, capturing intra-class appearance di-versity while reducing sensitivity to noisy or drifting features. 
+
+– Conservative confidence-gated fusion. We activate retrieval assistance only when the classifier is uncertain and the similarity evidence is decisive and conflicting, preserving predictions on easy samples while enabling tar-geted correction on ambiguous ones. 
+
+– Plug-and-play with checkable evidence. The method can be easily in-tegrated into existing classifiers, and it provides prototype-based supporting evidence to help inspect decisions under ambiguity. 4 Z. Tang et al. 
+
+## 2 Related Work 
+
+2.1 Fine-Grained Medical Image Classification 
+
+Fine-grained medical image classification presents unique challenges due to sub-tle inter-class differences, high intra-class variance caused by patient hetero-geneity, and the frequent occurrence of long-tailed distributions [7, 36, 44, 56]. Traditional Convolutional Neural Networks (CNNs) and Vision Transformers (ViTs) often struggle to capture the localized, discriminative features required for this task [25, 28, 48, 52]. To address this, previous works have heavily relied on attention mechanisms [9, 38], part-based models [2, 55], and multi-scale fea-ture fusion [73] to force the network to focus on discriminative regions. While these approaches improve overall accuracy, they predominantly rely on purely parametric decision boundaries. Consequently, they remain highly vulnerable to visually ambiguous or "hard" samples that lie near the decision boundaries, often producing incorrect predictions [32]. In contrast, our method explicitly tackles these hard cases by introducing a dual-path framework that supplements the parametric classifier with non-parametric retrieval evidence. 
+
+2.2 Prototype-Based and Retrieval-Augmented Learning 
+
+Retrieval-augmented models, such as k-NN classifiers integrated with deep net-works, have shown great promise in improving model interpretability and ro-bustness, particularly in data-scarce or long-tailed scenarios [42, 50, 68, 70]. A prominent branch of this paradigm is prototype-based learning, popularized by Prototypical Networks [54], which classifies samples based on their distance to class representations. Subsequent works have adapted prototypes for fine-grained and medical tasks to provide case-based reasoning [10, 24, 26, 49, 51]. However, the vast majority of these methods collapse each class into a single mean vec-tor. This over-smoothing destroys the complex intra-class geometry and multi-modality inherent in medical datasets (e.g., variations due to different imaging devices or disease subtypes). Unlike these single-prototype methods, we utilize spherical k-means to construct multiple unit-norm prototypes per class. Fur-thermore, by modeling the prototype posterior as a von Mises–Fisher (vMF) mixture [12, 20, 23], our approach marginalizes over multiple intra-class modes, explicitly preserving the geometric diversity of the data. 
+
+2.3 Representation Learning and Stable Memory Spaces 
+
+The quality of retrieval-based models is bottlenecked by the discriminative power and stability of the underlying feature space. Supervised Contrastive Learning (SCL) [29] has emerged as a powerful tool to pull samples from the same class together while pushing apart different classes, creating a "retrieval-friendly" em-bedding geometry [45]. However, dynamically updating a memory bank or pro-totype set during stochastic optimization often leads to embedding drift and representation noise [5, 37, 66]. To stabilize feature spaces, Exponential Moving T-DuMpRa 5
+
+Average (EMA) teachers have been widely utilized in Semi-Supervised Learn-ing (e.g., Mean Teacher) [60] and Self-Supervised Learning (e.g., MoCo) [21]. Inspired by these momentum-based approaches [44-46], we repurpose the EMA teacher architecture to construct our multi-prototype memory [64]. Because the EMA teacher evolves smoothly, it fundamentally mitigates embedding drift, pro-viding a highly stable reference space that is crucial for reliable similarity match-ing in fine-grained medical tasks. 
+
+2.4 Uncertainty Estimation and Selective Fusion 
+
+Effectively combining multiple decision streams is a core challenge in ensemble learning and Mixture of Experts (MoE) architectures [8, 71]. Common fusion strategies, such as simple averaging, concatenation, or globally learned attention weights, often suffer from indiscriminate fusion [18,34,46]. That is, the secondary expert may inadvertently degrade the performance of the primary classifier on "easy" samples where the classifier is already highly confident and correct. To prevent this, recent advances in selective classification [16, 17, 67] suggest that interventions should be conditional. Building upon this philosophy, we propose a rigorous confidence-gated fusion mechanism. By simultaneously evaluating clas-sifier uncertainty (via top-1 probability and entropy), prototype reliability, and branch disagreement (via Jensen–Shannon divergence) [15, 57], our model con-servatively activates prototype assistance only when strictly necessary. This se-lective mechanism mathematically ensures that the risk decomposition confines changes only to the gated subset, protecting baseline performance on confident samples. 
+
+## 3 Preliminary 
+
+3.1 Problem definition. 
+
+We consider the task of fine-grained medical image classification, where we are given a labeled dataset D = {(xi, y i)}Ni=1 , with xi as the input image and yi ∈{1, . . . , C } as the class label. The goal is to predict the class label for each image. However, this task is extremely challenging due to the presence of ambiguous hard samples. Effectively addressing these visually ambiguous cases is the key to overcoming performance bottlenecks in the model. 
+
+3.2 Dual-path framework and its performance upper bound 
+
+The dual-path framework is a feasible solution to this problem which combining two decision paths: (1) Parametric classifierfor direct classification. (2) Prototype retrieval for assisting in uncertain cases. Each path provides a prediction ˆye(x) ∈{1, . . . , C }, where expert e ∈ { 0, 1} corresponds to the classifier or prototype retrieval. This model can be viewed as a two-expert decision system, and it has a provable performance upper bound (as shown in A.5). However, since 6 Z. Tang et al. Class 1 Class 2 Class N                      
+
+> spherical k-means
+> Class 1 Class 2 Class N
+> prototypes bank
+> all train set image
+> Inference Stage
+> Test Image
+> Teacher
+> Backbone
+> Student
+> Backbone
+> �푠�  Cosine
+> Similarity
+> �푐�푠 Classifier
+> Posterior
+> vMF
+> mixture
+> Class 1 Class 2 Class N
+> Projection Head
+> Teacher
+> Backbone
+> Fusion Mixer
+> Final output
+> ��푐�푠 + ( 1−�)�푠� 
+> �푠�  �푐�푠 Similarit
+> y
+> Posterior
+> Prepare Stage Inference Stage
+> Confidence Gate
+> �푠�  >�,�푐�푠 <θ
+> �=1low �
+> retrieval-
+> favoring
+> 
+> classifier-only
+> Training Stage
+> Logits Ground
+> Truth
+> MEL
+> EMA
+> update
+> Image
+> Batches
+> Cross Entropy
+> Loss ( ℒ퐶  )
+> Projection
+> Head
+> Student
+> Backbone
+> Contrastive
+> Loss ( ℒ퐶)
+> Teacher
+> Backbone
+> Classifier
+> Head
+> EMA
+> update
+> Projection
+> Head
+> Embeddings Similarity =
+> Dot Product (h ᵢ·h ⱼ)
+> EMA
+> Teacher
+
+Fig. 2: The proposed teacher-guided prototype retrieval framework. (a) Joint Training & Prototype Construction: The student backbone is optimized via cross-entropy ( LCE ) on the classifier head and supervised contrastive loss ( LSCL )on the projection head. An EMA teacher network slowly updates from the student to provide stable representations. After training, multi-modal class prototypes are con-structed by clustering teacher embeddings to form a compact prototype bank P. (b) Confidence-Gated Dual-Path Inference: Given a test image, we compute the dis-criminative posterior pcls (via student) and the similarity-based posterior psim (via teacher embeddings matching against P). A confidence gate g(x) activates retrieval-favoring fusion only when the classifier is uncertain ( γcls < θ ) and similarity evidence is reliable, otherwise retaining the classifier’s prediction. This design improves robustness on hard cases without compromising easy ones. 
+
+the conditional risks re(x) in formula 23 are difficult to predict, a reasonable mechanism is needed to balance the decision results of the two paths in order to achieve better classification performance for visually ambiguous cases. 
+
+## 4 Method 
+
+We propose a teacher-guided dual-path inference framework for fine-grained medical image classification. The framework couples a parametric classifier with a non-parametric prototype retrieval branch. The key is to (i) learn retrieval-friendly embeddings via supervised contrastive learning, (ii) construct stable class prototypes in an EMA teacher space, and (iii) activate retrieval evidence only when it is reliable and the classifier is uncertain. Our method focuses on ad-dressing two issues: First, to reduce over-confident errors on hard or ambiguous cases, we avoid indiscriminate fusion and instead correct predictions only when the classifier is uncertain and retrieval evidence is strong. Second, to improve class-wise robustness under long-tailed and visually overlapping categories, we reshape the embedding geometry and explicitly model intra-class multi-modality with multiple prototypes per class. A formal effectiveness analysis is provided in Appendix A, which characterizes (i) the conservative behavior on non-gated samples (Appendix A.2), (ii) the risk decomposition that confines changes to the gated subset (Eq. (16)), and (iii) T-DuMpRa 7
+
+sufficient conditions under which gated fusion follows decisive retrieval evidence (Eq. (20)). 
+
+4.1 Teacher-guided representation and prototype memory 
+
+Prototype quality is sensitive to representation noise, so we construct prototypes in an EMA teacher space to obtain a more stable memory for retrieval. 
+
+EMA teacher. We maintain a teacher model (¯θ, ¯ϕ) as an exponential moving average of student parameters and use it to extract stable embeddings: 
+
+¯θ ← μ¯θ + (1 − μ)θ, ¯ϕ ← μ ¯ϕ + (1 − μ)ϕ, ¯z(x) = g ¯ϕ(f¯θ (x)) 
+
+∥g ¯ϕ(f¯θ (x)) ∥2
+
+∈ SD−1. (1) Because the teacher evolves smoothly, its embeddings vary less across updates and are less affected by stochastic optimization. This reduces embedding drift when building the prototype bank, which is important for fine-grained medical data where subtle appearance variations can otherwise perturb neighborhood structure. 
+
+Multi-prototype modeling via spherical k-means. Medical categories can be multi-modal due to patient heterogeneity, imaging devices, and acquisition condi-tions. To preserve this diversity, we represent each class with multiple pro-totypes instead of a single class mean. For each class c, we collect teacher embeddings Zc = {¯z(xi) : yi = c} and construct K unit-norm prototypes 
+
+Pc = {pc, 1, . . . , p c,K } with ∥pc,k ∥2 = 1 . We solve the spherical clustering ob-jective 
+
+min  
+
+> {pc,k }
+
+X
+
+> ¯z∈Z c
+
+min 
+
+> k∈{ 1,...,K }
+
+ 1 − ¯z⊤pc,k 
+
+ s.t. ∥pc,k ∥2 = 1 . (2) Its alternating updates yield a normalized centroid form: if Ac,k is the assigned cluster set, then 
+
+pc,k ← norm 
+
+ X
+
+> ¯z∈A c,k
+
+¯z
+
+ , (3) where norm( v) = v/ ∥v∥2. All prototypes form a compact memory bank P ∈ 
+
+RC×K×D . Multiple prototypes provide localized anchors for similarity matching and avoid over-smoothing intra-class modes, which helps reduce confusion when inter-class boundaries are subtle and classes overlap visually. 
+
+4.2 Prototype posterior as a von Mises–Fisher mixture 
+
+Given a test image x, we compute ¯z(x) and match it against P. We denote cosine similarity as sc,k (x) = ¯ z(x)⊤pc,k ∈ [−1, 1] .8 Z. Tang et al. 
+
+A principled view is to treat each prototype as a component direction of a von Mises–Fisher (vMF) distribution on SD−1. Under a mixture of vMF components, the unnormalized class score is 
+
+qc(x) = log 
+
+> K
+
+X
+
+> k=1
+
+exp( κ s c,k (x)) , (4) where κ > 0 is a concentration parameter. The log-sum-exp aggregation provides a smooth approximation to max pooling while still emphasizing strong matches. It can be interpreted as marginalizing over multiple intra-class modes, which improves robustness when class evidence is distributed across several prototypes rather than dominated by a single nearest center. We then define the prototype-based posterior 
+
+psim (y = c | x) = exp( qc(x)/τ sim )
+
+PCj=1 exp( qj (x)/τ sim ) . (5) This yields a similarity posterior that can be fused with the classifier posterior in a probabilistic and interpretable manner. In Appendix A.4, we further show that decisive similarity margins, together with a low-confidence classifier, provide a sufficient condition for the fused decision to follow retrieval evidence (Eq. (20)). 
+
+4.3 Confidence-gated fusion 
+
+Confidence and disagreement signals. We design a gate using uncertainty and reliability signals so that retrieval evidence is used only when it is likely to correct the classifier, rather than perturbing already-correct predictions [ ?]. We use the top-1 probability as classifier uncertainty and measure distributional uncertainty using entropy [27]: 
+
+γcls (x) = max  
+
+> c
+
+pcls (y = c | x). (6) 
+
+Hcls (x) = −
+
+> C
+
+X
+
+> c=1
+
+pcls (y = c | x) log pcls (y = c | x). (7) 
+
+Prototype reliability. We define γsim (x) = max c psim (y = c | x) and margin 
+
+∆sim (x) = p(1) sim (x) − p(2) sim (x), where p(1) sim and p(2) sim are the largest and second-largest values. High γsim together with a large margin indicates that retrieval evidence is decisive rather than ambiguous, which helps filter out unstable sim-ilarity matches. 
+
+Branch disagreement. Beyond label disagreement, we quantify distributional mismatch via Jensen–Shannon divergence 
+
+DJS (x) = JS( pcls (· | x) ∥ psim (· | x)) , (8) T-DuMpRa 9
+
+which is symmetric and bounded. A large divergence indicates a meaningful con-flict between discriminative and retrieval-based explanations, which is precisely the scenario where selective correction is most valuable. From the mixture-of-experts view, these signals serve as observable surrogates for comparing expert risks; Appendix A.6 formalizes this connection via a local confidence approxima-tion (Eq. (24)) and a sufficient condition for Bayes-consistent selection (Eq. (25)). We activate prototype assistance only when the classifier is uncertain and the prototype evidence is reliable. Let ˆycls = arg max c pcls (y = c | x) and ˆysim =arg max c psim (y = c | x). We define a binary gate 
+
+g(x) = I[γcls (x) < θ ]·I[γsim (x) > β ]·I[∆sim (x) > m sim ]·I[DJS (x) > δ ]·I[ˆ ycls ̸ = ˆ ysim ] ,
+
+(9) where θ controls when the classifier is considered uncertain, (β, m sim ) enforce prototype reliability, and δ avoids activation on near-identical posteriors. When 
+
+g(x) = 1 , we apply retrieval-favoring fusion 
+
+pfuse (· | x) = αlow pcls (· | x) + (1 − αlow ) psim (· | x). (10) Otherwise, we keep the classifier prediction unchanged. The final posterior is 
+
+p(· | x) = (1 − g(x)) pcls (· | x) + g(x) pfuse (· | x). (11) This conservative policy preserves the classifier output on confident samples, while enabling targeted corrections on hard cases where the classifier is less trustworthy and retrieval evidence is both strong and conflicting. Appendix A.2 formalizes the invariance of non-gated predictions, and Eq. (16) shows that any risk change is concentrated on the gated subset. Moreover, Appendix A.4 pro-vides a sufficient condition under which the fused decision follows the similarity expert when the gate triggers (Eq. (20)), which directly supports the intended correction behavior. 
+
+4.4 Training objective: discriminative learning with supervised contrastive geometry 
+
+We optimize the backbone with a joint objective that aligns discriminative clas-sification with metric structure learning. 
+
+Cross-entropy loss. For each sample (x, y ), we use LCE (x, y ) = − log pcls (y | x).
+
+Supervised contrastive loss. For each image xi, we generate two augmented views 
+
+{x(1)  
+
+> i
+
+, x (2)  
+
+> i
+
+}. Let I index all views in the batch (size 2B), and let zi denote the embedding of view i. For an anchor i ∈ I , its positive set is P(i) = {p ∈ I \ { i} :
+
+yp = yi}. The supervised contrastive loss (SCL) is 
+
+LSCL = X
+
+> i∈I
+
+−1
+
+|P (i)|
+
+X
+
+> p∈P (i)
+
+log exp  z⊤ 
+
+> i
+
+zp/τ P 
+
+> a∈I\{ i}
+
+exp  z⊤ 
+
+> i
+
+za/τ  . (12) 10 Z. Tang et al. 
+
+Unlike cross-entropy, which mainly adjusts decision boundaries via logits, 
+
+LSCL explicitly shapes the representation geometry by tightening intra-class neighborhoods and separating different classes on the hypersphere. This property is especially beneficial under long-tailed and overlapping categories [33] because it makes cosine similarity more faithful to semantic proximity and reduces brit-tle nearest-neighbor behavior in poorly structured spaces [53]. From the gating perspective, a better-structured similarity posterior also reduces the probability of selecting the worse expert; Appendix A.6 connects this goal to the gate regret bound (Eq. (26)). 
+
+Overall training loss. The final training objective is 
+
+L = E(x,y )∼D [LCE (x, y ) + λ LSCL (x, y )] . (13) 
+
+4.5 Complexity and overhead 
+
+The summary of our method is shown in the Algorithm 1.The prototype bank stores C × K vectors in RD , which is lightweight. For each test sample, the ex-tra cost is a matrix multiplication between ¯z(x) and the prototype bank, i.e., 
+
+O(CKD ) operations, which is typically negligible compared with a backbone forward pass. The overhead is controllable through K and D. Importantly, the framework is plug-and-play: it requires no backbone modification and introduces only a compact prototype bank and lightweight similarity computation at infer-ence. 
+
+## 5 Experiments 
+
+5.1 Dataset and Protocol 
+
+We evaluate on HAM10000 , a dermoscopic lesion classification benchmark with C=7 categories and a long-tailed label distribution. We follow the official train/test split provided with the dataset. From the training split, we further construct a stratified validation subset (10% of the training samples) for se-lecting inference-time hyperparameters that affect fusion (e.g., θ, β, msim , τsim ). After hyperparameters are fixed, we optionally retrain the model on train+val 
+
+and report the final performance on the held-out test set. Unless otherwise spec-ified, we report the mean ±std over three random seeds. 
+
+5.2 Evaluation Metrics 
+
+We report: Accuracy (Acc), Macro-F1 , and Balanced Accuracy (BalAcc, mean recall across classes). Since medical datasets often exhibit class imbalance, BalAcc is treated as a primary indicator of robustness to long-tailed distribu-tions. We additionally report macro-AUROC (mAUC) computed in a one-vs-rest manner and averaged over classes. To support our confidence-gated design, we include Expected Calibration Error (ECE, lower is better), computed with M =15 equal-width confidence bins [61]. T-DuMpRa 11 
+
+Table 1: Compare experiment results across backbones on HAM10000. Method Acc ↑ Macro-F1 ↑ BalAcc ↑ ECE ↓ mAUC ↑ Delta Acc ↑                                                            
+
+> ConvNeXt [41] 0.8800 ±0.0032 0.7991 ±0.0051 0.7934 ±0.0048 0.0862 ±0.0035 0.9773 ±0.0012 -
+> w/ T-DuMpRa 0.8951 ±0.0028 0.8090 ±0.0045 0.8012 ±0.0042 0.0834 ±0.0031 0.9793 ±0.0010 +1.72% Efficientnet [58] 0.7675 ±0.0085 0.5702 ±0.0102 0.5516 ±0.0120 0.1298 ±0.0055 0.9262 ±0.0018 -
+> w/ T-DuMpRa 0.7845 ±0.0072 0.5999 ±0.0095 0.5772 ±0.0105 0.1030 ±0.0048 0.9266 ±0.0016 +2.21% ResNet [22] 0.8165 ±0.0058 0.6422 ±0.0080 0.5896 ±0.0090 0.1314 ±0.0050 0.9494 ±0.0015 -
+> w/ T-DuMpRa 0.8220 ±0.0052 0.6659 ±0.0075 0.6304 ±0.0085 0.1269 ±0.0045 0.9545 ±0.0013 +0.67% ViT [14] 0.8265 ±0.0050 0.6903 ±0.0065 0.6614 ±0.0070 0.1248 ±0.0042 0.9515 ±0.0014 -
+> w/ T-DuMpRa 0.8480 ±0.0042 0.7182 ±0.0060 0.6635 ±0.0065 0.1188 ±0.0040 0.9525 ±0.0012 +2.61% SwinViT [40] 0.8960 ±0.0025 0.8095 ±0.0040 0.7860 ±0.0045 0.0781 ±0.0030 0.9787 ±0.0010 -
+> w/ T-DuMpRa 0.9030 ±0.0022 0.8229 ±0.0035 0.7992 ±0.0040 0.0766 ±0.0025 0.9800 ±0.0008 +0.78%
+
+5.3 Implementation Details 
+
+Backbones. We verify plug-and-play behavior across multiple backbones: ResNet-101 [22], ConvNeXt-Tiny [41], Efficientnet-B0 [58], ViT-B [14] and SwinVit-B [40]. All backbones are initialized with ImageNet pretraining. 
+
+Training. Images are resized to 224 × 224 . We apply standard augmentation for two-view supervised contrastive learning (random resized crop, horizontal flip, color jitter, random grayscale). We optimize with AdamW (lr = 1e −4, weight decay = 1e −4), batch size = 64 , for 20 epochs. For LSCL , we use temperature 
+
+τ =0 .07 and weight λ=0 .03 (kept fixed across backbones unless stated). We maintain an EMA teacher with momentum m=0 .999 and build the prototype bank in the teacher embedding space using the deterministic transform. 
+
+Inference and Fusion. We compute the classifier posterior pcls and prototype sim-ilarity posterior psim (cosine similarity + softmax with τsim ). We use confidence-gated fusion consistent with Eq. (6)–(11). Unless otherwise noted, we set 
+
+αlow =0 .9. We select θ from {0.5, 0.6, 0.7, 0.8, 0.9} on the validation split, and tune (β, m sim , τ sim ) on the same validation split, then keep them fixed for test reporting. 
+
+5.4 Main Results Across Backbones 
+
+The experimental results on the HAM10000 and ISIC2019 datasets demonstrate that incorporating our proposed dual-path decision framework leads to signifi-cant performance improvements across all backbone networks. Specifically, both high-performance models like ConvNeXt and ViT, as well as basic models like Ef-ficientNet, show clear enhancements in key metrics such as accuracy, macro-F1, balanced accuracy, and mAUC. On the HAM10000 dataset, ViT and ConvNeXt achieve notable accuracy gains of 2.61% and 1.72%, respectively, while also im-proving macro-F1 and mAUC. Similarly, on ISIC2019, ConvNeXt and ViT show accuracy improvements of 2.69% and 1.72%, with additional enhancements in 12 Z. Tang et al. 
+
+Table 2: Compare experiment results across backbones on ISIC2019. Method Acc ↑ Macro-F1 ↑ BalAcc ↑ ECE ↓ mAUC ↑ Delta Acc ↑                                                            
+
+> ConvNeXt [41] 0.7036 ±0.0032 0.5536 ±0.0051 0.5127 ±0.0048 0.2316 ±0.0035 0.9126 ±0.0012 -
+> w/ T-DuMpRa 0.7226 ±0.0028 0.5916 ±0.0045 0.5639 ±0.0042 0.2136 ±0.0031 0.9166 ±0.0010 +2.69% Efficientnet [58] 0.6188 ±0.0035 0.4409 ±0.0041 0.4169 ±0.0037 0.2605 ±0.0043 0.8682 ±0.0024 -
+> w/ T-DuMpRa 0.6247 ±0.0032 0.4547 ±0.0046 0.4298 ±0.0040 0.2490 ±0.0038 0.8675 ±0.0021 +0.96% ResNet [22] 0.6990 ±0.0043 0.5474 ±0.0060 0.5232 ±0.0057 0.2312 ±0.0032 0.9094 ±0.0021 -
+> w/ T-DuMpRa 0.7021 ±0.0041 0.5558 ±0.0055 0.5288 ±0.0051 0.2303 ±0.0028 0.9146 ±0.0019 +0.44% ViT [14] 0.6307 ±0.0029 0.4497 ±0.0036 0.4223 ±0.0032 0.2656 ±0.0038 0.8479 ±0.0019 -
+> w/ T-DuMpRa 0.6415 ±0.0031 0.4526 ±0.0040 0.4261 ±0.0036 0.2639 ±0.0037 0.8604 ±0.0018 +1.72% SwinViT [40] 0.7155 ±0.0025 0.5843 ±0.0031 0.5410 ±0.0028 0.2120 ±0.0031 0.9087 ±0.0015 -
+> w/ T-DuMpRa 0.7244 ±0.0023 0.5874 ±0.0032 0.5599 ±0.0030 0.2141 ±0.0026 0.9030 ±0.0014 +1.25%
+
+balanced accuracy and mAUC. These results highlight that our framework not only boosts overall classification accuracy but also improves model calibration (lower ECE) and robustness (higher macro-F1 and mAUC), particularly in han-dling complex and diverse datasets. Overall, our method demonstrates its broad applicability and superior performance in optimizing multiple evaluation metrics across different backbone networks. 
+
+5.5 Ablation Study 
+
+We carefully designed extensive ablation studies to demonstrate the effectiveness of our method, and all experiments were conducted on the ViT-B model. The ablation study provides insights into the contributions of each component in our method. First, comparing row 1○ and row 2○, we see that adding the proto-type and gated mechanism in the student space results in minimal improvement (Acc: 0.8870 vs. 0.8880). This shows that without LSCL , the embedding space is not optimized effectively, making the prototype retrieval less effective. Sec-ond, row 1○ and row 3○ highlight the impact of LSCL , which boosts accuracy (0.8950 vs. 0.8870) and improves macro-F1 (0.8177 vs. 0.8037). LSCL optimizes the embedding space, making it more discriminative, which enhances both the backbone classifier and prototype retrieval performance. Third, comparing rows 3○, 4○, and 5○, EMA-based teacher prototypes (row 5○) lead to improved ac-curacy (0.8970) and a lower ECE (0.0582). The EMA technique stabilizes the prototypes, reducing noise and improving retrieval reliability. Finally, row 6○
+
+with the confidence-gated fusion strategy achieves the highest accuracy (0.9020) and macro-F1 (0.8259). The gated fusion selectively integrates prototype infor-mation when the classifier is uncertain, improving performance by using reliable retrieval data only when necessary. In summary, each component— LSCL , EMA-based prototypes, and confidence-gated fusion—contributes significantly to the model’s performance, enhancing accuracy, F1-score, and calibration. T-DuMpRa 13 
+
+Table 3: Ablation studies with ViT-B on HAM10000 Dataset. # Variant Acc ↑ Macro-F1 ↑ BalAcc ↑ ECE ↓
+
+1○ SwinViT-B 0.8870 0.8037 0.7807 0.0764 2○ SwinViT-B + Proto+Gated 0.8880 0.8037 0.7807 0.0782 3○ SwinViT-B+ LSCL 0.8950 0.8177 0.7994 0.0665 4○ SwinViT-B+ LSCL + Proto + Fixed fusion 0.8950 0.8180 0.8008 0.0643 5○ SwinViT-B+ LSCL + EMA + Proto + Fixed fusion 0.8970 0.8194 0.8018 0.0582 
+
+6○ SwinViT-B+ LSCL + EMA + Proto + Gated 0.9020 0.8259 0.8088 0.0615 0.2 0.3 0.4 0.5 0.6 
+
+> 0.870
+> 0.875
+> 0.880
+> 0.885
+> 0.890
+> 0.895
+> 0.900
+> test accuracy
+> test accuracy
+> gate accuracy
+> 0.630
+> 0.635
+> 0.640
+> 0.645
+> 0.650
+> 0.655
+> 0.660
+> 0.665
+> 0.670
+> gate accuracy
+
+(a) Ablation study of θ.0.0 0.2 0.4 0.6 0.8  
+
+> 0.865
+> 0.870
+> 0.875
+> 0.880
+> 0.885
+> 0.890
+> 0.895
+> 0.900
+> test accuracy
+> test accuracy
+> gate accuracy
+> 0.63
+> 0.64
+> 0.65
+> 0.66
+> 0.67
+> 0.68
+> gate accuracy
+
+(b) Ablation study of β.
+
+Fig. 3: Results of ablation experiments for classifier confidence threshold for gating θ and similarity reliability thresholds β.
+
+5.6 Confidence Gating Analysis 
+
+To verify the effectiveness of gating, we conducted the experiment with SwinViT-B model and the result are shown in Fig. 3. By changing the values of the classifier confidence threshold for gating, θ, and the similarity reliability threshold, β, we observed how accuracy changes with these adjustments. We found that as both θ
+
+and β increased, the gating accuracy improved because the conditions for gating became stricter. However, due to the reduced throughput after tightening the gating criteria, the overall accuracy first increased and then decreased. This trend aligns with the derivations in the Method section. 
+
+5.7 Visualization analysis. 
+
+The qualitative examples in Fig. 4 demonstrate the effectiveness of our method on low-confidence samples. For instance, in ISIC_0024516 (GT: MEL), the classifier initially predicts MEL with high confidence (0.4), but also assigns higher probabilities to NV (0.6). After incorporating prototype retrieval, the fused posterior boosts the MEL class (with confidence of 0.9), correcting the classifier’s uncertainty. Similarly, in ISIC_0026090 (GT: BCC), the classifier is confused (0.47 BCC v.s. 0.48 BKL) and misclassifies the sample as BKL, but prototype retrieval correctly identifies BCC with a high similarity score. The 14 Z. Tang et al. ISIC_0024516.jpg 
+
+> GT: MEL
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> Prob.
+> p_cls (Original)
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Prob.
+> p_sim (Retrieval)
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> Prob.
+> p_fused (Gated)
+> ISIC_0025529.jpg
+> GT: BKL
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> Prob.
+> p_cls (Original)
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Prob.
+> p_sim (Retrieval)
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> Prob.
+> p_fused (Gated)
+> ISIC_0026090.jpg
+> GT: BCC
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> Prob.
+> p_cls (Original)
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Prob.
+> p_sim (Retrieval)
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> Prob.
+> p_fused (Gated)
+> ISIC_0025148.jpg
+> GT: NV
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> Prob.
+> p_cls (Original)
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Prob.
+> p_sim (Retrieval)
+> MEL
+> NV
+> BCC
+> AK
+> BKL
+> DF
+> VASC
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> Prob.
+> p_fused (Gated)
+
+Fig. 4: Qualitative examples visualization. We visualized the results on HAM using the experimentally optimal hyperparameter setting with the ViT-B model. In this evaluation, we randomly selected four samples for analysis. 
+
+fused prediction increases the BCC confidence, improving the overall accuracy. This shows that our gating mechanism effectively incorporates prototype re-trieval when the classifier is uncertain, leading to more reliable predictions, as seen in the improved fused probabilities. 
+
+## 6 Conclusion 
+
+We propose a dual-path framework for fine-grained medical image diagnosis that integrates discriminative classification with prototype-based similarity reason-ing. The method leverages cross-entropy and contrastive learning to structure the embedding space, while an EMA teacher generates stable representations and class prototypes form a reliable memory. During inference, similarity assis-tance is activated for uncertain samples via confidence-gated fusion. This design enhances robustness on ambiguous cases without sacrificing performance on eas-ier ones. Experiments on HAM10000 show improvements in balanced accuracy. Future work will focus on adaptive prototypes, lesion-aware embeddings, and calibration-aware gating for uncertainty control. T-DuMpRa 15 
+
+## References 
+
+1. Alam, F., Ullah, A., Shah, D., Ali, S., Tahir, M.: Artificial intelligence in melanoma detection: a review of current technologies and future directions. International Journal of Intelligent Systems 2025 (1), 3164952 (2025) 2. Aleem, S., Wang, F., Maniparambil, M., Arazo, E., Dietlmeier, J., Curran, K., Connor, N.E., Little, S.: Test-time adaptation with salip: A cascade of sam and clip for zero-shot medical image segmentation. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 5184–5193 (2024) 3. Bresciani, S., Eppler, M.J.: The pitfalls of visual representations: A review and clas-sification of common errors made while designing and interpreting visualizations. Sage Open 5(4), 2158244015611451 (2015) 4. Cai, L., Gao, J., Zhao, D.: A review of the application of deep learning in medical image classification and segmentation. Annals of translational medicine 8(11), 713 (2020) 5. Cao, L., Li, H., Dong, Y., Liu, T., Li, J.: Few-shot class-incremental learning with dynamic prototype refinement for brain activity classification. IEEE Journal of Biomedical and Health Informatics (2025) 6. Chen, C., Isa, N.A.M., Liu, X.: A review of convolutional neural network based methods for medical image classification. Computers in biology and medicine 185 ,109507 (2025) 7. Chen, W., Wang, P., Ren, H., Sun, L., Li, Q., Yuan, Y., Li, X.: Medical image synthesis via fine-grained image-text alignment and anatomy-pathology prompting. In: International conference on medical image computing and computer-assisted intervention. pp. 240–250. Springer (2024) 8. Chen, Z., Deng, Y., Wu, Y., Gu, Q., Li, Y.: Towards understanding the mixture-of-experts layer in deep learning. Advances in neural information processing systems 
+
+35 , 23049–23062 (2022) 9. Cheng, J., Tian, S., Yu, L., Gao, C., Kang, X., Ma, X., Wu, W., Liu, S., Lu, H.: Resganet: Residual group attention network for medical image classification and segmentation. Medical Image Analysis 76 , 102313 (2022) 10. Cheng, P., Lin, L., Lyu, J., Huang, Y., Luo, W., Tang, X.: Prior: Prototype rep-resentation joint learning from medical images and reports. In: Proceedings of the IEEE/CVF international conference on computer vision. pp. 21361–21371 (2023) 11. Combalia, M., Codella, N., Rotemberg, V., Carrera, C., Dusza, S., Gutman, D., Helba, B., Kittler, H., Kurtansky, N.R., Liopyris, K., et al.: Validation of artificial intelligence prediction models for skin cancer diagnosis using dermoscopy images: the 2019 international skin imaging collaboration grand challenge. The Lancet Digital Health 4(5), e330–e339 (2022) 12. Conti, J.R., Noiry, N., Clemencon, S., Despiegel, V., Gentric, S.: Mitigating gender bias in face recognition using the von mises-fisher mixture model. In: International Conference on Machine Learning. pp. 4344–4369. PMLR (2022) 13. Dinnes, J., Deeks, J.J., Chuchu, N., di Ruffano, L.F., Matin, R.N., Thomson, D.R., Wong, K.Y., Aldridge, R.B., Abbott, R., Fawzy, M., et al.: Dermoscopy, with and without visual inspection, for diagnosing melanoma in adults. Cochrane Database of Systematic Reviews (12) (2018) 14. Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., et al.: An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929 (2020) 16 Z. Tang et al. 15. Englesson, E., Azizpour, H.: Generalized jensen-shannon divergence loss for learn-ing with noisy labels. Advances in Neural Information Processing Systems 34 ,30284–30297 (2021) 16. Geifman, Y., El-Yaniv, R.: Selective classification for deep neural networks. Ad-vances in neural information processing systems 30 (2017) 17. Goren, S., Galil, I., El-Yaniv, R.: Hierarchical selective classification. Advances in Neural Information Processing Systems 37 , 111047–111073 (2024) 18. Han, Z., Yang, F., Huang, J., Zhang, C., Yao, J.: Multimodal dynamics: Dynamical fusion for trustworthy multimodal classification. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 20707–20717 (2022) 19. Hasani, N., Morris, M.A., Rhamim, A., Summers, R.M., Jones, E., Siegel, E., Saboury, B.: Trustworthy artificial intelligence in medical imaging. PET clinics 
+
+17 (1), 1 (2022) 20. Hasnat, M.A., Bohné, J., Milgram, J., Gentric, S., Chen, L.: von mises-fisher mix-ture model-based deep learning: Application to face verification. arXiv preprint arXiv:1706.04264 (2017) 21. He, K., Fan, H., Wu, Y., Xie, S., Girshick, R.: Momentum contrast for unsupervised visual representation learning. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 9729–9738 (2020) 22. He, K., Zhang, X., Ren, S., Sun, J.: Deep residual learning for image recognition. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) (June 2016) 23. Hu, P., Qin, Y., Gou, Y., Li, Y., Yang, M., Peng, X.: Probabilistic multimodal learning with von mises-fisher distributions. In: Proceedings of the Thirty-Fourth International Joint Conference on Artificial Intelligence. pp. 5390–5398 (2025) 24. Hu, X., Zeng, D., Xu, X., Shi, Y.: Semi-supervised contrastive learning for label-efficient medical image segmentation. In: International conference on medical image computing and computer-assisted intervention. pp. 481–490. Springer (2021) 25. Hussain, T., Shouno, H., Hussain, A., Hussain, D., Ismail, M., Mir, T.H., Hsu, F.R., Alam, T., Akhy, S.A.: Effresnet-vit: A fusion-based convolutional and vision transformer model for explainable medical image classification. IEEE Access (2025) 26. Huy, T.D., Tran, S.K., Nguyen, P., Tran, N.H., Sam, T.B., Van Den Hengel, A., Liao, Z., Verjans, J.W., To, M.S., Phan, V.M.H.: Interactive medical image analysis with concept-based similarity reasoning. In: Proceedings of the Computer Vision and Pattern Recognition Conference. pp. 30797–30806 (2025) 27. Kendall, A., Gal, Y.: What uncertainties do we need in bayesian deep learning for computer vision? Advances in neural information processing systems 30 (2017) 28. Khan, A., Rauf, Z., Khan, A.R., Rathore, S., Khan, S.H., Shah, N., Farooq, U., Asif, H., Asif, A., Zahoora, U., et al.: A recent survey of vision transformers for medical image segmentation. IEEE Access (2025) 29. Khosla, P., Teterwak, P., Wang, C., Sarna, A., Tian, Y., Isola, P., Maschinot, A., Liu, C., Krishnan, D.: Supervised contrastive learning. Advances in neural information processing systems 33 , 18661–18673 (2020) 30. Kim, H.E., Cosa-Linan, A., Santhanam, N., Jannesari, M., Maros, M.E., Gans-landt, T.: Transfer learning for medical image classification: a literature review. BMC medical imaging 22 (1), 69 (2022) 31. Kittler, H., Pehamberger, H., Wolff, K., Binder, M.: Diagnostic accuracy of der-moscopy. The lancet oncology 3(3), 159–165 (2002) 32. Kumar, R., Kumbharkar, P., Vanam, S., Sharma, S.: Medical images classification using deep learning: a survey. Multimedia Tools and Applications 83 (7), 19683– 19728 (2024) T-DuMpRa 17 33. Li, T., Cao, P., Yuan, Y., Fan, L., Yang, Y., Feris, R.S., Indyk, P., Katabi, D.: Targeted supervised contrastive learning for long-tailed recognition. In: Proceed-ings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 6918–6928 (2022) 34. Li, W., Peng, Y., Zhang, M., Ding, L., Hu, H., Shen, L.: Deep model fusion: A survey. IEEE Transactions on Neural Networks and Learning Systems (2025) 35. Li, X., Li, J., Du, Z., Zhu, L., Shen, H.T.: Unified modality separation: A vision-language framework for unsupervised domain adaptation. IEEE Transactions on Pattern Analysis and Machine Intelligence (2025) 36. Liang, X., Li, X., Li, F., Jiang, J., Dong, Q., Wang, W., Wang, K., Dong, S., Luo, G., Li, S.: Medfilip: Medical fine-grained language-image pre-training. IEEE Journal of Biomedical and Health Informatics 29 (5), 3587–3597 (2025) 37. Liang, Y., Chen, H., Xiong, Y., Zhou, Z., Lyu, M., Lin, Z., Niu, S., Zhao, S., Han, J., Ding, G.: Advancing reliable test-time adaptation of vision-language models under visual variations. In: Proceedings of the 33rd ACM International Conference on Multimedia. pp. 4788–4797 (2025) 38. Ling, Y., Wang, Y., Dai, W., Yu, J., Liang, P., Kong, D.: Mtanet: Multi-task attention network for automatic medical image segmentation and classification. IEEE Transactions on Medical Imaging 43 (2), 674–685 (2023) 39. Liu, F., Tian, Y., Chen, Y., Liu, Y., Belagiannis, V., Carneiro, G.: Acpl: Anti-curriculum pseudo-labelling for semi-supervised medical image classification. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recog-nition. pp. 20697–20706 (2022) 40. Liu, Z., Lin, Y., Cao, Y., Hu, H., Wei, Y., Zhang, Z., Lin, S., Guo, B.: Swin transformer: Hierarchical vision transformer using shifted windows. In: Proceedings of the IEEE/CVF international conference on computer vision. pp. 10012–10022 (2021) 41. Liu, Z., Mao, H., Wu, C.Y., Feichtenhofer, C., Darrell, T., Xie, S.: A convnet for the 2020s. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 11976–11986 (2022) 42. Long, A., Yin, W., Ajanthan, T., Nguyen, V., Purkait, P., Garg, R., Blair, A., Shen, C., Van den Hengel, A.: Retrieval augmented classification for long-tail visual recognition. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 6959–6969 (2022) 43. Manhardt, F., Arroyo, D.M., Rupprecht, C., Busam, B., Birdal, T., Navab, N., Tombari, F.: Explaining the ambiguity of object detection and 6d pose from visual data. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 6841–6850 (2019) 44. Meng, M., Feng, D., Bi, L., Kim, J.: Correlation-aware coarse-to-fine mlps for de-formable medical image registration. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 9645–9654 (2024) 45. Mildenberger, D., Hager, P., Rueckert, D., Menten, M.J.: A tale of two classes: adapting supervised contrastive learning to binary imbalanced datasets. In: Pro-ceedings of the Computer Vision and Pattern Recognition Conference. pp. 10305– 10314 (2025) 46. Nagrani, A., Yang, S., Arnab, A., Jansen, A., Schmid, C., Sun, C.: Attention bot-tlenecks for multimodal fusion. Advances in neural information processing systems 
+
+34 , 14200–14213 (2021) 47. Nguyen, T.T.D., Rezatofighi, H., Vo, B.N., Vo, B.T., Savarese, S., Reid, I.: How trustworthy are performance evaluations for basic vision tasks? IEEE Transactions on Pattern Analysis and Machine Intelligence 45 (7), 8538–8552 (2022) 18 Z. Tang et al. 48. Patrício, C., Neves, J.C., Teixeira, L.F.: Explainable deep learning methods in med-ical image classification: A survey. ACM Computing Surveys 56 (4), 1–41 (2023) 49. Pellicer, A.L., Mariucci, A., Angelov, P., Bukhari, M., Kerns, J.G.: Protomedx: Towards explainable multi-modal prototype learning for bone health classification. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 7357–7366 (2025) 50. Rao, B., Liao, H., Guan, Y., Wang, C., Wang, B., Zhang, J., Li, Z.: Amd: Adap-tive momentum and decoupled contrastive learning framework for robust long-tail trajectory prediction. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 28849–28858 (2025) 51. Sacha, M., Rymarczyk, D., Struski, Ł., Tabor, J., Zieliński, B.: Protoseg: Inter-pretable semantic segmentation with prototypical parts. In: Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision. pp. 1481– 1492 (2023) 52. Shao, R., Bi, X.J., Chen, Z.: Hybrid vit-cnn network for fine-grained image classi-fication. IEEE Signal Processing Letters 31 , 1109–1113 (2024) 53. Sharma, S., Kumar, A., Chandra, J.: Confidence matters: Enhancing medical image classification through uncertainty-driven contrastive self-distillation. In: Interna-tional conference on medical image computing and computer-assisted intervention. pp. 133–142. Springer (2024) 54. Snell, J., Swersky, K., Zemel, R.: Prototypical networks for few-shot learning. Ad-vances in neural information processing systems 30 (2017) 55. Song, W., Chen, D.: Posture-guided part learning for fine-grained image catego-rization. Journal of Electronic Imaging 33 (3), 033013–033013 (2024) 56. Spolaor, N., Lee, H.D., Mendes, A.I., Nogueira, C.V., Parmezan, A.R.S., Takaki, W.S.R., Coy, C.S.R., Wu, F.C., Fonseca-Pinto, R.: Fine-tuning pre-trained neural networks for medical image classification in small clinical datasets. Multimedia Tools and Applications 83 (9), 27305–27329 (2024) 57. Sutter, T., Daunhawer, I., Vogt, J.: Multimodal generative learning utilizing jensen-shannon-divergence. Advances in neural information processing systems 33 , 6100– 6110 (2020) 58. Tan, M., Le, Q.: Efficientnet: Rethinking model scaling for convolutional neural networks. In: International conference on machine learning. pp. 6105–6114. PMLR (2019) 59. Tang, Z., Sun, B., He, S., Hong, Y., Yu, D., Liu, Z., Li, M., Chen, B., Zhao, S.: Mibf-net: Multi-modal information balanced fusion network for clinical diagnosis via patient narratives and lesion image. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 366–375. Springer (2025) 60. Tarvainen, A., Valpola, H.: Mean teachers are better role models: Weight-averaged consistency targets improve semi-supervised deep learning results. Advances in neural information processing systems 30 (2017) 61. Tsuneki, M.: Deep learning models in medical image analysis. Journal of Oral Biosciences 64 (3), 312–320 (2022) 62. Valmadre, J.: Hierarchical classification at multiple operating points. Advances in Neural Information Processing Systems 35 , 18034–18045 (2022) 63. Van der Velden, B.H., Kuijf, H.J., Gilhuijs, K.G., Viergever, M.A.: Explainable artificial intelligence (xai) in deep learning-based medical image analysis. Medical image analysis 79 , 102470 (2022) 64. Wang, K., Zhan, B., Zu, C., Wu, X., Zhou, J., Zhou, L., Wang, Y.: Tripled-uncertainty guided mean teacher model for semi-supervised medical image segmen-T-DuMpRa 19 tation. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 450–460. Springer (2021) 65. Wen, D., Khan, S.M., Xu, A.J., Ibrahim, H., Smith, L., Caballero, J., Zepeda, L., de Blas Perez, C., Denniston, A.K., Liu, X., et al.: Characteristics of publicly avail-able skin cancer image datasets: a systematic review. The Lancet Digital Health 
+
+4(1), e64–e74 (2022) 66. Wen, Z., Li, Y.: Toward understanding the feature learning process of self-supervised contrastive learning. In: International Conference on Machine Learning. pp. 11112–11122. PMLR (2021) 67. Xu, Y., Wang, D., Zhang, L., Zhang, L.: Dual selective fusion transformer network for hyperspectral image classification. Neural Networks 187 , 107311 (2025) 68. Yang, M., Zhou, Z., Gong, W.: Revisiting the representation learning in long-tailed medical image classification. Pattern Recognition p. 112683 (2025) 69. Zadeh, S.G., Schmid, M.: Bias in cross-entropy-based training of deep survival networks. IEEE transactions on pattern analysis and machine intelligence 43 (9), 3126–3137 (2020) 70. Zhao, L., Chen, X., Chen, E.Z., Liu, Y., Chen, T., Sun, S.: Retrieval-augmented few-shot medical image segmentation with foundation models. IEEE Transactions on Neural Networks and Learning Systems (2025) 71. Zhou, Y., Lei, T., Liu, H., Du, N., Huang, Y., Zhao, V., Dai, A.M., Le, Q.V., Laudon, J., et al.: Mixture-of-experts with expert choice routing. Advances in Neu-ral Information Processing Systems 35 , 7103–7114 (2022) 72. Zhu, Y., Wang, S., Yu, H., Li, W., Tian, J.: Sfpl: Sample-specific fine-grained proto-type learning for imbalanced medical image classification. Medical Image Analysis 
+
+97 , 103281 (2024) 73. Zhu, Z., Yu, K., Qi, G., Cong, B., Li, Y., Li, Z., Gao, X.: Lightweight medical image segmentation network with multi-scale feature-guided fusion. Computers in Biology and Medicine 182 , 109204 (2024) 20 Z. Tang et al. 
+
+## A Effectiveness Analysis of Confidence-Gated Prototype Retrieval 
+
+This appendix provides a theoretical justification for the proposed confidence-gated dual-path inference. We analyze the method from two complementary perspectives. First, we give sufficient conditions under which the gated fusion preserves confident classifier predictions and reduces expected risk on the gated subset. Second, we cast our approach as a two-expert (parametric vs. non-parametric) decision system and derive the Bayes-optimal gating rule. We then show how our practical gate serves as a realizable surrogate of this optimal se-lector using confidence, margin, and disagreement signals. 
+
+A.1 Setup and notation 
+
+Let x be a test sample with ground-truth label y ∈ { 1, . . . , C }. Denote the classifier posterior by pcls (· | x) and the prototype posterior by psim (· | x). Let 
+
+ˆycls (x) = arg max  
+
+> c
+
+pcls (c | x), ˆysim (x) = arg max  
+
+> c
+
+psim (c | x).
+
+The confidence-gated prediction follows Sec. 4.3. Define the gate g(x) ∈ { 0, 1}
+
+and the fused posterior 
+
+pfuse (· | x) = αlow pcls (· | x) + (1 − αlow ) psim (· | x),
+
+and the final posterior 
+
+p(· | x) = (1 − g(x)) pcls (· | x) + g(x) pfuse (· | x), (14) with final prediction ˆy(x) = arg max c p(c | x). We analyze the expected 0-1 risk: 
+
+R(ˆ y) = EI[ˆ y(x)̸ = y]. (15) 
+
+A.2 Conservative property: invariance on the non-gated set 
+
+Proposition A.1 (Invariance when g(x) = 0 ). For any sample x with g(x) = 0 ,the final posterior equals the classifier posterior and thus the final decision equals the classifier decision: 
+
+p(· | x) = pcls (· | x), ˆy(x) = ˆ ycls (x).
+
+Proof. If g(x) = 0 , Eq. (14) gives p(· | x) = pcls (· | x). Taking arg max on both sides yields ˆy(x) = ˆ ycls (x). □
+
+This proposition formalizes that the method cannot degrade predictions on samples where the gate is off. Therefore, any accuracy change is confined to the gated subset {x : g(x) = 1 }.T-DuMpRa 21 
+
+A.3 Risk decomposition and sufficient condition for improvement 
+
+Let G denote the event {g(x) = 1 } and ¯G denote {g(x) = 0 }. By Proposition A.1, the risk difference between the gated method and the classifier decomposes as 
+
+R(ˆ y) − R (ˆ ycls ) = E[I[ˆ y̸ = y] − I[ˆ ycls ̸ = y]] = P(G) · E[I[ˆ y̸ = y] − I[ˆ ycls ̸ = y] | G] . (16) Eq. (16) shows that the overall effect is controlled by the conditional effect on the gated subset. 
+
+Proposition A.2 (Sufficient condition for risk reduction on G). Assume that on 
+
+G the final decision coincides with the similarity decision, i.e., ˆy(x) = ˆ ysim (x)
+
+for all x ∈ G. If 
+
+P(ˆ ysim = y | G) > P(ˆ ycls = y | G), (17) then R(ˆ y) < R(ˆ ycls ). Moreover, if the conditional accuracy gap is at least ε > 0,then 
+
+R(ˆ y) ≤ R (ˆ ycls ) − P(G) ε. 
+
+Proof. Under ˆy = ˆ ysim on G, the conditional expectation in Eq. (16) becomes 
+
+P(ˆ ysim ̸ = y | G) − P(ˆ ycls ̸ = y | G), which equals − P(ˆ ysim = y | G) − P(ˆ ycls = y |
+
+G). If Eq. (17) holds, this term is negative, yielding strict risk reduction. The quantitative bound follows by substituting the ε-gap into Eq. (16). □
+
+Proposition A.2 clarifies what the gate is trying to achieve: it isolates a hard subset where the classifier is less reliable, and on that subset it allows a more reliable similarity-based expert to dominate the decision. 
+
+A.4 When does the fused posterior follow the similarity prediction 
+
+Proposition A.2 assumes that the gated decision follows ˆysim . We now provide a sufficient condition that guarantees this behavior for the linear fusion pfuse =
+
+αlow pcls + (1 − αlow )psim .Let c = ˆ ycls (x) and s = ˆ ysim (x) with s̸ = c. Define the pairwise margins 
+
+∆c←s 
+
+> sim
+
+(x) = psim (s | x) − psim (c | x), ∆c→s 
+
+> cls
+
+(x) = pcls (c | x) − pcls (s | x).
+
+Then 
+
+pfuse (s | x) > p fuse (c | x) ⇐⇒ (1 − αlow ) ∆c←s 
+
+> sim
+
+(x) > α low ∆c→s 
+
+> cls
+
+(x). (18) Our gate enforces (i) low classifier confidence γcls (x) < θ and (ii) a decisive similarity posterior via ∆sim (x) > m sim . These imply 
+
+∆c→s 
+
+> cls
+
+(x) ≤ γcls (x) < θ, ∆c←s 
+
+> sim
+
+(x) ≥ ∆sim (x) > m sim .22 Z. Tang et al. 
+
+Substituting into Eq. (18) yields a simple sufficient condition: 
+
+(1 − αlow ) msim > α low θ =⇒ arg max  
+
+> c
+
+pfuse (c | x) = s.  (19) Equivalently, 
+
+αlow < msim 
+
+msim + θ . (20) Eq. (20) links the fusion hyperparameter αlow to the gate threshold θ and the similarity margin threshold msim , providing a constructive guideline for selecting 
+
+αlow .
+
+A.5 A mixture-of-experts view and Bayes-optimal gating 
+
+We now formalize the dual-path framework as a two-expert decision system. Let expert e ∈ { 0, 1} correspond to cls (parametric) and sim (prototype retrieval), respectively. Each expert induces a deterministic prediction ˆye(x) ∈ { 1, . . . , C }.A gating function selects an expert per input: 
+
+ˆyg (x) = ˆ yg(x)(x), g(x) ∈ { 0, 1}. (21) Define the conditional 0-1 risk of expert e at x as 
+
+re(x) = P ˆye(x)̸ = y | x = 1 − P ˆye(x) = y | x. (22) 
+
+Proposition A.3 (Bayes-optimal gating). Among all measurable gating rules g(·),the Bayes-optimal selector that minimizes R(ˆ yg ) chooses the expert with smaller conditional risk at each x:
+
+g⋆(x) ∈ arg min  
+
+> e∈{ 0,1}
+
+re(x). (23) If r0(x)̸ = r1(x), the optimal gate is unique at x.
+
+Proof. The expected risk of a gated decision rule is 
+
+R(ˆ yg ) = EI[ˆ yg(x)(x)̸ = y] = E rg(x)(x) .
+
+For each fixed x, minimizing rg(x)(x) over g(x) ∈ { 0, 1} yields Eq. (23). Since this minimization is pointwise in x, the resulting g⋆ minimizes the expectation. 
+
+□
+
+Proposition A.3 is useful because it characterizes the ideal behavior: use re-trieval when it is more likely to be correct than the classifier, and otherwise keep the classifier. However, the conditional risks re(x) are not directly observ-able at test time. The next subsection explains how confidence, margin, and disagreement form a practical surrogate for this optimal decision. T-DuMpRa 23 
+
+A.6 Practical surrogate gating and a regret bound 
+
+Our gate uses observable statistics from the two posteriors. Let the expert “cor-rectness” probabilities be 
+
+acls (x) = P(ˆ ycls (x) = y | x), asim (x) = P(ˆ ysim (x) = y | x).
+
+Then re(x) = 1 − ae(x) and the Bayes gate in Eq. (23) selects sim if asim (x) >acls (x).Our implementation approximates ae(x) using confidence-like surrogates. De-note γcls (x) = max c pcls (c | x) and γsim (x) = max c psim (c | x). The similarity margin ∆sim (x) additionally filters out ambiguous retrieval cases. The disagree-ment term DJS (x) prevents intervention when the two posteriors are already similar, where selecting either expert yields limited benefit. To make this connection explicit, we introduce a mild local calibration as-sumption. 
+
+Assumption A.1 (Local confidence accuracy approximation). There exist non-negative functions εcls (x) and εsim (x) such that 
+
+acls (x) − γcls (x) ≤ εcls (x), asim (x) − γsim (x) ≤ εsim (x). (24) This assumption does not require global perfect calibration. It only states that, locally, confidence is a usable proxy for correctness up to bounded error. 
+
+Proposition A.4 (A sufficient condition for Bayes-consistent expert selection). If at a point x the confidence gap satisfies 
+
+γsim (x) − γcls (x) > ε cls (x) + εsim (x), (25) then asim (x) > a cls (x) and the Bayes-optimal gate selects the similarity expert at x.
+
+Proof. From Eq. (24), 
+
+asim (x) ≥ γsim (x) − εsim (x), acls (x) ≤ γcls (x) + εcls (x).
+
+If Eq. (25) holds, then asim (x) > a cls (x). □
+
+Proposition A.4 explains the role of our thresholds: enforcing γcls (x) < θ and 
+
+γsim (x) > β implicitly encourages a large confidence gap, while the margin con-straint ∆sim (x) > m sim makes γsim more reliable by excluding uncertain retrieval cases. Moreover, the divergence constraint DJS (x) > δ focuses corrections on in-puts where the two branches disagree meaningfully; when posteriors are similar, selection has limited effect and leaving the classifier unchanged is a safe default. Finally, we provide a regret-style bound relative to the Bayes gate, expressed via the probability of mis-ranking the two experts. 24 Z. Tang et al. 
+
+Proposition A.5 (Regret bound via expert mis-ranking). Let g⋆ be the Bayes-optimal gate in Eq. (23) . For any gate ˜g, define the mis-ranking event 
+
+E = {x : r˜g(x)(x) > r g⋆(x)(x)}.
+
+Then the excess risk satisfies 
+
+R(ˆ y˜g ) − R (ˆ yg⋆ ) ≤ P(E). (26) 
+
+Proof. For each x, r˜g(x)(x) − rg⋆(x)(x) ≤ 1 and is strictly positive only on E.Thus 
+
+R(ˆ y˜g ) − R (ˆ yg⋆ ) = Er˜g(x)(x) − rg⋆(x)(x) ≤ EI[x ∈ E ] = P(E).
+
+□
+
+Eq. (26) indicates that the effectiveness of a practical gate depends on how often it selects the worse expert. Our training choices (supervised contrastive geometry, teacher stabilization, and multi-prototype modeling) are designed to reduce this mis-ranking probability by making the similarity posterior reliable precisely on the hard subset where the classifier confidence is low. 
+
+A.7 Connection back to the proposed gated fusion 
+
+The theoretical MoE analysis above is stated for hard selection (Eq. (21)), while our method applies a conservative fusion (Eq. (14)). When Eq. (20) holds, the fused decision on gated samples matches the similarity prediction, and Proposi-tions A.2–A.5 apply directly. When Eq. (20) does not strictly hold, convex fusion still reduces the chance of abrupt decision flips caused by imperfect retrieval evi-dence, which is desirable under residual calibration error. In both cases, the gate localizes the intervention to ambiguous inputs and uses reliability constraints to approximate the Bayes-optimal expert selection behavior. 
+
+A.8 Algorithm T-DuMpRa 25 
+
+Algorithm 1 Teacher-guided Dual-path Inference Framework 
+
+1: Input: Test image x, classifier parameters θ, ϕ, teacher parameters ¯θ, ¯ϕ, prototype bank P.2: Compute teacher embedding ¯z(x) ← g ¯ϕ(f¯θ (x))    
+
+> ∥g¯ϕ(f¯θ(x)) ∥2
+
+.3: for each class c do 
+
+4: Compute similarity scores sc,k (x) ← ¯z(x)⊤pc,k .5: end for 
+
+6: Compute class score qc(x) ← log PKk=1 exp ( κs c,k (x)) .7: Compute similarity posterior: 
+
+psim (y = c | x) = exp( qc(x)/τ sim )
+
+PCj=1 exp( qj (x)/τ sim ) .
+
+8: Confidence-gated Fusion: 
+
+9: Compute classifier confidence γcls (x), entropy Hcls (x), and prototype reliability 
+
+γsim (x) according to Eq. 5-7. 10: Compute similarity margin ∆sim (x) and divergence DJS (x).11: Compute gate g(x) based on thresholds: 
+
+g(x) = I[γcls (x) < θ ]·I[γsim (x) > β ]·I[∆sim (x) > m sim ]·I[DJS (x) > δ ]·I[ˆ ycls ̸ = ˆ ysim ] ,
+
+12: if g(x) = 1 then 
+
+13: Apply fusion: 
+
+pfuse (· | x) = αlow · pcls (· | x) + (1 − αlow ) · psim (· | x).
+
+14: else 
+
+15: Keep classifier prediction unchanged. 16: end if 
+
+17: Output: Final prediction p(· | x).
