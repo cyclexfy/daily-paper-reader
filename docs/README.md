@@ -6,79 +6,64 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-21
-- 运行时间：2026-04-21 20:12:45 UTC
+- 最新运行日期：2026-04-22
+- 运行时间：2026-04-22 19:54:48 UTC
 - 运行状态：成功
-- 本次总论文数：19
-- 精读区：8
+- 本次总论文数：14
+- 精读区：3
 - 速读区：11
 
 ### 今日简报（AI）
-今日精选 19 篇前沿论文，深度聚焦病理图像分析、肿瘤微环境建模及多模态临床 AI 预测。
-重点关注满分力作 OpenTME 开源数据集与 SSMamba 自监督架构，两者显著提升了病理特征提取的深度与效率。
-建议从视觉指令微调与模型蒸馏切入，探索大模型如何赋能生存预测及轻量化分割任务。
-- 详情：[/202604/21/README](/202604/21/README)
+今日深挖 14 篇医疗 AI 前沿，重点解析肿瘤微环境开源数据集与多模态乳腺癌诊断突破。
+满分推荐 OpenTME 数据集及病理影像与病历融合技术，展现了 AI 在癌症早期精准诊疗中的巨大潜力。
+建议关注多模态数据融合趋势，利用高质量开源资源优化临床辅助决策模型。
+- 详情：[/202604/22/README](/202604/22/README)
 
 ### 精读区论文标签
-1. [OpenTME: An Open Dataset of AI-powered H&E Tumor Microenvironment Profiles from TCGA](/202604/21/2604.12075v1-opentme-an-open-dataset-of-ai-powered-he-tumor-microenvironment-profiles-from-tcga)  
+1. [OpenTME: An Open Dataset of AI-powered H&E Tumor Microenvironment Profiles from TCGA](/202604/22/2604.12075v1-opentme-an-open-dataset-of-ai-powered-he-tumor-microenvironment-profiles-from-tcga)  
    标签：评分：10.0/10、query:cpath
-   evidence：用于全切片图像和癌症肿瘤微环境分析的病理基础模型
-2. [SSMamba: A Self-Supervised Hybrid State Space Model for Pathological Image Classification](/202604/21/2604.15711v1-ssmamba-a-self-supervised-hybrid-state-space-model-for-pathological-image-classification)  
+   evidence：基于Atlas系列病理基础模型构建
+2. [Multimodal Fusion of Histopathology Images and Electronic Health Records for Early Breast Cancer Diagnosis](/202604/22/2604.17122v1-multimodal-fusion-of-histopathology-images-and-electronic-health-records-for-early-breast-cancer-diagnosis)  
    标签：评分：10.0/10、query:cpath
-   evidence：用于病理图像分类和全切片图像任务的ROI级基础模型
-3. [Multimodal Fusion of Histopathology Images and Electronic Health Records for Early Breast Cancer Diagnosis](/202604/21/2604.17122v1-multimodal-fusion-of-histopathology-images-and-electronic-health-records-for-early-breast-cancer-diagnosis)  
-   标签：评分：10.0/10、query:cpath
-   evidence：组织病理学图像与电子健康记录的多模态融合用于乳腺癌诊断
-4. [Region-Affinity Attention for Whole-Slide Breast Cancer Classification in Deep Ultraviolet Imaging](/202604/21/2604.17222v1-region-affinity-attention-for-whole-slide-breast-cancer-classification-in-deep-ultraviolet-imaging)  
-   标签：评分：10.0/10、query:cpath
-   evidence：在深紫外成像上使用深度学习进行全切片乳腺癌分类
-5. [Detecting Breast Carcinoma Metastasis on Whole-Slide Images by Partially Subsampled Multiple Instance Learning](/202604/21/2604.17254v1-detecting-breast-carcinoma-metastasis-on-whole-slide-images-by-partially-subsampled-multiple-instance-learning)  
-   标签：评分：10.0/10、query:cpath
-   evidence：用于全切片图像乳腺癌转移检测的多实例学习
-6. [PBSBench: A Multi-Level Vision-Language Framework and Benchmark for Hematopathology Whole Slide Image Interpretation](/202604/21/2604.17570v1-pbsbench-a-multi-level-vision-language-framework-and-benchmark-for-hematopathology-whole-slide-image-interpretation)  
-   标签：评分：10.0/10、query:cpath
-   evidence：用于血液病理全切片图像解释的视觉语言框架和基准
-7. [Is SAM3 ready for pathology segmentation?](/202604/21/2604.18225v1-is-sam3-ready-for-pathology-segmentation)  
-   标签：评分：10.0/10、query:cpath
-   evidence：评估Segment Anything Model 3 (SAM3) 基础模型在病理分割中的表现
-8. [Dual-Modal Lung Cancer AI: Interpretable Radiology and Microscopy with Clinical Risk Integration](/202604/21/2604.16104v1-dual-modal-lung-cancer-ai-interpretable-radiology-and-microscopy-with-clinical-risk-integration)  
-   标签：评分：9.0/10、query:cpath
-   evidence：整合CT放射学和H&E组织病理学用于肺癌诊断
+   evidence：组织病理学图像与电子健康记录的多模态融合用于癌症诊断
+3. [Switch-KD: Visual-Switch Knowledge Distillation for Vision-Language Models](/202604/22/2604.14629v1-switch-kd-visual-switch-knowledge-distillation-for-vision-language-models)  
+   标签：评分：8.0/10、query:cpath
+   evidence：视觉语言模型的知识蒸馏以改善多模态对齐
 
 ### 速读区论文标签
-1. [Bias-constrained multimodal intelligence for equitable and reliable clinical AI](/202604/21/2604.16884v1-bias-constrained-multimodal-intelligence-for-equitable-and-reliable-clinical-ai)  
-   标签：评分：8.0/10、query:cpath
-   evidence：用于医疗保健和临床人工智能的视觉语言系统
-2. [Sharpening Lightweight Models for Generalized Polyp Segmentation: A Boundary Guided Distillation from Foundation Models](/202604/21/2604.17865v1-sharpening-lightweight-models-for-generalized-polyp-segmentation-a-boundary-guided-distillation-from-foundation-models)  
-   标签：评分：8.0/10、query:cpath
-   evidence：从视觉基础模型中蒸馏知识用于结直肠癌息肉分割
-3. [Medical Image Understanding Improves Survival Prediction via Visual Instruction Tuning](/202604/21/2604.18250v1-medical-image-understanding-improves-survival-prediction-via-visual-instruction-tuning)  
-   标签：评分：8.0/10、query:cpath
-   evidence：用于3D CT图像理解和生存预测的视觉语言框架
-4. [Pairwise genomic alterations identify prognostic tumor states in multiple cancer types](/202604/21/biorxiv-10-64898-2026-04-14-718563-v1-pairwise-genomic-alterations-identify-prognostic-tumor-states-in-multiple-cancer-types)  
-   标签：评分：8.0/10、query:cpath
-   evidence：基因组变异与临床数据整合用于癌症预后
-5. [Graph Transformer-Based Pathway Embedding for Cancer Prognosis](/202604/21/2604.16685v1-graph-transformer-based-pathway-embedding-for-cancer-prognosis)  
+1. [A 3D SAM-Based Progressive Prompting Framework for Multi-Task Segmentation of Radiotherapy-induced Normal Tissue Injuries in Limited-Data Settings](/202604/22/2604.13367v1-a-3d-sam-based-progressive-prompting-framework-for-multi-task-segmentation-of-radiotherapy-induced-normal-tissue-injuries-in-limited-data-settings)  
    标签：评分：7.0/10、query:cpath
-   evidence：使用分子组学数据进行癌症预后预测的图变换器模型
-6. [Hybrid Quantum Neural Networks for Enhanced Breast Cancer Thermographic Classification: A Novel Quantum-Classical Integration Approach](/202604/21/2604.16953v1-hybrid-quantum-neural-networks-for-enhanced-breast-cancer-thermographic-classification-a-novel-quantum-classical-integration-approach)  
+   evidence：基于SAM的基础模型用于医学图像分割
+2. [Chaos-Enhanced Prototypical Networks for Few-Shot Medical Image Classification](/202604/22/2604.17300v1-chaos-enhanced-prototypical-networks-for-few-shot-medical-image-classification)  
    标签：评分：7.0/10、query:cpath
-   evidence：利用热成像分析进行乳腺癌诊断
-7. [Hybrid Multi-Dimensional MRI Prostate Cancer Detection via Hadamard Network-Based Bias Correction and Residual Networks](/202604/21/2604.17107v1-hybrid-multi-dimensional-mri-prostate-cancer-detection-via-hadamard-network-based-bias-correction-and-residual-networks)  
+   evidence：肿瘤学和脑肿瘤扫描的小样本医学图像分类
+3. [Align then Refine: Text-Guided 3D Prostate Lesion Segmentation](/202604/22/2604.18713v1-align-then-refine-text-guided-3d-prostate-lesion-segmentation)  
    标签：评分：7.0/10、query:cpath
-   evidence：使用多维核磁共振和人工智能自动检测前列腺癌
-8. [DREAM: Dynamic Retinal Enhancement with Adaptive Multi-modal Fusion for Expert Precision Medical Report Generation](/202604/21/2604.17209v1-dream-dynamic-retinal-enhancement-with-adaptive-multi-modal-fusion-for-expert-precision-medical-report-generation)  
+   evidence：使用视觉语言模型进行文本引导的3D病灶分割
+4. [Attend what matters: Leveraging vision foundational models for breast cancer classification using mammograms](/202604/22/2604.19350v1-attend-what-matters-leveraging-vision-foundational-models-for-breast-cancer-classification-using-mammograms)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于医学报告生成的视觉语言大模型
-9. [DeferredSeg: A Multi-Expert Deferral Framework for Trustworthy Medical Image Segmentation](/202604/21/2604.12411v1-deferredseg-a-multi-expert-deferral-framework-for-trustworthy-medical-image-segmentation)  
+   evidence：利用视觉基础模型进行乳腺癌分类
+5. [Virtual multiplex staining of the pancreatic islets across type 1 diabetes progression using a Schroedinger bridge](/202604/22/biorxiv-10-64898-2026-04-14-718559-v1-virtual-multiplex-staining-of-the-pancreatic-islets-across-type-1-diabetes-progression-using-a-schroedinger-bridge)  
+   标签：评分：7.0/10、query:cpath
+   evidence：组织病理学中H&E到IHC的染色转换
+6. [Pan-cancer survival modeling reveals structural limits of genomic feature integration in immunotherapy outcomes](/202604/22/biorxiv-10-64898-2026-04-15-718634-v1-pan-cancer-survival-modeling-reveals-structural-limits-of-genomic-feature-integration-in-immunotherapy-outcomes)  
+   标签：评分：7.0/10、query:cpath
+   evidence：使用临床和基因组特征进行泛癌生存建模
+7. [Region-Grounded Report Generation for 3D Medical Imaging: A Fine-Grained Dataset and Graph-Enhanced Framework](/202604/22/2604.18145v1-region-grounded-report-generation-for-3d-medical-imaging-a-fine-grained-dataset-and-graph-enhanced-framework)  
    标签：评分：6.0/10、query:cpath
-   evidence：用于医学图像分割的人机协作框架
-10. [Med-CAM: Minimal Evidence for Explaining Medical Decision Making](/202604/21/2604.13695v1-med-cam-minimal-evidence-for-explaining-medical-decision-making)  
+   evidence：用于3D医学影像和报告生成的多模态学习
+8. [ESsEN: Training Compact Discriminative Vision-Language Transformers in a Low-Resource Setting](/202604/22/2604.18452v1-essen-training-compact-discriminative-vision-language-transformers-in-a-low-resource-setting)  
    标签：评分：6.0/10、query:cpath
-   evidence：解释诊断成像中的医疗决策
-11. [T-DuMpRa: Teacher-guided Dual-path Multi-prototype Retrieval Augmented framework for fine-grained medical image classification](/202604/21/2604.17360v1-t-dumpra-teacher-guided-dual-path-multi-prototype-retrieval-augmented-framework-for-fine-grained-medical-image-classification)  
+   evidence：训练紧凑型判别式视觉语言Transformer
+9. [Quantum AI for Cancer Diagnostic Biomarker Discovery](/202604/22/2604.18621v1-quantum-ai-for-cancer-diagnostic-biomarker-discovery)  
    标签：评分：6.0/10、query:cpath
-   evidence：针对模糊临床病例的细粒度医学图像分类
+   evidence：用于肺癌分类和生物标志物发现的量子机器学习
+10. [Improved Anomaly Detection in Medical Images via Mean Shift Density Enhancement](/202604/22/2604.19191v1-improved-anomaly-detection-in-medical-images-via-mean-shift-density-enhancement)  
+   标签：评分：6.0/10、query:cpath
+   evidence：用于罕见病理状况的医学图像异常检测
+11. [Deep Learning Enables Automated Segmentation and Quantification of Ultrastructure from Transmission Electron Microscopy Images](/202604/22/biorxiv-10-1101-2025-11-05-686793-v2-deep-learning-enables-automated-segmentation-and-quantification-of-ultrastructure-from-transmission-electron-microscopy-images)  
+   标签：评分：6.0/10、query:cpath
+   evidence：深度学习用于显微镜图像临床诊断中的自动分割
 
 
 <div class="dpr-home-promo-card">
