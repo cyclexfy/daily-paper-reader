@@ -1,0 +1,362 @@
+Title: S-GRPO: Unified Post-Training for Large Vision-Language Models
+
+URL Source: https://arxiv.org/pdf/2604.16557v1
+
+Published Time: Tue, 21 Apr 2026 00:13:56 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# S-GRPO: Unified Post-Training for Large Vision-Language Models 
+
+# Yuming Yan 
+
+yominyan@tencent.com Tencent Shenzhen, Guangdong, China 
+
+# Kai Tang 
+
+xxx@tencent.com Tencent Shenzhen, Guangdong, China 
+
+# Sihong Chen 
+
+xxx@tencent.com Tencent Shenzhen, Guangdong, China 
+
+# Ke Xu 
+
+xxx@tencent.com Tencent Shenzhen, Guangdong, China 
+
+# Dan Hu 
+
+xxx@tencent.com Tencent Shenzhen, Guangdong, China 
+
+# Qun Yu 
+
+xxx@tencent.com Tencent Shenzhen, Guangdong, China 
+
+# Pengfei Hu 
+
+xxx@tencent.com Tencent Shenzhen, Guangdong, China 
+
+Figure 1: Conceptual comparison of post-training paradigms. Left: SFT limits learning to a single deterministic trajectory. Middle: Standard GRPO explores multiple trajectories but suffers from vanishing gradients ( 𝐴 ≈ 0) when all generated samples fail under strict reward models. Right: Our proposed S-GRPO conditionally injects the ground-truth trajectory into the candidate group. This guarantees a positive advantage signal ( 𝐴 > 0), effectively resolving the cold-start problem and preventing optimization collapse in a unified single stage. 
+
+## Abstract 
+
+Current post-training methodologies for adapting Large Vision-Language Models (LVLMs) generally fall into two distinct paradigms: Supervised Fine-Tuning (SFT) and Reinforcement Learning (RL). Despite their prevalence, both approaches suffer from significant inherent inefficiencies when applied in isolation. SFT forces the model’s generation along a single, deterministic expert trajectory, often inducing catastrophic forgetting of general multimodal capa-bilities due to distributional shifts. Conversely, pure RL explores multiple generated trajectories but frequently encounters optimiza-tion collapse—a "cold-start" problem where an unaligned model fails  
+
+> Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. Copyrights for components of this work owned by others than the author(s) must be honored. Abstracting with credit is permitted. To copy otherwise, or republish, to post on servers or to redistribute to lists, requires prior specific permission and/or a fee. Request permissions from permissions@acm.org.
+> Conference XXX,
+> ©2026 Copyright held by the owner/author(s). Publication rights licensed to ACM. ACM ISBN 978-x-xxxx-xxxx-x/YYYY/MM https://doi.org/XXXXXXX.XXXXXXX
+
+to spontaneously sample any domain-valid trajectories in sparse-reward visual tasks. In this paper, we propose Supervised Group Rel-ative Policy Optimization (S-GRPO), a unified post-training frame-work that seamlessly integrates the definitive guidance of imitation learning into the multi-trajectory exploration of preference opti-mization. Tailored for direct-generation visual tasks, S-GRPO intro-duces Conditional Ground-Truth Trajectory Injection (CGI). When a binary verifier detects a complete exploratory failure within a sampled group of trajectories, CGI dynamically injects the verified ground-truth trajectory into the candidate pool. By assigning a deterministic maximal reward to this injected anchor, S-GRPO en-forces a strictly positive signal within the group-relative advantage estimation. This mechanism reformulates the supervised learning objective as a high-advantage component of the policy gradient, compelling the model to dynamically balance between exploiting the expert trajectory and exploring novel visual concepts. Theo-retical analysis and empirical results demonstrate that S-GRPO gracefully bridges the gap between SFT and RL, drastically acceler-ates convergence, and achieves superior domain adaptation while flawlessly preserving the base model’s general-purpose capabilities.    
+
+> arXiv:2604.16557v1 [cs.LG] 17 Apr 2026 Conference XXX, 2026, Yan et al.
+> ACM Reference Format:
+> Yuming Yan, Kai Tang, Sihong Chen, Ke Xu, Dan Hu, Qun Yu, and Pengfei Hu. 2026. S-GRPO: Unified Post-Training for Large Vision-Language Models. In Proceedings of Make sure to enter the correct conference title from your rights confirmation email (Conference XXX). ACM, New York, NY, USA, 10 pages. https://doi.org/XXXXXXX.XXXXXXX
+
+## 1 Introduction 
+
+Large Vision-Language Models (LVLMs) [ 2–4 , 7, 8 , 16 , 26 , 27 , 31 , 39 –41 , 53 ] have demonstrated remarkable general-purpose capabilities by unifying visual perception with natural language understanding. Recently, the focus of alignment research has shifted towards adapt-ing these foundational models to highly specialized domains, such as medical image diagnostics, complex geometric problem-solving, and fine-grained industrial visual inspection. In these scenarios, the model must not only perceive visual tokens but also adhere to rigor-ous logical constraints and domain-specific rubrics. To achieve this domain adaptation, prevailing post-training techniques typically fall into two distinct categories: Supervised Fine-Tuning (SFT-like methods) [ 17 , 22 , 29 ] and Reinforcement Learning (RL-like meth-ods) [11, 35, 42–44, 46–49]. Although both paradigms are widely adopted, as shown in Fig-ure 1, each suffers from profound structural limitations resulting from how they manage the autoregressive generation process. SFT [ 29 ] utilizes maximum likelihood estimation (MLE) to force the model along a single, deterministic ground-truth trajectory . While highly efficient for injecting specific domain knowledge, this heavy reliance on strict teacher-forcing introduces a significant distribu-tional shift. This shift often triggers the "Alignment Tax" [ 25 ]—a form of catastrophic forgetting where the model’s broad, general-purpose multimodal competencies are aggressively overwritten by the narrow target distribution. In stark contrast, RL algorithms—such as Group Relative Policy Op-timization [ 35 ] (GRPO)—attempt to refine the policy by sampling 
+
+multiple diverse trajectories and optimizing them against a reward function. However, directly applying RL to an unaligned base model exposes the severe "cold-start" problem in exploration [ 42 ]. In spe-cialized visual domains evaluated by strict binary verifiers, the base model struggles to spontaneously generate highly accurate trajec-tories. When using group-based RL, if all sampled trajectories in a group are incorrect, the reward variance collapses to zero, leading to vanishing gradients and stalled learning. Consequently, prac-titioners face a fundamental dilemma: SFT limits optimization to a single trajectory causing catastrophic forgetting, while pure RL explores multiple trajectories but suffers from optimization collapse due to reward sparsity. We argue that the dichotomy between SFT and RL is artificial. Mathematically, SFT can be viewed as an RL process where the singular ground-truth trajectory is exclusively assigned a maximal reward. This perspective suggests that the transition from super-vised learning to reinforcement learning should be a continuous spectrum rather than a disjointed sequence of stages. If we could integrate this strong, unambiguous supervision signal directly into the multi-trajectory online exploration phase of RL, we could theo-retically synthesize the strengths of both paradigms. By treating the ground-truth trajectory as an active participant in the pref-erence comparison process—an "anchor" with a guaranteed high reward—we can leverage the contrastive nature of policy gradients to seamlessly unify the definitive expert imitation of SFT with the autonomous multi-trajectory self-exploration of RL within a single optimization landscape. Based on this insight, we propose Supervised Group Relative Policy Optimization (S-GRPO), a unified post-training framework tailored for LVLMs. S-GRPO introduces a dynamic mechanism: Conditional Ground-Truth Trajectory Injection (CGI) . During online sampling, if a simple binary verifier detects that the policy has failed to gen-erate any valid trajectories within an exploratory group, S-GRPO conditionally injects the verified ground-truth trajectory into the candidate pool. The relative advantage is then computed against this mixed group. The injected trajectory acts as a high-advantage anchor, guiding the gradient steeply toward the correct multimodal distribution. As the model improves and begins generating correct trajectories autonomously, the CGI mechanism gracefully phases out, allowing training to seamlessly transition from supervised bootstrapping to pure self-exploratory reinforcement learning. Our main contributions are summarized as follows: 
+
+• Unified Post-Training Framework : We formalize S-GRPO, an algorithm that elegantly integrates the objectives of SFT and preference optimization, eliminating the need to choose between isolated paradigms and mitigating catastrophic forget-ting in LVLMs. 
+
+• Mechanism Design : We propose the Conditional Ground-Truth Trajectory Injection (CGI) strategy, which dynamically solves the exploration cold-start problem in binary-verifier settings by guaranteeing positive learning signals within multi-trajectory updates. 
+
+• Empirical Performance : We demonstrate that S-GRPO signifi-cantly accelerates convergence in sparse-reward visual domains and achieves superior domain-specific performance while pre-serving broad general capabilities compared to other methods. 
+
+## 2 Related Works 2.1 Large Vision Language Models (LVLMs) 
+
+Large Vision-Language Models (LVLMs) [ 2–4 , 7, 8 , 16 , 26 , 27 , 31 , 36 ,39 –41 , 53 ] have driven remarkable advancements in cross-modal intelligence. This evolution unfolded across three key phases: early foundational architectures (e.g., CLIP [ 32 ], ALBEF [ 21 ]) bridged the modality gap for zero-shot transfer; subsequent models like LLaVA [ 28 ] elevated general capabilities via visual instruction tuning; and current state-of-the-art models—such as the InternVL series [ 40 ,41 , 53 ], Qwen-VL family [ 2– 4 , 31 , 39 ], and Kimi K2.5 [ 36 ], push the boundaries through massive scaling, high-resolution encoders, and native long-context processing. Despite these extraordinary general-purpose capabilities, LVLMs still face significant hurdles in domain-specific adaptation. When deployed in highly specialized environments (e.g., medical diagnostics), they frequently struggle to recognize domain-exclusive concepts. Consequently, post-training has emerged as a critical research direction to adapt these massive LVLMs efficiently without the prohibitive computational costs of retraining from scratch. S-GRPO: Unified Post-Training for Large Vision-Language Models Conference XXX, 2026, 
+
+## 2.2 Post-training for LVLMs 
+
+Post-training techniques, primarily Supervised Fine-Tuning (SFT) and Reinforcement Learning (RL), have been central to adapting LVLMs [ 9 , 19 , 20 , 23 ]. SFT enables direct task-specific learning but often leads to catastrophic forgetting of pre-trained knowledge [5 , 12 , 13 ]. While parameter-efficient approaches like LoRA [ 17 ] and Prefix Tuning [ 22 ] alleviate computational burdens, they remain prone to overfitting and exhibit limited transferability. In contrast, RL-based methods enhance adaptability by optimiz-ing sequential decision-making. Unlike traditional Proximal Policy Optimization (PPO) [ 34 ], which imposes high computational costs, recent alternatives like Direct Preference Optimization (DPO) [ 33 ]and Group Relative Policy Optimization (GRPO) [ 35 ] eliminate the need for a separate critic. While advanced frameworks (e.g., DAPO [46 ], GSPO [ 49 ]) effectively preserve general capabilities by explor-ing diverse trajectories, they implicitly assume that the pre-trained model already possesses non-trivial domain knowledge. When do-main expertise is limited, existing RL paradigms inevitably suffer from reward sparsity and optimization collapse. The commonly adopted “SFT-then-RL” pipeline [ 35 ] attempts to alleviate this, but recent findings from CHORD [ 47 ] reveal a fundamental flaw: SFT disrupts the pretrained model’s internal structures, causing tempo-rary degradation of general capabilities, and subsequent RL often fails to recover the domain adaptation. To mitigate optimization collapse, recent studies have explored ad-vanced RL strategies. Curriculum-based approaches (e.g., R3 [ 43 ], Curr-ReFT [ 11 ]) attempt to smooth the learning curve for complex tasks. To address the “learning cliff” where models fail to gener-ate correct trajectories, methods like GCPO [ 42 ] and Scaf-GRPO [ 48 ] intervene by injecting golden answers or hierarchical hints. Other works focus on modifying the RL objective; for instance, FAST-GRPO [ 44 ] mitigates the “overthinking” phenomenon via difficulty-aware length penalties. While demonstrating remarkable efficacy, these methods often rely on complex decoupled multi-stage pipelines, external heavy teacher models, or are exclusively tailored for multi-step reasoning (Chain-of-Thought) tasks. Addressing the specific challenge of optimization collapse in non-deep-thinking vision tasks, prior work introduced Reinforced Cur-riculum Pre-Alignment (RCPA) [ 45 ]. By utilizing Curriculum Progress Perception (CPP) for intrinsic prefix-injection, RCPA effectively bootstraps domain competence directly within the on-policy RL loop. However, RCPA still necessitates a carefully designed curricu-lum schedule and relies on explicitly manipulating the generation prefix, which adds algorithmic complexity and restricts the model’s free exploration. Building upon the insights of RCPA, our proposed S-GRPO frame-work offers a more elegant and genuinely unified single-stage so-lution. Instead of relying on predefined curriculum progression or prefix-injection, S-GRPO utilizes Conditional Ground-Truth Tra-jectory Injection (CGI) dynamically triggered by group-level ex-ploratory failure. By anchoring the policy gradient with verified expert trajectories only when strictly necessary, S-GRPO natively resolves extreme reward sparsity. This gracefully bridges the SFT and RL paradigms without the overhead of curriculum design, max-imizing sample efficiency while preserving the structural integrity and general capabilities of the base LVLM. 
+
+## 3 Preliminary 3.1 Problem Formulation 
+
+Consider a pre-trained LVLM denoted as 𝜋 𝜃 pre , which exhibits strong general-purpose multimodal capabilities. We are given a target domain-specific dataset Dtarget = {( 𝑥 𝑖 , 𝑦 𝑔𝑡,𝑖 )} 𝑁 𝑖 =1, where 𝑥 𝑖 =
+
+(𝑣 𝑖 , 𝑞 𝑖 ) represents a multimodal query (an image 𝑣 𝑖 paired with a task prompt 𝑞 𝑖 ) and 𝑦 𝑔𝑡,𝑖 is the ground-truth response containing domain-specific knowledge. The objective is to adapt 𝜋 𝜃 pre into a domain-adapted model 𝜋 𝜃 through a post-training procedure, such that 𝜋 𝜃 achieves high performance on Dtarget while maximally pre-serving the general capabilities of the base model. This defines the fundamental challenge in domain-adaptive LVLM alignment: inte-grating novel domain knowledge without catastrophic forgetting. 
+
+## 3.2 Standard Paradigms and Their Limitations 
+
+Supervised Fine-Tuning (SFT). SFT adapts model parameters 𝜃 
+
+by maximizing the likelihood of expert demonstrations in the target dataset. Its objective is: 
+
+JSFT (𝜃 ) = E(𝑥,𝑦 𝑔𝑡 )∼D target 
+
+ 
+
+> |𝑦 𝑔𝑡 |
+
+∑︁  
+
+> 𝑡 =1
+
+log 𝜋 𝜃 (𝑦 𝑔𝑡,𝑡 | 𝑥, 𝑦 𝑔𝑡, <𝑡 )
+
+
+
+. (1) While SFT effectively injects domain-specific knowledge via im-itation learning, it forces the model’s generation along a single deterministic trajectory. When target domain data differs substan-tially from pretraining data, this strict teacher-forcing aligns the model exclusively with the narrow target distribution, leading to catastrophic forgetting of multimodal generalizability. 
+
+Group Relative Policy Optimization (GRPO). To mitigate the forgetting induced by SFT, preference-based RL methods like GRPO attempt to align models via multi-trajectory exploration. Given a query 𝑥 , GRPO samples a group of 𝐺 trajectories 𝑂 𝑔𝑒𝑛 = {𝑜 1, 𝑜 2, . . . , 𝑜 𝐺 }
+
+from the old policy 𝜋 𝜃 old . A verifier (reward function/model) assigns a scalar reward 𝑟 𝑖 to each 𝑜 𝑖 . The advantage estimate ˆ𝐴 𝑖 is computed relative to the group peers: 
+
+ˆ𝐴 𝑖 = 𝑟 𝑖 − mean ({ 𝑟 1, . . . , 𝑟 𝐺 }) 
+
+std ({ 𝑟 1, . . . , 𝑟 𝐺 }) + 𝜖 , (2) where 𝜖 is a small constant for numerical stability. The GRPO objec-tive maximizes the expected clipped advantage while regularizing against a reference policy 𝜋 𝜃 ref :
+
+JGRPO (𝜃 ) = E𝑥,𝑂 𝑔𝑒𝑛 ∼𝜋 𝜃 old 
+
+"
+
+1
+
+𝐺 
+
+> 𝐺
+
+∑︁ 
+
+> 𝑖 =1
+
+min 
+
+
+
+𝜌 𝑖 (𝜃 ) ˆ𝐴 𝑖 ,
+
+clip (𝜌 𝑖 (𝜃 ), 1 − 𝜀, 1 + 𝜀 ) ˆ𝐴 𝑖 
+
+#
+
+− 𝛽 D𝐾𝐿 (𝜋 𝜃 ∥𝜋 𝜃 ref ),
+
+(3) where 𝜌 𝑖 (𝜃 ) = 𝜋 𝜃 (𝑜 𝑖 |𝑥 )    
+
+> 𝜋 𝜃 old (𝑜 𝑖 |𝑥 )
+
+is the importance sampling ratio. Here, 
+
+𝜋 𝜃 old denotes the behavior policy used for trajectory sampling, while 
+
+𝜋 𝜃 ref is typically a frozen initial policy (e.g., the SFT model) strictly maintained to prevent excessive policy drift via the KL penalty. Conference XXX, 2026, Yan et al. 
+
+Figure 2: Overview of the Supervised Group Relative Policy Optimization (S-GRPO) framework. The core innovation is the Conditional Ground-Truth Injection (CGI) mechanism. During online exploration, the current policy generates a group of candidate trajectories ( 𝑂 𝑔𝑒𝑛 ) that are evaluated by a strict reward verifier. If the verifier detects a complete exploratory failure (i.e., all 𝑟 𝑖 = 0), CGI is triggered as a dynamic fallback (top path). It injects the expert ground-truth trajectory ( 𝑦 𝑔𝑡 ) into the candidate pool to form a mixed group, guaranteeing a strongly positive advantage signal ( ˆ𝐴 𝑔𝑡 ≫ 0) that prevents optimization collapse. Conversely, if the policy successfully generates at least one valid trajectory (bottom path), the framework gracefully defaults to a standard GRPO update. This conditional routing seamlessly balances supervised imitation and autonomous multi-trajectory exploration within a single stage. 
+
+## 3.3 The Cold-Start Challenge and Optimization Collapse 
+
+While GRPO effectively explores multiple trajectories, it heavily relies on the assumption that the unaligned base policy can sponta-neously generate at least some correct trajectories within a group to establish a meaningful contrastive gradient. However, in specialized visual domains evaluated by strict verifiers, the base model suffers from a severe cold-start problem . The proba-bility of spontaneously generating a valid response is infinitesimally small. Consequently, all 𝐺 sampled trajectories are likely to fail, re-sulting in uniformly zero or negative rewards (𝑒.𝑔., 𝑟 𝑖 = 0 for all 𝑖 ).When this occurs, the group statistics collapse: mean ({ 𝑟 𝑖 }) ≈ 0, std ({ 𝑟 𝑖 }) ≈ 0
+
+According to Eq. (2), this leads to uninformative, near-zero advan-tage estimates ( ˆ𝐴 𝑖 ≈ 0). The contrastive signals vanish, causing an 
+
+optimization collapse where learning completely stalls. This funda-mental limitation motivates our proposed unified approach, which actively injects supervisory signals into the RL exploration loop to dynamically break the optimization deadlock. 
+
+## 4 Methodology 
+
+Building upon the limitations identified in the preliminary analy-sis, we introduce Supervised Group Relative Policy Optimization (S-GRPO). As illustrated in Figure 2, S-GRPO elegantly unifies the strengths of both SFT and GRPO into a single on-policy stage, re-solving the cold-start challenge without decoupled training phases. 
+
+## 4.1 Backbone and Reward Formulation 
+
+Following [ 45 ], we focus on non-deep thinking Visual Question Answering (VQA). Therefore, we use GRPON (GRPO for Non-deep thinking models [ 45 ]). In our framework, a rule-based reward func-tion or an external evaluator 𝑅 (𝑜, 𝑦 𝑔𝑡 ) is utilized to assign scores to the generated trajectories. Specifically, we utilize Qwen3-4B-Instruct [ 37 ] as our reward verifier to conduct semantic consistency evaluation for complex visual tasks. For integration into S-GRPO, the continuous score returned by the verifier is typically normalized or binarized (e.g., 𝑟 ∈ { 0, 1.0}) to provide clear guidance during advantage estimation. This similarity score is then converted into a binary reward using a threshold 𝛿 :
+
+𝑅 (𝑜, 𝑦 ; 𝛿 ) =
+
+(
+
++1 if 𝑆 (𝑜, 𝑦 ) ≥ 𝛿, 
+
+0 otherwise . (4) 
+
+## 4.2 Supervised GRPO via Trajectory Injection 
+
+To resolve the optimization collapse caused by reward sparsity, S-GRPO actively shapes the advantage estimation landscape by S-GRPO: Unified Post-Training for Large Vision-Language Models Conference XXX, 2026, 
+
+dynamically modifying the composition of the multi-trajectory sampling group. 
+
+4.2.1 Mechanism: Ground-Truth Trajectory Injection. Instead of relying solely on self-generated candidate trajectories, S-GRPO introduces an injection mechanism. For a given training query 𝑥 
+
+associated with a known ground-truth expert trajectory 𝑦 𝑔𝑡 :
+
+• Online Exploration : We sample 𝐺 − 1 exploratory trajectories from the current policy: {𝑜 1, . . . , 𝑜 𝐺 −1 } ∼ 𝜋 𝜃 𝑜𝑙𝑑 (·| 𝑥 ).
+
+• Expert Trajectory Injection : We inject the ground-truth tra-jectory 𝑦 𝑔𝑡 into the set, creating a mixed candidate group. The sample size of 𝑂 𝑚𝑖𝑥𝑒𝑑 is strictly maintained as G to match GRPO’s group scale. 
+
+𝑂 𝑚𝑖𝑥𝑒𝑑 = {𝑜 1, . . . , 𝑜 𝐺 −1 } ∪ { 𝑦 𝑔𝑡 }• Deterministic Reward Assignment : Crucially, the injected expert trajectory 𝑦 𝑔𝑡 is assigned a guaranteed maximal reward 
+
+𝑅 𝑚𝑎𝑥 = 1.0, acting as an intrinsic reference anchor. The 𝐺 − 1
+
+generated trajectories are evaluated by the verifier. 
+
+4.2.2 The Unified S-GRPO Formulation. Consider the mixed group 
+
+𝑂 𝑚𝑖𝑥𝑒𝑑 in a severe cold-start scenario where all 𝐺 − 1 exploratory trajectories fail ( 𝑟 = 0) and the injected expert trajectory succeeds (𝑟 = 𝑅 𝑚𝑎𝑥 = 1.0). The group statistics intrinsically shift: mean = 1
+
+𝐺 , std =√︂ 𝐺 − 1
+
+𝐺 2 ≈ 1
+
+√𝐺 
+
+The injection of a single high-reward anchor mathematically guar-antees a non-zero standard deviation ( std > 0). Consequently, the relative advantages are forcefully segregated: 
+
+• For Generated (Incorrect) Trajectories 𝑜 𝑔𝑒𝑛 :
+
+ˆ𝐴 𝑔𝑒𝑛 = 0 − ( 1/𝐺 )
+
+std < 0 (Penalizing self-generated errors) 
+
+• For the Injected (Expert) Trajectory 𝑦 𝑔𝑡 :
+
+ˆ𝐴 𝑔𝑡 = 1 − ( 1/𝐺 )
+
+std ≫ 0 (Strongly positive; Imitating reference) This stark contrast prevents gradient vanishing. The relative ad-vantages are forcefully segregated: 
+
+• For Generated (Incorrect) Trajectories 𝑜 𝑔𝑒𝑛 :
+
+ˆ𝐴 𝑔𝑒𝑛 = 0 − ( 1/𝐺 )
+
+std < 0 (Penalizing self-generated errors) (5) 
+
+• For the Injected (Expert) Trajectory 𝑦 𝑔𝑡 :
+
+ˆ𝐴 𝑔𝑡 = 1 − ( 1/𝐺 )
+
+std ≫ 0 (Strongly positive; Imitating reference) (6) This stark contrast prevents gradient vanishing. The unified S-GRPO objective function is formally optimized over this mixed group: 
+
+JS-GRPO (𝜃 ) = E𝑥,𝑂 𝑚𝑖𝑥𝑒𝑑 ∼𝜋 𝜃 old 
+
+"
+
+1
+
+𝐺 
+
+> 𝐺
+
+∑︁ 
+
+> 𝑖 =1
+
+min 
+
+
+
+𝜌 𝑖 (𝜃 ) ˆ𝐴 𝑖 ,
+
+clip (𝜌 𝑖 (𝜃 ), 1 − 𝜀, 1 + 𝜀 ) ˆ𝐴 𝑖 
+
+#
+
+− 𝛽 D𝐾𝐿 (𝜋 𝜃 ∥𝜋 𝜃 ref ),
+
+(7) where all notations and hyperparameters retain their definitions from Equation 3. Maximizing this objective naturally increases the log-probability of the expert trajectory (effectively executing an on-policy behavioral cloning step) while actively decreasing the probabilities of self-generated erroneous trajectories. 
+
+## 4.3 Conditional Ground-Truth Trajectory Injection (CGI) 
+
+While baseline injection seamlessly mitigates the cold-start problem, unconditionally injecting the ground-truth trajectory throughout the entire training process may inadvertently reintroduce the strict teacher-forcing bias prevalent in SFT. To balance the exploration-exploitation trade-off, we propose a refined variant: Conditional Ground-Truth Trajectory Injection (CGI) .CGI employs the ground-truth trajectory 𝑦 𝑔𝑡 strictly as a dynamic fallback mechanism, triggered exclusively when the policy experi-ences a complete exploratory failure. For a query 𝑥 , the process is as follows: (1) Initial Exploration: We sample a full group of 𝐺 candidate tra-jectories strictly from the current policy: 𝑂 𝑔𝑒𝑛 = {𝑜 1, . . . , 𝑜 𝐺 } ∼ 
+
+𝜋 𝜃 𝑜𝑙𝑑 (·| 𝑥 ).(2) Verification and Failure Detection: The verifier evaluates all 
+
+𝐺 trajectories to assign rewards {𝑟 1, . . . , 𝑟 𝐺 }. We define a group failure condition as the scenario where all generated trajectories fail to yield a positive reward (e.g., max ({ 𝑟 1, . . . , 𝑟 𝐺 }) = 0). (3) Conditional Fallback: 
+
+• Condition Met (Complete Failure): If triggered, the model is trapped in a cold-start state. We discard one generated trajec-tory (typically the one with the lowest generation probability) and replace it with 𝑦 𝑔𝑡 , forming the mixed group 𝑂 𝑚𝑖𝑥𝑒𝑑 . The policy update proceeds using the unified S-GRPO formula-tion (Equation 7). 
+
+• Condition Not Met (Successful Exploration): If at least one gen-erated trajectory receives a positive reward from the verifier (𝑟 > 0), the model possesses sufficient capability to learn from its own exploratory variance. No injection occurs, and the policy is updated using the standard GRPO objective (Equation 3) over the original set 𝑂 𝑔𝑒𝑛 .Unlike GCPO’s unconditional injection (which introduces SFT-like teacher-forcing bias) and RCPA’s curriculum-dependent prefix in-jection (which requires manual design), S-GRPO’s CGI mechanism dynamically triggers ground-truth injection only when necessary (complete exploration failure). This design achieves a seamless transition from supervised bootstrapping to pure reinforcement learning in a single stage, eliminating external dependencies (e.g., curriculum modules) while balancing exploration and exploitation. 
+
+## 5 Experiments 
+
+In this section, we empirically validate the effectiveness of S-GRPO on Large Vision-Language Models. Our experiments are designed to address three key questions: (1) Can S-GRPO successfully train a visual generation policy from a "cold-start" state where a strict bi-nary verifier causes standard RL methods to collapse? (2) How does the unified single-stage S-GRPO compare against the prevalent two-stage pipeline (SFT followed by GRPO) in terms of domain-specific Conference XXX, 2026, Yan et al. 
+
+performance and general capability retention? (3) What is the im-pact of the Conditional Ground-Truth Injection (CGI) mechanism on learning dynamics? 
+
+## 5.1 Experimental Setup 
+
+Benchmark Datasets. To evaluate S-GRPO’s adaptability and performance, we conduct experiments on three benchmark datasets spanning diverse domains: image captioning, geometric problem-solving, and medical X-ray diagnostics. 
+
+• COCO Caption [ 6]: A widely used dataset for image captioning, containing 123,287 images. We use the original training and test splits of the dataset. 
+
+• Geo170K [ 15 ]: A dataset for geometric problem-solving. It is divided into Phase 1 (non-deep thinking, direct-answer tasks) and Phase 2 (deep thinking, multi-step tasks). We use Phase 1, which contains 60,252 samples, with 57,252 for training and 3,000 for testing. 
+
+• OpenI [ 10 ]: A chest X-ray diagnostic dataset with 6,423 images and corresponding radiological reports. The task is to generate concise and clinically accurate diagnostic descriptions directly from X-ray images. The training set consists of 5,423 images, while the test set includes 1,000 images. These datasets enable us to evaluate S-GRPO’s performance across both general domain (e.g., COCO Caption) and specific domain (e.g., Geo170K, OpenI) tasks, providing a comprehensive assessment of domain-adaptive capabilities. 
+
+Baselines. We employ Qwen2.5-VL-7B [ 4 ] as our primary base model. The selection of this specific model is deliberate: it possesses foundational multimodal capabilities without being heavily over-optimized for existing benchmarks, and crucially, it has not been pre-aligned using GRPO or similar advanced RL paradigms. This ensures an unbiased testbed, allowing the genuine effectiveness and performance gains of our proposed framework to be unequivocally demonstrated. We compare the following adaptation strategies: (1) BASE : Direct inference with the pre-trained Qwen2.5-VL-7B. (2) SFT-based Methods : Including Parameter-Efficient Fine-tuning (PEFT) via LoRA [ 17 ] and Full Fine-tuning (FFT). Furthermore, drawing on relevant methods in incremental learning [ 18 ], we incorporate the Kullback-Leibler (KL) divergence loss into Full Fine-Tuning (FFT), and define this improved approach as Continual Full Fine-Tuning (CFFT). Specifically, this KL divergence loss imposes a constraint that aligns the output distribution of the fine-tuned model with that of the pre-trained model, effectively mitigating the overwriting of general capabilities by domain-specific signals. (3) RL-based Methods : Including GRPO [ 35 ], DAPO [ 46 ], GR-PON [ 45 ], GCPO [ 42 ], and RCPA [ 45 ]. To ensure a rigorous and equitable evaluation, all RL-based methods, including our S-GRPO, are evaluated in a strictly RL-driven setting without relying on any external "SFT-then-RL" pre-conditioning. For completeness, an empirical comparison of the conventional two-stage "SFT-then-RL" pipeline (SFT → GRPON) is provided in Table 1. Furthermore, to ensure a strictly fair and apples-to-apples com-parison, we deliberately exclude approaches that rely on external auxiliary models or proprietary LLMs for prompt generation and knowledge distillation (e.g., Curr-ReFT [ 11 ] and Scaf-GRPO [ 48 ]). Including such methods would obscure the intrinsic effectiveness of the alignment algorithms, as their performance gains are heavily confounded by the capabilities of the external models rather than the alignment process itself. 
+
+Evaluation Metrics. We evaluate S-GRPO using a combination of task-specific metrics for domain knowledge injection and gen-eralization metrics for preserving general-purpose performance. Domain-specific ability is assessed with BLEU-1 [30 ], CIDEr [ 38 ], 
+
+ROUGE-L [ 24 ], and SPICE [ 1 ] to measure n-gram overlap, seman-tic consistency, long-sequence similarity, and structural alignment. General-purpose capabilities are evaluated using MMMU [14 ] for cross-domain reasoning, MME [ 14 ] for multimodal understanding, and IFEval [52 ]—including IFEval-Prompt (IFEval-P) and IFEval-Instruct (IFEval-I)—to measure instruction-following fidelity and consistency with human intent. 
+
+Implementation Details. For model training and inference, we set the hyperparameters 𝛿 in Equation 4 to 0.9, the regularization coeffi-cient 𝛽 in Equation 3 is set to 0.01. For group-based methods, we set the group size 𝐺 = 5. We employ a singular, robust binary verifier (e.g., Qwen3-4B-Instruct Verifier) that returns 1.0 for correct direct responses and 0 otherwise. All experiments are implemented using the EasyR1 RL framework [ 50 ] and LlamaFactory SFT framework [51 ] for LVLMs and conducted on a Linux-based server equipped with NVIDIA GPUs. 
+
+## 5.2 Performance Comparison 
+
+Main experimental results are summarized in Table 1. S-GRPO delivers superior domain-specific performance while successfully bypassing the alignment tax associated with SFT. 
+
+• FFT Induces Catastrophic Forgetting: While FFT achieves peak domain scores (e.g., 1.0172 CIDEr on COCO), it severely corrupts the model’s general capabilities, with drastic declines of 8.78% on MMMU, a drop to 735.10 on MME, and over 36% degradation on IFEval-I. This highlights the dangers of pure MLE over-optimization. 
+
+• Failure of RL-based methods: Standard GRPO completely stalls when applied directly to the base model. Due to the strict binary verifier, the model fails to generate initial rewardable trajectories, yielding a dismal 0.2245 BLEU-1 on COCO. This confirms the necessity of our advantage-anchoring mechanism. 
+
+• S-GRPO Superiority over Two-Stage Pipelines: S-GRPO achieves comparable performance to or slightly exceeds the sophisticated two-stage (SFT → GRPO) pipeline in domain metrics (e.g., scor-ing 1.0106 CIDEr vs 0.9921 on COCO) without requiring a sepa-rate, computationally expensive SFT phase. Crucially, because S-GRPO maintains on-policy KL-regularization from the very first step, it preserves general instruction-following capabilities far better than SFT, achieving 0.7387 on IFEval-I. Consistent trends are observed on Geo170K and OpenI: Geo170K :S-GRPO achieves a 2.3008 CIDEr, comparable to FFT’s 2.3109, while significantly outperforming FFT in general understanding (MMMU: 0.5211 vs. 0.4667). OpenI : In medical diagnostics, S-GRPO maintains a 0.3376 BLEU-1 and 0.2388 ROUGE-L, while preserving a 0.7102 IFEval-I score, far exceeding FFT’s 0.6367. S-GRPO: Unified Post-Training for Large Vision-Language Models Conference XXX, 2026, 
+
+Table 1: Performance comparison of different post-training adaptation methods evaluating both Domain-Specific Ability and General-Purpose Ability. The results demonstrate the overarching superiority of our proposed single-stage S-GRPO framework. Notably, S-GRPO achieves domain-specific performance comparable to, or even exceeding, heavy teacher-forcing methods like Full Fine-Tuning (FFT) and the computationally expensive two-stage pipeline (SFT → GRPO). Crucially, unlike FFT which suffers from severe catastrophic forgetting (the "alignment tax"), S-GRPO successfully mitigates policy drift, robustly preserving the pre-trained model’s broad multimodal and instruction-following capabilities. The best results are highlighted in bold, and the second-best results are underlined. Our S-GRPO method and its ablation variant are shaded in gray. 
+
+Datasets Methods Domain-Specific Ability General-Purpose Ability BLEU-1 ROUGE-L CIDEr SPICE MMMU MME IFEval-P IFEval-I COCO Caption BASE 0.4457 0.3672 0.2259 0.1783 0.5122 2333.36 0.6211 0.7038 PEFT 0.3722 0.3081 0.1231 0.0862 0.6067 2448.67 0.5416 0.6535 FFT 0.7581 0.5474 1.0172 0.2385 0.4244 735.10 0.2070 0.3405 CFFT 0.6518 0.4824 0.7654 0.2034 0.4967 1934.32 0.5324 0.6419 GRPO 0.2245 0.2767 0.2699 0.1297 0.5222 2301.53 0.6506 0.7410 DAPO 0.2431 0.2798 0.2687 0.1301 0.5111 2330.27 0.6577 0.7423 
+
+GRPON 0.4437 0.3656 0.3189 0.1790 0.5100 2315.97 0.6299 0.7238 SFT → GRPON 0.7501 0.5444 0.9921 0.2396 0.4522 901.43 0.3012 0.4123 GCPO 0.7253 0.5223 0.9649 0.2254 0.5011 2003.97 0.5671 0.6732 RCPA 0.7478 0.5432 0.9814 0.2383 0.5278 2289.18 0.6470 0.7326 S-GRPO(wo CGI) 0.7580 0.5473 1.0179 0.2389 0.5011 2209.76 0.6067 0.7176 S-GRPO 0.7562 0.5467 1.0106 0.2385 0.5211 2301.18 0.6499 0.7387 Geo170K BASE 0.3859 0.3014 0.2740 0.2901 0.5122 2333.36 0.6211 0.7038 PEFT 0.0901 0.1192 0.0009 - 0.6089 2449.59 0.5360 0.6535 FFT 0.6098 0.5526 2.3109 0.5627 0.4667 2172.37 0.5693 0.6451 CFFT 0.5719 0.5091 1.8827 0.5079 0.5078 2199.59 0.5888 0.6676 GRPO 0.3799 0.3113 0.2661 0.2878 0.5022 2346.08 0.6373 0.7131 DAPO 0.3835 0.3189 0.2776 0.2989 0.5111 2319.25 0.6285 0.7110 GRPON 0.4086 0.3431 0.3543 0.3350 0.5122 2320.54 0.6414 0.7062 SFT → GRPON 0.6012 0.5504 2.2896 0.5629 0.4767 2199.34 0.5801 0.6594 GCPO 0.5689 0.5306 2.0324 0.5487 0.5089 2203.65 0.5996 0.6857 RCPA 0.5998 0.5501 2.2821 0.5623 0.5122 2315.37 0.6414 0.7278 S-GRPO(wo CGI) 0.6086 0.5525 2.3087 0.5627 0.5111 2222.08 0.6231 0.7098 S-GRPO 0.6075 0.5525 2.3008 0.5626 0.5211 2322.45 0.6430 0.7285 
+
+OpenI BASE 0.1155 0.1299 0.0002 0.0988 0.5122 2333.36 0.6211 0.7038 PEFT 0.0786 0.0977 - 0.0871 0.6111 2433.56 0.5508 0.6631 FFT 0.3396 0.2399 0.0903 0.1900 0.4111 1623.35 0.5323 0.6367 CFFT 0.2698 0.1889 0.0813 0.1698 0.4711 2100.32 0.5578 0.6719 GRPO 0.1179 0.1309 0.0003 0.0994 0.5122 2356.23 0.6248 0.7062 DAPO 0.1165 0.1356 0.0003 0.0998 0.5111 2334.65 0.6267 0.7098 GRPON 0.1182 0.1311 0.0003 0.0999 0.5044 2315.37 0.6192 0.7110 
+
+SFT → GRPON 0.3378 0.2311 0.0896 0.1839 0.4311 1710.69 0.5511 0.6501 GCPO 0.2998 0.2289 0.0829 0.1756 0.4965 2201.43 0.5876 0.6882 RCPA 0.3342 0.2325 0.0886 0.1814 0.5011 2321.40 0.6285 0.7062 S-GRPO(wo CGI) 0.3387 0.2396 0.0901 0.1896 0.5178 2301.56 0.6176 0.7001 S-GRPO 0.3376 0.2388 0.0899 0.1888 0.5211 2345.43 0.6298 0.7102 Conference XXX, 2026, Yan et al. 
+
+Table 2: Ablation study on the control threshold 𝛿 for the Conditional Ground-Truth Injection (CGI) mechanism on the COCO Caption dataset. The results illustrate a clear trade-off between domain-specific adaptation and general-purpose capability retention. While a higher 𝛿 enforces a stricter reward condition that aggressively boosts domain learning, an excessively high value (e.g., 𝛿 = 1) degrades general capabilities. The highlighted row ( 𝛿 = 0.9) represents the optimal Pareto balance. Best results are in bold, and second-best are underlined. 
+
+Datasets Methods Domain-Specific Ability General-Purpose Ability BLEU-1 ROUGE-L CIDEr SPICE MMMU MME IFEval-P IFEval-I COCO Caption BASE 0.4457 0.3672 0.2259 0.1783 0.5122 2333.36 0.6211 0.7038 S-GRPO( 𝛿 = 0) 0.4625 0.3815 0.2417 0.1908 0.5289 2351.68 0.6587 0.7415 
+
+S-GRPO( 𝛿 = 0.3) 0.5800 0.4476 0.5493 0.2099 0.5222 2331.48 0.6512 0.7404 S-GRPO( 𝛿 = 0.6) 0.6828 0.5054 0.8184 0.2266 0.5222 2313.80 0.6487 0.7396 S-GRPO( 𝛿 = 0.9) 0.7562 0.5467 1.0106 0.2385 0.5211 2301.18 0.6499 0.7387 S-GRPO( 𝛿 = 1) 0.7567 0.5471 1.0170 0.2392 0.4889 2225.65 0.5820 0.6888 
+
+## 5.3 Ablation Study 
+
+Effectiveness of Conditional Injection. To validate the core innovation of S-GRPO, we ablate the Ground-Truth Injection mech-anism on the COCO Caption dataset. As shown in Table 1, we compare three settings to demonstrate the impact of our proposed Conditional Ground-Truth Injection (CGI): (1) No Injection (Standard GRPO) : Yields near-zero learning progress due to severe reward sparsity. (2) Unconditional Injection (S-GRPO wo CGI) : The ground-truth trajectory is injected into every single sampling group regardless of the policy’s success. As indicated by the experi-mental results, while this aggressive injection strategy helps solve the cold-start problem and can even further boost domain-specific performance, it inevitably compromises the model’s general capabilities. The constant presence of the ground truth introduces a strong "teacher-forcing" bias, severely limiting the model’s autonomous exploration. (3) Conditional Ground-Truth Injection (CGI - Ours) : By uti-lizing the binary verifier to detect group failures and triggering injection strictly as a fallback, CGI achieves the optimal bal-ance. It bootstraps the gradient during early cold-start phases to ensure domain-specific learning, and gracefully steps aside when unnecessary. This allows pure preference optimization to dominate, effectively protecting the model’s general capabilities while maintaining high domain performance. 
+
+## 5.4 Parameter Study 
+
+Impact of the Control Threshold ( 𝛿 ). The hyperparameter 𝛿 
+
+regulates the strictness of the Conditional Ground-Truth Injection (CGI) mechanism. As shown in Table 2, increasing 𝛿 inherently raises the difficulty of achieving autonomous rewards, thereby trig-gering the ground-truth injection more frequently. This aggressive bootstrapping forces the model to exploit the provided trajectories, which substantially accelerates the acquisition of domain-specific knowledge (e.g., CIDEr improves dramatically from 0.2417 at 𝛿 = 0
+
+to 1.0170 at 𝛿 = 1). However, this mechanism introduces a clear trade-off. An overly stringent threshold (e.g., 𝛿 = 1) induces a persistent "teacher-forcing" effect that suppresses the model’s au-tonomous exploratory capacity. Consequently, this over-reliance exerts a severe negative impact on the preservation of pre-trained general capabilities, as evidenced by the sharp degradation in MME (dropping to 2225.65) and IFEval-I (dropping to 0.6888). Our empir-ical results demonstrate that setting 𝛿 = 0.9 achieves the optimal Pareto balance: it yields near-peak domain-specific performance (1.0106 CIDEr) while robustly preserving the model’s structural integrity and general instruction-following abilities. 
+
+## 5.5 Convergence & Learning Dynamics 
+
+Demonstrating stability and computational efficiency, Figure 3 vi-sualizes S-GRPO’s learning dynamics. Driven by CGI, it exhibits a monotonically increasing reward curve culminating in rapid con-vergence. Providing high-quality anchor trajectories during the cold-start phase smooths the non-convex optimization landscape. This targeted injection breaks the symmetry of zero-reward sam-ples, guaranteeing directional policy gradients when vulnerable to reward sparsity. As capabilities improve, CGI dynamically scales back, enabling a seamless transition from supervised bootstrapping to pure preference optimization without gradient shocks. In stark contrast, standard GRPO lacks explicit trajectory guidance and fails to secure reliable advantage estimation under the strict binary verifier. Its learning curve suffers a severe "flatline" optimiza-tion collapse, remaining trapped in a zero-gradient plateau. While standard GRPO may occasionally exhibit sporadic reward spikes from rare exploratory successes, these noisy signals are overwhelm-ingly diluted by the vast majority of failed trajectories within the sampling group. Consequently, the contrastive advantage remains uninformative, rendering these fleeting successes insufficient to drive systemic policy updates. Ultimately, the standard RL paradigm wastes computational resources on unrewarded samples, fundamen-tally failing to accumulate the necessary gradients to assimilate the requisite domain-specific knowledge. S-GRPO: Unified Post-Training for Large Vision-Language Models Conference XXX, 2026, 
+
+Figure 3: Learning dynamics and reward progression of GRPO vs. S-GRPO. Facilitated by a Ground-Truth Injection mechanism, S-GRPO demonstrates a stable, monotonically increasing reward curve leading to robust convergence. In contrast, standard GRPO lacks explicit trajectory guidance and suffers from a severe "flatline" optimization collapse under a strict binary verifier, exhibiting only sporadic, negli-gible reward spikes without accumulating any meaningful policy gradients. 
+
+## 6 Conclusion 
+
+We propose Supervised Group Relative Policy Optimization (S-GRPO), a novel unified framework that harmonizes domain knowl-edge injection and preference optimization into a single on-policy post-training stage. By introducing the Conditional Ground-Truth Injection (CGI) mechanism alongside a strict binary verifier, S-GRPO effectively resolves the optimization collapse and reward sparsity problems inherent in cold-start RL. Extensive experiments across diverse non-deep-thinking visual tasks demonstrate that S-GRPO achieves domain adaptation competitive with full fine-tuning, while significantly outperforming established two-stage pipelines in preserving the structural integrity and general-purpose capabilities of LVLMs. S-GRPO provides a robust, computationally elegant pathway for scaling specialized multimodal alignment. 
+
+## References 
+
+[1] Peter Anderson, Basura Fernando, Mark Johnson, and Stephen Gould. 2016. Spice: Semantic propositional image caption evaluation. In European conference on computer vision . Springer, 382–398. [2] Jinze Bai, Shuai Bai, Shusheng Yang, Shijie Wang, Sinan Tan, Peng Wang, Junyang Lin, Chang Zhou, and Jingren Zhou. 2023. Qwen-VL: A Versatile Vision-Language Model for Understanding, Localization, Text Reading, and Beyond. arXiv preprint arXiv:2308.12966 (2023). [3] Shuai Bai, Yuxuan Cai, Ruizhe Chen, Keqin Chen, Xionghui Chen, Zesen Cheng, Lianghao Deng, Wei Ding, Chang Gao, Chunjiang Ge, Wenbin Ge, Zhifang Guo, Qidong Huang, Jie Huang, Fei Huang, Binyuan Hui, Shutong Jiang, Zhaohai Li, Mingsheng Li, Mei Li, Kaixin Li, Zicheng Lin, Junyang Lin, Xuejing Liu, Jiawei Liu, Chenglong Liu, Yang Liu, Dayiheng Liu, Shixuan Liu, Dunjie Lu, Ruilin Luo, Chenxu Lv, Rui Men, Lingchen Meng, Xuancheng Ren, Xingzhang Ren, Sibo Song, Yuchong Sun, Jun Tang, Jianhong Tu, Jianqiang Wan, Peng Wang, Pengfei Wang, Qiuyue Wang, Yuxuan Wang, Tianbao Xie, Yiheng Xu, Haiyang Xu, Jin Xu, Zhibo Yang, Mingkun Yang, Jianxin Yang, An Yang, Bowen Yu, Fei Zhang, Hang Zhang, Xi Zhang, Bo Zheng, Humen Zhong, Jingren Zhou, Fan Zhou, Jing Zhou, Yuanzhi Zhu, and Ke Zhu. 2025. Qwen3-VL Technical Report. arXiv preprint arXiv:2511.21631 (2025). [4] Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Sibo Song, Kai Dang, Peng Wang, Shijie Wang, Jun Tang, Humen Zhong, Yuanzhi Zhu, Mingkun Yang, Zhaohai Li, Jianqiang Wan, Pengfei Wang, Wei Ding, Zheren Fu, Yiheng Xu, Jiabo Ye, Xi Zhang, Tianbao Xie, Zesen Cheng, Hang Zhang, Zhibo Yang, Haiyang Xu, and Junyang Lin. 2025. Qwen2.5-VL Technical Report. arXiv preprint arXiv:2502.13923 (2025). [5] Jiawei Chen, Dingkang Yang, Yue Jiang, Mingcheng Li, Jinjie Wei, Xiaolu Hou, and Lihua Zhang. 2024. Efficiency in Focus: LayerNorm as a Catalyst for Fine-tuning Medical Visual Language Models. In Proceedings of the 32nd ACM International Conference on Multimedia . 3122–3130. [6] Xinlei Chen, Hao Fang, Tsung-Yi Lin, Ramakrishna Vedantam, Saurabh Gupta, Pi-otr Dollár, and C Lawrence Zitnick. 2015. Microsoft coco captions: Data collection and evaluation server. arXiv preprint arXiv:1504.00325 (2015). [7] Zhe Chen, Weiyun Wang, Yue Cao, Yangzhou Liu, Zhangwei Gao, Erfei Cui, Jinguo Zhu, Shenglong Ye, Hao Tian, Zhaoyang Liu, et al . 2024. Expanding Performance Boundaries of Open-Source Multimodal Models with Model, Data, and Test-Time Scaling. arXiv preprint arXiv:2412.05271 (2024). [8] Zhe Chen, Jiannan Wu, Wenhai Wang, Weijie Su, Guo Chen, Sen Xing, Muyan Zhong, Qinglong Zhang, Xizhou Zhu, Lewei Lu, et al . 2024. Internvl: Scaling up vision foundation models and aligning for generic visual-linguistic tasks. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition .24185–24198. [9] Tianzhe Chu, Yuexiang Zhai, Jihan Yang, Shengbang Tong, Saining Xie, Dale Schuurmans, Quoc V Le, Sergey Levine, and Yi Ma. 2025. Sft memorizes, rl generalizes: A comparative study of foundation model post-training. arXiv preprint arXiv:2501.17161 (2025). [10] Dina Demner-Fushman, Sameer Antani, Matthew Simpson, and George R Thoma. 2012. Design and development of a multimodal biomedical information retrieval system. Journal of Computing Science and Engineering 6, 2 (2012), 168–177. [11] Huilin Deng, Ding Zou, Rui Ma, Hongcheng Luo, Yang Cao, and Yu Kang. 2025. Boosting the Generalization and Reasoning of Vision Language Models with Curriculum Reinforcement Learning. ArXiv abs/2503.07065 (2025). https://api. semanticscholar.org/CorpusID:276903531 [12] Hongyuan Dong, Zijian Kang, Weijie Yin, Xiao Liang, Chao Feng, and Jiao Ran. 2025. Scalable vision language model training via high quality data curation. 
+
+arXiv preprint arXiv:2501.05952 (2025). [13] Zhizhao Duan, Hao Cheng, Duo Xu, Xi Wu, Xiangxie Zhang, Xi Ye, and Zhen Xie. 2024. Cityllava: Efficient fine-tuning for vlms in city scenario. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 7180–7189. [14] Chaoyou Fu, Peixian Chen, Yunhang Shen, Yulei Qin, Mengdan Zhang, Xu Lin, Zhenyu Qiu, Wei Lin, Jinrui Yang, Xiawu Zheng, Ke Li, Xing Sun, and Rongrong Ji. 2023. MME: A Comprehensive Evaluation Benchmark for Multimodal Large Language Models. ArXiv abs/2306.13394 (2023). https://api.semanticscholar.org/ CorpusID:259243928 [15] Jiahui Gao, Renjie Pi, Jipeng Zhang, Jiacheng Ye, Wanjun Zhong, Yufei Wang, Lanqing HONG, Jianhua Han, Hang Xu, Zhenguo Li, and Lingpeng Kong. 2025. G-LLaVA: Solving Geometric Problem with Multi-Modal Large Language Model. In The Thirteenth International Conference on Learning Representations . https: //openreview.net/forum?id=px1674Wp3C [16] Zhangwei Gao, Zhe Chen, Erfei Cui, Yiming Ren, Weiyun Wang, Jinguo Zhu, Hao Tian, Shenglong Ye, Junjun He, Xizhou Zhu, et al . 2024. Mini-InternVL: a flexible-transfer pocket multi-modal model with 5% parameters and 90% performance. 
+
+Visual Intelligence 2, 1 (2024), 1–17. [17] J. Edward Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, and Weizhu Chen. 2021. LoRA: Low-Rank Adaptation of Large Language Models. ArXiv abs/2106.09685 (2021). https://api.semanticscholar.org/CorpusID: 235458009 [18] James Kirkpatrick, Razvan Pascanu, Neil C. Rabinowitz, Joel Veness, Guillaume Desjardins, Andrei A. Rusu, Kieran Milan, John Quan, Tiago Ramalho, Agnieszka Grabska-Barwinska, Demis Hassabis, Claudia Clopath, Dharshan Kumaran, and Raia Hadsell. 2016. Overcoming catastrophic forgetting in neural networks. 
+
+Proceedings of the National Academy of Sciences 114 (2016), 3521 – 3526. https: //api.semanticscholar.org/CorpusID:4704285 [19] Komal Kumar, Tajamul Ashraf, Omkar Thawakar, Rao Muhammad Anwer, Hisham Cholakkal, Mubarak Shah, Ming-Hsuan Yang, Phillip H. S. Torr, Fa-had Shahbaz Khan, and Salman Khan. 2025. LLM Post-Training: A Deep Dive into Reasoning Large Language Models. arXiv:2502.21321 [cs.CL] https: //arxiv.org/abs/2502.21321 [20] Yuxiang Lai, Jike Zhong, Ming Li, Shitian Zhao, and Xiaofeng Yang. 2025. Med-r1: Reinforcement learning for generalizable medical reasoning in vision-language models. arXiv preprint arXiv:2503.13939 (2025). [21] Junnan Li, Ramprasaath R. Selvaraju, Akhilesh Deepak Gotmare, Shafiq R. Joty, Caiming Xiong, and Steven C. H. Hoi. 2021. Align before Fuse: Vision and Language Representation Learning with Momentum Distillation. In Neural Infor-mation Processing Systems . https://api.semanticscholar.org/CorpusID:236034189 [22] Xiang Lisa Li and Percy Liang. 2021. Prefix-Tuning: Optimizing Continuous Prompts for Generation. Proceedings of the 59th Annual Meeting of the Asso-ciation for Computational Linguistics and the 11th International Joint Confer-ence on Natural Language Processing (Volume 1: Long Papers) (2021), 4582–4597. https://api.semanticscholar.org/CorpusID:230433941 [23] Yue Li, Meng Tian, Dechang Zhu, Jiangtong Zhu, Zhenyu Lin, Zhiwei Xiong, and Xinhai Zhao. 2025. Drive-R1: Bridging Reasoning and Planning in VLMs for Au-tonomous Driving with Reinforcement Learning. arXiv preprint arXiv:2506.18234 Conference XXX, 2026, Yan et al. 
+
+(2025). [24] Chin-Yew Lin. 2004. Rouge: A package for automatic evaluation of summaries. In Text summarization branches out . 74–81. [25] Yong Lin, Lu Tan, Hangyu Lin, Wei Xiong, Zeming Zheng, Renjie Pi, Jipeng Zhang, Shizhe Diao, Haoxiang Wang, Hanze Dong, Han Zhao, Yuan Yao, and T. Zhang. 2023. Mitigating the Alignment Tax of RLHF. In Conference on Empirical Meth-ods in Natural Language Processing . https://api.semanticscholar.org/CorpusID: 261697277 [26] Haotian Liu, Chunyuan Li, Yuheng Li, and Yong Jae Lee. 2023. Improved Baselines with Visual Instruction Tuning. [27] Haotian Liu, Chunyuan Li, Yuheng Li, Bo Li, Yuanhan Zhang, Sheng Shen, and Yong Jae Lee. 2024. LLaVA-NeXT: Improved reasoning, OCR, and world knowl-edge. https://llava-vl.github.io/blog/2024-01-30-llava-next/ [28] Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. 2023. Visual Instruc-tion Tuning. In NeurIPS .[29] Long Ouyang, Jeff Wu, Xu Jiang, Diogo Almeida, Carroll L. Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, John Schul-man, Jacob Hilton, Fraser Kelton, Luke E. Miller, Maddie Simens, Amanda Askell, Peter Welinder, Paul Francis Christiano, Jan Leike, and Ryan J. Lowe. 2022. Training language models to follow instructions with human feedback. ArXiv 
+
+abs/2203.02155 (2022). https://api.semanticscholar.org/CorpusID:246426909 [30] Kishore Papineni, Salim Roukos, Todd Ward, and Wei-Jing Zhu. 2002. Bleu: a Method for Automatic Evaluation of Machine Translation. In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics , Pierre Isabelle, Eugene Charniak, and Dekang Lin (Eds.). Association for Computational Linguistics, Philadelphia, Pennsylvania, USA, 311–318. doi:10.3115/1073083. 1073135 [31] Qwen Team. 2026. Qwen3.5: Towards Native Multimodal Agents. https://qwen. ai/blog?id=qwen3.5 [32] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. 2021. Learning Transferable Visual Models From Natural Language Supervision. In International Conference on Machine Learning . https://api.semanticscholar.org/CorpusID:231591445 [33] Rafael Rafailov, Archit Sharma, Eric Mitchell, Stefano Ermon, Christopher D. Manning, and Chelsea Finn. 2023. Direct Preference Optimization: Your Language Model is Secretly a Reward Model. ArXiv abs/2305.18290 (2023). https://api. semanticscholar.org/CorpusID:258959321 [34] John Schulman, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. 2017. Proximal Policy Optimization Algorithms. ArXiv abs/1707.06347 (2017). https://api.semanticscholar.org/CorpusID:28695052 [35] Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Jun-Mei Song, Mingchuan Zhang, Y. K. Li, Yu Wu, and Daya Guo. 2024. DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models. ArXiv abs/2402.03300 (2024). https://api.semanticscholar.org/CorpusID:267412607 [36] Kimi Team, Tongtong Bai, Yifan Bai, Yiping Bao, and et al. S. H. Cai. 2026. Kimi K2.5: Visual Agentic Intelligence. arXiv:2602.02276 [cs.CL] https://arxiv.org/abs/ 2602.02276 [37] Qwen Team. 2025. Qwen3 Technical Report. arXiv:2505.09388 [cs.CL] https: //arxiv.org/abs/2505.09388 [38] Ramakrishna Vedantam, C. Lawrence Zitnick, and Devi Parikh. 2014. CIDEr: Consensus-based image description evaluation. 2015 IEEE Conference on Com-puter Vision and Pattern Recognition (CVPR) (2014), 4566–4575. https://api. semanticscholar.org/CorpusID:9026666 [39] Peng Wang, Shuai Bai, Sinan Tan, Shijie Wang, Zhihao Fan, Jinze Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Yang Fan, Kai Dang, Mengfei Du, Xuancheng Ren, Rui Men, Dayiheng Liu, Chang Zhou, Jingren Zhou, and Junyang Lin. 2024. Qwen2-VL: Enhancing Vision-Language Model’s Perception of the World at Any Resolution. arXiv preprint arXiv:2409.12191 (2024). [40] Weiyun Wang, Zhe Chen, Wenhai Wang, Yue Cao, Yangzhou Liu, Zhangwei Gao, Jinguo Zhu, Xizhou Zhu, Lewei Lu, Yu Qiao, and Jifeng Dai. 2024. Enhancing the Reasoning Ability of Multimodal Large Language Models via Mixed Preference Optimization. arXiv preprint arXiv:2411.10442 (2024). [41] Weiyun Wang, Zhangwei Gao, Lixin Gu, Hengjun Pu, Long Cui, Xingguang Wei, Zhaoyang Liu, Linglin Jing, Shenglong Ye, Jie Shao, et al . 2025. InternVL3.5: Ad-vancing Open-Source Multimodal Models in Versatility, Reasoning, and Efficiency. 
+
+arXiv preprint arXiv:2508.18265 (2025). [42] Haolin Wu and Wei Liu. 2025. GCPO: When Contrast Fails, Go Gold. ArXiv 
+
+abs/2510.07790 (2025). https://api.semanticscholar.org/CorpusID:281950789 [43] Zhiheng Xi, Wenxiang Chen, Boyang Hong, Senjie Jin, Rui Zheng, Wei He, Yiwen Ding, Shichun Liu, Xin Guo, Junzhe Wang, Honglin Guo, Wei Shen, Xiaoran Fan, Yuhao Zhou, Shihan Dou, Xiao Wang, Xinbo Zhang, Peng Sun, Tao Gui, Qi Zhang, and Xuanjing Huang. 2024. Training Large Language Models for Reasoning through Reverse Curriculum Reinforcement Learning. In International Conference on Machine Learning . https://api.semanticscholar.org/CorpusID:267547500 [44] Wenyi Xiao and Leilei Gan. 2025. Fast-Slow Thinking GRPO for Large Vision-Language Model Reasoning. https://api.semanticscholar.org/CorpusID: 278129704 [45] Yuming Yan, Shuo Yang, Kai Tang, Sihong Chen, Yang Zhang, Ke Xu, Dan Hu, Qun Yu, Pengfei Hu, and Edith C. H. Ngai. 2026. Reinforced Curriculum Pre-Alignment for Domain-Adaptive VLMs. ArXiv abs/2602.10740 (2026). https: //api.semanticscholar.org/CorpusID:285469986 [46] Qiying Yu, Zheng Zhang, Ruofei Zhu, Yufeng Yuan, Xiaochen Zuo, Yu Yue, Tiantian Fan, Gaohong Liu, Lingjun Liu, Xin Liu, Haibin Lin, Zhiqi Lin, Bole Ma, Guangming Sheng, Yuxuan Tong, Chi Zhang, Mofan Zhang, Wang Zhang, Hang Zhu, Jinhua Zhu, Jiaze Chen, Jiangjie Chen, Chengyi Wang, Honglin Yu, Weinan Dai, Yuxuan Song, Xiang Wei, Haodong Zhou, Jingjing Liu, Wei Ma, Ya-Qin Zhang, Lin Yan, Mu Qiao, Yong-Xu Wu, and Mingxuan Wang. 2025. DAPO: An Open-Source LLM Reinforcement Learning System at Scale. ArXiv abs/2503.14476 (2025). https://api.semanticscholar.org/CorpusID:277104124 [47] Wei Zhang, Yi Chen, Xiaoshuai Wang, and Hongsheng Li. 2025. On-Policy Reward Modeling for Stable Reinforcement Learning in Vision-Language Models. IEEE Transactions on Pattern Analysis and Machine Intelligence 47 (2025), 1245–1258. [48] Xichen Zhang, Sitong Wu, Yinghao Zhu, Haoru Tan, Shaozuo Yu, Ziyi He, and Jiaya Jia. 2025. Scaf-GRPO: Scaffolded Group Relative Policy Optimiza-tion for Enhancing LLM Reasoning. ArXiv abs/2510.19807 (2025). https: //api.semanticscholar.org/CorpusID:282272776 [49] Chujie Zheng, Shixuan Liu, Mingze Li, Xionghui Chen, Bowen Yu, Chang Gao, Kai Dang, Yuqiong Liu, Rui Men, An Yang, Jingren Zhou, and Junyang Lin. 2025. Group Sequence Policy Optimization. ArXiv abs/2507.18071 (2025). https: //api.semanticscholar.org/CorpusID:280017753 [50] Yaowei Zheng, Junting Lu, Shenzhi Wang, Zhangchi Feng, Dongdong Kuang, and Yuwen Xiong. 2025. EasyR1: An Efficient, Scalable, Multi-Modality RL Training Framework. https://github.com/hiyouga/EasyR1. [51] Yaowei Zheng, Richong Zhang, Junhao Zhang, Yanhan Ye, Zheyan Luo, Zhangchi Feng, and Yongqiang Ma. 2024. LlamaFactory: Unified Efficient Fine-Tuning of 100+ Language Models. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 3: System Demonstrations) .Association for Computational Linguistics, Bangkok, Thailand. http://arxiv.org/ abs/2403.13372 [52] Jeffrey Zhou, Tianjian Lu, Swaroop Mishra, Siddhartha Brahma, Sujoy Basu, Yi Luan, Denny Zhou, and Le Hou. 2023. Instruction-Following Evaluation for Large Language Models. ArXiv abs/2311.07911 (2023). https://api.semanticscholar.org/ CorpusID:265157752 [53] Jinguo Zhu, Weiyun Wang, Zhe Chen, Zhaoyang Liu, Shenglong Ye, Lixin Gu, Hao Tian, Yuchen Duan, Weijie Su, Jie Shao, et al . 2025. Internvl3: Exploring advanced training and test-time recipes for open-source multimodal models. 
+
+arXiv preprint arXiv:2504.10479 (2025).

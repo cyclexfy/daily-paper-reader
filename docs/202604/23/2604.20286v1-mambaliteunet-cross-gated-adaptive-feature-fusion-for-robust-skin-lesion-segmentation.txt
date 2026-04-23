@@ -1,0 +1,544 @@
+Title: MambaLiteUNet: Cross-Gated Adaptive Feature Fusion for Robust Skin Lesion Segmentation
+
+URL Source: https://arxiv.org/pdf/2604.20286v1
+
+Published Time: Thu, 23 Apr 2026 00:40:18 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# MambaLiteUNet: Cross-Gated Adaptive Feature Fusion for Robust Skin Lesion Segmentation 
+
+## Md Maklachur Rahman 1 Soon Ki Jung 2 Tracy Hammond 11Texas A&M University, College Station, TX, USA 
+
+> 2
+
+## Kyungpook National University, Daegu, South Korea  
+
+> {maklachur,hammond }@tamu.edu skjung@knu.ac.kr
+
+## Abstract 
+
+Recent segmentation models have demonstrated promising efficiency by aggressively reducing parameter counts and computational complexity. However, these models often struggle to accurately delineate fine lesion boundaries and texture patterns essential for early skin cancer diagnosis and treatment planning. In this paper, we propose Mam-baLiteUNet, a compact yet robust segmentation framework that integrates Mamba state space modeling into a U-Net architecture, along with three key modules: Adaptive Multi-Branch Mamba Feature Fusion (AMF), Local-Global Fea-ture Mixing (LGFM), and Cross-Gated Attention (CGA). These modules are designed to enhance local–global fea-ture interaction, preserve spatial details, and improve the quality of skip connections. MambaLiteUNet achieves an average IoU of 87.12% and average Dice score of 93.09% across ISIC2017, ISIC2018, HAM10000, and PH2 bench-marks, outperforming state-of-the-art models. Compared to U-Net, our model improves average IoU and Dice by 7.72 and 4.61 points, respectively, while reducing param-eters by 93.6% and GFLOPs by 97.6%. Additionally, in domain generalization with six unseen lesion categories, MambaLiteUNet achieves 77.61% IoU and 87.23% Dice, performing best among all evaluated models. Our extensive experiments demonstrate that MambaLiteUNet achieves a strong balance between accuracy and efficiency, making it a competitive and practical solution for dermatological image segmentation. Our code is publicly available at: https://github.com/maklachur/MambaLiteUNet. 
+
+## 1. Introduction 
+
+Skin lesion segmentation is a fundamental task in computer-aided dermatological diagnosis, important for early cancer detection [9], treatment planning [32], and disease moni-toring [30]. Precise lesion boundary delineation is espe-cially important because subtle irregularities in shape, size, and extent may indicate malignancy, particularly in early-stage melanoma [13]. However, accurate segmentation re-mains challenging due to low contrast between lesions and surrounding skin, large variations in lesion appearance and morphology [32], and imaging artifacts such as hair occlu-sions and specular reflections [13]. These difficulties be-come even more critical in mobile and point-of-care set-tings, where segmentation models must maintain strong ac-curacy under limited computational resources. Encoder-decoder convolutional networks [23, 25, 26, 29, 39, 43] have long been the popular choice for medical im-age segmentation because they efficiently capture local tex-tures and support dense prediction. However, convolution-based models struggle to model long-range spatial depen-dencies, which are important for lesions with irregular boundaries, disconnected regions, or ambiguous appear-ance. Transformer-based models improve global context modeling, but their quadratic complexity leads to substan-tial memory and computation overhead, which makes them less suitable for lightweight deployment. Recently, State Space Models (SSMs), particularly Mamba-based vision architectures, have emerged as apromising alternative for modeling long-range dependen-cies with linear-time complexity [12, 19, 44]. This makes them promising for dense prediction tasks that require both efficiency and broad contextual reasoning. However, exist-ing Mamba-based segmentation models often rely on static feature fusion and conventional skip connections, which can limit multi-scale representation learning and weaken boundary refinement in challenging lesion regions. We address these limitations by introducing MambaLi-teUNet, a lightweight yet robust skin lesion segmentation framework that combines Vision Mamba state space layers [19] with a compact U-Net backbone [25, 26]. We introduce three novel modules to enhance the overall discriminative ability of our model, which helps improve lesion segmen-tation performance without adding excessive computational complexity (Figure 1). Specifically, Adaptive Multi-Branch Mamba Feature Fusion (AMF) dynamically partitions fea-1
+
+> arXiv:2604.20286v1 [cs.CV] 22 Apr 2026 Figure 1. Complexity–performance trade-off of SOTA segmentation models based on average IoU and average DSC across ISIC2017, ISIC2018, HAM10000, and PH2 datasets.
+
+ture channels into parallel state space branches and em-ploys dual gating mechanisms to enhance multi-scale fea-ture representation. Local-Global Feature Mixing (LGFM) jointly leverages depthwise convolutions and multi-head self-attention to precisely capture both local texture details and global contextual information. Cross-Gated Attention (CGA) selectively filters and refines skip connections be-tween encoder and decoder paths, significantly improving boundary delineation and spatial consistency. In summary, our key contributions are as follows: • We propose MambaLiteUNet, a robust segmentation framework that effectively integrates Vision Mamba state-space modeling into a lightweight U-Net pipeline. • We introduce AMF, LGFM, and CGA modules to im-prove multi-scale feature aggregation, enhance local and global context fusion, and refine encoder–decoder inter-actions for accurate boundary delineation. • Extensive experiments on ISIC2017 [6], ISIC2018 [5], HAM10000 [32], and PH2 [22] show MambaLiteUNet achieves top performance across all datasets, with an av-erage of 93.09% Dice and 87.12% IoU, outperforming recent state-of-the-art (SOTA) models. In a domain gen-eralization test on six unseen lesion types (AKIEC, BCC, BKL, DF, MEL, VASC) of HAM10000, it demonstrates strong generalization, with 87.23% Dice and 77.61% IoU, confirming its robustness. 
+
+## 2. Related Work 
+
+Medical image segmentation has been widely studied using encoder–decoder architectures, with U-Net [26] and its vari-ants [23, 28, 29, 35, 39, 43] forming the main foundation. These CNN-based models are efficient and effective at cap-turing local lesion appearance, but their locality often limits long-range spatial reasoning, which is important for lesions with irregular boundaries, disconnected regions, or low con-trast. Transformer-based methods, such as TransUNet [4], TransFuse [42], UTNetV2 [11], ASwin U-Net [1], and DS-TransUNet [18], improve global context modeling through self-attention. However, their quadratic complexity leads to higher memory and computational cost, which reduces their practicality in resource-constrained settings. Recently, SSMs, especially Mamba-based vision archi-tectures, have emerged as an efficient alternative for mod-eling long-range dependencies with linear-time complexity [12, 19, 24, 44]. Vision Mamba [44] and VMamba [19] show that state-space modeling can be effectively adapted to visual tasks while preserving scalability. Following this line of work, segmentation methods such as VM-UNet [27, 41], VM-UNet2 [41], LightM-UNet [17], and ULVM-UNet [36] incorporate Mamba-style modules for skin lesion segmenta-tion. These methods improve the efficiency–accuracy trade-off, but many still rely on fixed feature fusion and standard skip connections, which can limit multi-scale interaction and boundary refinement. In parallel, lightweight segmentation models have been developed to reduce parameters and FLOPs for practi-cal deployment, including UNeXt-S [33], SCR-Net [35], MALUNet [28], EGE-UNet [29], LB-UNet [39], LightM-UNet [17], ULVM-UNet [36], and AULUNet [25]. Al-though these models are computationally efficient, a com-pact design can come with weaker multi-scale represen-tation learning and less precise boundary recovery under challenging lesion variations. In contrast, MambaLiteUNet combines Vision Mamba modeling with adaptive multi-branch fusion [38], local-global feature mixing, and cross-gated skip refinement, which improves lesion representation 2Figure 2. (a) Overall MambaLiteUNet pipeline. (b) Mamba block: Integrate SS2D [19], leveraging SSM [12] to process 2D visual data. (c) AMF: Merge parallel Mamba branches via learnable dual adaptive gating  S and  T . (d) LGFM: Fuse local features (depthwise convolutions) with global context (multi-head attention). (e) CGA: Enhance skip connections using encoder-decoder features. 
+
+and boundary delineation while maintaining low computa-tional cost. 
+
+## 3. Methodology 
+
+3.1. Overall Architecture 
+
+The overall pipeline of our model is shown in Figure 2(a). It follows a U-Net-inspired design [26, 43] with five stages and a bottleneck. The encoder increases channels and the decoder gradually reduces them, using channel capacities of {16 , 32 , 48 , 64 , 96 , 128 }. The early stages use standard convolutions with Group Normalization, while the deeper stages incorporate AMF and LGFM for stronger feature learning. Downsampling is performed by max pooling. Each skip connection is refined by CGA before fusion with decoder features. Finally, a 1 × 1 convolution followed by a sigmoid activation produces the lesion probability map. 
+
+3.2. Mamba Block for State Space Modeling 
+
+We derive our Mamba block (Figure 2(b)) from VMamba [19], forming the core of our AMF and CGA modules, as shown in Figure 2(c) and 2(e), respectively. Starting with layer normalized tokens  K ∈ RB×N ×C
+
+(where  N = H × W ), we first compute a gating map  G = SiLU( K W g ), with a learnable projection 
+
+Wg ∈ RC×C and  SiLU  activation [8]. In parallel, we apply a second learnable projection  Wz ∈ RC×C , followed by SiLU, a 3 × 3 depthwise convolution, and the SS2D module [12, 19]. SS2D scans tokens in four directions, processes each sequence with an independent S6 block [12], and ag-gregates the outputs into a global context feature. We then apply layer normalization (LN) to obtain  H. Finally, we fuse local and global information by elementwise product 
+
+Y = G ⊙ H, generating transformer-level receptive fields in linear time. 
+
+3.3. Adaptive Multi-Branch Mamba Feature Fusion (AMF) 
+
+Our AMF module (Figure 2(c)) enhances representational richness by unifying diverse feature streams through paral-lel Mamba-based SSM blocks and dynamic gating. Given an input tensor X ∈ RB×C×H×W , we first split its chan-nels into four equal groups  {Xk ∈ RB× C  
+
+> 4×H×W
+
+}4
+
+> k=1
+
+.Each group passes through a Mamba block that captures long-range dependencies via a state-space formulation. We add a scaled residual to preserve low-level features: 
+
+Zk = Mamba k(Xk) + α X k, k = 1 . . . 4. (1) 3Here,  α is a trainable scalar initialized to 0, enabling the network to progressively modulate the residual contribution over training. Concatenating  {Zk} along the channel axis yields  Zcat ∈ RB×C×H×W , ensuring sensitivity to both fine structures and global context. To adaptively emphasize the most informative channels, we apply a two-stage gating pipeline. In the first spatial (S) stage, we compute 
+
+S = σ
+
+
+
+PW  DW 3×3(Zcat )
+
+, (2) where  DW 3×3 denotes a 3 × 3 depth-wise convolution and 
+
+PW  a point-wise convolution. The sigmoid activation  σ
+
+produces a gating tensor  S ∈ RB×C×H×W . We then scale each branch Sk by elementwise product ⊙ with Zk as: 
+
+ZSk = Sk ⊙ Zk, k = 1 . . . 4, (3) and concatenate  {ZSk } into  ZS
+
+> cat
+
+. In the second trans-form (T) stage,  ZS 
+
+> cat
+
+is further refined by another pair of depth-wise and point-wise convolutions with a residual shortcut to yield gated tensor  T . Finally, we fuse it with the original input ( Fint = T + X) and forward it to the LGFM module (Section 3.4). This design enables AMF to learn per-channel importance in a lightweight, multi-branch way. 
+
+3.4. Local-Global Feature Mixing (LGFM) 
+
+LGFM, shown in Figure 2(d), refines the intermediate fea-ture Fint ∈ RB×C×H×W by integrating fine-grained details with global context. We first extract local patterns Fℓ us-ing a 3 × 3 depthwise convolution. In parallel, we capture global dependencies via multi-head self-attention [7, 34] with eight heads  h = 8 , ensuring at each stage that  C is divisible by  h (so head dim  = C/h ). We flatten spatial di-mensions to tokens  N = H × W , project to queries, keys, and values, apply attention across  h heads, then reshape back to  RB×C×H×W to obtain  Fg . We fuse these two paths into Fℓg by channel-concatenation and projection: 
+
+Fℓg = DW 3×3
+
+
+
+GELU  LN  Conv 1×1([ Fℓ, F g ])  
+
+, (4) where  Conv 1×1 reduces  2C channels back to  C, LN  de-notes LayerNorm, and GELU [14] adds nonlinearity. This dual-path preserves lesion textures and integrates long-range features critical for accurate boundary delineation. 
+
+3.5. Cross-Gated Attention (CGA) 
+
+We enhance skip connections with a CGA mechanism, shown in Figure 2(e), that adaptively filters and fuses en-coder and decoder features. Let x, g ∈ RB×C×H×W
+
+denote encoder and decoder feature maps, respectively. We divide each into four pairs  {xi, g i}4
+
+> i=1
+
+. Each pair is refined via a Mamba block, producing  h(x) 
+
+> i
+
+and  h(g) 
+
+> i
+
+. We then pass it through a  3 × 3 depth-wise convolution to derive g′ 
+
+> i
+
+and 
+
+x′
+
+> i
+
+, and then compute a pairwise cross-gating as follows: 
+
+cross i = h(x) 
+
+> i
+
+⊙ σ g′
+
+> i
+
+ + h(g) 
+
+> i
+
+⊙ σ x′
+
+> i
+
+, (5) where  σ is sigmoid. Similarly, we compute the remaining pairs’ gating and concatenate them to obtain  Zcat .Using  Zcat , we generate an attention mask  ψ and apply it to the encoder feature  x as follows: 
+
+ψ = σ Conv 3×3(ReLU(BN( Zcat ))) , (6) 
+
+xatt = ψ ⊙ x.  (7) We then pass the attentional feature to the next de-coder. The gated skip connection learns discriminative features by assigning more weight to foreground and less to background features. Therefore, it reduces background noise and emphasizes important lesion structures before they combine with decoder outputs in the next stage. 
+
+## 4. Experiments and Results 
+
+4.1. Datasets, Implementations, and Evaluations 
+
+We evaluate our model on four widely used skin lesion segmentation benchmarks: ISIC2017 [6], ISIC2018 [5], HAM10000 [32], and PH2 [22]. ISIC2017 and ISIC2018 were curated by the International Skin Imaging Collabora-tion (ISIC) and provide high-quality dermoscopic images with lesion masks. HAM10000 is a diverse dataset with over 10,000 dermatoscopic images across seven lesion cat-egories: melanocytic nevi (NV), melanoma (MEL), benign keratosis-like lesions (BKL), basal cell carcinoma (BCC), actinic keratoses and intraepithelial carcinoma (AKIEC), vascular lesions (VASC), and dermatofibroma (DF). PH2 is a smaller dataset of 200 dermoscopic images, mainly fo-cused on melanocytic lesions with expert-annotated masks. Following prior works [17, 27, 36, 40], we adopt the training, validation, and test splits for ISIC2017 and ISIC2018. For HAM10000, we follow the dataset prepa-ration strategy in [16]. For the cross-domain evaluation set-ting, we follow MatchSeg [16] and train the model exclu-sively on the dominant NV (melanocytic nevi) class, test-ing its ability to generalize to the six unseen lesion types (MEL, BKL, BCC, AKIEC, VASC, and DF). This setting reflects a realistic clinical scenario where labeled data is available for common benign cases, but pixel-level anno-tations are scarce for rarer or malignant lesions. For PH2, we split the data into train–val–test sets in a 7 : 1 : 2 ratio. For all datasets, the input images are normalized, resized to 
+
+256 × 256 , and augmented to improve the robustness. We conduct all experiments on a single NVIDIA GeForce RTX 3090 Ti GPU with 24 GB of VRAM. We train our model using a combination of binary cross-entropy (BCE) and Dice loss (Dice) [3], defined as: 
+
+4Model ISIC2017 ISIC2018 HAM10000 IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑ IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑ IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑
+
+U-Net [26] 79.55 .24 88.61 .26 95.72 .20 97.43 .22 88.36 .64 74.64 .25 85.48 .28 94.18 .18 97.66 .24 81.17 .69 83.07 .28 90.75 .30 95.21 .19 96.02 .26 92.84 .71 
+
+SCR-Net [35] 78.57 .28 88.00 .31 95.60 .21 97.93 .24 85.57 .78 79.27 .46 88.44 .42 95.06 .20 96.54 .27 89.52 .82 85.86 .40 92.39 .37 96.09 .22 96.85 .29 93.86 .77 
+
+TransFuse [42] 80.17 .31 89.00 .29 95.94 .18 97.98 .26 87.14 .70 78.75 .36 88.11 .33 94.80 .19 95.74 .28 91.28 .73 84.59 .34 91.65 .32 95.53 .21 95.02 .27 97.03 .66 
+
+UTNetV2 [11] 78.35 .19 87.86 .22 95.54 .23 98.05 .27 84.85 .82 77.46 .31 87.30 .29 94.60 .21 96.48 .25 87.60 .76 75.82 .26 86.25 .25 92.32 .24 91.33 .31 95.24 .68 
+
+ASwin U-Net [1] 78.37 .23 87.87 .27 95.53 .19 97.87 .25 85.52 .75 74.62 .24 85.46 .27 94.19 .22 97.66 .26 81.17 .71 81.96 .33 90.09 .28 94.56 .23 93.52 .30 97.66 .59 
+
+C2SDG [15] 80.73 .40 89.34 .38 96.01 .17 97.72 .23 88.65 .66 80.00 .45 88.88 .43 95.22 .19 96.53 .24 90.32 .70 81.34 .29 89.71 .27 94.37 .21 93.48 .28 97.00 .62 
+
+UNeXt-S [33] 80.91 .37 89.45 .35 96.06 .18 98.06 .29 87.58 .74 80.29 .52 89.07 .50 95.57 .20 98.18 .27 85.77 .68 84.69 .36 91.71 .35 95.90 .22 97.97 .25 89.78 .73 
+
+MALUNet [28] 80.37 .34 89.11 .33 95.93 .19 97.70 .24 88.33 .69 81.03 .66 89.52 .64 95.58 .18 97.35 .26 89.00 .76 86.18 .41 92.58 .39 96.24 .21 97.44 .23 92.69 .71 
+
+EGE-UNet [29] 83.08 .55 90.76 .52 96.55 .16 98.22 .21 89.40 .62 79.82 .38 88.78 .40 95.19 .17 96.48 .23 90.35 .63 87.78 .47 93.48 .44 96.61 .20 96.81 .24 96.02 .76 
+
+VM-UNet [27] 82.55 .43 90.44 .45 96.46 .18 98.32 .22 88.50 .64 80.96 .63 89.48 .61 95.61 .19 97.55 .25 88.36 .73 86.68 .43 92.87 .41 96.34 .19 97.08 .22 94.15 .61 
+
+VM-UNet2 [41] 82.38 .39 90.34 .41 96.44 .17 98.49 .20 87.68 .60 80.65 .59 89.29 .57 95.45 .20 97.02 .24 89.59 .78 87.79 .48 93.50 .46 96.64 .20 97.04 .23 95.46 .65 
+
+LightM-UNet [17] 81.49 .36 89.80 .36 96.19 .18 97.86 .23 88.99 .68 80.16 .49 88.99 .47 95.31 .19 97.05 .25 88.89 .70 88.56 .50 93.93 .48 96.90 .21 97.60 .24 94.84 .67 
+
+LB-UNet [39] 82.40 .51 90.35 .49 96.43 .19 98.46 .22 87.80 .63 81.22 .67 89.64 .68 95.60 .21 97.11 .27 89.96 .83 89.33 .52 94.36 .53 97.10 .22 97.44 .25 96.07 .93 
+
+ULVM-UNet [36] 83.05 .48 90.74 .47 96.50 .20 97.89 .24 90.56 .72 80.64 .53 89.29 .54 95.59 .18 97.84 .26 87.17 .73 88.78 .49 94.06 .51 97.03 .21 98.43 .24 92.91 .99 
+
+Ours 85.55 .28 92.21 .16 96.98 .21 98.39 .24 91.20 .76 83.60 .40 91.07 .24 96.13 .22 97.95 .26 89.69 .71 90.77 .36 95.16 .20 97.55 .28 98.33 .23 95.24 .76 
+
+Table 1. Results on ISIC2017, ISIC2018, and HAM10000 datasets. All results are averaged over five runs. Values are reported as mean SD 
+
+(equivalent to mean ±SD). All SOTA baselines are reproduced using their publicly available implementations with identical train–val–test splits for fair comparison. ( ↑) indicates higher is better. Best results are in bold. HD95 results are provided in the Supp. Sec. 7.1. 
+
+LBCE = − 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+ gi log pi + (1 − gi) log(1 − pi), (8) 
+
+LDice = 1 − 2 × | X ∩ Y ||X| + |Y | , (9) 
+
+LTotal = LBCE + LDice , (10) where N denotes the number of samples, gi and pi are the ground truth and predicted probabilities for pixel i, and 
+
+X, Y represent the sizes of the ground truth and predicted masks. We train for 300 epochs using AdamW [21] with an initial learning rate of 0.001, decayed to 0.00001 via cosine annealing [20], and use a batch size of 8. To evaluate, following [16, 36, 40], we report Intersec-tion over Union (IoU), Dice Similarity Coefficient (DSC), Accuracy (AC), Sensitivity (SE), Specificity (SP), and the 95th percentile Hausdorff Distance (HD95). Equations and HD95 results are given in Supp. Secs. 6 and 7, respec-tively. We also report parameter count (M) and GFLOPs for a 256 × 256 input. 
+
+4.2. Comparison with SOTA Methods 
+
+To validate the effectiveness of MambaLiteUNet, we compare it with recent models on ISIC2017, ISIC2018, HAM10000, and PH2. Results are summarized in Table 1 and Table 2, with overall averages in Table 3. On ISIC2017, our model achieves an IoU of 85.55% and a DSC of 92.21%, improving over the next best ULVM-UNet by 2.50 and 1.47 points, respectively. We also lead in accuracy (96.98%) and sensitivity (91.20%), while main-taining competitive specificity (98.39%). For ISIC2018, 
+
+Model IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑
+
+U-Net [26] 80.33 .50 89.09 .33 89.79 .22 97.35 .27 82.40 .66 
+
+SCR-Net [35] 74.10 .41 85.13 .27 86.63 .24 97.91 .30 75.61 .74 
+
+TransFuse [42] 83.54 .58 91.03 .45 91.43 .25 97.01 .28 85.98 .70 
+
+UTNetV2 [11] 75.21 .47 85.85 .30 87.27 .23 98.53 .33 76.28 .78 
+
+ASwin U-Net [1] 81.41 .52 89.75 .36 90.45 .21 98.47 .31 82.63 .72 
+
+C2SDG [15] 82.23 .55 90.25 .39 90.68 .22 96.30 .26 85.20 .68 
+
+UNeXt-S [33] 82.51 .60 90.41 .42 90.73 .23 95.21 .25 86.37 .75 
+
+MALUNet [28] 85.99 .62 92.47 .56 92.76 .26 97.90 .29 87.75 .80 
+
+EGE-UNet [29] 86.97 .65 93.03 .59 93.31 .27 98.55 .32 88.20 .84 
+
+VM-UNet [27] 84.73 .57 91.73 .47 92.01 .24 96.49 .27 87.63 .76 
+
+VM-UNet2 [41] 85.30 .62 92.07 .50 92.47 .25 98.65 .34 86.43 .77 
+
+LightM-UNet [17] 85.38 .63 92.11 .53 92.45 .26 97.88 .28 87.14 .79 
+
+LB-UNet [39] 87.12 .64 93.12 .65 93.41 .28 98.83 .35 88.12 .92 
+
+ULVM-UNet [36] 87.10 .61 93.10 .62 93.31 .27 97.40 .24 89.31 .99 
+
+Ours 88.54 .48 93.92 .27 94.08 .29 97.79 .30 90.45 .83 
+
+Table 2. Results on PH2 dataset. All results are averaged over five runs. All SOTA baselines are reproduced using their publicly available implementations with the same train–val–test splits for consistency. Best in bold. HD95 results are in Supp. Sec. 7.1. 
+
+MambaLiteUNet achieves an IoU of 83.60% and Dice of 91.07%, outperforming ULVM-UNet by 2.96 and 1.78 points in IoU and Dice, respectively. We also rank first in accuracy (96.13%), with specificity (97.95%) closely trail-ing UNeXt-S’s 98.18% (Table 1). On the more challenging HAM10000, our model sim-ilarly excels, achieving an IoU of 90.77% and a DSC of 95.16%, outperforming LB-UNet by 1.44 and 0.80 points and ULVM-UNet by 1.99 and 1.10 points, respectively. It achieves the highest accuracy (97.55%), while ranking second in specificity (98.33%), just behind ULVM-UNet (98.43%) (Table 1). On PH2, we achieve the highest IoU (88.54%) and DSC (93.92%), with improvements of 1.42 5Model Average Performance IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑                                                                           
+
+> U-Net [26] 79.40 88.48 93.72 97.12 86.19 SCR-Net [35] 79.45 88.49 93.34 97.31 86.14 TransFuse [42] 81.76 89.95 94.42 96.44 90.36 UTNetV2 [11] 76.71 86.82 92.43 96.10 85.99 ASwin U-Net [1] 79.09 88.29 93.68 96.88 86.74
+> C2SDG [15] 81.08 89.54 94.07 96.01 90.29 UNeXt-S [33] 82.10 90.16 94.56 97.36 87.38 MALUNet [28] 83.39 90.92 95.13 97.60 89.44 EGE-UNet [29] 84.41 91.51 95.42 97.52 90.99 VM-UNet [27] 83.73 91.13 95.10 97.36 89.66 VM-UNet2 [41] 84.03 91.30 95.25 97.80 89.79 LightM-UNet [17] 83.90 91.21 95.21 97.60 89.96 LB-UNet [39] 85.02 91.87 95.64 97.96 90.49 ULVM-UNet [36] 84.89 91.80 95.61 97.89 89.99
+> Ours 87.12 93.09 96.19 98.12 91.65
+
+Table 3. Overall average performance across ISIC2017, ISIC2018, HAM10000, and PH2. Two more recent models, H-vmunet [37] and WTCM-UNet [10], are also compared in Supp. Sec. 7.2.                                                 
+
+> Model Class Model Params (M) ↓GFLOPs ↓
+> CU-Net [26] 7.773 13.758 CSCR-Net [35] 0.801 1.567 TTransFuse [42] 26.270 11.530 TUTNetV2 [11] 12.800 15.500 TASwin U-Net [1] 46.910 14.181 CC2SDG [15] 22.001 7.972 CUNeXt-S [33] 0.302 0.103 CMALUNet [28] 0.175 0.083 CEGE-UNet [29] 0.053 0.072 MVM-UNet [27] 27.427 4.112 MVM-UNet2 [41] 22.771 4.400 MLightM-UNet [17] 0.403 0.391 CLB-UNet [39] 0.038 0.098 MULVM-UNet [36] 0.049 0.060
+> MOurs 0.494 0.326
+
+Table 4. Model complexity in parameters (M) and GFLOPs (@ 256 × 256 ). Model Class denotes the architectural family: C = CNN, T = Transformer, M = Mamba. Best results are bold. 
+
+and 0.80 points over LB-UNet, while also leading in accu-racy (94.08%) and sensitivity (90.45%) (Table 2). Across all four datasets, MambaLiteUNet achieves the best average performance, surpassing LB-UNet by 2.10 points in IoU and 1.22 points in DSC (Table 3). It also ranks best on AC, SP, and SE. Our model achieves this performance with 0.494M parameters and 0.326 GFLOPs, showing a strong balance between segmentation quality and efficiency (Table 4). A qualitative comparison in Figure 4 further shows that our method captures fine boundary details that existing models miss, particularly in regions of low contrast, hair occlusions, and irregular shapes. Finally, the complexity– performance trade-off plot in Figure 1 shows that Mam-baLiteUNet lies in the upper-left region, indicating both high accuracy and low complexity, thereby highlighting its practical utility for resource-constrained applications. 
+
+Figure 3. Domain generalization ranking (average IoU vs. average DSC) on six unseen HAM10000 lesion categories. Each marker represents a model; the best performers are in the top right corner. 
+
+4.3. Domain Generalization Ability 
+
+We evaluate the generalization ability of MambaLiteUNet under distribution shift on HAM10000. Following [16], all models are trained only on the nevus (NV) lesion type. NV is used as the source domain because it has weak boundary contrast, making it a challenging class for learning transfer-able representations. The trained models are then evaluated on six unseen categories: AKIEC, BCC, BKL, DF, MEL, and VASC. This protocol reflects a realistic clinical setting where only a limited set of lesion types is available dur-ing training, while reliable segmentation is required across diverse patterns at test time. Table 5 shows that Mam-baLiteUNet achieves the best average performance, reach-ing 77.61% IoU and 87.23% DSC, and outperforming all SOTA methods on four of the six categories. In particu-lar, the model achieves 93.90% DSC on MEL and 91.13% on BKL, both of which are clinically challenging due to highly irregular lesion boundaries. On the remaining two categories, the performance is also close to the best results. These results indicate that our model maintains strong ro-bustness under domain shifts across diverse lesion types. Figure 3 shows the average IoU–DSC ranking under this domain-generalization setting. We also evaluate cross-dataset generalization from ISIC2018 to PH2, test generalization beyond dermoscopic images on BUS (ultrasound) [2] and GlaS (histopathol-ogy) [31], and analyze robustness under limited training data. These results are provided in Supp. Sec. 7.3–7.5. 
+
+4.4. Ablation Study 
+
+In this section, we perform ablation studies to evaluate the impact of MambaLiteUNet’s key design choices. 
+
+4.4.1. Effect of Different Loss Functions 
+
+We perform an ablation study to assess BCE loss, Dice loss, and their combination on ISIC2017, ISIC2018, 6Models AKIEC BCC BKL DF MEL VASC Avg IoU ↑ DSC ↑ IoU ↑ DSC ↑ IoU ↑ DSC ↑ IoU ↑ DSC ↑ IoU ↑ DSC ↑ IoU ↑ DSC ↑ IoU ↑ DSC ↑                                                                                                                                                                                                                                
+
+> U-Net [26] 55.08 71.04 51.49 67.98 68.50 81.31 69.27 81.85 76.02 86.38 64.39 78.34 64.12 77.48 SCR-Net [35] 62.48 76.91 47.81 64.69 61.84 76.42 52.29 68.67 66.43 79.83 39.64 56.77 55.08 70.55 TransFuse [42] 70.06 82.39 58.17 73.55 76.84 86.90 64.54 78.45 83.79 91.18 55.10 71.05 68.08 80.59 UTNetV2 [11] 64.14 78.16 53.58 69.78 70.67 82.81 54.82 70.82 78.42 87.91 50.78 67.36 62.07 76.47 ASwin U-Net [1] 53.27 69.51 48.36 65.19 65.15 78.90 64.84 78.67 75.42 85.99 65.54 79.18 62.10 76.91
+> C2SDG [15] 64.49 78.41 52.33 68.70 68.57 81.35 58.89 74.13 75.91 86.31 43.15 60.29 60.22 74.20 UNeXt-S [33] 63.19 77.45 56.76 72.41 76.79 86.87 70.50 82.70 83.54 91.03 65.24 78.96 69.34 81.90 MALUNet [28] 69.28 81.85 59.52 74.62 76.71 86.82 68.03 80.97 81.63 89.89 61.61 76.24 69.13 81.73 EGE-UNet [29] 68.74 81.48 57.96 73.38 80.11 88.96 69.21 81.81 85.16 91.99 64.01 78.06 70.20 82.95 VM-UNet [27] 70.54 82.73 59.71 74.77 77.95 87.61 64.01 78.05 84.18 91.41 56.19 71.95 68.43 81.42 VM-UNet2 [41] 70.42 82.64 58.48 73.80 76.41 86.63 68.84 81.54 83.04 90.74 61.09 75.85 69.38 81.87 LightM-UNet [17] 71.30 83.24 64.30 78.27 82.63 90.49 77.35 87.23 87.45 93.31 72.96 84.37 76.00 86.82 LB-UNet [39] 70.99 83.04 65.38 79.06 82.43 90.37 77.12 87.08 87.48 93.32 75.21 85.85 76.44 86.45 ULVM-UNet [36] 69.39 81.93 60.58 75.45 81.50 89.81 74.15 85.16 86.84 92.96 68.44 81.26 73.48 84.43 MatchSeg [16] 67.81 80.82 58.14 73.53 76.12 86.44 70.90 82.97 84.58 91.64 69.89 82.28 71.24 82.95
+> Ours 74.53 85.41 67.33 80.47 83.70 91.13 76.52 86.70 88.50 93.90 75.08 85.77 77.61 87.23
+
+Table 5. Domain generalization results on HAM10000. We train all models (except MatchSeg) for the NV lesion type only, using the same train-val-test splits, and then tested on the other six unseen categories (AKIEC, BCC, BKL, DF, MEL, and VASC) of the HAM10000 dataset. For each lesion category, we report IoU and DSC. We get MatchSeg result from [16]. All results are averaged over five independent runs (except MatchSeg), and the best results are highlighted in bold. 
+
+Figure 4. Qualitative comparison on ISIC2017, ISIC2018, HAM10000, and PH2. Red outlines highlight segmentation errors and weak-nesses of SOTA methods, demonstrating our method’s superiority. 
+
+HAM10000, and PH2 (see Supp. Sec. 8.1). As shown in Table 6, the combined loss consistently outperforms both individual losses across all datasets in terms of IoU and DSC. These results indicate that combining pixel-wise and region-based supervision improves the model’s ability to learn precise boundaries and complete lesion structures. 
+
+4.4.2. Effect of Different Core Architectural Modules 
+
+We evaluate each module’s impact on ISIC2017 and ISIC2018 (Table 7). The baseline (no modules) achieves 82.45% IoU / 90.38% DSC on ISIC2017. Adding AMF alone reduces parameters by 47% and raises IoU by 1.90 points and DSC by 1.13 points. LGFM alone boosts IoU by 2.43 points and sensitivity by 3.15 points. CGA alone achieves a 2.23 points IoU and 1.33 points DSC gain. Com-bining all three modules gains the best tradeoff: 85.55% IoU / 92.21% DSC on ISIC2017 and 83.60% IoU / 91.07% DSC on ISIC2018, using only 0.494M parameters and 0.326 GFLOPs. These results show that AMF, LGFM, and CGA work together to optimize segmentation accuracy while maintaining low computational costs. 
+
+4.4.3. Effect of Different Number of Branches 
+
+We study the effect of varying the number of parallel branches in the AMF and CGA modules from 1 to 16. As shown in Table 8, performance improves up to four branches, then declines. Four branches achieve the high-est DSC of 91.07% and IoU of 83.60% on ISIC2018 in 7Loss ISIC2017 ISIC2018 HAM10000 BCE Dice IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑ IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑ IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑                                              
+
+> ✓84.88 91.82 96.87 98.66 89.54 82.51 90.42 95.85 97.72 89.20 90.23 94.87 97.41 98.32 94.71
+> ✓85.15 91.98 96.91 98.48 90.48 81.12 89.58 95.38 96.81 90.30 90.55 95.04 97.48 98.15 95.51
+> ✓✓85.55 92.21 96.98 98.39 91.20 83.60 91.07 96.13 97.95 89.69 90.77 95.16 97.55 98.33 95.24
+
+Table 6. Performance of different losses on ISIC2017, ISIC2018, and HAM10000. ✓ indicates the loss selection. Best results are in bold.                                                                                                                      
+
+> Modules with Mamba Complexity ISIC2017 ISIC2018 AMF LGFM CGA Params (M) ↓GFLOPs ↓IoU ↑DSC ↑AC ↑SP ↑SE ↑IoU ↑DSC ↑AC ↑SP ↑SE ↑
+> 0.425 0.938 82.45 90.38 96.49 98.68 87.12 80.59 89.25 95.35 97.44 87.91
+> ✓0.226 0.830 84.35 91.51 96.74 98.42 89.81 82.57 90.45 95.86 97.74 89.20
+> ✓0.180 0.794 84.88 91.82 96.85 98.45 90.27 82.25 90.26 95.70 97.10 90.73
+> ✓0.593 0.478 84.68 91.71 96.77 98.15 91.11 82.61 90.48 95.87 97.75 89.22
+> ✓✓0.326 0.238 85.23 92.03 96.97 98.81 89.39 82.90 90.65 95.92 97.58 90.02
+> ✓✓0.395 0.311 85.22 92.02 96.94 98.58 90.21 83.28 90.87 96.04 97.83 89.70
+> ✓✓0.350 0.305 85.21 92.02 96.94 98.66 89.91 83.07 90.75 95.95 97.47 90.52
+> ✓✓✓0.494 0.326 85.55 92.21 96.98 98.39 91.20 83.60 91.07 96.13 97.95 89.69
+
+Table 7. Ablation of AMF, LGFM, and CGA on ISIC2017 and ISIC2018. A Mamba-free control study is provided in Supp. Sec. 8.2.                                           
+
+> Branch Params (M) ↓GFLOPs ↓IoU ↑DSC ↑AC ↑SP ↑SE ↑
+> 10.381 0.270 81.74 89.95 95.60 97.29 89.62
+> 20.418 0.289 82.50 90.41 95.82 97.57 89.62
+> 40.494 0.326 83.60 91.07 96.13 97.95 89.69 80.646 0.402 82.38 90.34 95.79 97.55 89.57 16 0.949 0.553 81.24 89.65 95.53 97.64 88.04
+
+Table 8. Results for different branch configurations on ISIC2018.                                           
+
+> CC Params (M) ↓GFLOPs ↓IoU ↑DSC ↑AC ↑SP ↑SE ↑
+> C1 0.131 0.092 82.10 90.17 95.70 97.41 89.66 C2 0.242 0.118 82.88 90.64 95.91 97.57 90.01
+> C3 0.494 0.326 83.60 91.07 96.13 97.95 89.69 C4 0.878 0.168 81.31 89.69 95.48 97.19 89.41 C5 3.439 0.622 82.52 90.42 95.87 97.88 88.72
+
+Table 9. Different Channel Configurations (CC) on ISIC2018.                                                     
+
+> Image Size Params (M) ↓GFLOPs ↓IoU ↑DSC ↑SE ↑SP ↑AC ↑
+> 224 ×224 0.494 0.250 83.08 90.76 96.01 97.91 89.24
+> 256 ×256 0.494 0.326 83.60 91.07 96.13 97.95 89.69
+> 288 ×288 0.494 0.413 81.93 90.07 95.69 97.60 88.92
+> 320 ×320 0.494 0.510 82.42 90.36 95.84 97.86 88.69
+> 512 ×512 0.494 1.305 83.33 90.91 96.10 98.17 88.75
+
+Table 10. Impact of input size on ISIC2018 performances. 
+
+both modules. Fewer branches limit representational diver-sity, whereas more branches increase redundancy, overfit-ting, and complexity. Overall, four branches offer the best performance–efficiency trade-off. 
+
+4.4.4. Effect of Different Channels and Input Sizes 
+
+We analyze how varying the channels and input reso-lution affects the overall performance of the model on ISIC2018. We examine channel configurations (C1: 
+
+{8, 16 , 24 , 32 , 48 , 64 }, C2: {8, 16 , 32 , 48 , 64 , 96 }, C3: 
+
+{16 , 32 , 48 , 64 , 96 , 128 }, C4: {8, 16 , 32 , 64 , 128 , 256 }, C5: 
+
+{16 , 32 , 64 , 128 , 256 , 512 }), ranging from lightweight (C1: 0.131M params) to heavy (C5: 3.439M params). As shown in Table 9, performance improves with increased capacity up to configuration C3 ( {16, 32, 48, 64, 96, 128 }), which achieves the best IoU and DSC scores. Beyond this point, larger configurations (C4 and C5) add substantial computa-tional overhead without reliable benefits. We also evaluate input sizes from 224 ×224 to 512 ×512 ,shown in Table 10. While larger input slightly improves specificity, they require significantly higher GFLOPs. The 
+
+256 × 256 size offers the best DSC (91.07%) with balanced complexity, making it the most efficient setting. Therefore, carefully selecting channels and input sizes is crucial for optimizing performance within computational limits. 
+
+## 5. Conclusion 
+
+In this paper, we have introduced MambaLiteUNet, a ro-bust segmentation framework designed to learn fine lesion details within strict computational constraints. MambaLi-teUNet employs AMF for rich multi-scale representation, LGFM for precise texture-to-context integration, and CGA for selective skip connection refinement. Extensive eval-uation demonstrates our model achieves 92.21% Dice and 85.55% IoU on ISIC2017, 91.07% Dice and 83.60% IoU on ISIC2018, 95.16% Dice and 90.77% IoU on HAM10000, and 93.92% Dice and 88.54% IoU on PH2, with an average Dice of 93.09% and average IoU of 87.12%. It outperforms SOTA models by a large margin. In domain generalization, MambaLiteUNet also scores an average of 87.23% Dice and 77.61% IoU on six unseen lesion types, outperforming all compared models and demonstrating strong generaliza-tion ability. We believe MambaLiteUNet can be a valuable tool for improving various medical and semantic segmen-tation tasks. We plan to extend this work to 3D volumetric segmentation for CT and MRI analysis. 8References 
+
+[1] Ehsan Khodapanah Aghdam, Reza Azad, Maral Zarvani, and Dorit Merhof. Attention swin u-net: Cross-contextual at-tention mechanism for skin lesion segmentation. In 2023 IEEE 20th International Symposium on Biomedical Imaging (ISBI) , pages 1–5. IEEE, 2023. 2, 5, 6, 7, 3 [2] Walid Al-Dhabyani, Mohammed Gomaa, Hussien Khaled, and Aly Fahmy. Dataset of breast ultrasound images. Data in brief , 28:104863, 2020. 6, 2, 4 [3] Reza Azad, Moein Heidary, Kadir Yilmaz, Michael H¨ uttemann, Sanaz Karimijafarbigloo, Yuli Wu, Anke Schmeink, and Dorit Merhof. Loss functions in the era of se-mantic segmentation: A survey and outlook. arXiv preprint arXiv:2312.05391 , 2023. 4, 3 [4] Jieneng Chen, Yongyi Lu, Qihang Yu, Xiangde Luo, Ehsan Adeli, Yan Wang, Le Lu, Alan L Yuille, and Yuyin Zhou. Transunet: Transformers make strong encoders for medi-cal image segmentation. arXiv preprint arXiv:2102.04306 ,2021. 2 [5] Noel Codella, Veronica Rotemberg, Philipp Tschandl, M Emre Celebi, Stephen Dusza, David Gutman, Brian Helba, Aadi Kalloo, Konstantinos Liopyris, Michael Marchetti, et al. Skin lesion analysis toward melanoma detection 2018: A challenge hosted by the interna-tional skin imaging collaboration (isic). arXiv preprint arXiv:1902.03368 , 2019. 2, 4, 1, 5 [6] Noel CF Codella, David Gutman, M Emre Celebi, Brian Helba, Michael A Marchetti, Stephen W Dusza, Aadi Kalloo, Konstantinos Liopyris, Nabin Mishra, Harald Kit-tler, et al. Skin lesion analysis toward melanoma detection: A challenge at the 2017 international symposium on biomed-ical imaging (isbi), hosted by the international skin imaging collaboration (isic). In 2018 IEEE 15th international sym-posium on biomedical imaging (ISBI 2018) , pages 168–172. IEEE, 2018. 2, 4, 1 [7] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Syl-vain Gelly, et al. An image is worth 16x16 words: Trans-formers for image recognition at scale. arXiv preprint arXiv:2010.11929 , 2020. 4, 5 [8] Stefan Elfwing, Eiji Uchibe, and Kenji Doya. Sigmoid-weighted linear units for neural network function approxima-tion in reinforcement learning. Neural networks , 107:3–11, 2018. 3 [9] Andre Esteva, Brett Kuprel, Roberto A Novoa, Justin Ko, Susan M Swetter, Helen M Blau, and Sebastian Thrun. Dermatologist-level classification of skin cancer with deep neural networks. nature , 542(7639):115–118, 2017. 1 [10] Zhihua Gan, Zhongxiang Xie, Yushu Zhang, Weihong Han, Bo Zhang, and Xiuli Chai. Wtcm-unet: A hybrid cnn-ssm framework combining wavelet transform for medical image segmentation. Biomedical Signal Processing and Control ,112:108525, 2026. 6, 1, 3 [11] Yunhe Gao, Mu Zhou, Di Liu, and Dimitris Metaxas. Amulti-scale transformer for medical image segmentation: Architectures, model efficiency, and benchmarks. arXiv preprint arXiv:2203.00131 , 2022. 2, 5, 6, 7, 3, 4 [12] Albert Gu and Tri Dao. Mamba: Linear-time sequence modeling with selective state spaces. arXiv preprint arXiv:2312.00752 , 2023. 1, 2, 3, 5 [13] Md Kamrul Hasan, Md Asif Ahamad, Choon Hwai Yap, and Guang Yang. A survey, review, and future trends of skin lesion segmentation and classification. Computers in Biology and Medicine , 155:106624, 2023. 1 [14] Dan Hendrycks and Kevin Gimpel. Gaussian error linear units (gelus). arXiv preprint arXiv:1606.08415 , 2016. 4 [15] Shishuai Hu, Zehui Liao, and Yong Xia. Devil is in channels: Contrastive single domain generalization for medical image segmentation. In International Conference on Medical Im-age Computing and Computer-Assisted Intervention , pages 14–23. Springer, 2023. 5, 6, 7, 2, 3, 4 [16] Jiayu Huo, Ruiqiang Xiao, Haotian Zheng, Yang Liu, S´ ebastien Ourselin, and Rachel Sparks. Matchseg: To-wards better segmentation via reference image matching. In 
+
+2024 IEEE International Conference on Bioinformatics and Biomedicine (BIBM) , pages 2068–2073. IEEE, 2024. 4, 5, 6, 7[17] Weibin Liao, Yinghao Zhu, Xinyuan Wang, Cehngwei Pan, Yasha Wang, and Liantao Ma. Lightm-unet: Mamba assists in lightweight unet for medical image segmentation. arXiv preprint arXiv:2403.05246 , 2024. 2, 4, 5, 6, 7, 3 [18] Ailiang Lin, Bingzhi Chen, Jiayu Xu, Zheng Zhang, Guang-ming Lu, and David Zhang. Ds-transunet: Dual swin trans-former u-net for medical image segmentation. IEEE Trans-actions on Instrumentation and Measurement , 2022. 2 [19] Yue Liu, Yunjie Tian, Yuzhong Zhao, Hongtian Yu, Lingxi Xie, Yaowei Wang, Qixiang Ye, and Yunfan Liu. Vmamba: Visual state space model. arXiv preprint arXiv:2401.10166 ,2024. 1, 2, 3 [20] Ilya Loshchilov and Frank Hutter. Sgdr: Stochas-tic gradient descent with warm restarts. arXiv preprint arXiv:1608.03983 , 2016. 5 [21] Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization. arXiv preprint arXiv:1711.05101 , 2017. 5 [22] Teresa Mendonc ¸a, Pedro M Ferreira, Jorge S Marques, Andr´ e RS Marcal, and Jorge Rozeira. Ph 2-a dermoscopic image database for research and benchmarking. In 2013 35th annual international conference of the IEEE engineer-ing in medicine and biology society (EMBC) , pages 5437– 5440. IEEE, 2013. 2, 4, 1, 3 [23] Ozan Oktay, Jo Schlemper, Loic Le Folgoc, Matthew Lee, Mattias Heinrich, Kazunari Misawa, Kensaku Mori, Steven McDonagh, Nils Y Hammerla, Bernhard Kainz, et al. Atten-tion u-net: Learning where to look for the pancreas. arXiv preprint arXiv:1804.03999 , 2018. 1, 2, 5 [24] Md Maklachur Rahman, Abdullah Aman Tutul, Ankur Nath, Lamyanba Laishram, Soon Ki Jung, and Tracy Hammond. Mamba in vision: A comprehensive survey of techniques and applications. arXiv preprint arXiv:2410.03105 , 2024. 2 [25] Md Maklachur Rahman, Soon Ki Jung, and Tracy Ham-mond. Aulunet: An adaptive ultra-lightweight u-net frame-work for efficient skin lesion segmentation in resource-constrained environments. In 36th British Machine Vision 
+
+9Conference 2025, BMVC 2025, Sheffield, UK, November 24-27, 2025 . BMVA, 2025. 1, 2 [26] Olaf Ronneberger, Philipp Fischer, and Thomas Brox. U-net: Convolutional networks for biomedical image segmen-tation. In International Conference on Medical image com-puting and computer-assisted intervention , pages 234–241. Springer, 2015. 1, 2, 3, 5, 6, 7, 4 [27] Jiacheng Ruan and Suncheng Xiang. Vm-unet: Vision mamba unet for medical image segmentation. arXiv preprint arXiv:2402.02491 , 2024. 2, 4, 5, 6, 7, 3 [28] Jiacheng Ruan, Suncheng Xiang, Mingye Xie, Ting Liu, and Yuzhuo Fu. Malunet: A multi-attention and light-weight unet for skin lesion segmentation. In 2022 IEEE In-ternational Conference on Bioinformatics and Biomedicine (BIBM) , pages 1150–1156. IEEE, 2022. 2, 5, 6, 7, 3, 4 [29] Jiacheng Ruan, Mingye Xie, Jingsheng Gao, Ting Liu, and Yuzhuo Fu. Ege-unet: an efficient group enhanced unet for skin lesion segmentation. In International Conference on Medical Image Computing and Computer-Assisted Interven-tion , pages 481–490. Springer, 2023. 1, 2, 5, 6, 7, 3, 4 [30] Dirk Schadendorf, Alexander CJ Van Akkooi, Carola Berk-ing, Klaus G Griewank, Ralf Gutzmer, Axel Hauschild, Andreas Stang, Alexander Roesch, and Selma Ugurel. Melanoma. The Lancet , 392(10151):971–984, 2018. 1 [31] Korsuk Sirinukunwattana, Josien PW Pluim, Hao Chen, Xi-aojuan Qi, Pheng-Ann Heng, Yun Bo Guo, Li Yang Wang, Bogdan J Matuszewski, Elia Bruni, Urko Sanchez, et al. Gland segmentation in colon histology images: The glas challenge contest. Medical image analysis , 35:489–502, 2017. 6, 2, 4 [32] Philipp Tschandl, Cliff Rosendahl, and Harald Kittler. The ham10000 dataset, a large collection of multi-source der-matoscopic images of common pigmented skin lesions. Sci-entific data , 5(1):1–9, 2018. 1, 2, 4 [33] Jeya Maria Jose Valanarasu and Vishal M Patel. Unext: Mlp-based rapid medical image segmentation network. arXiv preprint arXiv:2203.04967 , 2022. 2, 5, 6, 7, 3, 4 [34] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszko-reit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention is all you need. Advances in neural information processing systems , 30, 2017. 4 [35] Huisi Wu, Jiafu Zhong, Wei Wang, Zhenkun Wen, and Jing Qin. Precise yet efficient semantic calibration and refine-ment in convnets for real-time polyp segmentation from colonoscopy videos. In Proceedings of the AAAI conference on artificial intelligence , pages 2916–2924, 2021. 2, 5, 6, 7, 3[36] Renkai Wu, Yinghao Liu, Pengchen Liang, and Qing Chang. Ultralight vm-unet: Parallel vision mamba significantly reduces parameters for skin lesion segmentation. arXiv preprint arXiv:2403.20035 , 2024. 2, 4, 5, 6, 7, 3 [37] Renkai Wu, Yinghao Liu, Pengchen Liang, and Qing Chang. H-vmunet: High-order vision mamba unet for medical image segmentation. Neurocomputing , 624:129447, 2025. 6, 1, 3 [38] Saining Xie, Ross Girshick, Piotr Doll´ ar, Zhuowen Tu, and Kaiming He. Aggregated residual transformations for deep neural networks. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 1492–1500, 2017. 2, 5 [39] Jiahao Xu and Lyuyang Tong. Lb-unet: A lightweight boundary-assisted unet for skin lesion segmentation. In In-ternational Conference on Medical Image Computing and Computer-Assisted Intervention , pages 361–371. Springer, 2024. 1, 2, 5, 6, 7, 3, 4 [40] Chunyu Yuan, Dongfang Zhao, and Sos S Agaian. Mucm-net: A mamba powered ucm-net for skin lesion segmenta-tion. arXiv preprint arXiv:2405.15925 , 2024. 4, 5 [41] Mingya Zhang, Yue Yu, Limei Gu, Tingsheng Lin, and Xianping Tao. Vm-unet-v2 rethinking vision mamba unet for medical image segmentation. arXiv preprint arXiv:2403.09157 , 2024. 2, 5, 6, 7, 3 [42] Yundong Zhang, Huiye Liu, and Qiang Hu. Transfuse: Fus-ing transformers and cnns for medical image segmentation. In International Conference on Medical Image Computing and Computer-Assisted Intervention , pages 14–24. Springer, 2021. 2, 5, 6, 7, 3, 4 [43] Zongwei Zhou, Md Mahfuzur Rahman Siddiquee, Nima Tajbakhsh, and Jianming Liang. Unet++: A nested u-net architecture for medical image segmentation. In Deep learn-ing in medical image analysis and multimodal learning for clinical decision support , pages 3–11. Springer, 2018. 1, 2, 3[44] Lianghui Zhu, Bencheng Liao, Qian Zhang, Xinlong Wang, Wenyu Liu, and Xinggang Wang. Vision mamba: Efficient visual representation learning with bidirectional state space model. arXiv preprint arXiv:2401.09417 , 2024. 1, 2 
+
+10 MambaLiteUNet: Cross-Gated Adaptive Feature Fusion for Robust Skin Lesion Segmentation 
+
+# Supplementary Material 
+
+## 6. Evaluation Metrics 
+
+We evaluate our segmentation performance using overlap-based, boundary-based, and classification-based metrics. The Intersection over Union (IoU), also known as the Jac-card index, calculates the ratio of the intersection between the predicted and ground truth masks relative to their union. The Dice similarity coefficient (DSC), which is equivalent to the F1 score, emphasizes correct overlaps by giving twice the weight to true positives. For boundary quality, we use the 95th percentile Hausdorff Distance (HD95), which mea-sures the alignment of lesion contours while reducing the in-fluence of outliers. Additionally, we report Accuracy (AC), Sensitivity (SE), and Specificity (SP) to reflect pixel-level classification. The metrics are defined as follows: 
+
+IoU = T P T P + F P + F N , (11) 
+
+DSC = 2 T P 
+
+2 T P + F P + F N , (12) 
+
+AC = T P + T N T P + T N + F P + F N , (13) 
+
+SE = T P T P + F N , (14) 
+
+SP = T N T N + F P , (15) 
+
+HD( G, P ) = max(max  
+
+> g∈G
+
+min  
+
+> ˆp∈P
+
+d(g, ˆp), max  
+
+> ˆp∈P
+
+min  
+
+> g∈G
+
+d(ˆ p, g )) 
+
+(16) where T P , F P , F N , and T N represent true positives, false positives, false negatives, and true negatives, respectively. 
+
+G and P denote the ground-truth and predicted masks, and 
+
+d(·, ·) is the Euclidean distance between boundary points. HD95 corresponds to the 95th percentile of these distances, providing a robust measure of boundary alignment. 
+
+## 7. Additional Experiments and Results 
+
+To complement the main paper, we present additional ex-periments that further broaden the evaluation and justifica-tion of our framework. These cover boundary-focused met-rics such as HD95, cross-dataset generalization, and tests on non-dermoscopic datasets. 
+
+7.1. HD95 Evaluation across Four Datasets 
+
+To evaluate boundary accuracy, we present HD95 results on ISIC2017 [6], ISIC2018 [5], HAM10000 [32], and PH2 [22], as shown in Table 11. The HD95 measures the bound-ary accuracy, which is crucial in medical image segmenta-tion, where precise lesion contours are as important as re-gion overlap. Traditional CNN-based models such as U-Net and SCR-Net exhibit significant errors, indicating poor boundary lo-calization. Transformer-based methods, including Trans-Fuse, UTNetV2, and ASwin U-Net, reduce errors in some cases but still face limitations in accuracy. More com-pact CNN–MLP hybrid models, such as MALUNet, EGE-UNet, LB-UNet, and ULVM-UNet, demonstrate better per-formance, with LB-UNet achieving 9.72 on HAM10000 and ULVM-UNet achieving 12.40 on PH2. Recent Mamba-based architectures (VM-UNet, VM-UNet2, LightM-UNet, ULVM-UNet) show clear improvements in boundary detec-tion over CNN and Transformer models, reducing HD95 to the 12–15-pixel range, yet they still struggle to achieve con-sistent accuracy across datasets. Our model achieves the lowest HD95 scores on all four datasets: 10.73 on ISIC2017, 12.94 on ISIC2018, 8.65 on HAM10000, and 9.88 on PH2. These results reduce bound-ary error by approximately 1.1–2.5 pixels compared to the best-performing baselines, including recent Mamba-based models. The consistent gains demonstrate that our frame-work produces sharper lesion boundaries across all four benchmarks, ensuring reliable segmentation performance. 
+
+7.2. Additional Comparison with Recent Mamba-based Segmentation Models 
+
+Table 12 provides an additional comparison with two recent Mamba-Based segmentation models, H-vmunet [37], and WTCM-UNet [10], evaluated under the same protocol. Al-though both methods use substantially larger model capac-ity, MambaLiteUNet remains more effective and efficient. On average, our model surpasses H-vmunet by 1.41 points in IoU and 0.81 points in DSC while reducing HD95 by 1.20 pixels. Compared with WTCM-UNet, our model im-proves IoU and DSC by 3.58 and 2.09 points, respectively, and reduces HD95 by 4.06 pixels, while using much fewer parameters and GFLOPs. 
+
+7.3. Cross-Dataset Generalization Analysis 
+
+We evaluate cross-dataset generalization by training on ISIC2018 (train split) and directly testing on PH2 (whole dataset) without fine-tuning. This setting assesses whether models can reliably segment images of the same modality collected at different centers under varying acquisition con-1Model HD95 ( ↓)ISIC2017 ISIC2018 HAM10000 PH2 U-Net [26] 16.48 1.50 19.67 1.65 15.35 1.08 18.40 1.60                                                         
+
+> SCR-Net [35] 17.06 1.52 15.82 1.32 13.90 0.98 22.80 1.80
+> TransFuse [42] 15.04 1.32 16.77 1.42 14.76 1.00 16.10 1.28
+> UTNetV2 [11] 17.22 1.55 17.23 1.50 18.50 1.22 22.00 1.75
+> ASwin U-Net [1] 15.84 1.48 19.79 1.68 16.17 1.15 18.10 1.55
+> C2SDG [15] 14.30 1.25 15.21 1.28 16.00 1.08 17.30 1.42
+> UNeXt-S [33] 14.30 1.18 15.03 1.20 14.20 0.95 16.85 1.28
+> MALUNet [28] 14.66 1.12 14.72 1.12 13.70 0.92 15.10 1.10
+> EGE-UNet [29] 12.49 1.02 15.40 1.35 12.97 0.86 14.90 1.02
+> VM-UNet [27] 14.43 1.08 14.31 1.18 13.40 0.90 15.90 1.20
+> VM-UNet2 [41] 14.06 1.08 14.77 1.20 12.84 0.86 15.30 1.15
+> LightM-UNet [17] 13.80 1.12 15.10 1.24 12.52 0.80 15.40 1.12
+> LB-UNet [39] 12.05 1.02 14.61 1.10 9.72 0.74 14.70 1.00
+> ULVM-UNet [36] 12.93 0.98 15.06 1.20 12.23 0.88 12.40 1.05
+> Ours 10.73 0.92 12.94 1.02 8.65 0.62 9.88 0.90
+
+Table 11. HD95 (in pixels) results on ISIC2017, ISIC2018, HAM10000, and PH2. All results are averaged over five runs. Val-ues are reported as mean SD (equivalent to mean ±SD). All SOTA baselines are reproduced using their publicly available implemen-tations with identical train–val–test splits for fair comparison. ( ↓)indicates Lower is better. Best results are in bold. 
+
+ditions, providing a rigorous measure of domain robustness relevant to real-world applications. As shown in Table 13, U-Net obtains 77.02% IoU, 87.02% DSC, and 22.95 HD95, showing limited trans-ferability. TransFuse (80.56% IoU, 89.23% DSC, 18.70 HD95) and UTNetV2 (79.94% IoU, 88.85% DSC, and 18.82 HD95) improve overlap but remain inconsistent. Re-cent methods EGE-UNet (81.11% IoU, 89.57% DSC, 17.36 HD95) and ULVM-UNet (81.35% IoU, 89.72% DSC, 17.07 HD95) narrow the gap but still suffer from boundary-precision errors. Our model achieves the best overall results with 81.71% IoU, 89.93% DSC, 93.19% accuracy, and 15.58 HD95, out-performing CNN-, Transformer-, and Mamba-based base-lines. Compared with ULVM-UNet, we gain +0.36 IoU, +0.21 DSC, and a reduction of 1.49 HD95. Compared with EGE-UNet, the improvements are +0.60 IoU, +0.36 DSC, and a reduction of 1.78 in HD95. Compared with LightM-UNet, we reduce HD95 by 1.05 while maintaining IoU and DSC. These improvements highlight stronger overlap accu-racy and sharper boundaries under domain shift. 
+
+7.4. Generalization to Non-Dermoscopic Datasets 
+
+To evaluate generalization beyond dermoscopic images, we extend our analysis to the BUS [2] and GlaS [31] datasets. BUS contains breast ultrasound scans with heavy speckle noise, low contrast, and irregular lesion boundaries, while GlaS comprises colorectal histopathology images character-ized by structural complexity and staining variability. Both datasets present substantially different challenges compared to dermoscopic benchmarks. Table 14 summarizes the results. On BUS, U-Net achieves 67.03% IoU, 80.26% DSC, and 22.72 HD95, while EGE-UNet records 65.81% IoU, 79.38% DSC, and 19.29 HD95. Transformer-based methods perform better but remain inconsistent. Trans-Fuse obtains 70.16% IoU, 82.46% DSC, and 18.46 HD95 with sensitivity at 79.68, while UTNetV2 achieves 68.63% IoU, 81.40% DSC, and 25.15 HD95 with sensitivity at 86.81. Mamba-based architectures improve boundary accu-racy, with VM-UNet reaching 72.02% IoU, 83.74% DSC, and 15.29 HD95, and LightM-UNet 71.44% IoU, 83.34% DSC, and 15.37 HD95, but their overlap scores remain lim-ited. Our model achieves 77.68% IoU, 87.44% DSC, and 11.55 HD95 on BUS, improving over the strongest baseline (C2SDG: 73.11 IoU, 84.47 DSC, 13.32 HD95) by +4.57 IoU, +2.97 DSC, and a reduction of 1.77 in HD95. This performance underlines the model’s ability to retain both overlap accuracy and precise boundary localization under heavy noise and low contrast. On GlaS, MALUNet de-livers 74.64% IoU, 85.48% DSC, and 24.17 HD95, while our model achieves 78.63% IoU, 88.04% DSC, and 21.62 HD95, improving by +3.99 IoU, +2.56 DSC, and a reduc-tion of 2.55 in HD95. Here, the gains show that our ap-proach adapts to structural irregularities and staining vari-ations that cause other baselines, including Mamba-based ones, to degrade. Therefore, our model demonstrates ro-bustness across imaging modalities by maintaining consis-tent improvements on BUS and GlaS. 
+
+7.5. Robustness to Reduced Training Data 
+
+To assess robustness under limited supervision, we train the model with only {50, 70, 100 }% of the original training split on ISIC2017 and ISIC2018, while keeping the test sets unchanged. As shown in Table 15, performance de-grades steadily as the amount of training data decreases. On ISIC2017, reducing the training data from 100% to 50% lowers mIoU from 85.55 to 83.30 and DSC from 92.21 to 90.89, while HD95 increases from 10.73 to 13.24. A similar trend is observed on ISIC2018, where mIoU and DSC de-crease from 83.60/91.07 to 81.49/89.80, while HD95 rises from 12.94 to 14.99. The performance drop remains mod-est on both datasets, which suggests that the model can still learn stable and discriminative representations even when annotation is substantially reduced. This behavior is espe-cially important in medical image segmentation, where col-lecting dense pixel-level labels is costly and often limited. 
+
+## 8. Additional Ablation Study 
+
+This section presents additional ablation studies to evaluate the impact of our design decisions further. 2Model P(M) ↓ F(G) ↓ ISIC2017 ISIC2018 HAM10000 PH2 Ours −Model(Avg.) IoU/DSC/HD95 Cost vs Ours Params ×/GFLOPs ×IoU ↑ DSC ↑ HD95 ↓ IoU ↑ DSC ↑ HD95 ↓ IoU ↑ DSC ↑ HD95 ↓ IoU ↑ DSC ↑ HD95 ↓                                  
+
+> H-vmunet [37] 8.97 0.742 84.22 91.43 12.81 81.78 89.98 14.67 89.54 94.48 9.47 87.30 93.22 10.06 +1.41 / +0.81 / -1.20 18.2 ×/ 2.3 ×
+> WTCM-UNet [10] 28.74 3.12 80.21 89.02 15.67 80.90 89.44 15.24 86.31 92.65 12.75 86.72 92.89 14.76 +3.58 / +2.09 / -4.06 58.2 ×/ 9.6 ×
+
+Table 12. Comparison with recent Mamba-based segmentation models. H-vmunet and WTCM-UNet are re-implemented and evaluated under our unified training and evaluation protocol for fair comparison. IoU/DSC are reported in %, and HD95 is reported in pixels. Params (M) and GFLOPs are denoted by P(M) and F(G), respectively.                                                                                                   
+
+> Model Train on ISIC2018 →Test on PH2 IoU ↑DSC ↑AC ↑SP ↑SE ↑HD95 ↓
+> U-Net [26] 77.02 87.02 90.89 89.11 94.63 22.95 SCR-Net [35] 78.93 88.23 92.17 92.76 90.94 19.54 ASwin U-Net [1] 75.01 85.72 90.53 91.71 88.07 21.76 TransFuse [42] 80.56 89.23 92.58 91.29 95.29 18.70 UTNetV2 [11] 79.94 88.85 92.69 93.86 90.23 18.82
+> C2SDG [15] 79.83 88.79 92.29 91.22 94.54 21.53 UNeXt-S [33] 80.70 89.32 92.71 91.85 94.52 18.42 MALUNet [28] 79.87 88.81 92.46 92.32 92.74 19.62 EGE-UNet [29] 81.11 89.57 93.08 93.56 92.07 17.36 VM-UNet [27] 80.75 89.35 92.79 92.34 93.74 17.12 VM-UNet2 [41] 80.94 89.47 92.76 91.58 95.25 17.76 LightM-UNet [17] 81.10 89.56 92.97 92.71 93.52 16.63 LB-UNet [39] 81.17 89.61 92.91 92.03 94.76 17.38 ULVM-UNet [36] 81.35 89.72 92.96 91.90 95.18 17.07
+> Ours 81.71 89.93 93.19 92.68 94.26 15.58
+
+Table 13. Cross-dataset generalization performance when train-ing on ISIC2018 and testing on the full PH2 dataset without fine-tuning. ( ↑) indicates higher is better. ( ↓) indicates lower is better. Best results are in bold. 
+
+8.1. Loss Function Analysis on PH2 
+
+Table 16 compares three loss variants on the PH2 dataset [22]. Using binary cross-entropy (BCE) [3] alone, we achieve 86.95% IoU and 93.02% DSC, while Dice loss (Dice) [3] alone gives 86.59% IoU and 92.81% DSC. Com-bining BCE and Dice loss, MambaLiteUNet produces the best results (88.54% IoU, 93.92% DSC) and increases sen-sitivity to 90.45%, representing an absolute sensitivity gain of 1.94 points over BCE loss alone and 2.88 points over Dice loss alone. Therefore, our findings suggest that the hy-brid loss stabilizes training and improves both overlap and boundary alignment. 
+
+8.2. Effect of Core Architectural Modules without (w/o) Mamba Integration 
+
+To isolate the contributions of our Adaptive Multi-branch Feature Fusion (AMF), Local-Global Feature Mixing (LGFM), and Cross-Gated Attention (CGA) from SSM-based long-range modeling, we design Mamba-off control experiments. In this configuration, all Mamba layers are re-placed with token-MLPs (two-layer feed-forward networks with LayerNorm, GELU nonlinearity, and residual connec-tion). In this substitution, we aim to preserve a similar pa-rameter count and the same channel dimensionality while removing Mamba’s structured recurrent dynamics. Our originally proposed AMF, LGFM, and CGA mod-ules are inspired by selective gating principles and incorpo-rate Mamba layers in the full model. In the Mamba-off con-trol, however, these modules adopt the same selective gating principles but are implemented using convolutional layers, multi-head self-attention, and token-MLPs, without invok-ing Mamba kernels or SSM recurrence. Consequently, we can disentangle the contribution of the Mamba-integrated and Mamba-off approaches. Table 17 shows the impact of AMF, LGFM, and CGA under the Mamba-off setting. On ISIC2017, AMF alone achieves the best single-module improvement (83.80% IoU, 91.18% DSC) with minimal cost, while LGFM improves sensitivity (91.72%). CGA provides balanced gains but requires higher complexity. Pairwise combinations fur-ther enhance performance, with AMF+CGA achieving the highest accuracy and specificity, and the full con-figuration reaching the best overall results (84.26% IoU, 91.46% DSC). On ISIC2018, results trends are consis-tent: AMF improves overlap, LGFM boosts sensitivity, and CGA strengthens boundary quality. The full setup (AMF+LGFM+CGA without Mamba) achieves 82.66% IoU and 90.51% DSC, with 0.658M parameters and 0.374 GFLOPs. However, when comparing with the Mamba-integrated configuration (see Table 7 in the main manuscript), we observe clear performance boosts. With Mamba, indi-vidual modules improve their performance. The full de-sign (AMF+LGFM+CGA with Mamba) achieves 85.55% IoU and 92.21% DSC on ISIC2017 and 83.60% IoU and 91.07% DSC on ISIC2018, outperforming all Mamba-off results while remaining lightweight (0.494M parameters, 0.326 GFLOPs). Therefore, Mamba integration with AMF, LGFM, and CGA is critical, which demonstrates consistent improvements across datasets with minimal overhead. 
+
+## 9. Comparative Analysis of Module Designs 
+
+To further clarify the novelty of our proposed AMF, LGFM, and CGA, we provide a detailed comparison with their clos-est prior designs. Table 18 summarizes each module’s de-sign goal, mechanism, nearest prior, and the architectural differences that lead to the expected improvements in lesion segmentation. 3Model BUS (Ultrasound) [2] GlaS (Histopathology) [31] IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑ HD95 ↓ IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑ HD95 ↓                                                                                                                                                
+
+> U-Net [26] 67.03 80.26 97.95 98.31 90.46 22.72 72.69 84.19 83.86 83.75 83.96 25.30 TransFuse [42] 70.16 82.46 98.44 99.34 79.68 18.46 73.49 84.72 83.47 77.10 89.55 25.49 UTNetV2 [11] 68.63 81.40 98.17 98.72 86.81 25.15 67.67 80.72 81.52 87.74 75.59 25.12
+> C2SDG [15] 73.11 84.47 98.59 99.33 83.30 13.32 75.49 86.04 85.49 83.56 87.34 24.28 UNeXt-S [33] 72.11 83.80 98.51 99.23 83.67 15.88 74.41 85.33 85.00 84.71 85.27 25.17 MALUNet [28] 67.19 80.37 98.29 99.35 76.19 22.75 74.64 85.48 85.70 89.29 82.27 24.17 EGE-UNet [29] 65.81 79.38 98.35 99.77 68.95 19.29 71.25 83.21 83.70 88.69 78.93 25.06 VM-UNet [27] 72.02 83.74 98.37 98.72 91.11 15.29 72.64 84.15 84.67 90.05 79.54 24.94 LightM-UNet [17] 71.44 83.34 98.59 99.67 76.32 15.37 69.40 81.94 81.72 82.42 81.04 28.06 LB-UNet [39] 63.75 77.86 98.14 99.45 71.07 14.49 71.30 83.24 84.23 92.26 76.56 24.66 ULVM-UNet [36] 70.19 82.49 98.49 99.53 76.97 15.23 73.33 84.61 84.24 83.80 84.67 26.66
+> Ours 77.68 87.44 98.88 99.51 85.53 11.55 78.63 88.04 87.91 88.90 86.96 21.62
+
+Table 14. Performance comparison of SOTA models on BUS and GlaS datasets. For BUS, 163 samples are split into 114 for training, 18 for validation, and 31 reserved for testing. For GlaS, 165 samples are split into 70 for training and 15 for validation, with 80 reserved for testing. All models are trained and evaluated on the same partitions. ( ↑) indicates higher is better. ( ↓) indicates Lower is better. Best results are in bold. Table 15. Robustness to reduced training data on ISIC2017 and ISIC2018. mIoU and DSC are reported in %, and HD95 is re-ported in pixels. Results are obtained by randomly subsampling 
+
+{50, 70, 100 }% of the training split, while keeping the test set un-changed. All metrics are computed on the full test set.                                                
+
+> Training Data Size ISIC2017 ISIC2018 mIoU ↑DSC ↑HD95 ↓mIoU ↑DSC ↑HD95 ↓
+> 50% 83.30 90.89 13.24 81.49 89.80 14.99 70% 84.14 91.39 12.06 82.23 90.25 13.61 100% 85.55 92.21 10.73 83.60 91.07 12.94
+> Loss Performance Metrics BCE Dice IoU ↑DSC ↑AC ↑SP ↑SE ↑
+> ✓86.95 93.02 93.28 98.16 88.51
+> ✓86.59 92.81 93.14 98.84 87.57
+> ✓✓88.54 93.92 94.08 97.79 90.45
+
+Table 16. Results for different Loss functions on PH2. ( ↑) indi-cates higher is better. ✓ indicates loss selection. Our results are averaged over five independent runs, and the best are in bold. 
+
+## 10. Module-wise Feature Map Visualization 
+
+Figure 5 provides a qualitative comparison of representative feature maps with and without the key modules in Mam-baLiteUNet. The top row presents the feature responses from the full model with AMF, LGFM, and CGA, while the bottom row shows the corresponding feature responses af-ter removing each module. This comparison highlights how each component shapes the internal spatial representation. With AMF, the feature response is more structured and lesion-aware, which reflects its role in adaptive feature re-finement. LGFM produces the clearest and most coherent lesion-focused activation; when it is removed, the feature map becomes weaker and less discriminative, indicating the importance of local-global feature integration. CGA mainly strengthens boundary-sensitive structure. With CGA, the 
+
+Figure 5. Qualitative visualization of module contributions. The top row shows representative feature maps when each module is enabled, while the bottom row shows the corresponding maps when the module is removed. “with” denotes the full model con-taining the module, and “w/o” denotes the variant where the mod-ule is disabled. 
+
+lesion contour is more clearly emphasized, whereas remov-ing it yields a smoother and less selective response around the lesion region. Therefore, these visualizations show that the three modules contribute in complementary ways. AMF improves adaptive refinement, LGFM strengthens lesion-focused representation, and CGA enhances boundary-aware filtering. Together, they produce more informative and spa-tially coherent intermediate features. 
+
+## 11. Stage-wise Feature Map Visualization 
+
+This section provides stage-wise qualitative evidence of how MambaLiteUNet processes lesion images throughout its encoder–decoder pipeline, complementing the quantita-tive results presented in the main manuscript. Figure 6 il-lustrates how our proposed MambaLiteUNet progressively transforms feature representations. We visualize interme-diate feature maps using a model pre-trained on ISIC2018 4Modules w/o Mamba Complexity ISIC2017 ISIC2018 AMF LGFM CGA Params (M) ↓ GFLOPs ↓ IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑ IoU ↑ DSC ↑ AC ↑ SP ↑ SE ↑
+
+✓ 0.321 0.237 83.80 91.18 96.57 98.02 90.59 81.96 90.09 95.81 98.39 86.66 
+
+✓ 0.194 0.332 82.82 90.60 96.27 97.38 91.72 81.20 89.62 95.50 97.52 88.33 
+
+✓ 0.664 0.383 83.70 91.13 96.53 97.91 90.87 82.17 90.21 95.79 97.87 88.38 
+
+✓ ✓ 0.420 0.352 83.15 90.80 96.44 98.07 89.75 82.02 90.12 95.72 97.62 88.95 
+
+✓ ✓ 0.559 0.359 84.03 91.32 96.71 98.77 88.28 82.48 90.40 95.81 97.55 89.66 
+
+✓ ✓ 0.420 0.344 83.94 91.27 96.60 98.03 90.74 82.50 90.41 95.89 98.07 88.16 
+
+✓ ✓ ✓ 0.658 0.374 84.26 91.46 96.70 98.34 90.01 82.66 90.51 95.91 97.90 88.83 
+
+Table 17. Ablation study of AMF, LGFM, and CGA modules under the Mamba-off/Mamba-free control settings on ISIC2017 and ISIC2018 datasets. Complexity is measured by Params (M) and GFLOPs. ( ↑) indicates higher is better, while ( ↓) indicates lower is better. 
+
+Module Design Goal Our Mechanism Closest Prior Key Distinction → Expected Benefit AMF Scale–adaptive multi-branch feature fusion under tight compute. Channels are split into parallel Mamba SSM branches, then merged through a two-stage DW →PW gat-ing pipeline that adapts routing to the input. Residual reweighting ensures stability. ResNeXt (grouped conv with fixed car-dinality). Fixed partitions in ResNeXt vs. dy-namic gating with Mamba branches + dual gates → Content-aware alloca-tion of capacity, sharper interiors, and reduced under-/over-emphasis struc-tures at similar cost. LGFM Fuse local detail with long-range context inside a sin-gle block. A dual-path block: DWConv( 3×3)for textures and edges, + MHA for global dependencies. Features are concatenated and projected back in a single residual unit (no external fu-sion head). TransFuse (CNN and Transformer encoders fused by external BiFusion). Separate encoders + late fusion vs. In-block local–global mixing. →
+
+Less redundancy, balanced paths, and stronger boundary retention (lower HD95). CGA Denoise or reduce back-ground information and regulate skip connections before decoder fusion. Cross-gated skip aggregation: encoder–decoder pairs refined with Mamba, projected through DWConv+sigmoid, and gated bidi-rectionally before fusion. Attention U-Net (decoder-driven, one-way gating of encoder skips). One-way decoder gating vs. Bidirec-tional pre-fusion gating. → Cleaner skips, suppressed background noises, and sharpens edges with minimal overhead. 
+
+Table 18. Comparative analysis of our AMF, LGFM, and CGA modules against their closest priors (ResNeXt [38], TransFuse [42], and Attention U-Net [23]). The table highlights how architectural differences in design goals and mechanisms translate into measurable segmentation gains. Abbreviations: DW: depthwise convolution; PW: pointwise convolution; SSM: state space model [12]; MHA: multi-head self-attention [7]. 
+
+[5] and tested on a held-out image. The top row shows the input image, followed by activation maps from each en-coder stage (Encoder1–Encoder5) and the bottleneck. As depth increases, the model learns progressively more ab-stract and localized features that emphasize lesion bound-aries and suppress background noise. The bottom row (left →right) shows the ground-truth mask, the model’s final output, and then decoder activa-tions from Decoder5 through Decoder1. Early decoder blocks (Decoder1 and Decoder2) recover coarse structure, while later blocks (Decoder3–Decoder5) refine contours and sharpen lesion boundaries. This validates our model’s hierarchical encoding, skip-guided decoding, and recon-struction. Arrows indicate the forward flow of information through the network. 
+
+Model Sec/Image ↓ Memory (MB) ↓
+
+VM-UNet [27] 0.1718 582.5 VM-UNet2 [41] 0.1836 613.7 LightM-UNet [17] 0.0194 63.6 ULVM-UNet [36] 0.0058 17.4 Ours 0.0167 54.5 
+
+Table 19. Inference efficiency comparison among Mamba-based models. Latency (Sec/Image) and peak GPU memory (MB) at 
+
+256 × 256 with batch size 1 evaluated on an NVIDIA RTX 3090 Ti (24 GB) using CUDA timing and PyTorch memory profiling. (↓) indicates lower is better. Best results in bold. 
+
+## 12. Inference Time and Memory Usage 
+
+Table 19 presents a comparative analysis of inference time and memory for Mamba-based models. VM-UNet (0.1718 Sec/Image, 582.5 MB) and VM-UNet2 (0.1836 Sec/Image, 613.7 MB) are the most computationally ex-pensive. LightM-UNet is considerably lighter (0.0194 5Figure 6. Feature map visualization in MambaLiteUNet. Top row (left →right): input image, Encoder1–Encoder5, Bottleneck—features grow more abstract and emphasize lesion boundaries. Bottom row (left →right): ground-truth mask, model output, and Decoder5–Decoder1 activations. Decoding flows from Decoder1 through Decoder5 to the output (arrows): early blocks (Decoder1/Decoder2) recover coarse structure, while later blocks (Decoder4/Decoder5) refine and sharpen lesion contours. Arrows indicate the forward flow of information. 
+
+Sec/Image, 63.6 MB), and ULVM-UNet achieves the best efficiency at 0.0058 Sec/Image and 17.4 MB. In compar-ison, our MambaLiteUNet operates at 0.0167 Sec/Image with 54.5 MB, slightly above ULVM-UNet in cost but of-fering stronger representational power and higher segmen-tation accuracy (see Sec. 7), making it a balanced choice for accuracy and deployment efficiency. 6

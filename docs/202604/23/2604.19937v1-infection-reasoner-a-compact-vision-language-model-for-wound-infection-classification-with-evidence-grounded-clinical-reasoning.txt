@@ -1,0 +1,750 @@
+Title: Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning
+
+URL Source: https://arxiv.org/pdf/2604.19937v1
+
+Published Time: Thu, 23 Apr 2026 00:09:22 GMT
+
+Number of Pages: 29
+
+Markdown Content:
+# Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning 
+
+## PALAWAT BUSARANUVONG, REZA SAADATI FARD, EMMANUEL AGU ∗, DEEPAK KUMAR, SHEFALIKA GAUTAM, BENGISU TULU, and DIANE STRONG, Worcester Polytechnic Institute, USA 
+
+## GIORGIO GIATSIDIS, UMass Chan Medical School, USA 
+
+## LORRAINE LORETZ, UMass Memorial Healthcare (retired), USA 
+
+Assessing chronic wound infection from photographs is challenging because visual appearance varies across wound etiologies, anatomical locations, and imaging conditions. Prior image-based deep learning methods have mainly focused on classification with limited interpretability, despite the need for evidence-grounded explanations to support point-of-care decision making. We present Infection-Reasoner, a compact 4B-parameter reasoning vision-language model for chronic wound infection classification and rationale generation. To address the scarcity of expert-labeled wound images with reasoning annotations, Infection-Reasoner is trained using a two-stage pipeline: (1) reasoning distillation, in which GPT-5.1 generates chain-of-thought rationales for unlabeled wound images to initialize wound-specific reasoning in a smaller student model (Qwen3-VL-4B-Thinking), and (2) reinforcement learning post-training with Group Relative Policy Optimization on a small labeled infection dataset to refine classification reasoning. On a held-out heterogeneous wound dataset, Infection-Reasoner achieved 86.8% accuracy, 86.4% sensitivity, and 87.1% specificity, outperforming several strong baselines, including GPT-5.1. Rationale quality was further evaluated using both multimodal large language model (MLLM) judges and wound expert review. Across four MLLM judges, visual-support agreement scores ranged from 0.722 to 0.903, while expert review rated 61.8% of rationales as Correct and 32.4% as Partially Correct. CCS Concepts: • Computing methodologies → Visual inspection ; Neural networks ; Natural language generation ; •
+
+Applied computing → Health informatics .Additional Key Words and Phrases: Distillation Learning, Vision-Language Models, Multimodal LLM, Wound Infection, Post-Training, Reinforcement Learning, Medical Reasoning 
+
+1 Introduction 
+
+Chronic wounds impose a substantial burden on patients, caregivers, and health systems. In the United States alone, millions of individuals are affected, with particularly high impact among older adults, and the aggregate economic burden exceeds $10 billion annually across care settings [ 18 , 23 , 41 , 42 ]. Importantly, chronic wounds arise from diverse etiologies including diabetic foot ulcers, venous leg ulcers, arterial ulcers, pressure injuries, surgical wounds, and trauma-related wounds, each exhibiting different visual characteristics, healing trajectories, and clinical contexts [ 8, 13 , 14 ]. This heterogeneity makes automated wound assessment particularly challenging in real-world settings. Among wound complications, infection is one of the most clinically consequential because it can rapidly destabilize a wound that was previously manageable [ 31 , 46 ]. Wound infection typically involves microbial invasion of host tissue followed by inflammatory responses that disrupt normal healing [ 27 , 37 ]. Clinically, 
+
+> ∗
+
+Corresponding author. Authors’ Contact Information: Palawat Busaranuvong, pbusaranuvong@wpi.edu; Reza Saadati Fard, rsaadatifard@wpi.edu; Emmanuel Agu, emmanuel@wpi.edu; Deepak Kumar, dkumar1@wpi.edu; Shefalika Gautam, sgautam@wpi.edu; Bengisu Tulu, bengisu@wpi.edu; Diane Strong, dstrong@wpi.edu, Worcester Polytechnic Institute, Worcester, MA, USA; Giorgio Giatsidis, Giorgio.Giatsidis@umassmed.edu, UMass Chan Medical School, Worcester, MA, USA; Lorraine Loretz, loretzdpmnp@gmail.com, UMass Memorial Healthcare (retired), Worcester, MA, USA. .
+
+1  
+
+> arXiv:2604.19937v1 [cs.CV] 21 Apr 2026 2•Busaranuvong et al.
+
+infection diagnosis relies on interpretation of a constellation of signs and symptoms rather than a single visual cue. Common indicators include erythema, edema, warmth, tenderness or pain, purulent exudate, tissue friability, necrosis, worsening wound appearance, and delayed healing [ 31 , 51 , 55 ]. In chronic wounds, these signs can be subtle or atypical, complicating early recognition and increasing the risk of delayed treatment, hospitalization, or limb-threatening complications and amputations [39]. In routine clinical practice, diagnosing infected wounds often involves multiple steps including wound debride-ment, microbiological cultures, laboratory tests, and specialist interpretation. While appropriate in well-resourced clinical environments, this workflow can be difficult to execute at the point-of-care (POC), such as during home visits, outpatient follow-up, or in resource-limited settings [ 32 , 36 ]. In these contexts, non-specialist caregivers frequently lack immediate access to wound experts and instead make assessments based on wound appearance and bedside observations. Consequently, triage decisions must be made under uncertainty: infected wounds may be referred too late, while many non-infected wounds are unnecessarily escalated, increasing healthcare cost and workflow burden [11, 47, 63]. Although wound photography is increasingly integrated into telehealth, reliable infection assessment from images alone remains challenging. Real-world wound photographs vary widely in lighting conditions, viewpoint, focus, resolution, background clutter, and anatomical location. In addition, visual phenotypes often overlap between inflammation, colonization, healing tissue, and true infection [ 50 , 53 ]. These factors create substantial intra-class variability and inter-class similarity, reducing confidence in appearance-based classification. Prior deep learning approaches have demonstrated promising results, but most systems are developed primarily on datasets containing diabetic foot ulcers (DFUs) [ 19 , 67 ] and often rely on explicit wound localization or cropped patches prior to classification [ 2 , 9 , 15 , 45 , 60 ]. Such assumptions may limit generalization when wound types and acquisition conditions vary across clinical environments. Beyond generalization limitations, most existing deep learning systems operate as black-box classifiers that output only a prediction without clinically meaningful explanations. In medical decision support settings, such opaque predictions can limit clinician trust and make it difficult to verify whether the model’s decision is grounded in evidence-based wound signs. The absence of structured clinical reasoning or textual explanations of machine learning assessments therefore remains a major barrier to deploying automated wound assessment systems in real-world care workflows. Meanwhile, Multimodal Large Language Models (MLLMs) have rapidly advanced. Large vision-language models (VLMs) such as GPT-5.1 [ 54 ], Claude-4.6 [ 4], and Gemini-3 [ 17 ] have demonstrated strong image–text rea-soning capabilities and have begun to show promising performance on medical reasoning benchmarks [ 25 , 48 , 49 ]. However, these MLLMs typically require substantial GPU memory, high inference cost, and cloud-scale computa-tional infrastructure, which can limit their practicality for routine deployment in resource-constrained clinical settings. In parallel, smaller open-source medical VLMs (roughly 2B–32B parameters) including MedGemma [ 16 ], Lingshu [ 66 ], and MedVLM-R1 [ 44 ] suggest that compact models can support clinically meaningful decision-making with performance comparable to larger MLLMs on task-specific problems but with lower inference cost, making deployment on edge or mobile devices more feasible. However, current medical VLM development has not explored wound assessment from photographs, focusing instead on structured imaging modalities such as X-ray, CT, MRI, pathology slides, or fundus imaging [ 59 , 69 ]. This gap, together with the practical need for low-cost and interpretable decision support at the POC, motivates our development of a compact wound-specific reasoning vision-language model. We propose Infection-Reasoner , a 4B-parameter reasoning VLM designed for end-to-end chronic wound infection classification and clinical rationale generation from wound photographs. Unlike prior DFU-specific frameworks, Infection-Reasoner directly analyzes whole wound images across heterogeneous wound types without requiring explicit image preprocessing such as wound localization. The model is trained using a two-stage pipeline: (1) reasoning distillation , in which a large teacher model (GPT-5.1) generates pseudo-label predictions and corresponding chain-of-thought (CoT) rationales for unlabeled wound images, which are then used to initialize Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 3
+
+cold-start reasoning via supervised fine-tuning (SFT) of the student model. This stage addresses the scarcity of expert-written diagnostic rationales by transferring structured wound-sign reasoning without manual rationale annotation; and (2) reinforcement-learning (RL) post-training on limited labeled wound infection data to further improve infection classification accuracy and the quality of clinical rationale generated. Since distillation alone can inherit teacher bias and may generalize less robustly under domain shift, especially when the teacher is not wound-specialized, combining the second RL stage provides task-specific adaptation to the wound infection task. Consequently, Infection-Reasoner-4B achieves strong performance on an unseen heterogeneous wound dataset, reaching 86.8% accuracy, 86.4% sensitivity, and 87.1% specificity, outperforming its ablated, individual training components as well as proprietary foundation models such as GPT-5.1, Gemini-3.1, and Claude-4.6, evaluated in a CoT-prompted zero-shot setting. Beyond infection classification, Infection-Reasoner produces wound-sign-aware clinical rationales that align visible evidence with diagnostic reasoning, supporting interpretable decision-making for nurses and clinicians at the point of care. At the same time, because our labeled training and evaluation sets are limited in size, we position these results as a first, important step that provides preliminary evidence of the potential of post-trained, compact wound-specific reasoning models rather than as definitive clinical validation. 
+
+Our main contributions are as follows: 
+
+• We introduce Infection-Reasoner , a compact reasoning VLM for end-to-end infection classification and rationale generation from whole wound images without explicit image preprocessing steps, such as, wound localization, segmentation, and cropping. 
+
+• We propose a two-stage training pipeline : (1) reasoning distillation on teacher-generated CoT data via SFT, followed by (2) RL post-training on limited labeled data. This design is motivated by a key practical constraint in wound-care AI: expert-labeled infection images with corresponding image-grounded rationale annotations are both scarce. Reasoning distillation allows the model to learn structured wound-sign reasoning from teacher generated rationales, while RL post-training reduces residual teacher bias and sharpen decision boundaries while preserving the reasoning structure learned in the first stage. 
+
+• Extensive experiments demonstrate that our Infection-Reasoner model achieves strong diagnostic performance on unseen heterogeneous chronic wound images (DFU, pressure, venous, arterial), out-performing MLLMs evaluated with CoT-prompted zero-shot settings. These results demonstrate that the proposed 2-stage Infection-Reasoner framework enables a compact 4B model to surpass proprietary MLLMs, including GPT-5.1, on a specialized wound infection imaging task. 
+
+• We introduce an MLLM-as-a-Judge evaluation protocol to assess rationale grounding. This protocol extracts clinical claims from model-generated reasoning and verifies whether those claims are supported by visual evidence in the wound image. We further complement the reasoning evaluation with expert review, providing human validation of rationale plausibility and clinical usefulness. 
+
+2 Related Work 2.1 Deep Learning for Wound Infection Classification 
+
+State-of-the-art (SOTA) deep learning wound infection detection approaches have primarily focused on image-based classification using Convolutional Neural Networks (CNNs) and vision transformers (ViTs) [ 2 , 15 , 19 , 45 , 67 ]. As summarized in Table 1, the large majority of such research has been conducted on datasets containing diabetic foot ulcer (DFU) images, which represent only one subtype of chronic wounds. Other major chronic wound subtypes include venous ulcers, arterial ulcers, and pressure injuries [ 8 ]. Because these wound types differ in pathophysiology, visual phenotype, and clinically relevant signs for infection assessment [ 13 ], models trained primarily on DFU images may not generalize reliably across heterogeneous chronic wounds. Early work by Wang et al. [ 60 ] utilized Support Vector Machines (SVM) to classify image features extracted by a CNN, achieving high overall accuracy. However, the low sensitivity indicated the difficulty of correctly 4 • Busaranuvong et al. 
+
+Table 1. Summary of prior work on wound infection classification using deep learning.       
+
+> Task Related Work Summary of Approach No. of Target Classes Dataset Results
+> Wound segmentation and Infection Classification Wang et al. 2015 [60] CNN-based: ConvNet + SVM 2 classes (infection and no infection) NYU wound Database Accuracy: 95.6% PPV: 40% Sensitivity: 31% Goyal et al. 2020 [19] CNN-based: Ensemble CNN 2 classes (infection and no infection) Part B DFU 2020 dataset Accuracy: 72.7% PPV: 73.5% Sensitivity: 70.9% DFU infection classification Al-Garaawi et al. 2022 [2] CNN-based: DFU-RGB-TEX-Net Accuracy: 74.2% PPV: 74.1% Sensitivity: 75.1% Busaranuvong et al. 2025 [10] Multimodal Transformer: SCARWID (retrieval-based) Accuracy: 81.4% PPV: 79.4% Sensitivity: 84.5% DFU wound ischemia and infection classification Yap et al. 2021 [67] CNN-based: InceptionV3, DenseNet, EfficientNet 4 classes (both infection and ischemia, infection, ischemia, none) DFUC2021 dataset EfficientNet B0 performance: F1, PPV, SEN = 55% , 57%, 62% Qayyum et al. 2021 [45] ViT-based: Ensemble ViT F1, PPV, SEN = 57%, 58% , 61% Galdran et al. 2021 [15] ViT-based: ViT, DeiT CNN-based: BiT, EfficientNet BiT performance: F1, PPV, SEN = 61%, 61% , 66%
+
+identifying infected cases. Later DFU-focused systems by Goyal et al. [ 19 ], Al-Garaawi et al. [ 2 ], Yap et al. [ 67 ], Qayyum et al. [ 45 ], and Galdran et al. [ 15 ] improved classification performance using ensemble CNNs, texture-augmented networks, and transformer-based architectures. However, these methods are primarily predictive rather than explanatory: they output a class label without generating clinically meaningful textual rationales, limiting interpretability and clinician trust. These approaches also depend on explicit wound localization prior to classification, which may reduce robustness when acquisition conditions vary across real-world settings. Recent work has begun to incorporate language or multimodal representations into wound analysis. Synthetic Caption Augmented Retrieval for Wound Infection Detection (SCARWID) [ 10 ], for example, augments wound images with synthetic captions generated by a fine-tuned VLM to improve DFU infection classification. It moves beyond pure image classification by introducing text-based auxiliary information, but the captions generated mainly serve as feature augmentation for the downstream classifier rather than as complete, standalone diagnostic explanations or explicit clinical rationale. Across all prior systems, two limitations persist. First, most models are developed on relatively narrow wound distributions, especially DFU-focused datasets, which may limit generalization across heterogeneous chronic wounds. Second, existing models produce only a classification label (e.g. infected or uninfected) without any corresponding clinically grounded textual rationale, limiting interpretability and clinician trust in POC deployment. These gaps motivate the development of reasoning-capable VLMs that can both classify infection and generate clinically grounded rationales directly from wound images. 
+
+2.2 Medical Vision-Language Models 
+
+The rapid development of large vision-language models (VLMs) has opened new possibilities for multimodal clinical decision support. Early work in this area centered on medical visual question answering (Med-VQA), with evaluation on benchmarks such as SLAKE [ 33 ], VQA-RAD [ 28 ], and PathVQA [ 22 ]. These benchmarks helped Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 5
+
+driving the development of models capable of interpreting radiology, pathology, and other biomedical images through image–text reasoning. Large foundation models have demonstrated strong performance on broader medical reasoning tasks. Med-PaLM Multimodal [ 59 ], for example, showed that scaling a pretrained vision encoder with a large language model backbone enables competitive performance across diverse medical imaging benchmarks by achieving F1-scores of 62.06% on VQA-RAD, 62.69% on Path-VQA, and 87.50% on SLAKE-VQA. HuatuoGPT-Vision [ 69 ] further showed that domain-aligned instruction tuning benefits medical VQA and report generation, while MedGemma [ 16 ]illustrated that compact open-weight models can still support clinically meaningful decision-making when fine-tuned on curated biomedical corpora. Proprietary general-purpose VLM families such as GPT [ 1 , 54 ], Gemini [ 12 , 17 ], and Claude [ 3 , 4] have also been evaluated on medical reasoning benchmarks [ 25 , 48 , 49 ], demonstrating strong CoT-prompted zero-shot capabilities, but typically with higher inference latency, greater memory requirements, and higher computational cost than compact specialized models. Despite this progress, most medical VLM development has focused on relatively structured imaging domains such as radiology, pathology, and fundus photography [ 16 , 48 , 59 , 69 ]. In these settings, image acquisition is typically more standardized and large annotated datasets are more readily available. Wound photographs, by contrast, exhibit substantially greater variability in appearance, acquisition conditions, and clinical context, while annotated wound datasets remain limited. Recent reasoning-oriented models such as Med-R1 [ 26 ], MedVLM-R1 [ 44 ], and Lingshu [ 66 ] suggest that explicit reasoning supervision can improve performance and interpretability in medical multimodal systems, but they have been evaluated primarily on medical VQA-style benchmarks rather than wound assessment from real-world photographs. This leaves an important gap in compact, reasoning-capable models for end-to-end wound infection classification and evidence-grounded rationale generation at the POC. 
+
+2.3 Reasoning Distillation and Reinforcement Learning for Medical AI 
+
+Chain-of-Thought (CoT) prompting [ 62 ] demonstrated that eliciting intermediate reasoning steps before a final prediction substantially improves LLM performance on complex inference tasks. In medical settings, this is particularly valuable because diagnosis often requires combined analyses of multiple visual and clinical cues rather than any single observation [ 24 ]. The success of DeepSeek-R1 [ 21 ] showed that training models to produce long-form reasoning traces via reinforcement learning can yield large performance gains on various tasks including mathematical reasoning, programming, and other complex inference benchmarks that reward multi-step deliberation and verifiable answer correctness, catalyzing a wave of reasoning-oriented adaptations in the medical domain [26, 44, 70]. A core challenge in training medical reasoning models is to obtain high-quality rationales at scale. Expert-written reasoning traces are tedious, expensive and challenging to collect. Wound photographs in particular rarely have corresponding structured diagnostic explanations. Reasoning distillation , where a larger and more powerful teacher model generates CoT-style supervision to initialize a smaller student model, offers a practical alternative to manual annotation of rationale. Prior work has shown that teacher-generated reasoning can transfer useful step-by-step diagnostic patterns to compact student models effectively [ 7, 21 , 30 ]. However, distillation alone can inherit teacher biases and may generalize less robustly under domain shift, particularly when the teacher was not trained on wound-specific data [29]. 
+
+Reinforcement Learning with Verifiable Rewards (RLVR) [ 21 , 52 ] is a complementary approach that replaces learned reward models with automatically verifiable signals such as answer correctness. Group Relative Policy Optimization (GRPO) [ 52 ] has emerged as an effective RLVR algorithm that optimizes model outputs relative to a group of sampled responses without requiring a separate critic model, making it practical under limited labeled data. Compared with Reinforcement Learning from Human Feedback (RLHF) [ 43 ], which relies on human preference annotations to optimize model behavior, RLVR is substantially more feasible when such annotations are 6 • Busaranuvong et al. 
+
+unavailable. However, applying RLVR alone can produce incoherent reasoning chains that lack human-readable structure [21] and may not strengthen the intrinsic reasoning priors of the base model [68]. These observations motivated us to apply the two-stage training framework, where Stage 1 applies reasoning distillation from a large teacher model, establishing a coherent wound-sign vocabulary and reasoning structure in the student model. Stage 2 then applies GRPO post-training to sharpen infection classification, and refine rationale quality while preserving the human-readable explanation structure instilled in Stage 1. 
+
+3 Infection-Reasoner Stage 1: Reasoning Distillation via Supervised Fine -Tuning 
+
+> Labeled Images
+
+Stage 2: RL Post -Training with GRPO  
+
+> Infected Uninfected
+
+Teacher Model 
+
+> GPT -5.1
+
+Reasoning 
+
+prompt CoT generation Distillation SFT 
+
+cold -start CoT 
+
+Student Model 
+
+> Qwen3 -VL -4B
+
+Distilled Model 
+
+> Unlabeled Images
+
+Distilled Model 
+
+Reasoning 
+
+prompt GRPO 
+
+RL post -training 
+
+Infection -Reasoner -4B 
+
+> Model initialization
+> Fig. 1. The Infection-Reasoner Two-stage Training Pipeline.
+
+We instantiate Infection-Reasoner with Qwen3-VL-4B-Thinking [ 5 ] as the base student model. We selected this model for its native dynamic-resolution processing, which allows whole wound photographs to be analyzed at their original resolution without fixed-size resizing, wound segmentation, or cropping. Preserving the full image in this way helps retain fine-grained visual cues relevant to infection assessment, such as exudate texture, perilesional skin color, and wound-edge morphology. Rather than modifying the model architecture, we adapt the base model to wound-specific reasoning through a two-stage training pipeline. This design is motivated by the availability of wound photographs under two distinct supervision regimes. Unlabeled wound images can be curated at relatively larger scale from internet sources, whereas expert-labeled infection datasets are typically small and rarely include structured clinical reasoning annotations. Infection-Reasoner is designed to leverage both regimes through a two-stage training pipeline inspired by DeepSeek-R1 [ 21 ], which showed that a cold-start supervised fine-tuning (SFT) phase before RL post-training can improve the coherence and usefulness of model reasoning. In Stage 1, a teacher model (GPT-5.1) generates chain-of-thought Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 7
+
+rationales for unlabeled wound images, and these rationales are distilled into the student model through SFT. In Stage 2, the distilled model is further optimized using GRPO [ 52 ] on a small labeled infection dataset to refine classification behavior, reduce residual teacher bias, and improve performance under limited supervision. The overall Infection-Reasoner pipeline is illustrated in Figure 1, and each stage is described in detail below. 
+
+3.1 Stage 1: Reasoning Distillation Fine-Tuning (DFT) 
+
+Compact models trained with standard supervised learning on classification labels alone do not acquire structured diagnostic reasoning. Stage 1 addresses this challenge by using a large teacher model to generate wound-specific CoT rationales for unlabeled wound images, which are then distilled into the 4B-parameter student model. 
+
+Teacher-Generated Reasoning. Given a curated set of unlabeled wound photographs D𝑢 = {𝑥 𝑖 }𝑁 𝑖 =1, the teacher model is prompted to generate a CoT rationale followed by a binary infection classification for each image. The prompt in Figure 2 poses the task as a multiple-choice question (A: No / B: Yes) and constrains the model to analyze visual evidence only, explicitly excluding clinical history, laboratory results, odor, and systemic signs. Crucially, the prompt does not enumerate specific wound signs to examine. This design allows the teacher’s wound-sign vocabulary and diagnostic reasoning to emerge from its own clinical knowledge rather than being injected by the prompt. The result is a distillation dataset Ddistill = {( 𝑥 𝑖 , 𝑟 𝑖 , ˆ𝑦 𝑖 )} 𝑁 𝑖 =1 of image–rationale–prediction triples, where 𝑟 𝑖 is the teacher-generated CoT reasoning enclosed in <think> ... </think> tags and ˆ𝑦 𝑖 ∈ { A,B} is the teacher’s answer enclosed in <answer> ... </answer> tags. 
+
+Chain-of-Thought Reasoning Prompt (Stage 1 and Stage 2) 
+
+Based on visual appearance, is the wound in the user-provided image infected? 
+
+Choice: (A) No. (B) Yes. First output the decision-making rationale in <think></think> tags and then output ONLY the final answer (i.e. single-letter choice) in <answer></answer> tags. Please strictly follow the format. 
+
+Formatting: <think> ... </think> <answer> ... </answer> 
+
+Constraints: 
+
+• Use only visual evidence from the image; no clinical history, labs, odor, or systemic signs. 
+
+Fig. 2. Reasoning prompt used for teacher and student CoT generation in Stage 1 and for student RL post-training in Stage 2. 
+
+Supervised Fine-Tuning Objective. The student model 𝜋 𝜃 is fine-tuned on Ddistill by maximizing the likelihood of the teacher-generated rationale and prediction given the input image. The training objective is the standard autoregressive language modeling loss [6, 21] over the target sequence 𝑠 𝑖 = (𝑟 𝑖 , ˆ𝑦 𝑖 ):
+
+LSFT (𝜃 ) = −E(𝑥 𝑖 ,𝑠 𝑖 )∼D distill 
+
+" |𝑠 𝑖 |∑︁  
+
+> 𝑡 =1
+
+log 𝜋 𝜃 
+
+
+
+𝑠 (𝑡 ) 
+
+> 𝑖
+
+𝑥 𝑖 , 𝑠 (<𝑡 )
+
+> 𝑖
+
+#
+
+, (1) where 𝑠 (𝑡 ) 
+
+> 𝑖
+
+denotes the 𝑡 -th token of the target sequence and 𝑠 (<𝑡 ) 
+
+> 𝑖
+
+denotes all preceding tokens. This loss function encourages the student to internalize the full diagnostic reasoning chain rather than learning only to predict the label. 8 • Busaranuvong et al. 
+
+3.2 Stage 2: RL Post-Training with GRPO 
+
+To further align the distilled model with verified infection labels and refine reasoning, Stage 2 applies Group Relative Policy Optimization (GRPO) [ 52 ] on a small labeled infection dataset, DLabeled = {( 𝑥 𝑖 , 𝑦 𝑖 )} 𝑀 𝑖 =1, where 
+
+𝑦 𝑖 ∈ { A, B} denotes the verified infection label for image 𝑥 𝑖 (A = uninfected, B = infected), and 𝑀 is the number of labeled images. In this setting, GRPO refines the distilled model using direct supervision from verified infection outcomes. This design is further motivated by recent evidence that RL post-training for reasoning can remain effective even under very limited training data [61]. 
+
+Group Relative Policy Optimization. GRPO is a RL algorithm designed for language model post-training that eliminates the need for a separate critic or value network. For each input 𝑥 𝑖 , GRPO samples a group of 𝐺 candidate outputs {𝑜 (1) 
+
+> 𝑖
+
+, . . . , 𝑜 (𝐺 ) 
+
+> 𝑖
+
+} from the current policy 𝜋 𝜃 and computes a reward R ( 𝑜 (𝑔 ) 
+
+> 𝑖
+
+, 𝑦 𝑖 ) for each. The relative advantage of each output within the group is estimated by normalizing the rewards: 
+
+ˆ𝐴 (𝑔 ) 
+
+> 𝑖
+
+= R ( 𝑜 (𝑔 ) 
+
+> 𝑖
+
+, 𝑦 𝑖 ) − mean 𝑔 
+
+ R ( 𝑜 (𝑔 ) 
+
+> 𝑖
+
+, 𝑦 𝑖 )
+
+std 𝑔 
+
+ R ( 𝑜 (𝑔 ) 
+
+> 𝑖
+
+, 𝑦 𝑖 ) , (2) where the mean and standard deviation are computed over the 𝐺 sampled outputs for the same input. The policy is then updated to maximize the clipped surrogate objective with a KL divergence penalty against a reference policy 𝜋 ref (the Stage 1 distilled model): 
+
+LGRPO (𝜃 ) = −E (𝑥 𝑖 ,𝑦 𝑖 )∼D Labeled     
+
+> {𝑜 (𝑔 )
+> 𝑖 }𝐺 𝑔 =1∼𝜋 𝜃 old (· | 𝑥 𝑖 )
+
+"
+
+1
+
+𝐺 
+
+> 𝐺
+
+∑︁ 
+
+> 𝑔 =1
+
+min 
+
+
+
+𝜌 (𝑔 ) 
+
+> 𝑖
+
+ˆ𝐴 (𝑔 ) 
+
+> 𝑖
+
+, clip 
+
+
+
+𝜌 (𝑔 ) 
+
+> 𝑖
+
+, 1 − 𝜀, 1 + 𝜀 
+
+ ˆ𝐴 (𝑔 )
+
+> 𝑖
+
+
+
+− 𝛽 DKL [𝜋 𝜃 ∥ 𝜋 ref ]
+
+#
+
+(3) where 𝜌 (𝑔 ) 
+
+> 𝑖
+
+= 𝜋 𝜃 (𝑜 (𝑔 ) 
+
+> 𝑖
+
+|𝑥 𝑖 )/ 𝜋 𝜃 old (𝑜 (𝑔 ) 
+
+> 𝑖
+
+|𝑥 𝑖 ) is the importance sampling ratio, 𝜀 is the clipping threshold, and 𝛽 
+
+controls the strength of the KL penalty. The KL term anchors the updated policy to the distilled model, preventing catastrophic forgetting of the reasoning structure established in Stage 1. 
+
+Accuracy Reward Function. We define a single verifiable accuracy reward based on whether the model’s predicted answer matches the ground-truth label 𝑦 𝑖 :
+
+Racc (𝑜 (𝑔 ) 
+
+> 𝑖
+
+, 𝑦 𝑖 ) =
+
+(
+
+1 if parse_answer (𝑜 (𝑔 ) 
+
+> 𝑖
+
+) = 𝑦 𝑖 ,
+
+0 otherwise, (4) where parse_answer (·) extracts the single-letter response ( A or B) from within the <answer> ... </answer> tags of the model output. If the model fails to produce a parseable answer in the required format, a reward of 0 is assigned. This binary verifiable reward provides a clean, unambiguous training signal that directly optimizes infection classification accuracy without requiring expert-annotated rationales [21, 52]. In prior work that applies GRPO directly to a base model without cold-start initialization, a format reward is typically necessary to encourage the model to produce structured reasoning outputs [ 21 ]. In this work, we do not include a format reward in Stage 2 since the structured <think> ... </think> format and wound-sign reasoning vocabulary have already been transferred from the teacher in Stage 1. Adding a format reward on top of an already well-structured model would provide no additional training signal and could interfere with the nuanced reasoning patterns established during distillation. 
+
+4 Dataset Preparation and Processing 
+
+Infection-Reasoner was trained and evaluated using two distinct data regimes that correspond directly to its two training stages: a large pool of unlabeled wound images for Stage 1 distillation, and a smaller labeled Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 9
+
+infection dataset for Stage 2 RL post-training. Both datasets are drawn from heterogeneous sources to support generalization across wound types and acquisition conditions. In collaboration with the UMass Chan Medical School team (UMass), we acquired 120 wound images with unique IDs, collected during routine care photographs across 4 major chronic wound types: diabetic foot, pressure, venous, and arterial ulcers. The images were collected with varying lighting conditions, viewpoints, and anatomical locations. The dataset collected by UMass is imbalanced, comprising 92 uninfected and 28 infected wounds, reflecting the lower prevalence of infection in outpatient wound care settings. Many severe infections are first managed through emergency services before referral. 
+
+Held-Out Test Set. To obtain a clinically meaningful and fair evaluation protocol, we constructed a balanced held-out UMass test set by using all 28 infected wounds and randomly sampling 28 uninfected wounds (56 total). To prevent data leakage, all test images were excluded from both training stages. 
+
+4.1 Teacher-Generated CoT Distillation Dataset 
+
+Stage 1 was designed to learn wound-sign reasoning from a heterogeneous pool of unlabeled wound images, without requiring infection labels or expert-written rationales. We curated 155 unique wound images from five sources: 33 from WoundNet [ 34 ], 50 from the Medetec wound database [ 38 ], 16 from a clinical wound assessment report [ 65 ], 10 from Internet image search, and 46 uninfected UMass wound images not included in the held-out test split. Table 2 summarizes the source dataset composition. 
+
+> Table 2. Composition of Stage 1 source for unlabeled distillation images.
+
+Source Count Label usage 
+
+WoundNet [34] 33 Not utilized Medetec database [38] 50 Not utilized Wound Assessment report [65] 16 Not utilized Internet image search 10 Not utilized UMass (non-test subset) 46 Not utilized Total 155 Unlabeled pool To increase appearance diversity while preserving the underlying clinical content, we applied a set of image augmentation operations to each wound image including horizontal flipping, vertical flipping, center cropping, and additive Gaussian noise. Figure 3 shows an example of each augmentation applied to the same wound image. Together with the original images, these augmented views expanded the dataset from 155 to 620 images in total, which were then used for teacher CoT generation. Original Horizontal Flip Vertical Flip Center Crop Gaussian Noise      
+
+> Fig. 3. Example wound image augmentations used to increase appearance diversity while preserving clinical content. From left to right: original image, horizontal flip, vertical flip, center crop (scale = 0.8), and Gaussian noise (mean = 0, 𝜎 =30 ). 10 •Busaranuvong et al.
+
+We then applied the CoT prompt in Figure 2 to the teacher model (GPT-5.1) to generate rationale-plus-answer outputs for each image, producing the teacher-generated CoT distillation dataset used in Stage 1 (Section 3.1). We denote this dataset as Ddistill = {( 𝑥 𝑖 , 𝑟 𝑖 , ˆ𝑦 𝑖 )} 𝑁 𝑖 =1, where 𝑥 𝑖 is a wound image, 𝑟 𝑖 is the teacher-generated rationale, and ˆ𝑦 𝑖 ∈ { A, B} is the teacher-generated final answer; in our setup, 𝑁 = 620 . This design introduces some heterogeneity in wound appearance so the student model learns generalizable reasoning patterns rather than source-specific shortcuts or wound-type-specific shortcuts. An example of a teacher-generated rationale is shown in Figure 4.   
+
+> Teacher-Generated CoT Example
+> GPT-5.1 Output
+> <think> Redness and irritation are visible around the wound edges, but there is no clear purulent drainage, overt swelling, or obvious spreading cellulitis pattern that strongly suggests infection based solely on this image. The central wound bed appears dark but not clearly indicative of pus. With only visual data, it is not definitively infected. </think> <answer>A</answer>
+> Fig. 4. Example Stage 1 pair: wound image (left) and teacher-generated rationale with final answer (right).
+
+4.2 Labeled Infection Dataset for RL Post-Training 
+
+Stage 2 was conducted using a small balanced labeled set of unique wound images. We first constructed an original labeled training set of 22 wound images, consisting of 11 infected and 11 uninfected cases. The infected images were curated from two clinical sources—the Wound Assessment report [ 65 ] and Surgical Dressings and Wound Management [ 38 ]—selected because they contain photographically clear examples of infected wounds with prominent visual signs such as purulence, perilesional erythema, and slough (see examples in Figure 5). The 11 uninfected images were drawn from the remaining non-test UMass collection. No image in the Stage 2 training set overlaps with the held-out test set. Uninfected Wounds Infected Wounds 
+
+> Fig. 5. Examples of labeled wound images used for RL post-training.
+
+To improve robustness under such limited supervision, we applied a set of image augmentations to each image, including horizontal flip, vertical flip, center crop, Gaussian noise, rotation, and shear. By combining these augmentations, we expanded the Stage 2 RL training set, yielding a total of 440 labeled training images. We denote the resulting augmented RL training set as DLabeled = {( 𝑥 𝑖 , 𝑦 𝑖 )} 𝑀 𝑖 =1, where 𝑦 𝑖 ∈ { A, B} is the verified Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 11
+
+infection label ( A = uninfected, B = infected), and 𝑀 = 440 . Table 3 summarizes the class distribution of the original Stage 2 set, the augmented RL training set, and the held-out test set used for final evaluation. 
+
+> Table 3. Stage 2 labeled training set, augmented RL training set, and held-out test class distribution.
+
+Infected Uninfected 
+
+Labeled Training Set 11 11 Training + Augmentation 220 220 Held-out UMass Test Set 28 28 The deliberate mismatch between training sources and the held-out evaluation set constitutes a domain shift that makes the final assessment more reflective of real-world deployment conditions. 
+
+5 Experiments 5.1 Implementation 
+
+All experiments were implemented in Python 3.10 using PyTorch-based libraries including torch 2.6.0, transformers 
+
+5.3.0, and trl 0.24.0. The training procedure follows the two-stage paradigm described in Section 3, consisting of (1) supervised reasoning distillation and (2) reinforcement learning post-training. 
+
+Stage 1 (Reasoning Distillation Fine-Tuning, DFT). We initialized the student model retrieved from the Hugging Face model repository Qwen/Qwen3-VL-4B-Thinking 1 and fine-tuned it on the distillation dataset Ddistill .Full-parameter supervised fine-tuning was performed using the autoregressive language-modeling objective in Equation (1) , where the model was trained to predict the teacher-generated reasoning and final answer tokens conditioned on the input wound image. Training utilized an NVIDIA H100 (80GB) GPU for 300 optimization steps, with batch size 2, gradient accumulation steps 4, learning rate 2 × 10 −5, and the AdamW optimizer. 
+
+Stage 2 (RL Post-Training with GRPO). Stage 2 was initialized from the Stage 1 distilled checkpoint and optimized on the labeled dataset DLabeled . Policy updates follow the GRPO objective in Equation (3) , and reward computation follows the verifiable accuracy reward defined in Equation (4) . Training utilized four NVIDIA H100 (80GB) GPUs for a conservative 40 optimization steps, with batch size 1, gradient accumulation steps 4, learning rate 1 × 10 −6, and the AdamW optimizer, in order to limit overfitting while still allowing task-specific adaptation on the small labeled RL dataset. We set the GRPO group size 𝐺 = 16 , KL coefficient 𝛽 = 0.5, and generation temperature to 0.6 during policy rollout. The Stage 2 implementation is adapted from Visual-RFT [ 35 ] source code 2.
+
+5.2 Evaluation Metrics 
+
+Classification Metrics. Infection classification performance was evaluated on the held-out test set using the following metrics, where 𝑇 𝑃 , 𝑇 𝑁 , 𝐹 𝑃 , and 𝐹 𝑁 denote true positives, true negatives, false positives, and false negatives, respectively, with infected as the positive class: 
+
+• Accuracy: ACC = 𝑇 𝑃 + 𝑇 𝑁 𝑇 𝑃 + 𝑇 𝑁 + 𝐹 𝑃 + 𝐹 𝑁 
+
+• Sensitivity (SEN): SEN = 𝑇 𝑃 𝑇 𝑃 + 𝐹 𝑁 — proportion of infected wounds correctly identified. 
+
+• Specificity (SPC): SPC = 𝑇 𝑁 𝑇 𝑁 + 𝐹 𝑃 — proportion of uninfected wounds correctly identified.   
+
+> 1https://huggingface.co/Qwen/Qwen3-VL-4B-Thinking
+> 2https://github.com/Liuziyu77/Visual-RFT 12 •Busaranuvong et al.
+
+• Positive Predictive Value (PPV): PPV = 𝑇 𝑃 𝑇 𝑃 + 𝐹 𝑃 
+
+• Negative Predictive Value (NPV): NPV = 𝑇 𝑁 𝑇 𝑁 + 𝐹 𝑁 
+
+• F1-score: 𝐹 1 = 2 · PPV · SEN PPV + SEN 
+
+Rationale Grounding Metric (MLLM-as-a-Judge). Our objective is to measure wound-sign grounding , not narrative persuasiveness. Specifically, given a wound image and a model-generated rationale in <think> ... </think> format, we evaluate whether the wound-sign claims in the rationale are supported by visible image evidence. We utilized four independent MLLM judges (GPT-5.1, Gemini-3.1-Pro, Gemini-3.1-Flash, and Claude-Sonnet-4.6), each following the same rubric and evaluation procedure. Full system and user prompts are provided in the Appendix 8.1. For each judge and test case, evaluation has two conceptual steps: 
+
+Step A — Text claim extraction. From <think> only, each rubric sign is assigned one text-claim label: POS 
+
+(explicitly asserted present), NEG (explicitly asserted absent), UNC (uncertain/hedged statement), or NOT_MENTIONED 
+
+(not discussed in the rationale). 
+
+Step B — Visual verification. Each explicit claim ( POS /NEG ) is checked against the image and assigned image evidence POS , NEG , or UNC (cannot be determined from visible evidence). The wound-sign rubric was developed by adapting clinically relevant, visually assessable wound features from established wound-assessment frameworks and infection guidelines [ 51 , 65 ]. Specifically, the rubric includes nine signs: purulence/pus, exudate, swelling/edema, erythema/redness, cellulitis or spreading redness, slough/fibrin, necrotic tissue/eschar, friable granulation tissue, and maceration. Each sign 𝑘 for an image 𝑖 under a judge 𝑗 receives: 
+
+score ( 𝑗 ) 
+
+> 𝑖,𝑘
+
+=
+
+
+
+1 if TEXT_CLAIM ( 𝑗 ) 
+
+> 𝑖,𝑘
+
+∈ { POS , NEG } and matches IMAGE_EVIDENCE ( 𝑗 ) 
+
+> 𝑖,𝑘
+
+,
+
+0 if TEXT_CLAIM ( 𝑗 ) 
+
+> 𝑖,𝑘
+
+∈ { POS , NEG } and does not match, or IMAGE_EVIDENCE ( 𝑗 ) 
+
+> 𝑖,𝑘
+
+= UNC ,
+
+null if TEXT_CLAIM ( 𝑗 ) 
+
+> 𝑖,𝑘
+
+∈ { UNC , NOT_MENTIONED }.
+
+(5) For each image 𝑖 and judge 𝑗 , we compute: 
+
+𝐶 ( 𝑗 ) 
+
+> 𝑖
+
+=∑︁ 
+
+> 𝑘
+
+1[score ( 𝑗 ) 
+
+> 𝑖,𝑘
+
+≠ null ], 𝑆 ( 𝑗 ) 
+
+> 𝑖
+
+=∑︁ 
+
+> 𝑘
+
+1[score ( 𝑗 ) 
+
+> 𝑖,𝑘
+
+= 1], 𝐴 ( 𝑗 ) 
+
+> 𝑖
+
+=
+
+
+
+𝑆 ( 𝑗 )
+
+> 𝑖
+
+𝐶 ( 𝑗 )
+
+> 𝑖
+
+if 𝐶 ( 𝑗 ) 
+
+> 𝑖
+
+> 0,
+
+0 if 𝐶 ( 𝑗 ) 
+
+> 𝑖
+
+= 0.
+
+(6) where 𝐶 ( 𝑗 ) 
+
+> 𝑖
+
+is the coverage count and 𝐴 ( 𝑗 ) 
+
+> 𝑖
+
+∈ [ 0, 1] is the per-image agreement score for judge 𝑗 . In the experimental analysis, we report judge-specific agreement by summarizing 𝐴 ( 𝑗 ) 
+
+> 𝑖
+
+across test images for each judge separately. Coverage is retained as an auxiliary count of evaluatable claims, while agreement is the primary rationale-faithfulness metric. 
+
+5.3 Experimental Settings 
+
+To evaluate our Infection-Reasoner, we compared it against a diverse set of baseline models, including proprietary models, open-source MLLMs from both general and medical domains, and traditional deep-learning image classifiers. The open-source MLLMs are further categorized by parameter size. Specifically, our evaluation includes the following models: 
+
+• Proprietary Models : GPT-5.1 (2025-11-13 version) & GPT-5.2 (2025-12-11 version) [ 54 ], Gemini-3.1-Flash & Gemini-3.1-Pro [17], and Claude-Sonnet-4.6 [4]. 
+
+• Medical MLLMs : MedVLM-R1 [44], MedGemma [16], HuatuoGPT-Vision [69], and Lingshu [66]. Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 13
+
+• General-purpose MLLMs : Qwen3-VL-Thinking [5], Qwen3.5 [57], and Llama-3.2-Vision [20]. 
+
+• Traditional Deep Learning Classifiers : EfficientNet-B0 [56], DeiT-Base [58], and SCARWID [10]. For MLLM baselines, to encourage stable and comparable reasoning behavior, we evaluated each model on the test set across five independent runs using near-deterministic decoding. Specifically, we set the sampling temperature to 0 whenever supported; for Qwen variants, whose implementation does not permit an exact zero value, we utilized 1 × 10 −6 as a practical near-zero approximation. For DL classifiers, we trained them using augmented images from teacher-annotated wound image set combined with the labeled infection dataset. 
+
+5.4 Model Classification Evaluation 
+
+Table 4. Performance comparison of Infection-Reasoner against baseline models on the wound infection test set. For MLLMs, each model is evaluated over five independent runs (temperature = 0 when supported; 1 × 10 −6 for Qwen variants), and values are reported as mean ± standard deviation. For traditional deep classifiers, we report single deterministic point estimates. 
+
+Method ACC SEN SPC PPV NPV F1 
+
+Proprietary Models 
+
+Claude-Sonnet-4.6 56.4 ± 3.1 100 ± 0.0 12.9 ± 6.2 53.5 ± 1.8 100 ± 0.0 69.7 ± 1.5 Gemini-3-Flash 72.1 ± 1.8 86.4 ± 2.7 57.9 ± 3.5 67.3 ± 1.8 81.1 ± 2.9 75.6 ± 1.6 Gemini-3.1-Pro 75.4 ± 1.8 86.4 ± 3.5 64.3 ± 0.0 70.7 ± 0.9 82.7 ± 3.7 77.8 ± 1.9 GPT-5.1 (Teacher) 81.8 ± 2.1 80.0 ± 1.8 83.6 ± 3.6 83.1 ± 3.2 80.7 ± 1.6 81.5 ± 1.9 GPT-5.2 69.6 ± 3.0 59.3 ± 3.6 80.0 ± 2.9 74.8 ± 3.6 66.3 ± 2.6 66.1 ± 3.5 
+
+Open-source Models ( < 10B) 
+
+MedVLM-R1-2B [Medical] 53.6 ± 0.0 96.4 ± 0.0 10.7 ± 0.0 51.9 ± 0.0 75.0 ± 0.0 67.5 ± 0.0 MedGemma-4B [Medical] 50.0 ± 0.0 92.9 ± 0.0 7.1 ± 0.0 50.0 ± 0.0 50.0 ± 0.0 65.0 ± 0.0 Lingshu-7B [Medical] 52.1 ± 1.3 97.9 ± 1.8 6.4 ± 1.4 51.1 ± 0.7 76.7 ± 20.0 67.2 ± 1.0 Qwen3-VL-4B-Thinking 52.5 ± 1.8 96.4 ± 0.0 8.6 ± 3.6 51.4 ± 1.0 67.7 ± 10.0 67.0 ± 0.9 Qwen3.5-4B 60.7 ± 0.0 100 ± 0.0 21.4 ± 0.0 56.0 ± 0.0 100.0 ± 0.0 71.8 ± 0.0 
+
+Open-source Models ( > 10B) 
+
+Lingshu-32B [Medical] 56.4 ± 1.8 95.7 ± 1.4 17.1 ± 2.7 53.6 ± 1.1 79.8 ± 6.8 68.7 ± 1.2 HuatuoGPT-V-34B [Medical] 55.7 ± 1.3 100 ± 0.0 11.4 ± 2.7 53.0 ± 0.8 100 ± 0.0 69.3 ± 0.6 Qwen3-VL-32B-Thinking 60.7 ± 1.1 91.4 ± 1.8 30.0 ± 1.8 56.6 ± 0.7 77.9 ± 3.4 69.9 ± 0.9 Qwen3.5-27B 67.1 ± 0.9 85.7 ± 0.0 48.6 ± 1.8 62.5 ± 0.8 77.3 ± 0.6 72.3 ± 0.5 Llama-3.2-90B-Vision-Instruct 61.1 ± 1.3 96.4 ± 0.0 25.7 ± 2.7 56.5 ± 0.9 87.7 ± 1.2 71.3 ± 0.7 
+
+Traditional Deep Learning Classifiers 
+
+EfficientNet-B0 62.5 46.4 78.6 68.4 59.5 55.3 DeiT-Base 62.5 53.6 71.4 65.2 60.6 58.8 SCARWID (Image-Text input) 𝑎 76.8 75.0 78.6 77.8 75.9 76.3 
+
+Fine-tuned Models 
+
+Infection-Reasoner-4B [DFT Only] 77.1 ± 1.3 73.6 ± 1.8 80.7 ± 2.9 79.3 ± 2.4 75.3 ± 1.1 76.3 ± 1.2 Infection-Reasoner-4B [GRPO Only] 74.3 ± 2.4 88.6 ± 1.4 60.0 ± 4.2 69.0 ± 2.4 84.0 ± 2.2 77.5 ± 1.8 
+
+Infection-Reasoner-4B [DFT + GRPO] 86.8 ± 0.9 86.4 ± 1.4 87.1 ± 1.8 87.1 ± 1.5 86.6 ± 1.2 88.1 ± 1.0   
+
+> 𝑎 SCARWID uses GPT-4o-generated wound captions as textual inputs.
+> ∗Throughout the paper we refer to Infection-Reasoner-4B [DFT + GRPO] simply as Infection-Reasoner.
+
+Table 4 presents classification results across all evaluated models. Among all evaluated models, Infection-Reasoner-4B [DFT+GRPO] achieves the strongest and most balanced performance, reaching ACC= 86 .8 ± 0.9,14 • Busaranuvong et al. 
+
+SEN= 86 .4 ± 1.4, SPC= 87 .1 ± 1.8, and NPV= 86 .6 ± 1.2. The balance in sensitivity and specificity is clinically meaningful, since models that maximize infection recall at the expense of specificity may over-flag non-infected wounds, while models that favor specificity too strongly risk missing true infections. Infection-Reasoner outperforms all proprietary foundation model baselines evaluated in CoT-prompted zero-shot settings, achieving the best overall calibration. Relative to GPT-5.1, which serves as both the teacher model and the strongest proprietary baseline in terms of overall balance, Infection-Reasoner improves ACC by +5.0 
+
+points ( 86 .8 vs. 81 .8) and SEN by +6.4 points ( 86 .4 vs. 80 .0), while also slightly improving SPC ( 87 .1 vs. 83 .6). Gemini-3.1-Pro and Gemini-3-Flash both achieve similarly high sensitivity ( 86 .4), indicating strong ability to detect infected wounds, but this comes at the cost of much lower specificity ( 64 .3 and 57 .9, respectively). Our Infection-Reasoner matches the sensitivity of Gemini-3.1-Pro while improving specificity by +22.8 points. Claude-Sonnet-4.6 represents the most extreme class-bias behavior, achieving SEN= 100 but collapsing to SPC= 12 .9,effectively flagging nearly all wounds as infected and providing little practical triage discrimination. Taken together, these results suggest that while several proprietary MLLMs can achieve strong infection sensitivity, Infection-Reasoner is substantially better calibrated for the sensitivity–specificity trade-off required in wound infection assessment, while also showing lower run-to-run standard deviations and therefore suggesting better consistency and more reliable point-of-care behavior. Statistical significance testing further supports these comparisons. Using a two-proportion z-test on the held-out test set with significance defined at 𝛼 = 0.05 , Infection-Reasoner significantly outperformed GPT-5.2 (𝑝 = 0.0020 ), Gemini-3-Flash ( 𝑝 = 0.0176 ), Gemini-3.1-Pro ( 𝑝 = 0.0285 ), and Claude-Sonnet-4.6 ( 𝑝 = 0.0001 ). Although Infection-Reasoner also achieved higher observed accuracy than GPT-5.1, this difference did not reach statistical significance ( 𝑝 = 0.1040 ), likely in part due to the limited evaluation sample size. Nevertheless, this comparison remains practically important, as Infection-Reasoner uses only 4B parameters while achieving performance comparable to, and numerically better than the proprietary frontier model like GPT-5.1. A similar pattern appears across open-source MLLMs at both small ( < 10 B) and large ( > 10 B) scales: many achieve very high sensitivity but low specificity, suggesting a strong bias toward predicting the positive infection class. This behavior is especially pronounced among smaller medical VLMs. MedVLM-R1-2B achieves SEN= 96 .4
+
+but SPC= 10 .7; Lingshu-7B reaches SEN= 97 .9 but SPC= 6.4; and MedGemma-4B attains SEN= 92 .9 but SPC= 7.1.Although larger open-source models show somewhat improved specificity, they still remain substantially biased toward positive infection predictions. Traditional deep vision classifiers exhibit the opposite tendency. EfficientNet-B0 and DeiT-Base both achieve ACC= 62 .5, but with relatively low sensitivity ( 46 .4 and 53 .6, respectively), indicating that they miss many infected wounds. This is consistent with models trained on both pseudo-labels generated by GPT-5.1 and ground-truth labeled datasets, which appear to favor the uninfected class under traditional supervised learning. SCARWID, a multimodal wound infection classifier that combines wound images with GPT-generated wound descriptions, remained the best-performing classical baseline (ACC= 76 .8, SEN= 75 .0, SPC= 78 .6). Nevertheless, it still underperforms Infection-Reasoner in overall accuracy and clinical utility, as it does not generate an explicit medical rationale. 
+
+5.4.1 Ablation Study to Demonstrate Importance of Individual Training Stages. The fine-tuned ablation block in Table 4 provides direct empirical evidence of the contribution of each training stage. DFT-only training improves specificity (SPC= 80 .7) but achieves substantially lower sensitivity (SEN= 73 .6), indicating that reasoning distillation alone induces a more conservative decision pattern that tends to under-diagnose infection, which is similar to the teacher’s behavior. Although the DFT-only variant improves substantially over the base model (Qwen3-VL-4B-Thinking), it still underperforms GPT-5.1 in overall accuracy (ACC= 77 .1 vs. 81 .8), suggesting that teacher-generated reasoning provides useful structural initialization but is not sufficient by itself to maximize downstream wound infection classification performance. In contrast, GRPO-only training yields high sensitivity Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 15
+
+Example of VLM Reasoning Outputs on the Same Wound Image 
+
+Question: Based on visual appearance, is the wound in this image infected? 
+
+Choice: (A) No, (B) Yes. 
+
+Prompt setting: CoT prompt from Fig. 2. 
+
+Ground truth: (B) 
+
+GPT-5.1 
+
+<think> The image shows a lower leg with significant erythema extending beyond the wound margins, diffuse swelling, and warmth is implied by the redness. The wound bed appears covered with yellowish slough and there is surrounding skin discoloration. The extent of redness and edema beyond the wound edges suggests local infection or cellulitis rather than simple inflammation from a healing wound. Based solely on these visual signs, infection is more likely than not. </think> <answer> B</answer> 
+
+Infection-Reasoner [DFT Only] 
+
+<think> The wound on the lower leg appears to have a central area of yellowish slough or necrotic tissue, but the surrounding skin does not show clear signs of acute infection such as intense erythema, marked swelling, purulent drainage, or obvious abscess formation. The redness is somewhat diffuse but not clearly localized or intensely inflamed. Based solely on visual cues and without systemic/clinical data, it is more consistent with a non-infected chronic wound with slough rather than an overtly infected one. </think> <answer> A</answer> 
+
+Infection-Reasoner [GRPO Only] 
+
+<think> So, let’s look at the image. The wound on the leg has a red area around it, which might indicate inflammation. But wait, the question is about infection. Infections often show signs like pus, increased redness, warmth, swelling, or odor. However, the image shows a red area, but is there pus? The wound itself looks like a scab or a healing area. The redness could be from inflammation, but maybe not infection. Wait, the options are A (No) or B (Yes). Let’s check the visual cues. The wound doesn’t have obvious pus, and the redness might be due to other factors like trauma or irritation. Infections typically have more severe signs. ... </think> <answer> A</answer> 
+
+Infection-Reasoner [DFT+GRPO] 
+
+<think> The wound on the lower leg appears to have a central area of yellowish slough or eschar with surrounding erythema. The redness extends beyond the immediate wound margins and looks fairly intense, suggesting local inflammation or infection. There is also some swelling apparent. Based solely on these visual signs—erythema, possible edema, and slough—the wound is more consistent with an infected appearance than a clean, non-infected healing wound. </think> <answer> B</answer> 
+
+Fig. 6. Qualitative rationale comparison across models on the same wound image. Green text marks claims consistent with directly observable wound signs. Red text marks incorrect reasoning or claims not reliably inferable from the image alone. Orange text marks uncertain/hedged wording (e.g., “possible”, “often”). 16 • Busaranuvong et al. 
+
+(SEN= 88 .6) but weak specificity (SPC= 60 .0), indicating that RL post-training without prior wound-specific distillation tends to over-predict the infected class under sparse reward signals. This same tendency is already evident in the base model, which predicts infection for most wounds. Combining both stages yields a clear complementary effect. The full DFT+GRPO model increases specificity to 
+
+87 .1% while preserving high sensitivity at 86 .4% . Relative to the single-stage variants, the full model improves accuracy by +12.5 points over GRPO-only and by +9.7 points over DFT-only. 
+
+5.4.2 Qualitative Reasoning Analysis of Fine-tuned Models. Figure 6 provides a qualitative illustration of the distinct reasoning behaviors produced by each training configuration on the same test wound image. The teacher model (GPT-5.1) produces a well-structured and clinically grounded rationale, correctly identifying erythema, swelling, yellowish slough, and redness extending beyond the wound margins, which are all visual indicators of local infection or cellulitis. Its reasoning is systematic and appropriately anchored to visible evidence, leading to the correct answer. However, the output itself still includes the term warmth , which cannot be directly inferred from the image alone. The DFT-only model exhibits a clear qualitative failure mode. Although its output is human-readable and structurally coherent, it contains hallucinated content, such as necrotic tissue , which is not clearly observable in the image. Furthermore, the model incorrectly states the absence of infection signs that are visibly present. It describes the surrounding redness as “not clearly localized or intensely inflamed” and concludes that the wound is 
+
+“more consistent with a non-infected chronic wound with slough” , despite the prominent erythema and edema visible in the image. This is a visual grounding failure where the model has learned to imitate the teacher’s reasoning style without acquiring sufficient reasoning capability to reach the correct conclusion. The GRPO-only model exhibits a markedly different reasoning style, revealing the limitations of reinforcement learning without cold-start initialization. Rather than systematically evaluating wound signs, the model produces an unfocused, back-and-forth internal dialogue: “But wait, the question is about infection. . . Let’s check the visual cues. . . Wait, the options are A or B. . . ” . This recursive self-questioning resembles the behavior of the default Qwen3-VL-Thinking model in the absence of structured reasoning priors. This behavior likely reflects the absence of adequated reasoning priors, causing the model to explore possible outputs without systematically anchoring its reasoning in visual evidence from the image [ 68 ]. The final answer (A = uninfected) is incorrect, and the accompanying rationale provides no reliable clinical justification. This example directly illustrates why Infection-Reasoner’s training Stage 1 is necessary: GRPO alone is insufficient to impose the structured, wound-sign-aware reasoning output format required for interpretable clinical decision support. The full two-stage model combines the structural coherence induced by DFT with the label-correcting pressure introduced by GRPO, producing a rationale that is both well-formed and visually grounded. It correctly identifies yellowish slough, surrounding erythema extending beyond the wound margins, and apparent swelling, and integrates these cues into a correct infection prediction. Compared with the DFT-only model, it is more decisive in emphasizing the intensity and spatial extent of the redness, which appears to be the key visual evidence underweighted by the DFT-only variant. Compared with the GRPO-only model, its reasoning is structured and wound-sign-aware rather than self-referential. However, the model may still produce a minor hallucination, namely eschar (i.e., a thick, dry, black or brown layer of dead tissue), which is not clearly supported by the image. Overall, this qualitative progression across ablations is consistent with the quantitative pattern shown in Table 4: each stage contributes a distinct, useful and complementary capability, and their combination produces the most clinically reliable output. Collectively, the two-stage training pipeline not only improves classification accuracy, but also yields qualitatively better reasoning—more structured than RL alone and more visually faithful than distillation alone. Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 17
+
+5.5 Classification Accuracy by Wound Type 
+
+To assess subgroup behavior beyond aggregate performance, we compared Infection-Reasoner and GPT-5.1 across various wound types in the test set, which included four chronic wound subtypes: venous, arterial, pressure, and diabetic foot ulcers. Figure 7 illustrates the mean classification accuracy over five runs for each subgroup, with 95% bootstrap confidence intervals estimated over test images. 
+
+> Fig. 7. Accuracy analysis across wound types. Comparison of classification accuracy between Infection-Reasoner and GPT-5.1 for each wound subgroup in the held-out test set over five runs. Points indicate mean accuracy, and horizontal error bars indicate 95% bootstrap confidence intervals estimated over test images. The sample size for each subgroup is shown in parentheses.
+
+Infection-Reasoner achieved higher mean accuracy than GPT-5.1 on the test set (86.8% vs. 81.8%). When stratified by wound type, Infection-Reasoner outperformed GPT-5.1 on arterial wounds (81.7% vs. 75.9%), venous wounds (81.1% vs. 75.1%), and pressure ulcers (93.8% vs. 83.7%). The largest subgroup gain was observed for pressure ulcers, where Infection-Reasoner exceeded GPT-5.1 by 10 percentage points. In contrast, GPT-5.1 performed better on diabetic foot ulcers (92.6% vs. 89.4%), indicating that Infection-Reasoner was not uniformly superior across all wound etiologies. Several observations emerge from this stratified analysis. First, Infection-Reasoner shows its clearest advantage in pressure, venous, and arterial wounds, suggesting that the benefit of the two-stage training strategy is not limited to the aggregate test set alone. Second, both models perform strongly on diabetic foot ulcers, although GPT-5.1 retains a modest advantage in that subgroup. Third, confidence intervals remain wide for several subgroups, particularly arterial wounds, reflecting the limited subgroup sample sizes. Accordingly, these results should be interpreted as descriptive subgroup evidence rather than definitive proof of wound-type-specific performance differences. 
+
+5.6 Model Reasoning Evaluation 
+
+5.6.1 MLLM-as-a-Judge Agreement Across Runs. As described in Section 5.2, we evaluate the visual grounding of Infection-Reasoner’s generated rationales using an MLLM-as-a-Judge framework. Rather than scoring narrative 18 • Busaranuvong et al. 
+
+> Fig. 8. Distribution of per-image rationale-grounding agreement scores across four MLLM judges over five runs. For each judge, boxplots summarize the distribution of agreement scores, where each score reflects the fraction of explicitly claimed wound signs in the rationale that are supported by visible image evidence. Red markers denote mean agreement scores.
+
+quality or persuasiveness, this metric measures whether wound-sign claims made in the <think> rationale are supported by visible image evidence using a shared clinical rubric. For each image 𝑖 and judge 𝑗 , we compute a per-image agreement score 𝐴 ( 𝑗 ) 
+
+> 𝑖
+
+∈ [ 0, 1] (see Equation 6), defined as the fraction of explicitly claimed wound signs that are verified by the image among all verifiable claims. Figure 8 summarizes the distribution of these agreement scores across test images for four independent MLLM judges. Gemini-3.1-Flash and Gemini-3.1-Pro achieve the highest mean agreement scores (0.903 and 0.902, respectively), followed by GPT-5.1 (0.853). In contrast, Claude-Sonnet-4.6 yields a lower mean agreement score (0.722) and exhibits greater variance. This pattern appears to reflect a more conservative evaluation style: for some wound signs mentioned by our model, Claude-Sonnet-4.6 marks the evidence as uncertain rather than visually supported, particularly when image quality or local appearance makes assessment difficult. Because our rubric assigns a score of 0 to uncertain judgments for a claimed sign (Equation 5), this behavior lowers its overall agreement score and increases score variance. The relatively narrow distributions of the Gemini judges suggest more consistent application of the rubric, whereas the wider spread for Claude-Sonnet-4.6 indicates less stable scoring across cases. GPT-5.1 falls between these two extremes, maintaining relatively high agreement while showing slightly greater variability than the Gemini judges. Importantly, these agreement scores are not driven by a sparse set of evaluable claims. Across judges and runs, the average coverage is approximately 5 of the 9 rubric-defined wound signs, indicating that Infection-Reasoner produces rationales with a substantial number of explicit, clinically meaningful observations. This is noteworthy because the model was not explicitly trained to enumerate wound signs according to a predefined rubric; instead, this degree of wound-sign coverage emerges from task-oriented reasoning acquired during training. Furthermore, several rubric categories represent closely related clinical appearances. For instance, erythema denotes redness, Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 19
+
+whereas cellulitis reflects a more extensive pattern of spreading redness. Consequently, in some cases the model may describe visually apparent spreading redness as erythema rather than cellulitis, which is not strictly incorrect but instead reflects partial overlap between related rubric categories. Taken together, the combination of moderate-to-high coverage and high agreement suggests that the model’s rationales are not only visually grounded, but also sufficiently specific to support meaningful clinical interpretation. Overall, the cross-judge pattern suggests that Infection-Reasoner’s rationales are generally judged to be well grounded in visible wound evidence by multiple independent evaluators. At the same time, the variation across judges highlights an important limitation of MLLM-based evaluation: agreement estimates depend partly on the evaluator model itself, even when the rubric is fixed. Similar evaluator-dependent variability has also been observed in human wound assessment and image-based clinical decision-making [ 40 , 64 ]. For this reason, we report multiple judges rather than relying on a single evaluator, providing a more reliable assessment of rationale grounding. 
+
+5.6.2 Human Expert Evaluation of Reasoning. In addition to automated judge-based scoring, we also evaluated rationale quality through manual case review by a a physician wound expert with more than 30 years of clinical experience. To avoid conflating rationale quality with unresolved label disagreement, expert scoring was restricted to the subset of cases for which the expert agreed with the UMass reference label. This yielded an evaluated subset of 34 cases, including 14 infected and 20 uninfected wounds. Within this subset, each rationale was categorized as Correct , Partially Correct , or Incorrect according to the criteria in Table 5. 
+
+> Table 5. Definition of rationale correctness categories used for expert evaluation.
+
+Rating Definition Correct The rationale describes clinically plausible visual findings and appro-priately supports the predicted infection label. Minor wording issues or omitted details do not alter the clinical interpretation. 
+
+Partially Correct The rationale supports a reasonable overall conclusion, but includes minor inaccuracies, missing details, overstated findings, or over-reliance on non-specific features as evidence of infection. 
+
+Incorrect The rationale contains major visual or clinical misinterpretations that make the reasoning inconsistent with the predicted infection label. Figure 9 summarizes the distribution of expert ratings. Across all evaluated cases, 61.8% of rationales were rated as Correct , 32.4% as Partially Correct , and 5.9% as Incorrect . Performance was notably better for uninfected wounds, for which 90.0% of rationales were rated as Correct . In contrast, infected wounds were more challenging: only 21.4% of rationales were rated as Correct , whereas 71.4% were rated as Partially Correct and 7.1% as Incorrect .Expert comments suggest that this gap was driven more by omissions and clinically inaccurate descrip-tions of infection-related signs than by implausible reasoning. In infected cases, the model often recognized a broadly concerning appearance but sometimes over-relied on features such as slough, necrosis, undermining, or generalized redness, which the reviewing expert considered insufficiently specific, on their own, to support a confident infection-positive interpretation. The expert also noted confusion between infection-related erythema or cellulitis and other causes of redness or discoloration, including ischemia, dependent rubor, Stage 1 pressure injury erythema, and moisture-associated skin damage. In some cases, the rationale omitted important findings such as tunneling, exposed bone, or pigmentary change, or described wound anatomy imprecisely. Overall, Infection-Reasoner usually produced clinically acceptable reasoning, especially for uninfected wounds, while leaving room for improvement in infected cases. 20 • Busaranuvong et al. 
+
+Fig. 9. Human expert evaluation of Infection-Reasoner rationales on the subset of cases where the wound expert agreed with the UMass reference label. Stacked bars show the percentage of rationales rated as Correct , Partially Correct , or Incorrect for all evaluated cases and for the infected and uninfected strata. 
+
+5.6.3 Qualitative Case Analysis. To further illustrate these expert-observed reasoning patterns, we present representative qualitative cases spanning expert-aligned correct, partially correct, and incorrect model outputs. 
+
+Example of an Expert-Aligned Correct Case 
+
+Ground truth: (A) 
+
+Infection-Reasoner Output 
+
+<think> The wound shows a red granulating base with some yellowish slough but no obvious purulent exudate, no marked surrounding erythema, edema, or streaking that would clearly indicate infection. The borders appear relatively well-defined without overt cellulitis. Based solely on visual cues, it does not clearly demonstrate classic signs of infection. </think> <answer> A</answer> 
+
+Expert Evaluation 
+
+Rationale Correctness: Correct 
+
+Comment: Good description; could add “rim of hyperpigmentation”. 
+
+Fig. 10. Expert-aligned correct-case example. Infection-Reasoner predicts A (uninfected), consistent with the ground truth and expert evaluation. 
+
+Figure 10 shows a representative expert-aligned correct case. The model correctly predicts the wound as uninfected and supports this decision with clinically plausible negative findings, including the absence of obvious purulence, marked erythema, edema, and overt cellulitis. The expert rated the rationale as Correct , noting only a minor omission (rim hyperpigmentation) that does not materially alter the clinical interpretation. Figure 11 shows a representative partially correct rationale case. Here, Infection-Reasoner correctly predicts infection and captures that the wound appearance is clinically concerning, suggesting that the model remains Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 21
+
+Example of a Partially Correct Reasoning Case 
+
+Ground truth: (B) 
+
+Infection-Reasoner Output 
+
+<think> The wound shows several visual signs suggestive of infection: there is a large area of necrotic tissue with greenish slough, surrounding erythema and edema, and irregular undermined edges. The periwound skin appears inflamed and discolored beyond what would be expected from simple irritation, which is consistent with local infection rather than just colonization or clean granulation tissue. </think> <answer> B</answer> 
+
+Expert Evaluation 
+
+Rationale Correctness: Partially Correct 
+
+Comment: The necrotic center does not appear infected (no exudate, undermining). No greenish slough. The surrounding skin is erythematous consistent with cellulitis (infection) not local infection. 
+
+Fig. 11. Example of a partially correct reasoning case. Infection-Reasoner correctly predicts the final label ( B: infected), but the expert rates the rationale as Partially Correct . Red text highlights the specific claims that the wound expert disputed. 
+
+Example of a Failure Case (Completely Incorrect Prediction) 
+
+Ground truth: (B) 
+
+Infection-Reasoner Output 
+
+<think> Toe wound with yellowish slough and central necrotic/eschar tissue, but surrounding skin is only mildly erythematous without marked swelling, purulence, or obvious spreading cellulitis. No clear visual signs of acute infection such as thick pus, intense redness, or abscess formation. Based solely on visual cues, it appears more like a colonized or healing wound rather than overtly infected. </think> <answer> A</answer> 
+
+Expert Evaluation 
+
+Rationale Correctness: Incorrect 
+
+Comment: The toe is potentially infected with possible underlying bone involvement. The rationale incorrectly dismisses spreading cellulitis (the marked boundary suggests cellulitis tracking), and the absence of abscess cannot be concluded from this single image alone. 
+
+Fig. 12. Failure-mode example showing a completely incorrect Infection-Reasoner prediction and rationale. Red text marks statements in the model output that the expert disagreed with, judging them as incorrect. 
+
+useful even when parts of the rationale are incorrect. The expert noted that descriptors such as greenish slough and 
+
+irregular undermined edges were not clearly supported by the image, and that the more appropriate interpretation 22 • Busaranuvong et al. 
+
+was surrounding erythema consistent with cellulitis which causing infection. The model may have interpreted the central greenish-appearing region as slough, whereas the expert viewed this area more generally as necrotic tissue. Overall, this case suggests that the model’s main limitation is not recognizing the need for concern, but precisely characterizing the visual evidence underlying that concern. Figure 12 highlights a more severe failure pattern in which both the final prediction and the reasoning are incorrect. Here, the model underestimates infection severity and incorrectly classifies the wound as uninfected. The expert comment indicates that the model wrongly dismisses clinically concerning features, including spreading cellulitis and possible underlying bone exposure. In addition, the rationale makes claims that are not reliably inferable from a single static image, such as the absence of abscess. 
+
+6 Discussion 6.1 Summary of Findings 
+
+This study demonstrates that a compact, domain-specialized reasoning VLM can achieve strong performance on chronic wound infection classification from heterogeneous wound photographs while generating clinically interpretable rationales. Across the held-out test set, Infection-Reasoner-4B achieved the best overall diagnostic performance among all evaluated models, reaching 86.8% accuracy with a balanced trade-off between sensitivity (86.4%) and specificity (87.1%). A key finding is that Infection-Reasoner outperformed GPT-5.1 despite using only 4B parameters. This suggests that, for specialized wound-care imaging tasks, performance may depend more on domain-specific adaptation, structured reasoning supervision, and RL-based alignment to the target task than on model scale alone. Infection-Reasoner also generalized favorably across multiple wound etiologies. In subgroup analyses, it outperformed GPT-5.1 on arterial, venous, and pressure wounds, with the largest gain observed for pressure ulcers. Although GPT-5.1 retained a modest advantage on diabetic wounds, the overall pattern indicates that the benefits of the proposed two-stage training approach are not limited to a single wound subtype. Beyond classification performance, Infection-Reasoner produced rationales that were well grounded in visible wound evidence across multiple MLLM evaluators. Taken together, these findings support the potential of compact, fine-tuned reasoning VLMs as effective and interpretable decision-support tools for wound care. 
+
+6.2 Clinician Feedback on Model Reasoning 
+
+The clinician-facing value of Infection-Reasoner depends not only on prediction accuracy, but also on whether its rationales are clinically plausible and anchored to relevant visual evidence. Our expert evaluation involved an important complement to automated MLLM rationale scoring in this regard. On the wound cases where the expert agreed with the reference label, most rationales were rated as either Correct or Partially Correct , with relatively few rated as outright Incorrect . This suggests that Infection-Reasoner typically produces reasoning that is clinically acceptable in broad terms, even when its explanations are not fully expert-level. A particularly important pattern was the difference between infected and uninfected wounds. For uninfected wounds, the expert rated the large majority of rationales as Correct , indicating that the model is relatively reliable at recognizing the absence of overt infection signs when the wound appearance is visually reassuring. In contrast, infected wounds were much more challenging: the dominant error mode was not completely implausible reasoning, but partially correct reasoning that identified some concerning features while failing to prioritize the most clinically discriminative evidence. This distinction is important because it suggests that the model often recognizes that a wound is abnormal, yet still struggles to correctly express the reasoning in the same way an experienced wound expert would. In conclusion, the clinician feedback strengthens the translational relevance of this work. It suggests that Infection-Reasoner is already capable of producing clinically useful, evidence-aware explanations in many cases, Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+> 23
+
+especially for uninfected wounds, while also identifying an important area for future improvement: more precise and expert-aligned reasoning for infection-positive cases. 
+
+6.3 Limitations 
+
+This study has several limitations. First, the labeled dataset used for RL post-training is small, and the held-out test set is also limited in size. Although repeated runs and bootstrap confidence intervals help characterize consistency and variability, some subgroup estimates remain uncertain, particularly for wound-type-specific analyses. As a result, the performance differences reported here should be interpreted as strong preliminary evidence rather than definitive proof of generalization across all wound populations and care settings. Second, the evaluation is based on wound photographs alone. In real clinical practice, infection assessment is rarely determined from appearance alone; clinicians also consider other contextual information including patient history, pain, odor, drainage characteristics, temperature, wound progression over time, debridement findings and laboratory data. Our model was intentionally designed for image-only decision support from appearance in POC settings, where access to broader diagnostic resources may be limited. Accordingly, Infection-Reasoner should be viewed as a triage-support or decision-support tool rather than a standalone diagnostic system. Third, although our training data are heterogeneous and include multiple wound etiologies, the final evaluation still reflects a limited sample drawn from a specific study context. Broader external validation across institutions, skin tones, and care workflows is still necessary, which is is particularly important in wound assessment, where image quality and contextual variability can strongly affect model behavior. Fourth, rationale evaluation remains an open challenge. The MLLM-as-a-Judge protocol provides a useful way to assess whether explicitly claimed wound signs are visually supported, but the scores depend partly on the specific MLLM selected as the evaluator and the grading rubric provided. Likewise, while the expert review provided valuable clinical insights, it reflects the judgment of a single wound-care expert on a subset of cases. Additional multi-rater expert evaluation would improve reliability and better characterize inter-clinician agreement on rationale quality. 
+
+6.4 Future Work 
+
+Several research directions could extend this work. The first priority is larger-scale external validation across multiple institutions and wound-care environments. Such evaluation should include much larger dataset size, broader diversity in wound subtype, acquisition device, anatomical site, skin tone, and image quality in order to more rigorously assess robustness and fairness under real-world deployment conditions. The second direction is the incorporation of clinical context beyond the image itself. Future systems could integrate metadata such as wound duration, dressing history, pain level, healing progression, patient symptoms, or corresponding thermal wound images. Because infection diagnosis often depends on the combination of visual and non-visual evidence, multimodal fusion may improve both classification performance and the specificity of rationales generated. The last direction involves improving rationale quality, especially for infected wounds. Our results suggest that the next challenge is not only producing visually grounded explanations, but also making those explanations more clinically discriminative and expert-aligned. Instead of a simple CoT prompting, we may use a specific infection diagnosis rubric derived by experts as structural-instruction prompting to control which wound signs the model should consider during the multi-stage finetuning step. 
+
+7 Conclusion 
+
+We presented Infection-Reasoner, a compact 4B reasoning vision-language model for chronic wound infection classification and evidence-grounded clinical rationale generation from wound photographs. Using a two-stage 24 • Busaranuvong et al. 
+
+training strategy that combines teacher-guided reasoning distillation with RL post-training, the model achieved strong performance on a held-out dataset containing four chronic wound types, and produced clinically in-terpretable rationales linked to visible wound findings. A central result of this study is that while using only 4B parameters, Infection-Reasoner outperformed GPT-5.1 and other large multimodal baselines. This finding highlights an important practical finding for medical AI: in specialized tasks such as wound infection assessment from images, targeted fine-tuning and reasoning-focused post-training can be more important than raw model size alone. At the same time, our expert analysis shows that there remains room for improvement, especially in infection-positive cases where clinically discriminative reasoning is most challenging. Overall, however, the results suggest that Infection-Reasoner is a promising step toward interpretable, compact, and task-specialized multimodal AI for wound decision support at the point of care. 
+
+Acknowledgment 
+
+This work is supported by the National Institutes of Health (NIH) through grant 1R01EB031910-01A1 Smartphone-based wound infection screener by combining thermal images and photographs using deep learning methods. The experiments were performed using computational resources provided by the Academic & Research Computing group at Worcester Polytechnic Institute. 
+
+Declaration of competing interest 
+
+The authors declare that they have no conflicts of interest. 
+
+References 
+
+[1] Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya, Florencia Leoni Aleman, Diogo Almeida, Janko Altenschmidt, Sam Altman, Shyamal Anadkat, et al. 2023. Gpt-4 technical report. arXiv preprint arXiv:2303.08774 (2023). [2] Nora Al-Garaawi, Raja Ebsim, Abbas FH Alharan, and Moi Hoon Yap. 2022. Diabetic foot ulcer classification using mapped binary patterns and convolutional neural networks. Computers in biology and medicine 140 (2022), 105055. [3] Anthropic. 2024. The Claude 3 Model Family: Opus, Sonnet, Haiku . Technical Report. Anthropic. https://www-cdn.anthropic.com/ de8ba9b01c9ab7cbabf5c33b80b7bbc618857627/Model_Card_Claude_3.pdf Model card. [4] Anthropic. 2026. Claude Sonnet 4.6 System Card. https://www-cdn.anthropic.com/bbd8ef16d70b7a1665f14f306ee88b53f686aa75.pdf. Technical report. [5] Shuai Bai, Yulong Cai, Rui Chen, et al. 2025. Qwen3-VL technical report. arXiv preprint arXiv:2511.21631 (2025). [6] Yoshua Bengio, Réjean Ducharme, Pascal Vincent, and Christian Jauvin. 2003. A neural probabilistic language model. Journal of machine learning research 3, Feb (2003), 1137–1155. [7] Akhiad Bercovich, Itay Levy, Izik Golan, Mohammad Dabbah, Ran El-Yaniv, Omri Puny, Ido Galil, Zach Moshe, Tomer Ronen, Najeeb Nabwani, et al. 2025. Llama-nemotron: Efficient reasoning models. arXiv preprint arXiv:2505.00949 (2025). [8] Steven Bowers and Eginia Franco. 2020. Chronic wounds: evaluation and management. American family physician 101, 3 (2020), 159–166. [9] Palawat Busaranuvong, Emmanuel Agu, Deepak Kumar, Shefalika Gautam, Reza Saadati Fard, Bengisu Tulu, and Diane Strong. 2025. Guided Conditional Diffusion Classifier (ConDiff) for Enhanced Prediction of Infection in Diabetic Foot Ulcers. IEEE Open Journal of Engineering in Medicine and Biology 6 (2025), 20–27. doi:10.1109/OJEMB.2024.3453060 [10] Palawat Busaranuvong, Emmanuel Agu, Reza Saadati Fard, Deepak Kumar, Shefalika Gautam, Bengisu Tulu, Diane Strong, and Lorraine Loretz. 2025. Explainable, multi-modal wound infection classification from images augmented with generated captions. ACM Transactions on Computing for Healthcare (2025). [11] Caroline Chanussot-Deprez and José Contreras-Ruiz. 2013. Telemedicine in wound care: a review. Advances in skin & wound care 26, 2 (2013), 78–82. [12] Gheorghe Comanici, Eric Bieber, Mike Schaekermann, Ice Pasupat, Noveen Sachdeva, Inderjit Dhillon, Marcel Blistein, Ori Ram, Dan Zhang, Evan Rosen, et al . 2025. Gemini 2.5: Pushing the frontier with advanced reasoning, multimodality, long context, and next generation agentic capabilities. arXiv preprint arXiv:2507.06261 (2025). [13] Margaret A Fonder, Gerald S Lazarus, David A Cowan, Barbara Aronson-Cook, Angela R Kohli, and Adam J Mamelak. 2008. Treating the chronic wound: A practical approach to the care of nonhealing wounds and wound care dressings. Journal of the American Academy of Dermatology 58, 2 (2008), 185–206. Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+25 
+
+[14] Peter J Franks, Judith Barker, Mark Collier, Georgina Gethin, Emily Haesler, Arkadiusz Jawien, Severin Laeuchli, Giovanni Mosti, Sebastian Probst, and Carolina Weller. 2016. Management of patients with venous leg ulcers: challenges and current best practice. 
+
+Journal of wound care 25, Sup6 (2016), S1–S67. [15] Adrian Galdran, Gustavo Carneiro, and Miguel A González Ballester. 2021. Convolutional nets versus vision transformers for diabetic foot ulcer classification. In Diabetic Foot Ulcers Grand Challenge . Springer, 21–29. [16] Google. 2025. MedGemma: A Gemma 3 Variant Optimized for Medical Text and Image Comprehension. https://deepmind.google/ models/gemma/medgemma/. [17] Google DeepMind. 2025. Gemini 3 Pro Model Card . Technical Report. Google DeepMind. https://storage.googleapis.com/deepmind-media/Model-Cards/Gemini-3-Pro-Model-Card.pdf Accessed: 2026-03-11. [18] Lisa Gould, Peter Abadir, Harold Brem, Marissa Carter, Teresa Conner-Kerr, Jeff Davidson, Luisa DiPietro, Vincent Falanga, Caroline Fife, Sue Gardner, et al . 2015. Chronic wound repair and healing in older adults: current status and future research. Wound Repair and Regeneration 23, 1 (2015), 1–13. [19] Manu Goyal, Neil D Reeves, Satyan Rajbhandari, Naseer Ahmad, Chuan Wang, and Moi Hoon Yap. 2020. Recognition of ischaemia and infection in diabetic foot ulcers: Dataset and techniques. Computers in biology and medicine 117 (2020), 103616. [20] Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten, Alex Vaughan, et al. 2024. The llama 3 herd of models. arXiv preprint arXiv:2407.21783 (2024). [21] Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Ruoyu Zhang, Runxin Xu, Qihao Zhu, Shirong Ma, Peiyi Wang, Xiao Bi, et al .2025. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 (2025). [22] Xuehai et al. He. 2020. PathVQA: 30000+ Questions for Medical Visual Question Answering. In AAAI .[23] K Järbrink, G Ni, H Sönnergren, A Schmidtchen, C Pang, R Bajpai, and J Car. [n. d.]. The humanistic and economic burden of chronic wounds: a protocol for a systematic review. Syst Rev. 2017; 6 (1): 15. [24] Qiao Jin, Fangyuan Chen, Yiliang Zhou, Ziyang Xu, Justin M Cheung, Robert Chen, Ronald M Summers, Justin F Rousseau, Peiyun Ni, Marc J Landsman, et al . 2024. Hidden flaws behind expert-level accuracy of multimodal GPT-4 vision in medicine. NPJ Digital Medicine 
+
+7, 1 (2024), 190. [25] Robert Kaczmarczyk, Theresa Isabelle Wilhelm, Ron Martin, and Jonas Roos. 2024. Evaluating multimodal AI in medical diagnostics. 
+
+NPJ Digital Medicine 7, 1 (2024), 205. [26] Yuxiang Lai, Jike Zhong, Ming Li, Shitian Zhao, Yuheng Li, Konstantinos Psounis, and Xiaofeng Yang. 2026. Med-r1: Reinforcement learning for generalizable medical reasoning in vision-language models. IEEE Transactions on Medical Imaging (2026). [27] Stephan J Landis. 2008. Chronic wound infection and antimicrobial use. Advances in skin & wound care 21, 11 (2008), 531–540. [28] Jason J Lau, Soumya Gayen, Asma Ben Abacha, and Dina Demner-Fushman. 2018. A dataset of clinically generated visual questions and answers about radiology images. Scientific data 5, 1 (2018), 1–10. [29] Chunyuan Li, Cliff Wong, Sheng Zhang, Naoto Usuyama, Haotian Liu, Jianwei Yang, Tristan Naumann, Hoifung Poon, and Jianfeng Gao. 2023. LLaVA-Med: Training a Large Language-and-Vision Assistant for Biomedicine in One Day. arXiv preprint arXiv:2306.00890 (2023). [30] Liunian Harold Li, Jack Hessel, Youngjae Yu, Xiang Ren, Kai-Wei Chang, and Yejin Choi. 2023. Symbolic chain-of-thought distillation: Small models can also “think” step-by-step. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) . 2665–2679. [31] Benjamin A Lipsky, Anthony R Berendt, Paul B Cornia, John C Pile, Edgar J G Peters, David G Armstrong, H Gunner Deery, John M Embil, Warren S Joseph, Adolf W Karchmer, et al . 2012. 2012 infectious diseases society of america clinical practice guideline for the diagnosis and treatment of diabetic foot infections. Clinical Infectious Diseases 54, 12 (2012), e132–e173. [32] Benjamin A Lipsky, Matthew Dryden, Finn Gottrup, Dilip Nathwani, Ronald Andrew Seaton, and Jan Stryja. 2016. Antimicrobial stewardship in wound care: a position paper from the British Society for Antimicrobial Chemotherapy and European Wound Mgmt Assoc. J. Antimicrobial Chemotherapy 71, 11 (2016), 3026–3035. [33] Bo Liu, Li-Ming Zhan, Li Xu, Lin Ma, Yan Yang, and Xiao-Ming Wu. 2021. Slake: A semantically-labeled knowledge-enhanced dataset for medical visual question answering. In 2021 IEEE 18th international symposium on biomedical imaging (ISBI) . IEEE, 1650–1654. [34] Ziyang Liu, Emmanuel Agu, Peder Pedersen, Clifford Lindsay, Bengisu Tulu, and Diane Strong. 2021. Comprehensive assessment of fine-grained wound images using a patch-based CNN with context-preserving attention. IEEE open journal of engineering in medicine and biology 2 (2021), 224–234. [35] Ziyu Liu, Zeyi Sun, Yuhang Zang, Xiaoyi Dong, Yuhang Cao, Haodong Duan, Dahua Lin, and Jiaqi Wang. 2025. Visual-rft: Visual reinforcement fine-tuning. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 2034–2044. [36] Lorna MacLellan, G Gardner, and Anne Gardner. 2002. Designing the future in wound care: the role of the nurse practitioner. Primary Intention: The Australian Journal of Wound Management 10, 3 (2002). [37] Jay R McDonald, Stephen Y Liang, Ping Li, Salwa Maalouf, Clinton K Murray, Amy C Weintrob, Elizabeth R Schnaubelt, Janis Kuhn, Anuradha Ganesan, William Bradley, et al . 2018. Infectious complications after deployment trauma: following wounded US military personnel into veterans affairs care. Clinical infectious diseases 67, 8 (2018), 1205–1212. [38] Medetec. [n. d.]. Surgical Dressings and Wound Management Resource Centre - Home page . https://www.medetec.co.uk/ 26 • Busaranuvong et al. 
+
+[39] Joseph L Mills Sr, Michael S Conte, David G Armstrong, Frank B Pomposelli, Andres Schanzer, Anton N Sidawy, George Andros, Society for Vascular Surgery Lower Extremity Guidelines Committee, et al . 2014. The society for vascular surgery lower extremity threatened limb classification system: risk stratification based on wound, ischemia, and foot infection (WIfI). Journal of vascular surgery 59, 1 (2014), 220–234. [40] Holly Nguyen, Emmanuel Agu, Bengisu Tulu, Diane Strong, Haadi Mombini, Peder Pedersen, Clifford Lindsay, Raymond Dunn, and Lorraine Loretz. 2020. Machine learning models for synthesizing actionable care decisions on lower extremity wounds. Smart Health 18 (2020), 100139. [41] Samuel R Nussbaum, Marissa J Carter, Caroline E Fife, Joan DaVanzo, Randall Haught, Marcia Nusgart, and Donna Cartwright. 2018. An economic evaluation of the impact, cost, and medicare policy implications of chronic nonhealing wounds. Value in Health 21, 1 (2018), 27–32. [42] Maja Olsson, Krister Järbrink, Ushashree Divakar, Ram Bajpai, Zee Upton, Artur Schmidtchen, and Josip Car. 2019. The humanistic and economic burden of chronic wounds: A systematic review. Wound repair and regeneration 27, 1 (2019), 114–125. [43] Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, et al . 2022. Training language models to follow instructions with human feedback. Advances in neural information processing systems 35 (2022), 27730–27744. [44] Jiazhen Pan, Che Liu, Junde Wu, Fenglin Liu, Jiayuan Zhu, Hongwei Bran Li, Chen Chen, Cheng Ouyang, and Daniel Rueckert. 2025. Medvlm-r1: Incentivizing medical reasoning capability of vision-language models (vlms) via reinforcement learning. In International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 337–347. [45] Abdul Qayyum, Abdesslam Benzinou, Moona Mazher, and Fabrice Meriaudeau. 2021. Efficient multi-model vision transformer based on feature fusion for classification of dfuc2021 challenge. In Diabetic foot ulcers grand challenge . Springer, 62–75. [46] Jean-Louis Richard, Albert Sotto, and Jean-Philippe Lavigne. 2011. New insights in diabetic foot infection. World journal of diabetes 2, 2 (2011), 24–32. [47] Armand ALM Rondas, Jos MGA Schols, Ellen E Stobberingh, and Ruud JG Halfens. 2015. Prevalence of chronic wounds and structural quality indicators of chronic wound care in Dutch nursing homes. International wound journal 12, 6 (2015), 630–635. [48] Khaled Saab, Tao Tu, Wei-Hung Weng, Ryutaro Tanno, David Stutz, Ellery Wulczyn, Fan Zhang, Tim Strother, Chunjong Park, Elahe Vedadi, et al. 2024. Capabilities of gemini models in medicine. arXiv preprint arXiv:2404.18416 (2024). [49] Soroush Safavi, Keshav Prasad, Lewis Forster, Eran Klang, Bharath Dasari, and Uri Ladabaum. 2025. Benchmarking proprietary and open-source language and vision-language models for gastroenterology clinical reasoning. npj Digital Medicine 8, 1 (2025), 259. doi:10.1038/s41746-025-02174-0 [50] Giulio Scebba, Jing Zhang, Simone Catanzaro, et al . 2021. Detect-and-Segment: A deep learning approach to automate wound image segmentation. arXiv preprint arXiv:2111.01590 (2021). [51] Éric Senneville, Zaina Albalawi, Suzanne A Van Asten, Zulfiqarali G Abbas, Geneve Allison, Javier Aragón-Sánchez, John M Embil, Lawrence A Lavery, Majdi Alhasan, Orhan Oz, et al . 2024. IWGDF/IDSA guidelines on the diagnosis and treatment of diabetes-related foot infections (IWGDF/IDSA 2023). Diabetes/metabolism research and reviews 40, 3 (2024), e3687. [52] Zhihong Shao, Peiyi Wang, Qihao Zhu, Runxin Xu, Junxiao Song, Xiao Bi, Haowei Zhang, Mingchuan Zhang, YK Li, Y Wu, et al . 2024. Deepseekmath: Pushing the limits of mathematical reasoning in open language models. arXiv preprint arXiv:2402.03300 (2024). [53] Varun Shenoy, Emily Foster, Laleh Aalami, Bilal Majeed, and Oliver Aalami. 2018. Deepwound: Automated postoperative wound assessment and surgical site surveillance through convolutional neural networks. arXiv preprint arXiv:1807.04355 (2018). [54] Aaditya Singh, Adam Fry, Adam Perelman, Adam Tart, Adi Ganesh, Ahmed El-Kishky, Aidan McLaughlin, Aiden Low, AJ Ostrow, Akhila Ananthram, et al. 2025. Openai gpt-5 system card. arXiv preprint arXiv:2601.03267 (2025). [55] Yvonne Stallard. 2018. When and how to perform cultures on chronic wounds? Journal of Wound Ostomy & Continence Nursing 45, 2 (2018), 179–186. [56] Mingxing Tan and Quoc Le. 2019. Efficientnet: Rethinking model scaling for convolutional neural networks. In Proc. ICML . PMLR, 6105–6114. [57] Qwen Team. 2026. Qwen3.5: Accelerating Productivity with Native Multimodal Agents. https://qwen.ai/blog?id=qwen3.5 [58] Hugo Touvron, Matthieu Cord, Matthijs Douze, Francisco Massa, Alexandre Sablayrolles, and Hervé Jégou. 2021. Training data-efficient image transformers & distillation through attention. In Proc. ICML . PMLR, 10347–10357. [59] Tao Tu, Shekoofeh Azizi, Danny Driess, Mike Schaekermann, Mohamed Amin, Pi-Chuan Chang, Andrew Carroll, Charles Lau, Ryutaro Tanno, Ira Ktena, et al. 2024. Towards generalist biomedical AI. Nejm Ai 1, 3 (2024), AIoa2300138. [60] Changhan Wang, Xinchen Yan, Max Smith, Kanika Kochhar, Marcie Rubin, Stephen M Warren, James Wrobel, and Honglak Lee. 2015. A unified framework for automatic wound segmentation and analysis with deep convolutional neural networks. In Proc Int’l Conf. Engr. Medicine and Biology (EMBC) . IEEE, 2415–2418. [61] Yiping Wang, Qing Yang, Zhiyuan Zeng, Liliang Ren, Liyuan Liu, Baolin Peng, Hao Cheng, Xuehai He, Kuan Wang, Jianfeng Gao, et al .2025. Reinforcement learning for reasoning in large language models with one training example. arXiv preprint arXiv:2504.20571 (2025). Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+27 
+
+[62] Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou, et al . 2022. Chain-of-thought prompting elicits reasoning in large language models. Advances in neural information processing systems 35 (2022), 24824–24837. [63] Wayne A Wilbright, James A Birke, Charles A Patout, Myra Varnado, and Ron Horswell. 2004. The use of telemedicine in the management of diabetes-related foot ulceration: a pilot study. Advances in skin & wound care 17, 5 (2004), 232–238. [64] Jason T Wiseman, Sara Fernandes-Taylor, Rebecca Gunter, Maggie L Barnes, Richard Scott Saunders, Paul J Rathouz, Dai Yamanouchi, and K Craig Kent. 2016. Inter-rater agreement and checklist validation for postoperative wound assessment using smartphone images in vascular surgery. Journal of Vascular Surgery: Venous and Lymphatic Disorders 4, 3 (2016), 320–328. [65] World Union of Wound Healing Societies (WUWHS). 2016. Advances in Wound Care: The Triangle of Wound Assess-ment. Wounds International, Florence Congress Position Document. https://wounds-me.com/wp-content/uploads/2023/02/ 963bb683c483c1fd1e33c7af6901657a.pdf [66] Weiwen Xu, Hou Pong Chan, Long Li, Mahani Aljunied, Ruifeng Yuan, Jianyu Wang, Chenghao Xiao, Guizhen Chen, Chaoqun Liu, Zhaodonghui Li, et al . 2025. Lingshu: A Generalist Foundation Model for Unified Multimodal Medical Understanding and Reasoning. 
+
+arXiv preprint arXiv:2506.07044 (2025). [67] Moi Hoon Yap, Bill Cassidy, Joseph M Pappachan, Claire O’Shea, David Gillespie, and Neil D Reeves. 2021. Analysis towards classification of infection and ischaemia of diabetic foot ulcers. In 2021 IEEE EMBS International Conference on Biomedical and Health Informatics (BHI) .IEEE, 1–4. [68] Yang Yue, Zhiqi Chen, Rui Lu, Andrew Zhao, Zhaokai Wang, Shiji Song, and Gao Huang. 2025. Does Reinforcement Learning Really Incentivize Reasoning Capacity in LLMs Beyond the Base Model? arXiv preprint arXiv:2504.13837 (2025). [69] Hongbo Zhang, Junying Chen, Feng Jiang, Fei Yu, Zhihong Chen, Guiming Chen, Jianquan Li, Xiangbo Wu, Zhang Zhiyi, Qingying Xiao, et al . 2023. Huatuogpt, towards taming language model to be a doctor. In Findings of the association for computational linguistics: EMNLP 2023 . 10859–10885. [70] Sheng Zhang, Qianchu Liu, Guanghui Qin, Tristan Naumann, and Hoifung Poon. 2025. Med-rlvr: Emerging medical reasoning from a 3b base model via reinforcement learning. arXiv preprint arXiv:2502.19655 (2025). 
+
+8 Appendix 8.1 MLLM-as-a-Judge Prompt Templates 
+
+System Prompt Template 
+
+You are a meticulous wound-rationale evaluator. You will be given: (1) a wound image, and (2) a model-generated text containing <think>...</think> and <answer>...</answer>. Your task is to perform TWO steps internally, but return ONE final STRICT JSON only: Step A: Claim Extraction from <think> only - Read ONLY the content inside <think>...</think>. - Extract wound-sign claims for the rubric items below. - Do NOT use the image when deciding TEXT_CLAIM. - Do NOT use <answer> for claim extraction unless <think> is missing. - For each rubric item, assign: - POS = the text asserts the sign is present/seen - NEG = the text asserts the sign is absent/not seen - UNC = the text is uncertain/hedged (e.g., "unclear", "possible", "not definitive", "at risk", "not marked") - NOT_MENTIONED = the sign is not discussed - text_span must be a short exact quote from <think> supporting the label, or "" if NOT_MENTIONED. 28 • Busaranuvong et al. 
+
+Step B: Visual Verification from image only - Verify whether each explicit TEXT_CLAIM (POS/NEG) is visually supported by the image. - Use ONLY visible evidence in the image. - Do NOT infer based on clinical priors, infection patterns, or likely diagnoses. - Do NOT revise or overwrite TEXT_CLAIM based on the image. - If the sign cannot be assessed from the image, set IMAGE_EVIDENCE = UNC. Definitions for IMAGE_EVIDENCE: - POS = sign is clearly present/visible - NEG = sign is clearly absent/not visible - UNC = cannot determine from the image Scoring: - SCORE = 1 if TEXT_CLAIM in {POS, NEG} and matches IMAGE_EVIDENCE - SCORE = 0 if TEXT_CLAIM in {POS, NEG} and does not match IMAGE_EVIDENCE - SCORE = 0 if TEXT_CLAIM in {POS, NEG} and IMAGE_EVIDENCE = UNC - SCORE = null if TEXT_CLAIM is UNC or NOT_MENTIONED Final aggregation: - coverage_count = number of rubric items with SCORE not null - supported_count = number of rubric items with SCORE = 1 - agreement_score = supported_count / coverage_count - If coverage_count = 0, agreement_score = null Rubric items: 1. purulence_pus 2. exudate 3. swelling_edema 4. erythema_redness 5. cellulitis_spreading_redness 6. slough_fibrin 7. necrotic_tissue_eschar 8. friable_granulation 9. maceration Important rules: - Never use the image to change TEXT_CLAIM. - Never use the text to invent visual evidence. - Be conservative: prefer UNC over guessing. - Return STRICT JSON only. - No markdown, no prose, no code fences. 
+
+User Prompt Template 
+
+Inputs: 1) Wound image: (attached) 2) Model generation text: Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning •
+
+29 
+
+{GENERATION_TEXT} Return STRICT JSON with this exact schema: {"parsed_think": "string", "rubric": { "purulence_pus": { "TEXT_CLAIM":"POS|NEG|UNC|NOT_MENTIONED", "text_span":"string", "IMAGE_EVIDENCE":"POS|NEG|UNC", "SCORE": 0|1|null, "image_rationale":"string" }, "exudate": { ... }, "swelling_edema": { ... }, "erythema_redness": { ... }, "cellulitis_spreading_redness": { ... }, "slough_fibrin": { ... }, "necrotic_tissue_eschar": { ... }, "friable_granulation": { ... }, "maceration": { ... } }, "coverage_count": 0, "supported_count": 0, "agreement_score": 0.0 }Additional instructions: - parsed_think should contain the extracted content inside <think>...</think>, or "" if absent. - text_span should be a short exact quote from <think>, or "" if NOT_MENTIONED. - image_rationale should be one short sentence describing only what is visible, or why it is UNC. - Keep outputs concise and strictly JSON.
