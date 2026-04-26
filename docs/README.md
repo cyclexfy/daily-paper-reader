@@ -6,55 +6,79 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-23
-- 运行时间：2026-04-23 20:18:39 UTC
+- 最新运行日期：2026-04-26
+- 运行时间：2026-04-26 19:32:17 UTC
 - 运行状态：成功
-- 本次总论文数：11
-- 精读区：1
-- 速读区：10
+- 本次总论文数：19
+- 精读区：8
+- 速读区：11
 
 ### 今日简报（AI）
-今日聚焦医疗系统级多模态基础模型，深度研读 11 篇论文探索 AI 驱动的虚拟患者表征。
-重点推荐 9.0 分佳作，其展示了医疗规模化应用潜力，并同步探讨了多模态模型在视觉推理与零样本分割中的局限。
-建议关注医疗大模型的系统级落地，并尝试通过 DOSE 等工具优化多模态数据的筛选效率。
-- 详情：[/202604/23/README](/202604/23/README)
+今日精选19篇前沿论文，重点攻克儿科脑肿瘤分类与肺腺癌生长模式预测等临床病理核心难题。
+基础模型在全视野图像分析中表现卓越，空间多组学集成与3D肿瘤成像技术正迈向高精度与通用化。
+建议关注大模型在病理诊断中的临床适配性，并探索空间组学工具在复杂组织分析中的应用潜力。
+- 详情：[/202604/26/README](/202604/26/README)
 
 ### 精读区论文标签
-1. [A multimodal and temporal foundation model for virtual patient representations at healthcare system scale](/202604/23/2604.18570v1-a-multimodal-and-temporal-foundation-model-for-virtual-patient-representations-at-healthcare-system-scale)  
+1. [Clinically-Informed Modeling for Pediatric Brain Tumor Classification from Whole-Slide Histopathology Images](/202604/26/2604.21060v1-clinically-informed-modeling-for-pediatric-brain-tumor-classification-from-whole-slide-histopathology-images)  
+   标签：评分：10.0/10、query:cpath
+   evidence：基于多实例学习的全切片图像弱监督儿科脑肿瘤分类
+2. [Attention-based multiple instance learning for predominant growth pattern prediction in lung adenocarcinoma wsi using foundation models](/202604/26/2604.21530v1-attention-based-multiple-instance-learning-for-predominant-growth-pattern-prediction-in-lung-adenocarcinoma-wsi-using-foundation-models)  
+   标签：评分：10.0/10、query:cpath
+   evidence：基于注意力机制的多实例学习和基础模型用于肺腺癌全切片图像分析
+3. [Autonomous multimodal agents enable transparent, spatiotemporal reconstruction of immune dynamics in pancreatic cancer progression](/202604/26/biorxiv-10-64898-2026-04-20-719684-v1-autonomous-multimodal-agents-enable-transparent-spatiotemporal-reconstruction-of-immune-dynamics-in-pancreatic-cancer-progression)  
+   标签：评分：10.0/10、query:cpath
+   evidence：使用大语言模型和 H&E 组织学的智能体计算病理学框架
+4. [H2O: A Foundation Model Bridging Histopathology to Spatial Multi-Omics Profiling](/202604/26/biorxiv-10-64898-2026-04-21-717342-v1-h2o-a-foundation-model-bridging-histopathology-to-spatial-multi-omics-profiling)  
+   标签：评分：10.0/10、query:cpath
+   evidence：利用ViT和LLM连接组织病理学与空间多组学的基础模型
+5. [CHRep: Cross-modal Histology Representation and Post-hoc Calibration for Spatial Gene Expression Prediction](/202604/26/2604.21573v1-chrep-cross-modal-histology-representation-and-post-hoc-calibration-for-spatial-gene-expression-prediction)  
    标签：评分：9.0/10、query:cpath
-   evidence：医疗保健领域的多模态时序基础模型
+   evidence：从H&E切片预测空间基因表达的跨模态组织学表征
+6. [Single-section multiplexed imaging enables comprehensive lung cancer diagnosis](/202604/26/biorxiv-10-64898-2026-04-05-716628-v2-single-section-multiplexed-imaging-enables-comprehensive-lung-cancer-diagnosis)  
+   标签：评分：9.0/10、query:cpath
+   evidence：多重成像用于综合肺癌诊断及病理一致性评估
+7. [QNPtoVox: A methods pipeline for mapping 2D quantitative neuropathology to 3D MNI voxel space.](/202604/26/biorxiv-10-64898-2026-04-17-719274-v1-qnptovox-a-methods-pipeline-for-mapping-2d-quantitative-neuropathology-to-3d-mni-voxel-space)  
+   标签：评分：9.0/10、query:cpath
+   evidence：将全切片图像中的2D定量神经病理学映射到3D体素空间
+8. [Interpreting and Validating a Deep Learning Model Predictive of Spatial Morphologic-Molecular Patterns in Lung Adenocarcinoma, Using Ground Truth Immunohistochemistry](/202604/26/biorxiv-10-64898-2026-04-20-719723-v1-interpreting-and-validating-a-deep-learning-model-predictive-of-spatial-morphologic-molecular-patterns-in-lung-adenocarcinoma-using-ground-truth-immunohistochemistry)  
+   标签：评分：9.0/10、query:cpath
+   evidence：基于肺癌H&E染色全切片图像预测基因表达的深度学习模型
 
 ### 速读区论文标签
-1. [Do Vision-Language Models Truly Perform Vision Reasoning? A Rigorous Study of the Modality Gap](/202604/23/2604.16256v1-do-vision-language-models-truly-perform-vision-reasoning-a-rigorous-study-of-the-modality-gap)  
+1. [ISPAT-3D: Spatially Varying Conditional Volumetric Network Estimation for 3D Tumor Imaging](/202604/26/biorxiv-10-64898-2026-04-16-719017-v1-ispat-3d-spatially-varying-conditional-volumetric-network-estimation-for-3d-tumor-imaging)  
+   标签：评分：8.0/10、query:cpath
+   evidence：从3D多重癌症成像数据中恢复相互作用网络
+2. [Foundation cell segmentation models performance on live microscopy and spatial-omics data](/202604/26/biorxiv-10-64898-2026-04-18-719315-v1-foundation-cell-segmentation-models-performance-on-live-microscopy-and-spatial-omics-data)  
+   标签：评分：8.0/10、query:cpath
+   evidence：在组织成像上评估CellSAM和Cellpose等基础细胞分割模型
+3. [Scalable, Generalizable, and Uncertainty-Aware Integration of Spatial Multi-Omics Across Diverse Modalities and Platforms with SCIGMA](/202604/26/biorxiv-10-64898-2026-04-19-718223-v1-scalable-generalizable-and-uncertainty-aware-integration-of-spatial-multi-omics-across-diverse-modalities-and-platforms-with-scigma)  
+   标签：评分：8.0/10、query:cpath
+   evidence：整合包括成像和转录组数据在内的空间多模态数据集
+4. [RNABag: A Generalizable Transcriptome Foundation Model for Precision Oncology across Biopsy Modalities](/202604/26/biorxiv-10-64898-2026-04-19-719450-v1-rnabag-a-generalizable-transcriptome-foundation-model-for-precision-oncology-across-biopsy-modalities)  
+   标签：评分：8.0/10、query:cpath
+   evidence：用于精准肿瘤学和癌症分类的转录组基础模型
+5. [SSL-R1: Self-Supervised Visual Reinforcement Post-Training for Multimodal Large Language Models](/202604/26/2604.20705v1-ssl-r1-self-supervised-visual-reinforcement-post-training-for-multimodal-large-language-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉语言模型 (VLM) 中的推理
-2. [DOSE: Data Selection for Multi-Modal LLMs via Off-the-Shelf Models](/202604/23/2604.16979v1-dose-data-selection-for-multi-modal-llms-via-off-the-shelf-models)  
+   evidence：多模态大语言模型的自监督视觉强化学习
+6. [Radiomics-Guided Vision Transformers for Survival Analysis](/202604/26/2604.21056v1-radiomics-guided-vision-transformers-for-survival-analysis)  
    标签：评分：7.0/10、query:cpath
-   evidence：通过数据选择改进视觉语言模型 (VLM)
-3. [SegTTA: Training-Free Test-Time Augmentation for Zero-Shot Medical Imaging Segmentation](/202604/23/2604.17451v1-segtta-training-free-test-time-augmentation-for-zero-shot-medical-imaging-segmentation)  
+   evidence：整合像素嵌入和放射组学特征的多模态Cox框架用于生存分析
+7. [Latent Denoising Improves Visual Alignment in Large Multimodal Models](/202604/26/2604.21343v1-latent-denoising-improves-visual-alignment-in-large-multimodal-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：使用 MedSAM2 基础模型进行医学图像分割
-4. [Infection-Reasoner: A Compact Vision-Language Model for Wound Infection Classification with Evidence-Grounded Clinical Reasoning](/202604/23/2604.19937v1-infection-reasoner-a-compact-vision-language-model-for-wound-infection-classification-with-evidence-grounded-clinical-reasoning)  
+   evidence：改进大型多模态模型中的视觉特征对齐和多模态理解
+8. [Normalized Raman Imaging for Studies of Tissue Physiology of the Kidney](/202604/26/biorxiv-10-1101-2025-10-12-681746-v3-normalized-raman-imaging-for-studies-of-tissue-physiology-of-the-kidney)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于临床推理的视觉语言模型
-5. [Self-supervised pretraining for an iterative image size agnostic vision transformer](/202604/23/2604.20392v1-self-supervised-pretraining-for-an-iterative-image-size-agnostic-vision-transformer)  
-   标签：评分：7.0/10、query:cpath
-   evidence：用于视觉基础骨干网的自监督预训练
-6. [S-GRPO: Unified Post-Training for Large Vision-Language Models](/202604/23/2604.16557v1-s-grpo-unified-post-training-for-large-vision-language-models)  
+   evidence：无标记器官病理成像的计算校正
+9. [Hierarchical Vision Transformer Enhanced by Graph Convolutional Network for Image Classification](/202604/26/2604.16823v1-hierarchical-vision-transformer-enhanced-by-graph-convolutional-network-for-image-classification)  
    标签：评分：6.0/10、query:cpath
-   evidence：大型视觉语言模型的训练后优化
-7. [S2H-DPO: Hardness-Aware Preference Optimization for Vision-Language Models](/202604/23/2604.18512v1-s2h-dpo-hardness-aware-preference-optimization-for-vision-language-models)  
+   evidence：用于图像分类的视觉 Transformer 和图卷积网络
+10. [Bridging Foundation Models and ASTM Metallurgical Standards for Automated Grain Size Estimation from Microscopy Images](/202604/26/2604.18957v1-bridging-foundation-models-and-astm-metallurgical-standards-for-automated-grain-size-estimation-from-microscopy-images)  
    标签：评分：6.0/10、query:cpath
-   evidence：视觉语言模型的偏好优化
-8. [Hierarchically Robust Zero-shot Vision-language Models](/202604/23/2604.18867v1-hierarchically-robust-zero-shot-vision-language-models)  
+   evidence：将 SAM 和 Qwen2.5-VL 等视觉基础模型应用于显微镜图像分析
+11. [A Hierarchical Spatial Graph Neural Network Resolves Immunogenic and Tolerogenic Tertiary Lymphoid Structures in Renal Cell Carcinoma](/202604/26/biorxiv-10-64898-2026-04-07-717084-v2-a-hierarchical-spatial-graph-neural-network-resolves-immunogenic-and-tolerogenic-tertiary-lymphoid-structures-in-renal-cell-carcinoma)  
    标签：评分：6.0/10、query:cpath
-   evidence：视觉语言模型中图像-文本模态的对抗鲁棒对齐
-9. [3DPipe: A Pipelined GPU Framework for Scalable Generalized Spatial Join over Polyhedral Objects](/202604/23/2604.19982v1-3dpipe-a-pipelined-gpu-framework-for-scalable-generalized-spatial-join-over-polyhedral-objects)  
-   标签：评分：6.0/10、query:cpath
-   evidence：用于3D数字病理空间连接的GPU框架
-10. [MambaLiteUNet: Cross-Gated Adaptive Feature Fusion for Robust Skin Lesion Segmentation](/202604/23/2604.20286v1-mambaliteunet-cross-gated-adaptive-feature-fusion-for-robust-skin-lesion-segmentation)  
-   标签：评分：6.0/10、query:cpath
-   evidence：用于早期癌症诊断的皮肤病变分割
+   evidence：用于肾细胞癌三级淋巴结构分类的图神经网络
 
 
 <div class="dpr-home-promo-card">
