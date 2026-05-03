@@ -1,0 +1,1514 @@
+Title: Generative Augmentation Reveals Previously Overlooked Signals in Transcriptomic Datasets
+
+URL Source: https://www.biorxiv.org/content/10.64898/2026.04.23.720348v1.full.pdf
+
+Number of Pages: 51
+
+Markdown Content:
+Generative Augmentation Reveals Previously Overlooked Signals in Transcriptomic Datasets 
+
+Alok Anand 1,2 , Manas Pratiti 1,2 , Syed Yasser Ali 1, Samanyu Kamra 1, Shriya Verma 1, Shrishti Singh 3, Tanav Bajaj 4,Tavpritesh Sethi 1,2 
+
+> 1
+
+Indraprastha Institute of Information Technology, Delhi; 
+
+> 2
+
+Center of Excellence in Healthcare, Indraprastha Institute of Information Technology, Delhi;, 
+
+> 3
+
+Jawaharlal Nehru University; 4IIIT Bhopal; 
+
+Corresponding author: Prof. Tavpritesh Sethi (tavpriteshsethi@iiitd.ac.in) 
+
+Abstract 
+
+Identifying robust gene expression signatures from transcriptomic studies with small sample sizes remains one of the most persistent challenges in computational biology. Gene expression datasets have thousands of features but only a handful of biological samples. This presents the classic p >> n imbalance, which limits statistical power and makes it difficult to discover reliable biomarkers. In imaging, generative models such as GANs, VAEs, and diffusion models have demonstrated promising applications in data augmentation, but their usefulness for omics data has not been systematically tested. More importantly, no existing framework integrates synthetic data generation, stability-aware signature discovery, and multi-source biological validation into a single pipeline. 
+
+In this work, we present GeneLift, with the hypothesis that a computational pipeline of generative data augmentation, stability testing, and evaluating biological evidence will aid novel gene-signature discovery in small-cohort transcriptomic studies. We tested this hypothesis across 36 microarray datasets covering five diseases: sepsis, breast cancer, ovarian cancer, tuberculosis, and diabetes. A component-wise testing of GeneLift revealed that Gaussian Mixture Models (GMMs) outperformed deep generative approaches and faithfully reproduced gene-level distributions. By a novel approach of titrating the level of augmentation, we identified biologically meaningful gene candidates that did not appear in the original, underpowered analyses. We also developed BayesScore, a Bayesian posterior probability of gene-disease association computed from PubMed co-occurrence, which both recovers well-characterised disease genes missed by standard differential expression and surfaces candidates whose disease relevance was independently confirmed in subsequent publications, with lead times of up to 18 years between the source dataset and the first disease-specific citation. GeneLift is freely 
+
+available at  tavlab-iiitd/GeneLift  .
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Introduction 
+
+Identifying key disease-specific signatures in health-care sciences is a task of utmost importance for diagnosing, prognosing, and risk-stratifying patients (X. Chen et al., 2015). Next-generation sequencing and other high-throughput technological advancements have rapidly increased the rate of generation of transcriptomic datasets, which are now populating public repositories such as GEO, GTEx, and large-scale single-cell atlases (Marouf et al., 2020). Despite the large number of datasets available, the most challenging aspect of gene signature identification studies is the presence of small sample sizes (n) and high feature counts (p) (Button et al., 2013; Ghahramani et al., 2018; Marouf et al., 2020). This p>>n problem limits the statistical power and reliability of identified signatures (Button et al., 2013). 
+
+Several solutions originally developed for small sample sizes in computer vision have since been adapted for biological data. Long-established augmentation and modeling approaches, such as Bayesian Networks, Synthetic Minority Oversampling Technique (SMOTE), and PCA, have been used to generate synthetic datasets (Kaur et al., 2021; Chawla et al., 2011; Rok Blagus, n.d.). Because of complex gene-gene dependencies and nonlinear regulatory effects, these methods which are highly effective in low-dimensional settings fail when it comes to transcriptomic data (Lebre et al., 2010; Rok Blagus, n.d.; The DREAM5 Consortium et al., 2012). 
+
+The recent growth in generative modeling has opened new avenues for synthetic data generation in omics research. Deep learning architectures like diffusion-based models, GANs, and VAEs have shown the ability to both preserve the distribution of high-dimensional datasets and generate realistic synthetic samples (Arjovsky et al., 2017; Ghahramani et al., 2018; Goodfellow 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+et al., 2014; Chaudhari et al., 2020). Multiple biomedical tasks have seen application of these generative methods. These include privacy-preserving data sharing, cohort augmentation, and representation learning in large-scale transcriptomic datasets (Abedi et al., 2022; Beaulieu-Jones et al., 2019; Kaur et al., 2021; Nussberger et al., 2020; Tucker et al., 2020). However, these models are yet to translate their strong statistical power into biological fidelity (Button et al., 2013; Kaur et al., 2021). Deep learning models can produce synthetic transcriptomic data that may have the same level of individual gene distributions as the real dataset, but retaining the complex regulatory networks, pathway-level organization, and functional enrichment, is often difficult, especially in small-cohort settings (Abedi et al., 2022; Marouf et al., 2020). 
+
+A number of strategies have been proposed to address these limitations, such as methods that use phenotypic or cross-modal information (Argelaguet et al., 2020; Lee & Li, 2024). While using the phenotypic information-based augmentation methods can enhance the predictive performance, they rely on gold-standard expert-curated mappings. The lack of standardized benchmarks to evaluate whether augmented data has the biologically meaningful signals that are important for downstream tasks like gene signature discovery and therapeutic prioritization is one of the common limitations observed across these approaches (Lotfollahi et al., 2019; Saelens et al., 2019; The DREAM5 Consortium et al., 2012). 
+
+One of the largely overlooked challenges in existing work concerns the space in which augmentation takes place. Synthesizing samples directly in gene expression space is computationally expensive and prone to overfitting when few samples are available. Dimensionality reduction can address this but many popular embedding methods are not analytically invertible. So the synthetic samples generated in the latent space cannot be faithfully projected back to gene-level coordinates for biological interpretation. This creates a fundamental tension: augmentation benefits from lower-dimensional representations, but downstream biological inference requires gene-level resolution. 
+
+To address these gaps and facilitate robust gene signature discovery in high-dimensional transcriptomic studies with limited sample sizes, we developed GeneLift, an integrated computational framework. GeneLift brings together three core modules. The first is a generative augmentation module that operates in a PCA-reduced latent space. PCA was chosen for its analytical invertibility, which guarantees that every synthetic sample can be mapped back to gene-level coordinates without reconstruction loss. This module also systematically benchmarks multiple generative approaches (Gaussian Mixture Models, CTGAN, Bayesian Networks, and Real TabFormer). The second is a stability-aware signature discovery module that titrates augmentation from 3-fold to 30-fold expansion, and uses limma-based differential expression with empirical Bayes B-statistic filtering, to identify signatures that remain consistent across augmentation scales. The third is an evidence synthesis module built around BayesScore, a Bayesian posterior probability of gene-disease association computed from PubMed co-occurrence, and further supported by qualitative annotation against KEGG pathways, 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+MSigDB hallmark sets, and the Therapeutic Target Database. We evaluated GeneLift across 36 datasets spanning five biologically diverse diseases (sepsis, breast cancer, ovarian cancer, tuberculosis, and diabetes) and found that probabilistic mixture models consistently outperform complex deep architectures for transcriptomic augmentation, while the pipeline recovers biologically coherent signatures that go undetected in underpowered original analyses. 
+
+Materials and methods 
+
+Data sources and preprocessing 
+
+The framework was applied to five biologically distinct diseases: sepsis, ovarian cancer, breast cancer, tuberculosis, and diabetes. Gene expression datasets were obtained from the Gene Expression Omnibus (GEO). These datasets were filtered by disease-relevant search terms and microarray platform type to combat platform heterogeneity (GPL570, GPL6480, and GPL10558). To maintain statistical power and limit noise from underpowered studies, datasets with fewer than 12 samples were excluded. 
+
+Only datasets with clinically grounded group contrasts were retained. These ranged from septic shock patients and with healthy volunteers, receptor-based breast cancer groupings, and also included ovarian cancer subtype distinctions, active versus latent tuberculosis cases, and diabetic against non-diabetic subjects. 
+
+Platform-specific annotation files were used to map probe-level expression values to gene symbols. Expression values were averaged in cases where more than one probe corresponded to the same gene. To make the expression distributions comparable across samples, matrices were then log-transformed and quantile-normalized. 
+
+High-dimensional transcriptomic datasets typically have thousands of features, much of which carry noise. As highlighted above, any augmentation strategy in a reduced-dimensional space relies on a mapping that is analytically invertible to preserve gene-level interpretability. This motivated our use of PCA as being a linear, orthogonal projection, PCA satisfies this requirement with an exact algebraic inverse. In the non-linear alternatives such as t-SNE, UMAP, or autoencoder-based embeddings, back-projection is either undefined or lossy. All generative models were trained on a reduced space of components explaining 95% of the total variance. After data generation, inverse transform was applied to the synthetic samples and they were projected back into the original gene expression space to enable all downstream analyses on gene-level coordinates. 
+
+Table 1 : Data Profiling across the 5 disease conditions 
+
+Dataset ID  Target Class  Control Class  No. of Target 
+
+No. of Control 
+
+Total Number of 
+
+Disease 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+samples  samples  Samples 
+
+GSE137340  Severe Sepsis  Healthy  26  12  38  Sepsis 
+
+GSE28750  HEALTHY  SEPSIS  20  10  30  Sepsis 
+
+GSE49753  Septic plasma  Uninfected plasma  24  12  36  Sepsis 
+
+GSE64457  Patient  healthy control  15  8 23  Sepsis 
+
+GSE66099  SepticShock  Control  181  47  228  Sepsis 
+
+GSE69528  Septicemic melioidosis  Uninfected healthy  29  28  57  Sepsis 
+
+GSE9692  Septic shock  Controls  30  15  45  Sepsis 
+
+GSE65986  Serous  Endometrioid  16  14  30 
+
+Ovarian cancer 
+
+GSE63885  serous ovarian 
+
+ca.endometrioid ovarian ca.  73  12  85 
+
+Ovarian cancer 
+
+GSE57477 
+
+Serous ovarian adenocarcinoma 
+
+Serous ovarian borderline tumor  46  6 52 
+
+Ovarian cancer 
+
+GSE54388  serous ovarian cancer  healthy (normal)  16  6 22 
+
+Ovarian cancer 
+
+GSE25427 
+
+serous epithelial ovarian cancer cells 
+
+serous borderline ovarian cells  24  4 28 
+
+Ovarian cancer 
+
+GSE14407 
+
+ovarian adenocarcinoma  Normal  12  12  24 
+
+Ovarian cancer 
+
+GSE38666 
+
+Ovarian Cancer Epithelium 
+
+Ovarian Normal Stroma  18  8 26 
+
+Ovarian cancer 
+
+GSE29450 
+
+Primary tumors from clear cell ovarian cancer 
+
+Normal ovarian surface epithelium  10  19  29 
+
+Ovarian cancer 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+GSE235641  Ovarian cancer  Benign Tissue  6 6 12 
+
+Ovarian cancer 
+
+GSE74667  NTNBC  TNBC  81  14  95 
+
+Breast cancer 
+
+GSE60785  NTNBC  TNBC  42  13  55 
+
+Breast cancer 
+
+GSE43358  NTNBC  TNBC  40  17  57 
+
+Breast cancer 
+
+GSE32646  NTNBC  TNBC  89  26  115 
+
+Breast cancer 
+
+GSE32531  NTNBC  TNBC  16  15  31 
+
+Breast cancer 
+
+GSE23640  NTNBC  TNBC  10  4 14 
+
+Breast cancer 
+
+GSE18728  NTNBC  TNBC  39  22  61 
+
+Breast cancer 
+
+GSE152532  active_tb  control  25  11  36 
+
+Tuberculosi s
+
+GSE139871 
+
+mycobacterium_tuberc ulosis_infection  healthy_control  16  4 20 
+
+Tuberculosi s
+
+GSE98461  TB patient  healthy control  4 4 8
+
+Tuberculosi s
+
+GSE69581  active  subclinical  15  10  25 
+
+Tuberculosi s
+
+GSE54992  tuberculosis  healthy_donor  9 6 15 
+
+Tuberculosi s
+
+GSE42832  tb  control  30  30  60  Tuberculosi 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+s
+
+GSE42830  tb  control  16  38  54 
+
+Tuberculosi s
+
+GSE42825  tb  control  8 23  31 
+
+Tuberculosi s
+
+GSE39940  active_tuberculosis  other_disease  111  169  280 
+
+Tuberculosi s
+
+GSE39939 
+
+active_tuberculosis__c ulture_confirmed_  other_disease  35  55  90 
+
+Tuberculosi s
+
+GSE166502  type_2_diabetes_t2d 
+
+normal_glucose_tolera nce_ngt  26  26  52  Diabetes 
+
+GSE19420  IGT  NGT  12  12  24  Diabetes 
+
+GSE76895  ND  IGT  32  15  47  Diabetes 
+
+Generative models and data augmentation 
+
+To evaluate the suitability of generative models in small-cohort transcriptomic studies, four representative generative approaches were evaluated: Conditional Tabular Generative Adversarial Networks (CTGAN), Bayesian Networks, Gaussian Mixture Models (GMMs), and transformer-based Real TabFormer models. Models were first trained independently on the PCA-reduced data and then used to generate synthetic samples having the same dimensionality as the original samples. The performance of models was not solely assessed on the marginal distribution similarity but also on the basis of the preservation of gene-level statistical properties and the stability of downstream biological inference. To facilitate a comparative evaluation, all generative procedures were applied consistently across disease conditions. 
+
+Evaluation of synthetic data fidelity 
+
+Several statistical measures were employed to compare the original and synthetic data. The statistical fidelity of the augmented dataset was evaluated by Wasserstein distance, and Maximum Mean Discrepancy (MMD). This helped in quantifying the differences in gene-level distribution of original and synthetic data. Two-tailed t-tests were performed gene-wise to check the statistical significance of differences of expression between the two datasets. 
+
+Ten iterations of bootstrap resampling was done on both original and synthetic data to account for sampling variability. Mean and spread was calculated from the divergence metrics of every 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+bootstrap instance. Genes with t-test p-value over 0.05 are called indistinguishable between original and synthetic data. This was used as our measure of how good the augmentation actually was. 
+
+Differential expression analysis and functional enrichment 
+
+Before differential expression analysis, to reduce the noise, we removed the genes within the lowest 20% of variance across samples. Limma was used to perform differential expression analysis, in R. The high-confidence candidates are the top 1% of the genes in the empirical Bayes B-statistic distribution. 
+
+Subsequently, using a curated biological database, the candidate genes go through pathway and functional enrichment analyses. The impact of data augmentation on biological signal detection was evaluated by interpreting enrichment results in the context of disease-specific dysregulation, and comparing them between original and augmented datasets. 
+
+Augmentation titration and stability assessment 
+
+The effect of augmentation on statistical stability was studied by generating synthetic datasets at increasing levels. The sample size of original data was expanded from threefold to thirtyfold in fixed increments. At each augmentation level, differential expression and enrichment analyses were repeated. 
+
+The augmentation-revealed candidates were defined as genes that appeared consistently in at least four augmented analyses, but were absent from the original contrast. This criterion was used to identify signals uncovered through increased sample diversity rather than cohort-specific effects. 
+
+Evidence integration Score 
+
+P(G | D) = P(D | G) × P(G) / P(D) 
+
+To quantify existing literature support for each augmentation-revealed candidate gene, we developed BayesScore, a Bayesian posterior probability that treats the biomedical literature as an external evidence base. For a gene G and a target disease D, the posterior is P(G | D) = P(D | G) × P(G) / P(D), where P(D | G) is the fraction of PubMed records mentioning G that also mention D, P(G) is the prevalence of G across the full PubMed corpus, and P(D) is the prevalence of D in PubMed estimated from a MeSH-plus-Title/Abstract query. All three terms are recorded per gene so that the posterior can be independently recomputed. The MeSH term, the total disease-paper count, and the total PubMed count used as the denominator of P(D) are stored in a disease-level metadata file. 
+
+For each candidate gene, P(G | D) is computed at the time of analysis from live PubMed queries. Genes with zero disease-specific publications at the time of scoring receive P(G | D) = 0. Within a disease, all candidates are ranked by P(G | D) and the rank percentile is retained as a 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+normalised measure that allows comparison across diseases whose total literature footprints differ by up to an order of magnitude. 
+
+To distinguish prior literature, we defined supporting evidence as antecedent (subsequent ) i.e., earliest disease-specific publication predated (post-dated) the publication of the dataset in question. As an aid for reducing discovery time, we aimed to uncover the subsequent evidence, i.e., genes whose earliest disease-specific record appears after the dataset release are labelled Genes with no antecedent or subsequent evidence available at the time of analysis remained unannotated. 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Fig 1 | Schematic representation of the study workflow. Transcriptome expression data were subjected to dimensionality reduction followed by synthetic data augmentation using GMM, CTGAN, BN and RTF. The fidelity of the synthetic datasets was assessed using maximum mean discrepancy (MMD), Wasserstein distance (WSD) and t-statistics, while t-distributed stochastic neighbour embedding (t-SNE) was used to examine preservation of the original sample distribution. The augmented datasets were then analysed for differential expression and functional enrichment to identify a conserved set of newly discovered genes across datasets. These genes were further prioritized through an evidence synthesis pipeline incorporating PubMed, KEGG, TTD and MSigDB. A Bayesian scoring scheme based on PubMed literature was additionally used to quantify disease-specific support for each gene. 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Results 
+
+Gaussian Mixture Models outperform deep generative architectures for transcriptomic augmentation 
+
+We tested four generative approaches (GMMs, Bayesian Networks, CTGAN, and Real TabFormer) for their ability to produce synthetic transcriptomic data that faithfully mirrors the statistical properties of original datasets. Across all five disease cohorts and 36 datasets, GMM-generated synthetic data came closest to the original gene expression profiles on every distributional metric we examined: Wasserstein distance, Maximum Mean Discrepancy (MMD), and gene-wise t-test comparisons (Fig. 2A). 
+
+The differences became especially clear in dimensionality-reduced projections. t-SNE visualizations showed that GMM- and BN-generated samples spread out uniformly when mapped back to the original gene expression space, whereas CTGAN showed the pattern characteristic of mode collapse, clustering synthetic samples in narrow regions of the latent space, and RTF produced samples with visible distributional asymmetry (Fig. 2B). These patterns repeated across all five disease contexts, which establishes GMM as a structural match between mixture-based probabilistic models and the kind of high-dimensional, small-sample data typical of bulk transcriptomics. 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Fig. 2 | Divergence metrics A. (i, ii, and iii) quantifying the similarity between the probability distributions of synthetic and original datasets of Sepsis, across four generative models: (a) Bayesian Network, (a) CTGAN, (c) GMM, and (d) Real Tab Former (RTF). Metrics include (i) number of genes with non-significant differences (p > 0.05) in expression between synthetic and original datasets, indicating gene-level fidelity, (ii) Maximum Mean Discrepancy (MMD), and (iii) Wasserstein distance reported as mean ± standard deviation across 10-fold bootstrapping. B. t-SNE plot for the original and synthetic data for the 4 models, highlighting the supremacy of GMM-synthesized data as compared to others for data of GSE69528 .
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Augmentation preserves effect-size structure while improving statistical power 
+
+A natural concern with any augmentation strategy is whether it introduces directional bias into the underlying biological signal. To check this, we examined the distribution of log fold changes (logFC) between the augmented and original datasets. Across all augmentation levels (3-fold to 30-fold), the logFC distribution stayed symmetrically centered around zero and closely tracked the original dataset, confirming that GMM-based augmentation does not introduce systematic directional shifts in gene expression (Fig. 3A). 
+
+We noticed that augmented datasets showed slightly sharper logFC density curves than the originals, suggesting modest variance stabilization as the effective sample size grows and estimation noise decreases. Alongside this, we observed a progressive increase in negative log10 adjusted p-values across augmentation levels (Fig. 3B), reflecting improved statistical power to detect differentially expressed genes. The gain in detection comes from reduced dispersion rather than artificial inflation of the biological signal, as the logFC distribution center and shape remain unchanged. 
+
+Fig. 3 | Effect of data augmentation on differential gene expression logFC and adjusted p-values for one of the sepsis data GSE69528. A. Density of logFC values of gene expression across different batches is shown here. B. Boxplot of adj.P. Val of genes across increasing batch size. All genes with negative log10 of adj.p.val >0 were selected, and no boxplots without outliers were drawn. Differential expression analysis was performed using the limma package in R, comparing original vs. augmented datasets. 
+
+Sepsis: augmentation reveals immune-regulatory genes and pathways undetected in original analyses 
+
+We applied GeneLift to seven sepsis datasets (Table 1) and selected genes that appeared in at least four augmented differential expression analyses but were absent from the original results. 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+This yielded seven augmentation-revealed candidates: CKAP4, GADD45A, GALNT14, MTF1, PFKFB3, RETN, and RGL4. 
+
+Evidence synthesis against KEGG, TDTD, and PubMed confirmed prior sepsis associations for four of the seven candidates (57%). GADD45A is a stress-response gene that is upregulated during sepsis and contributes to organ injury through its roles in apoptosis and inflammatory signalling (Cheng et al., 2025; Liebermann & Hoffman, 2008; Ma et al., 2025). PFKFB3 is a key driver of glycolysis in immune cells during sepsis-associated metabolic reprogramming and maps to the KEGG HIF-1 signalling pathway (Xiao et al., 2023; R. Chen et al., 2022). RETN, a pro-inflammatory cytokine, impairs endothelial function and is associated with disease severity and poor outcomes (Macdonald et al., 2017; Vassiliadi et al., 2012). MTF1 protects against oxidative damage by maintaining metal ion balance during systemic infection and is annotated in KEGG oxidative stress pathways (Daniels et al., 2002). KEGG mapping further placed GADD45A within the p53 and NF-kB signalling cascades (Daniels et al., 2002). 
+
+The remaining three candidates (43%) are not well-represented in current pathway databases but have appeared in recent omics studies. CKAP4 has been linked to endothelial integrity and immune cell migration (Osugi et al., 2019), GALNT14 to glycosylation changes that affect immune signalling, and RGL4 to Ral GTPase-mediated immune trafficking in gram-negative sepsis (Zhu et al., 2022). These three represent potentially novel targets for further investigation. 
+
+Functional enrichment across the seven datasets identified three immune-related pathways that were consistently enriched in augmented analyses but not in the original results (Table S1). The first, positive regulation of alpha-beta T cell proliferation, points to weakened adaptive immunity during the immunosuppressive phase of sepsis. The second, negative regulation of IL-12 production, is consistent with impaired Th1 responses and immune exhaustion. The third, regulation of TNF production, reflects the well-known role of TNF dysregulation in driving inflammation and organ damage during septic shock. Additional enriched processes included hemopoiesis, regulation of signal transduction, and innate immune activation involving cytokine signalling and leukocyte activity (Supplementary Table S2). Together, these findings recapitulate the characteristic dual-phase immunology of sepsis, in which hyperinflammation and immunosuppression coexist. Several of these pathway signals were undetectable in the original underpowered analyses and emerged only after augmentation, highlighting the ability of GeneLift to recover coherent biological signals from sample-limited datasets. 
+
+BayesScore distinguishes established sepsis biology from later-supported candidates 
+
+BayesScore was applied to the 321 augmentation-revealed gene-dataset pairs derived from the seven sepsis datasets. Posterior probabilities ranged over more than two orders of magnitude. 
+
+PATZ1 (P(G | D) = 3.26 x 10^-6), also recovered from GSE9692, had no disease-specific publication at the time of scoring; its earliest sepsis-specific record is Wang et al. (Sci Rep, 2026), published after the source dataset, and PATZ1 was therefore subsequent . GALNT14, PADI2, CPEB4, MS4A4A and PHC1 received the same annotation on this basis. PHB2 (rank 26; 9 publications, top decile, recovered from GSE28750 (2011)) was also subsequent with the earliest sepsis-specific publication in 2023 (Int J Biol Sci, 2023). Importantly, the rapid 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+post-2023 accumulation of evidence implicating PHB2 in sepsis highlights the predictive and discovery-accelerating capability of GeneLift (Supplementary Table S3.) 
+
+The highest posterior was obtained for HK2 (P(G | D) = 1.18 x 10^-3; 361 sepsis publications), recovered from GSE9692 (2007). Its role in sepsis-associated renal metabolic stress was already documented at the time of dataset deposition, and HK2 was therefore annotated antecedent. The next four antecedent candidates were SOCS3 (rank 4; 96 publications), IL1R2 (rank 10; 31 publications), STAT4 (rank 11; 24 publications) and OGG1 (rank 29; 8 publications). All five genes were absent from the differential expression results of the original small cohorts but reached the top decile after augmentation was combined with BayesScore. 
+
+Breast cancer: augmentation-revealed candidates span four oncogenic axes 
+
+Across seven breast cancer datasets (TNBC vs. non-TNBC), GeneLift identified eight augmentation-revealed gene candidates: CDK6, IGF2BP3, FOXC1, KRT16, CA12, VAV3, UGT8, and CMBL. All eight had literature support in at least one curated knowledge source. 
+
+These candidates fall along four functional axes. In cell cycle regulation, CDK6 stood out as the most prominent candidate. CDK4/6 inhibitors are now FDA-approved for HR+/HER2-negative breast cancer and have markedly improved progression-free survival (Wang et al., 2024). In metastasis and epithelial-mesenchymal transition, KRT16 promotes EMT by reorganizing the actin cytoskeleton and its overexpression is associated with shorter relapse-free survival; UGT8, a glycosphingolipid synthesis enzyme, is overexpressed in aggressive subtypes and linked to higher lung metastasis risk (Dziegiel et al., 2010); and VAV3 correlates with negative ER status, lymph node involvement, and reduced overall survival (Chen et al., 2015). In subtype-specific transcriptional regulation, IGF2BP3 is an m6A reader overexpressed in TNBC with prognostic significance (Zhang et al., 2023); FOXC1 promotes basal-like breast cancer aggressiveness through NF-kB/MMP7 and Hedgehog signalling while repressing ER expression by competing with GATA3 at ESR1 regulatory sites (Han et al., 2017); and CMBL was the most significantly downregulated gene in TNBC (He et al., 2015). In tumour microenvironment regulation, CA12 is linked to ERalpha and favourable prognosis in luminal subtypes, where it is epigenetically silenced in basal tumours but can be pharmacologically reactivated (Franke et al., 2020). 
+
+The fact that these eight candidates span cell cycle control, EMT, subtype-specific transcription, and microenvironment remodelling supports the biological validity of the augmentation approach and shows that GeneLift generalizes beyond the sepsis context. 
+
+BayesScore was applied to the 338 augmentation-revealed gene-dataset pairs derived from the seven breast cancer datasets. 
+
+Three subsequent candidates, YTHDC2 (P(G | D) = 2.61 x 10 -6 ; rank 138), an m6A reader recovered from GSE18728 (October 2009), first appeared in the breast cancer literature as part of a 2025 prognostic lncRNA signature (Int J Biol Macromol). BATF2, recovered from a 2009 dataset, received its first breast cancer report in 2021 (BMC Cancer). LINC00963, also recovered from 2009 data, was characterized as a molecular sponge for miR-625 in 2020 (Cell Cycle). 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+AR (androgen receptor), an antecedent ranked second (P(G | D) = 3.57 x 10 -3 ; 1,371 breast cancer publications), recovered from GSE32646 (March 2012), is a well-characterised oncogene with a 40-year breast cancer literature and an FDA-approved therapeutic indication. Yet it did not appear in the differential expression output of the original contrast. Other high ranking 
+
+antecedents not discovered using original data included VEGFA (rank 3; 458 publications), BARD1 (rank 4; 267 publications), ERBB4 (rank 5; 181 publications), RAF1 (rank 6; 129 publications), CDC25C (rank 8; 80 publications) and INPP4B (rank 9; 50 publications), covering angiogenesis, DNA repair, MAPK signalling, cell-cycle regulation and PI3K pathway modulation. 
+
+Recovery of both well-established breast cancer genes and candidates without prior breast cancer citations at the time of dataset deposition indicates two distinct failure modes of standard differential expression on small cohorts: under-detection of established biology, and under-detection of biology that had not yet been described (Supplementary Table S4). 
+
+Tuberculosis: pathway-level signatures capture host-pathogen immune interplay 
+
+GeneLift applied to ten tuberculosis datasets comparing active TB with latent or healthy controls revealed novel pathway signatures organized around three biological themes. In pathogen recognition, four pathways converged: cell surface Toll-like receptor signalling, where TLR2 and TLR4 recognize mycobacterial surface components (Zihad et al., 2023); endolysosomal TLR signalling, through which dormancy-associated proteins Rv2659c and Rv1738 activate NF-kB and trigger production of IL-1beta, IL-6, IL-8, IL-10, and TNF-alpha (Saelee et al., 2022); cell surface pattern recognition receptor signalling (Zihad et al., 2023); and cytoplasmic PRR signalling via NOD1, NOD2, and NLRP3, which activate autophagy and inflammasome responses upon detecting intracellular bacteria (Zihad et al., 2023). 
+
+In intracellular defence, protein K63-linked ubiquitination was a prominent finding, reflecting how E3 ligases PRKN and SMURF1 tag M. tuberculosis for autophagic degradation, a mechanism the pathogen actively subverts through its virulence factors (Shariq et al., 2023). Positive regulation of interferon-beta production, driven by the RIG-I/MAVS/IRF7 pathway in response to mycobacterial RNA in the macrophage cytosol, was also enriched. 
+
+In immune signal modulation, negative regulation of MAP kinase activity captured the roles of p38 and ERK in controlling TNF-alpha, IL-10, and MCP-1 secretion during infection (Song et al., 2003), while negative regulation of protein serine/threonine kinase activity pointed to PknB-mediated mycolic acid export and cell envelope remodelling, both of which are central to M. tuberculosis virulence and represent potential drug targets (Le et al., 2020). 
+
+These pathway signatures capture the core tension in TB immunology: the host mounts ubiquitin-dependent, kinase-mediated, and receptor-driven defences, while M. tuberculosis subverts each of these to persist inside host cells. Their detection through augmented but not 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+original analyses illustrates the value of GeneLift for resolving coordinated immune signalling networks that require greater statistical power than small cohorts can provide on their own. 
+
+BayesScore in tuberculosis is dominated by subsequent candidates. 
+
+BayesScore was applied to the 920 augmentation-revealed gene-dataset pairs derived from the ten TB datasets. Most of the informative signal came from candidates annotated subsequent. GPR84, recovered from GSE54992 (2014), and was later confirmed as a host target exploited by M. tuberculosis to dampen pro-inflammatory signalling (Microorganisms, 2025); its posterior at the time of rescoring now sits in the range of VWF and CD72. ZDHHC19, recovered from the same period, received single-cell validation in latent TB in 2026 (Tuberculosis). UFM1, STX16, FARS2, R3HDM2, DDX60L, GADD45B, SLC2A3 and MRPL33 received their first TB-specific citations more than a decade after their source datasets were deposited, and all were annotated subsequent on the same criterion. 
+
+Only two genes with substantial prior TB literature appeared in the scored set and were annotated antecedent: VWF, with TB-biomarker literature dating to 1995, and CD72, with TB-lymphocyte reports from 2000. (Supplementary table 5) 
+
+Ovarian cancer and diabetes confirm cross-disease generalisability. 
+
+To assess whether GeneLift generalises beyond the three primary case studies, we applied the pipeline to nine ovarian cancer datasets and three diabetes datasets. In ovarian cancer, augmentation-revealed pathways converged on chromosomal instability (mitotic spindle checkpoint signalling, spindle assembly checkpoint, negative regulation of the metaphase-anaphase transition), nucleotide metabolism (purine deoxyribonucleoside catabolism, thymidine metabolism) and angiogenesis (positive regulation of sprouting angiogenesis), all established hallmarks of high-grade serous ovarian cancer. In diabetes, augmentation recovered established metabolic signatures consistent with the disease phenotype. 
+
+BayesScore applied to the ovarian cancer datasets (766 gene-dataset pairs across nine datasets) returned twelve subsequent candidates, the largest subsequent-tag group across the five diseases examined (MAT2A, KPNA5, TPI1, SLC2A12, SAT1, GPR132, LRP8, MBNL3, SLCO1B3, PYCR1, PPP1R3B, KRT16), spanning methionine metabolism, nuclear transport, glycolysis, ferroptosis, GPCR signalling, drug resistance, polyamine metabolism and cytoskeletal structure, together with three antecedent candidates in the top 15%: PGR (P(G | D) = 7.32 x 10^-4; rank 4 of 766; 77 publications, characterised in ovarian carcinoma since 1981), PTPN1 (rank 109; 5 publications, with ovarian-tumour amplification reports from 2000) and HOXB7 (rank 108; 5 publications, first described as an ovarian oncogene in 2001). For diabetes (275 pairs across three datasets), ten subsequent candidates were annotated from GSE19420 (NUAK1, LRRC2, USP13, FRAS1, ARRDC2, HSPA12A, NT5DC3, IL1RAPL1, ENPP7, RPL21), all with posteriors below 2.78 x 10^-6, spanning renal tubular senescence, mitochondrial quality control, epigenetic autoimmunity and ribosomal biology, functional categories that are under-represented in the conventional diabetes literature; two antecedent candidates reached the top decile, CXCR3 (rank 8 of 275; 101 publications; type 1 diabetes autoimmunity reported from 2002) and BGLAP (rank 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+27; 15 publications; diabetic-bone suppression reported from 2005), both missed by standard differential expression. 
+
+Full per-dataset results for both are provided in Supplementary Tables S6 and S7. 
+
+Discussion 
+
+Augmenting high-dimensional transcriptomic data is particularly difficult in small cohorts, where few samples limit both statistical power and the ability to find reliable biomarkers. Across five disease cohorts, we found that GMMs did the best job at keeping gene-level expression distributions close to the original data. We measured this using Wasserstein distance, Maximum Mean Discrepancy, and standard statistical tests, all of which showed that GMM-generated samples stayed closest to the original data. Deep generative models, on the other hand, were less stable and showed problems like distributional imbalance and mode collapse. For transcriptomic augmentation with limited samples, probabilistic mixture-based modeling seems to be the more dependable option. 
+
+Augmentation preserved the symmetric log fold change (logFC) distribution centered around zero. This means the overall balance between up- and down-regulated genes was preserved and no directional bias was introduced. The density curves did get slightly sharper after augmentation, pointing to some degree of variance stabilization. This went hand in hand with progressively higher −log10 adjusted p-values. The improved statistical sensitivity here likely comes from reduced dispersion rather than any artificial inflation of biological signals. Even so, how much augmentation you apply matters. If variance shrinks too much, real biological heterogeneity could get buried. 
+
+On the biological side, augmentation helped recover coherent gene signatures in sepsis. Known sepsis-associated genes like GADD45A, PFKFB3, RETN , and MTF1 showed up consistently, which supports the idea that the augmented datasets retain genuine biological meaning. Additional candidates such as CKAP4, GALNT14, and RGL4 emerged across multiple datasets, suggesting that augmentation may uncover signals that remain undetected in underpowered analyses. Pathway enrichment further revealed immune regulatory processes characteristic of sepsis, including altered T cell proliferation, suppression of IL-12 signaling, and dysregulation of TNF production findings consistent with the dual phases of hyperinflammation and immune exhaustion. 
+
+BayesScore behaves consistently across the five diseases but its discriminative power tracks the maturity of the underlying literature. Breast cancer gives the widest dynamic range, with a 137-fold gap between the median posterior of recovered genes and the median posterior of prospectively validated candidates. Sepsis gives an intermediate 15-fold gap and tuberculosis a compressed 3-fold gap. This is a property of PubMed rather than of the score: when a disease has a large volume of gene-disease co-occurrence events on record, the posterior has room to spread out; when the literature is thinner, the posterior compresses and the lead-time channel becomes the more informative axis. The two channels together, posterior for genes already covered in the literature and lead time for genes that will be covered later, give a single framework that holds whether the target disease is TB or breast cancer. Across the five diseases, the maximum lead 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+time ranged from 12.3 years (TB, ZDHHC19) to 18.2 years (sepsis, PATZ1), and in every disease the pipeline surfaced at least two genes whose first disease-specific PubMed record post-dated the source dataset by more than a decade. 
+
+BayesScore inherits PubMed's known biases. Short or ambiguous gene symbols such as SET, MET and AR can match non-gene usage in titles and abstracts, inflating P(G | D). Well-studied genes accumulate more co-occurrence counts in general, which the P(G) prior partially but not fully corrects. We therefore report P(G | D) alongside rank percentile and the raw count of disease-specific publications rather than as a single aggregate number. 
+
+Taken together, GMM-based augmentation appears to improve statistical detectability without distorting the underlying distributions. When sample sizes are small, this makes it a reasonable and workable option for transcriptomic analysis. 
+
+Data Availability 
+
+All gene expression datasets used in this study are publicly available from the Gene Expression Omnibus (GEO). Accession numbers for all 36 datasets are provided in Table 1. The GeneLift 
+
+pipeline source code, including scripts for data preprocessing, generative model training, augmentation titration, differential expression analysis, and evidence synthesis, is freely available at [GitHub repository URL]. Supplementary data and intermediate results are available at []. 
+
+Supplementary Information 
+
+Table S1 : Highly Specific Biological Pathways Recurrently Observed Across 2 or more Datasets of the same Diseases and relevant Genes 
+
+GO:Term  Biological Role  Relevance to Sepsis  Disease 
+
+Positive regulation of alpha-beta T cell proliferation 
+
+Enhances the expansion of antigen-specific T cells for adaptive immune defense. 
+
+Impaired T cell expansion can weaken adaptive immunity during sepsis.  Sepsis 
+
+Negative regulation of interleukin-12 production 
+
+Suppresses pro-inflammatory cytokine signaling to limit immune overactivation. 
+
+Excess suppression may hinder Th1 responses, worsening infection control in sepsis. 
+
+Sepsis 
+
+Regulation of tumor necrosis factor production 
+
+Modulates inflammatory responses and cell survival via TNF cytokine control. 
+
+Dysregulated TNF levels drive systemic inflammation and organ damage in sepsis. 
+
+Sepsis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Purine deoxyribonucleosid e monophosphate catabolic process 
+
+Breakdown of purine DNA building blocks 
+
+Increased DNA turnover; associated with high proliferation rates  Ovarian cancer 
+
+Purine deoxyribonucleotid e catabolic process 
+
+Degradation of purine nucleotides 
+
+Dysregulation promotes genomic instability, fueling tumor progression  Ovarian cancer 
+
+dAMP catabolic process 
+
+Catabolism of deoxyadenosine monophosphate 
+
+Affects nucleotide balance, which can impact DNA replication fidelity  Ovarian cancer 
+
+dGMP catabolic process 
+
+Catabolism of deoxyguanosine monophosphate 
+
+Imbalance can impair DNA repair and increase mutation burden  Ovarian cancer 
+
+Mitotic spindle checkpoint signaling 
+
+Ensures proper chromosome segregation 
+
+Dysregulation leads to aneuploidy, a hallmark of high-grade serous ovarian cancer 
+
+Ovarian cancer 
+
+Negative regulation of microtubule depolymerization 
+
+Stabilizes microtubules during mitosis 
+
+Disruption linked to paclitaxel resistance, a common chemotherapeutic 
+
+Ovarian cancer 
+
+Spindle assembly checkpoint signaling 
+
+Monitors correct spindle formation before division 
+
+Defects cause chromosomal missegregation, contributing to tumor heterogeneity 
+
+Ovarian cancer 
+
+Negative regulation of mitotic metaphase/anaphas e transition 
+
+Delays anaphase onset until chromosomes are aligned 
+
+Loss can accelerate cell division and lead to mitotic errors  Ovarian cancer 
+
+Mitotic spindle assembly checkpoint signaling 
+
+Overlaps with mitotic checkpoints ensuring fidelity 
+
+Central to preventing chromosomal instability  Ovarian cancer 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Meiosis I  Division phase in gametogenesis 
+
+Reactivation of meiotic genes in somatic tumors is linked to uncontrolled cell division ("meiomitosis") 
+
+Ovarian cancer 
+
+Positive regulation of sodium ion transport 
+
+Modulates ion gradients across membranes 
+
+Altered ion fluxes can drive proliferation, migration, and cell survival 
+
+Ovarian cancer 
+
+Positive regulation of sprouting angiogenesis 
+
+Formation of new blood vessels 
+
+Facilitates tumor growth and metastasis; VEGF pathway is targeted in ovarian cancer therapy 
+
+Ovarian cancer 
+
+Pyrimidine deoxyribonucleosid e metabolic process 
+
+Metabolism of pyrimidine nucleosides (e.g., thymidine) 
+
+Supports DNA synthesis; upregulated in highly proliferative tumors  Ovarian cancer 
+
+NLS-bearing protein import into nucleus 
+
+Nuclear import of proteins with nuclear localization signals 
+
+Disruptions can affect localization of tumor suppressors and oncogenes  Ovarian cancer 
+
+Thymidine metabolic process 
+
+Metabolism of thymidine, a DNA precursor 
+
+Elevated in rapidly dividing cells; targeted by nucleoside analog chemotherapies (e.g., 5-FU) 
+
+Ovarian cancer 
+
+CDK6 
+
+Regulates cell cycle progression from G1 to Sphase. 
+
+CDK4/6 plays a critical role in driving uncontrolled cell proliferation in breast cancer, particularly in hormone receptor-positive (HR+ )/ HER2-negative subtypes. The use of CDK4/6 inhibitors, especially in combination with endocrine therapy, has become a key therapeutic strategy, significantly improving progression-free survival. These inhibitors have been approved as first-line treatment by the FDA and represent a major advancement in 
+
+targeted breast cancer therapy. (Wang et 
+
+Breast Cancer 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+al., 2024) 
+
+CA12 
+
+Enzyme involved in pH regulation of the tumor microenvironment. 
+
+CA12 expression in breast cancer is closely linked to estrogen receptor alpha (ERα) and is associated with a favorable prognosis and reduced metastasis risk. It is regulated by the transcription factor AP-2γ , which maintains the luminal breast cancer phenotype through direct and 
+
+ERα -mediated pathways. In basal subtypes, CA12 is epigenetically silenced via promoter methylation and histone deacetylation, but can be reactivated pharmacologically. These findings underscore the importance of 
+
+CA12 and its regulatory network in 
+
+luminal breast cancer biology.  (Franke 
+
+et al., 2020) 
+
+Breast Cancer 
+
+vav3 
+
+Signal transduction protein involved in cytoskeletal organization and cell proliferation. 
+
+Vav3 is a signal transduction protein involved in cytoskeletal organization and cell proliferation, found to be overexpressed in breast cancer cells. Its high expression correlates with negative estrogen receptor status, lymph node involvement, and advanced tumor stage. Elevated Vav3 
+
+levels are associated with shorter disease-free and overall survival, making it a potential biomarker for 
+
+poor prognosis in breast cancer. (Chen 
+
+et al., 2015) 
+
+Breast Cancer 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+UGT8 
+
+Ceramide galactosyltransferase UGT8, an enzyme involved in glycosphingolipid synthesis. 
+
+UGT8 , an enzyme involved in glycosphingolipid synthesis, is significantly overexpressed in aggressive breast cancer types and is linked to an increased risk of lung metastasis. Higher UGT8 levels were observed in metastatic tumors, high-grade malignancies, and node-positive cases. Its expression was minimal in luminal-like cell lines but elevated in mesenchymal-like, metastatic ones. These findings highlight UGT8 as a potential biomarker for metastasis and poor 
+
+prognosis in breast cancer. (Dziȩgiel et 
+
+al., 2010) 
+
+Breast Cancer 
+
+KRT16 
+
+Keratin 16 (KRT16) is acytoskeletal protein involved in epithelial cell integrity and plays a key role in regulating cell motility and epithelial-mesenchymal transition. 
+
+Keratin 16 (K16 ) is identified as ametastasis-associated protein in breast cancer, promoting epithelial-mesenchymal transition (EMT ) and enhancing cellular motility by reorganizing the actin cytoskeleton. High K16 expression is linked to more aggressive tumor behavior and shorter relapse-free survival in metastatic breast cancer patients. Its presence in circulating tumor cells offers prognostic value and highlights its potential as a target for future therapeutic interventions. 
+
+Breast Cancer 
+
+IGF2BP3 
+
+RNA-binding protein that regulates stability and translation of target mRNAs. 
+
+IGF2BP3 is significantly overexpressed in triple-negative breast cancer (TNBC) tissues and cell lines compared to non-TNBC and normal tissues. Its elevated expression correlates with poor overall survival in TNBC patients, suggesting its role in tumor progression. As an m6A reader, 
+
+Breast Cancer 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+IGF2BP3 may contribute to TNBC pathogenesis and serves as a potential 
+
+prognostic biomarker. (Zhang et al., 
+
+2023) 
+
+FOXC1 
+
+FOXC1 is a transcription factor involved in embryonic development, cell fate determination, and regulation of epithelial-to-mesenchymal transition (EMT), cell proliferation, and migration. It plays a key role in maintaining stemness and promoting aggressiveness in various cancers, including basal-like breast cancer. 
+
+OXC1 plays a critical role in basal-like breast cancer (BLBC ) by promoting tumor cell proliferation, migration, invasion, and epithelial-to-mesenchymal transition (EMT ) through activation of NF-κB 
+
+and MMP7 signaling. It enhances cancer stem cell ( CSC ) properties via SMO-independent Hedgehog signaling and represses estrogen receptor ( ER )expression by competing with GATA3 
+
+at ESR1 regulatory sites. FOXC1 is also linked to chemoresistance and organ-specific metastasis—promoting brain metastasis while potentially inducing cell cycle arrest in bone, contributing to its aggressive nature 
+
+and poor prognosis in BLBC . (Han et 
+
+al., 2017) 
+
+Breast Cancer 
+
+CMB L 
+
+CMBL (Carboxymethylenebutenolid ase homolog) is an enzyme involved in the hydrolysis of ester and amide bonds and plays a role in drug metabolism and bioactivation, particularly in prodrug conversion. 
+
+CMBL was obtained as the most significant down regulated gene in 
+
+TNBC. (He et al., 2015) 
+
+Breast Cancer 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Protein K63-Linked Ubiquitination 
+
+Involves the attachment of ubiquitin chains to proteins, affecting protein function and signaling. 
+
+K63 -linked ubiquitination plays acritical role in the immune defense against Mycobacterium tuberculosis by tagging the pathogen for delivery to phagophores, a key step in autophagy. 
+
+E3-Ub ligases such as PRKN and 
+
+SMURF1 conjugate K63 -linked poly-Ub to M. tuberculosis, facilitating its degradation. However, M. Tb. exploits virulence factors to dampen host-directed autophagy, evading this immune response to persist within host 
+
+cells. (Shariq et al., 2023) 
+
+Tuberculosis 
+
+Negative Regulation of MAP Kinase Activity 
+
+Regulates the MAPK signaling cascade, controlling immune cell responses to stress, growth, and differentiation. 
+
+The MAPK pathways, specifically p38 and ERK , play a crucial role in regulating the secretion of key cytokines during Mycobacterium tuberculosis infection. Both p38 and 
+
+ERK are essential for TNF-alpha 
+
+production, while p38 is necessary for 
+
+IL-10 secretion.  Additionally, the ERK 
+
+pathway is critical for MCP-1 
+
+secretion, highlighting its significance 
+
+in the immune response to TB.  (Song 
+
+et al., 2003) 
+
+Tuberculosis 
+
+Negative Regulation of Protein Serine/Threonine Kinase Activity 
+
+Controls protein phosphorylation, which regulates cell cycle, apoptosis, and immune signaling. 
+
+The Ser/Thr protein kinase PknB plays a crucial role in regulating mycolic acid (MA) export and the remodeling of the mycobacterial cell envelope in Mycobacterium tuberculosis. It phosphorylates and negatively regulates MmpL3, an essential enzyme in the MA biosynthesis pathway. This phosphorylation/dephosphorylation process is key to controlling lipid metabolism in M. tuberculosis, providing potential targets for novel 
+
+antimycobacterial therapies. (Le et al., 
+
+Tuberculosis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+2020) 
+
+Cell Surface Pattern Recognition Receptor Signaling Pathway 
+
+Detects pathogen-associated molecular patterns (PAMPs) and activates immune responses. 
+
+Critical for detecting M.Tb and activating the innate immune response. Dysregulation can lead to impaired pathogen detection and failure to mount an effective immune defense, 
+
+contributing to TB persistence.  (Zihad 
+
+et al., 2023) 
+
+Tuberculosis 
+
+Cell Surface Toll-Like Receptor Signaling Pathway 
+
+Recognizes microbial components like LPS and activates immune signaling. 
+
+TLR2 and TLR4 detect M. Tb surface pathogens and activate immune 
+
+responses.  (Zihad et al., 2023) 
+
+TLR activation is essential for defense against TB, but M. tuberculosis can evade TLR-mediated responses, allowing the bacterium to persist. 
+
+Tuberculosis 
+
+Cytoplasmic Pattern Recognition Receptor Signaling Pathway 
+
+Detects intracellular pathogens or damage-associated signals. 
+
+Cytoplasmic pattern recognition receptors ( PRR s), particularly NOD1 ,
+
+NOD2 , and NLRP3 , are crucial for detecting Mycobacterium tuberculosis in the cytosol and initiating immune responses such as autophagy and inflammasome activation. NOD2 plays a key role in cytokine production and autophagy, contributing to resistance against TB, while NLRP3 activates inflammasomes for M.Tb clearance. However, M. Tb evades these immune pathways using virulence factors, such as the ESX-1 secretion system, to 
+
+escape from the phagosome.  (Zihad et 
+
+al., 2023) 
+
+Tuberculosis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Endolysosomal Toll-Like Receptor Signaling Pathway 
+
+Detects intracellular pathogens within phagosomes and triggers immune responses. 
+
+Toll-like receptors ( TLR s), specifically 
+
+TLR2 and TLR4 , play a crucial role in the immune response to Mycobacterium tuberculosis (Mtb). The recombinant dormancy-associated Mtb proteins Rv2659c and Rv1738 
+
+were recognized by these TLRs ,leading to the activation of NF-κB and the production of both pro- and anti-inflammatory cytokines (IL-1β, IL-6, IL-8, IL-10, TNF-α ) in human immune cells. These findings highlight the importance of TLR -mediated innate immunity in triggering inflammatory responses, providing potential targets for the development of an effective TB 
+
+vaccine. (Saelee et al., 2022) 
+
+Tuberculosis 
+
+Positive Regulation of Interferon-Beta Production 
+
+Enhances the production of interferon-beta, important for antiviral and immune responses. 
+
+Interferon Beta ( IFN-β ) plays a critical role in the immune response to Mycobacterium tuberculosis ( M.Tb ) by being induced through the 
+
+RIG-I/MAVS/IRF7 RNA sensing pathway. M.Tb actively releases RNA into the macrophage cytosol, which triggers IFN-β production and further activates IRF7 , enhancing the immune response. This process is dependent on 
+
+STING and IRF3 activation, suggesting that bacterial RNA can modulate immune responses and regulate 
+
+bacterial replication. (Cheng & Schorey, 
+
+2018) 
+
+Tuberculosis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Positive Regulation of Tumor Necrosis Factor Production 
+
+Stimulates the production of TNF, a cytokine critical for inflammation and immune activation. 
+
+During M. tuberculosis infection, bacterial ligands activate 
+
+TLR-MyD88 –NF-κB signalling in macrophages, and this pathway is essential for the very first pulse of tumour-necrosis-factor (TNF )production— MyD88 -deficient cells fail to release TNF at all. The TNF that is produced accumulates inside nascent granulomas, where it boosts expression of chemokines such as CXCL10 ,attracts additional myeloid cells and prompts them to secrete still more 
+
+TNF , creating a self-amplifying loop that keeps local cytokine levels high. Experimental neutralisation of TNF 
+
+collapses this circuit: chemokine induction wanes, granulomas lose their organised structure and the host rapidly loses control of the infection, highlighting the need for continuous 
+
+TNF signalling to maintain its own production and the integrity of the 
+
+tuberculous lesion. (Lin et al., 2007) 
+
+Tuberculosis 
+
+Toll-Like Receptor 4 Signaling Pathway 
+
+Recognizes lipopolysaccharides and activates immune cells to respond to pathogens. 
+
+TLR4 recognizes components of M. tuberculosis, activating immune responses. This pathway is important for defending against TB, but M. tuberculosis has evolved mechanisms to evade TLR4 signaling, contributing to persistent infection and immune evasion. 
+
+Tuberculosis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Inflammasome-Me diated Signaling Pathway 
+
+Detects pathogens and cellular damage, triggering cytokine release (IL-1β and 
+
+IL-18) and inflammation. (Ma 
+
+et al., 2021) 
+
+During M. tuberculosis infection, ESX-1–mediated phagosomal damage liberates bacterial DNA and other PAMPs into the cytosol, providing the trigger for inflammasome assembly. Cytosolic sensors NLRP3 and AIM2 
+
+oligomerise with the adaptor ASC to activate caspase-1, which processes 
+
+IL-1β and IL-18 and induces pyroptotic death, thereby restricting intracellular bacilli. In vitro this NLRP3 -dependent cascade limits growth, but murine studies reveal that long-term protection hinges mainly on ASC - and 
+
+AIM2 -driven IL-1 signalling, with 
+
+NLRP3 and caspase-1 themselves being dispensable. Type I interferons can dampen the pathway by repressing 
+
+IL-1 production, underscoring the finely tuned balance between protective and pathological inflammasome signalling in tuberculosis. 
+
+Tuberculosis 
+
+Toll-Like Receptor Signaling Pathway 
+
+Detects pathogen-associated molecules and activates immune signaling. 
+
+TLR s ( TLR2, TLR4, TLR9 ) are involved in recognizing M. tuberculosis, triggering the innate immune response. M. tuberculosis manipulates TLR 
+
+signaling to evade detection and persist in the host, making it harder to clear 
+
+the infection.  (Zihad et al., 2023) 
+
+Tuberculosis 
+
+Table S2 : Newly Identified Gene Ontology Pathways Ranked by Maximum Enrichment Depth (top 3) 
+
+Pathway  Depth  Disease 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+isotype switching  12  Sepsis 
+
+negative regulation of pentose-phosphate shunt  11  Sepsis 
+
+positive regulation of type II interferon production  10  Sepsis 
+
+regulation of pentose-phosphate shunt  10  Sepsis 
+
+somatic recombination of immunoglobulin gene segments  10  Sepsis 
+
+somatic recombination of immunoglobulin genes involved in immune response  11  Sepsis 
+
+toll-like receptor signaling pathway  11  Sepsis 
+
+transcription initiation-coupled chromatin remodeling  10  Sepsis 
+
+UMP biosynthetic process  11  Sepsis 
+
+UMP salvage  12  Sepsis 
+
+negative regulation of B cell differentiation  10  Sepsis 
+
+negative regulation of T cell cytokine production  11  Sepsis 
+
+negative regulation of immunoglobulin production  10  Sepsis 
+
+negative regulation of interleukin-12 production  10  Sepsis 
+
+negative regulation of plasma cell differentiation  11  Sepsis 
+
+pattern recognition receptor signaling pathway  10  Sepsis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+plasma cell differentiation  10  Sepsis 
+
+positive regulation of CD4-positive, alpha-beta T cell activation  10  Sepsis 
+
+positive regulation of CD4-positive, alpha-beta T cell proliferation  11  Sepsis 
+
+positive regulation of NF-kappaB transcription factor activity  11  Sepsis 
+
+positive regulation of T cell cytokine production  11  Sepsis 
+
+positive regulation of alpha-beta T cell proliferation  10  Sepsis 
+
+positive regulation of cytokine production involved in immune response  10  Sepsis 
+
+pyrimidine nucleotide salvage  10  Sepsis 
+
+pyrimidine ribonucleoside monophosphate biosynthetic process  10  Sepsis 
+
+pyrimidine ribonucleotide salvage  11  Sepsis 
+
+regulation of CD4-positive, alpha-beta T cell proliferation  10  Sepsis 
+
+regulation of T cell cytokine production  10  Sepsis 
+
+regulation of interleukin-1 beta production  10  Sepsis 
+
+regulation of plasma cell differentiation  10  Sepsis 
+
+regulation of tumor necrosis factor production  10  Sepsis 
+
+toll-like receptor signaling pathway  11  Sepsis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+T cell receptor V(D)J recombination  11  Sepsis 
+
+positive regulation of alpha-beta T cell proliferation  10  Sepsis 
+
+positive regulation of leukocyte degranulation  10  Sepsis 
+
+somatic recombination of T cell receptor gene segments  10  Sepsis 
+
+D-glucose import  10  Sepsis 
+
+T-helper 1 cell differentiation  12  Sepsis 
+
+arachidonate binding  10  Sepsis 
+
+negative regulation of chemokine (C-C motif) ligand 5 production  11  Sepsis 
+
+negative regulation of cytokine production involved in immune response  10  Sepsis 
+
+negative regulation of cytokine production involved in inflammatory response  10  Sepsis 
+
+negative regulation of interferon-alpha production  11  Sepsis 
+
+negative regulation of interleukin-12 production  10  Sepsis 
+
+positive regulation of neutrophil degranulation  11  Sepsis 
+
+regulation of tumor necrosis factor production  10  Sepsis 
+
+adenylate cyclase-inhibiting G protein-coupled acetylcholine receptor signaling pathway  8 Breast cancer 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+epidermal lamellar body  10  Breast cancer 
+
+negative regulation of endoplasmic reticulum unfolded protein response  8 Breast cancer 
+
+negative regulation of transcription by RNA polymerase II  10  Breast cancer 
+
+estrogen receptor signaling pathway  8 Breast cancer 
+
+estrogen response element binding  10  Breast cancer 
+
+ferrous iron transmembrane transporter activity  8 Breast cancer 
+
+mammary gland branching involved in pregnancy  8 Breast cancer 
+
+miRNA metabolic process  8 Breast cancer 
+
+miRNA transcription  10  Breast cancer 
+
+olfactory learning  8 Breast cancer 
+
+positive regulation of intracellular estrogen receptor signaling pathway  8 Breast cancer 
+
+regulation of miRNA transcription  10  Breast cancer 
+
+positive regulation of miRNA transcription  11  Breast cancer 
+
+retinal rod cell differentiation  8 Breast cancer 
+
+dAMP catabolic process  12  Ovarian cancer 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+dGMP catabolic process  12  Ovarian cancer 
+
+purine deoxyribonucleotide catabolic process  11  Ovarian cancer 
+
+GMP catabolic process  11  Ovarian cancer 
+
+IMP catabolic process  11  Ovarian cancer 
+
+dAMP catabolic process  12  Ovarian cancer 
+
+dGMP catabolic process  12  Ovarian cancer 
+
+negative regulation of tumor necrosis factor production  11  Ovarian cancer 
+
+purine deoxyribonucleotide catabolic process  11  Ovarian cancer 
+
+mitotic spindle assembly checkpoint signaling  12  Ovarian cancer 
+
+negative regulation of mitotic metaphase/anaphase transition  11  Ovarian cancer 
+
+negative regulation of voltage-gated potassium channel activity  11  Ovarian cancer 
+
+positive regulation of ubiquitin protein ligase activity  12  Ovarian cancer 
+
+positive regulation of ubiquitin-protein transferase activity  11  Ovarian cancer 
+
+spindle assembly involved in female meiosis I  11  Ovarian cancer 
+
+de novo' NAD biosynthetic process  12  Ovarian cancer 
+
+de novo' NAD biosynthetic process from tryptophan  13  Ovarian cancer 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+positive regulation of CD4-positive, alpha-beta T cell proliferation  11  Tuberculosis 
+
+positive regulation of T cell differentiation in thymus  11  Tuberculosis 
+
+protein K63-linked ubiquitination  11  Tuberculosis 
+
+GTP biosynthetic process  11  Tuberculosis 
+
+IMP biosynthetic process  11  Tuberculosis 
+
+IMP salvage  12  Tuberculosis 
+
+L-alanine import across plasma membrane  12  Tuberculosis 
+
+L-alanine transmembrane transport  11  Tuberculosis 
+
+L-leucine import across plasma membrane  11  Tuberculosis 
+
+negative regulation of Arp2/3 complex-mediated actin nucleation  11  Tuberculosis 
+
+negative regulation of MAP kinase activity  12  Tuberculosis 
+
+negative regulation of protein serine/threonine kinase activity  11  Tuberculosis 
+
+negative regulation of protein tyrosine kinase activity  11  Tuberculosis 
+
+positive regulation of immature T cell proliferation in thymus  11  Tuberculosis 
+
+purine ribonucleotide salvage  11  Tuberculosis 
+
+DNA damage response, signal transduction by p53 class mediator resulting in cell cycle arrest  13  Tuberculosis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+MDA-5 signaling pathway  12  Tuberculosis 
+
+cell surface pattern recognition receptor signaling pathway  11  Tuberculosis 
+
+cell surface toll-like receptor signaling pathway  12  Tuberculosis 
+
+cytoplasmic pattern recognition receptor signaling pathway  11  Tuberculosis 
+
+endolysosomal toll-like receptor signaling pathway  12  Tuberculosis 
+
+negative regulation of IP-10 production  11  Tuberculosis 
+
+negative regulation of chemokine (C-X-C motif) ligand 2 production  11  Tuberculosis 
+
+negative regulation of dendritic cell cytokine production  11  Tuberculosis 
+
+positive regulation of cysteine-type endopeptidase activity involved in apoptotic signaling pathway  12  Tuberculosis 
+
+positive regulation of interferon-beta production  11  Tuberculosis 
+
+positive regulation of monocyte chemotactic protein-1 production  11  Tuberculosis 
+
+positive regulation of tumor necrosis factor production  11  Tuberculosis 
+
+regulation of cysteine-type endopeptidase activity involved in apoptotic signaling pathway  11  Tuberculosis 
+
+toll-like receptor 4 signaling pathway  13  Tuberculosis 
+
+MyD88-dependent toll-like receptor signaling pathway  12  Tuberculosis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+T-helper 1 cell differentiation  12  Tuberculosis 
+
+T-helper cell differentiation  11  Tuberculosis 
+
+activation of cysteine-type endopeptidase activity  11  Tuberculosis 
+
+cell surface pattern recognition receptor signaling pathway  11  Tuberculosis 
+
+cell surface toll-like receptor signaling pathway  12  Tuberculosis 
+
+cytoplasmic pattern recognition receptor signaling pathway  11  Tuberculosis 
+
+inflammasome-mediated signaling pathway  12  Tuberculosis 
+
+positive regulation of NF-kappaB transcription factor activity  11  Tuberculosis 
+
+positive regulation of interferon-beta production  11  Tuberculosis 
+
+positive regulation of interleukin-1 beta production  11  Tuberculosis 
+
+positive regulation of protein tyrosine kinase activity  11  Tuberculosis 
+
+positive regulation of regulatory T cell differentiation  11  Tuberculosis 
+
+toll-like receptor 4 signaling pathway  13  Tuberculosis 
+
+toll-like receptor signaling pathway  11  Tuberculosis 
+
+cell surface pattern recognition receptor signaling pathway  11  Tuberculosis 
+
+cell surface toll-like receptor signaling pathway  12  Tuberculosis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+cytoplasmic pattern recognition receptor signaling pathway  11  Tuberculosis 
+
+endolysosomal toll-like receptor signaling pathway  12  Tuberculosis 
+
+inflammasome-mediated signaling pathway  12  Tuberculosis 
+
+positive regulation of tumor necrosis factor production  11  Tuberculosis 
+
+toll-like receptor 4 signaling pathway  13  Tuberculosis 
+
+toll-like receptor 8 signaling pathway  13  Tuberculosis 
+
+toll-like receptor 9 signaling pathway  13  Tuberculosis 
+
+toll-like receptor signaling pathway  11  Tuberculosis 
+
+ADP biosynthetic process  11  Tuberculosis 
+
+positive regulation of eosinophil degranulation  11  Tuberculosis 
+
+mRNA cis splicing, via spliceosome  12  Tuberculosis 
+
+negative regulation of MAP kinase activity  12  Tuberculosis 
+
+negative regulation of interleukin-1 beta production  11  Tuberculosis 
+
+negative regulation of protein serine/threonine kinase activity  11  Tuberculosis 
+
+negative regulation of tumor necrosis factor production  11  Tuberculosis 
+
+positive regulation of MAP kinase activity  12  Tuberculosis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+positive regulation of dendritic cell cytokine production  11  Tuberculosis 
+
+positive regulation of mRNA cis splicing, via spliceosome  11  Tuberculosis 
+
+positive regulation of myeloid leukocyte cytokine production involved in immune response  11  Tuberculosis 
+
+positive regulation of protein serine/threonine kinase activity  11  Tuberculosis 
+
+positive regulation of tumor necrosis factor production  11  Tuberculosis 
+
+positive regulation of type II hypersensitivity  11  Tuberculosis 
+
+positive regulation of type IIa hypersensitivity  12  Tuberculosis 
+
+positive regulation of tyrosine phosphorylation of STAT protein  11  Tuberculosis 
+
+protein K63-linked ubiquitination  11  Tuberculosis 
+
+regulation of CD4-positive, alpha-beta T cell differentiation  11  Tuberculosis 
+
+regulation of MAP kinase activity  11  Tuberculosis 
+
+regulation of T-helper 1 cell differentiation  13  Tuberculosis 
+
+regulation of type IIa hypersensitivity  11  Tuberculosis 
+
+stimulatory C-type lectin receptor signaling pathway  11  Tuberculosis 
+
+toll-like receptor 3 signaling pathway  13  Tuberculosis 
+
+epidermal growth factor receptor activity  7 Diabetes 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+glutamate secretion  8 Diabetes 
+
+COPII-coated ER to Golgi transport vesicle  7 Diabetes 
+
+CUT catabolic process  8 Diabetes 
+
+CUT metabolic process  7 Diabetes 
+
+negative regulation of natural killer cell mediated cytotoxicity  8 Diabetes 
+
+negative regulation of natural killer cell mediated immunity  7 Diabetes 
+
+phagocytic vesicle  7 Diabetes 
+
+positive regulation of T cell activation  7 Diabetes 
+
+positive regulation of T cell mediated cytotoxicity  8 Diabetes 
+
+positive regulation of T cell mediated immunity  7 Diabetes 
+
+positive regulation of granulocyte differentiation  9 Diabetes 
+
+protection from natural killer cell mediated cytotoxicity  9 Diabetes 
+
+protein localization to centrosome  8 Diabetes 
+
+protein localization to microtubule organizing center  7 Diabetes 
+
+regulation of T cell mediated cytotoxicity  7 Diabetes 
+
+regulation of cytokine production  7 Diabetes 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+regulation of natural killer cell mediated cytotoxicity  7 Diabetes 
+
+Breast Cancer 
+
+Fig. S1 : Qualitative Evaluation of the Synthetic with Original Data across the 7 datasets of Breast Cancer 
+
+Diabetes 
+
+Fig. S2 : Qualitative Evaluation of the Synthetic with Original Data across the 3 datasets of Diabetes 
+
+Synthetic Transcriptomic Augmentation Enables Discovery of Novel Diabetes-Associated Gene Signatures 
+
+The union of 3 datasets contained a total of 146 genes which were captured to have significance and differentially expressed in 6 or more augmented batches and absent from original data. Out of them TMPRSS2 HLA-G EZH2, HLA-B, CXCR3, NR3C1, NLRP1, HDAC2, XIAP, ASGR1, SQSTM1, BANK1, PLN, ANGPT2, KDM3A, NOD1 and RYR3 are the genes which were found having significance in 5 or more relevant papers with respect to diabetes or metabolic syndrome. 
+
+EZH2, HDAC2, XIAP, SQSTM1, ANGPT2, and NOD1 play crucial roles in various cellular and metabolic processes, some of which are linked to glucose metabolism and diabetes. EZH2 
+
+(Enhancer of Zeste Homolog 2) is a histone methyltransferase that regulates gene expression through chromatin modification, influencing pancreatic β-cell function and insulin secretion, 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+with dysregulation potentially leading to glucose intolerance. HDAC2 (Histone Deacetylase 2) is involved in chromatin remodeling and gene regulation, impacting insulin signaling and contributing to insulin resistance when dysregulated. XIAP (X-linked Inhibitor of Apoptosis Protein) inhibits apoptosis and plays a protective role in pancreatic β-cell survival, reducing β-cell death and maintaining insulin production. SQSTM1 (Sequestosome 1/p62) is a key protein in autophagy and metabolic regulation, where its dysregulation can impair insulin signaling and lead to glucose intolerance. ANGPT2 (Angiopoietin 2) is involved in angiogenesis and vascular function, with elevated levels observed in diabetes, contributing to endothelial dysfunction and inflammation in diabetic complications. NOD1 (Nucleotide-binding Oligomerization Domain-containing Protein 1) is an innate immune receptor that activates inflammatory pathways, with chronic activation linked to insulin resistance and impaired glucose tolerance. Collectively, these genes play important roles in epigenetic regulation, apoptosis, autophagy, vascular homeostasis, and immune responses, all of which can impact glucose metabolism and diabetes progression. 
+
+Ovarian Cancer 
+
+Fig. S3 : Qualitative Evaluation of the Synthetic with Original Data across the 9 datasets of Ovarian Cancer 
+
+Functional Enrichment of DNA Metabolism and Cell Cycle Regulatory Pathways in Ovarian Cancer 
+
+Through the course of our analysis, we identified a distinct set of biological processes that were not present in the original pathway annotations but emerged with the highest level of specificity, as defined by their depth and recurrence across two independent ovarian cancer datasets ( Table (3) ). These pathways, although previously unrecognized in this context, displayed selective enrichment patterns that offer new perspectives on molecular features unique to ovarian tumors. A notable proportion of these pathways were associated with nucleotide metabolism, including processes such as purine deoxyribonucleotide catabolism , dAMP breakdown , and thymidine metabolism . Their prominence suggests an upregulation of nucleotide turnover, likely reflecting the increased demands for DNA synthesis and repair in actively proliferating cancer cells. The enrichment of pyrimidine deoxyribonucleoside metabolism further reinforces this metabolic shift, 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+characteristic of malignant transformation. All relevant top 3 highly specific pathways obtained are being reported in Table 4 .
+
+Beyond metabolic pathways, the findings also pointed to significant enrichment in regulatory mechanisms of mitosis and cell cycle progression. Processes such as mitotic spindle checkpoint signaling , spindle assembly checkpoint activity , and the regulation of the metaphase-to-anaphase transition were consistently identified, indicating potential disruptions in chromosomal segregation. These disruptions are a well-established driver of genomic instability, particularly in high-grade serous ovarian carcinoma. Additionally, enrichment of negative regulation of microtubule depolymerization may suggest alterations in microtubule dynamics, which could play a role in mediating resistance to antimitotic agents like paclitaxel. 
+
+Further, the presence of pathways such as meiosis I and import of NLS-containing proteins into the nucleus points toward abnormal expression of germline-associated genes and potential disturbances in nucleocytoplasmic transport—features that may support tumor cell survival and proliferation. Lastly, the identification of processes like positive regulation of sodium ion transport and promotion of sprouting angiogenesis implies that ovarian tumors may actively reshape their microenvironment, influencing ion balance and vascular development. Collectively, these highly specific and previously unannotated pathways shed light on underexplored aspects of ovarian cancer biology and may serve as valuable targets for future experimental investigation or therapeutic intervention. 
+
+In 3 out of 9 datasets, the range of logFC values with increasing N, were always lower than that of original data, whereas in other 6 of the datasets, there was instability in the range of logFC values but the P Values followed an increasing trend with increasing N. 
+
+Hallmarks of cancer associated pathways were discovered post augmentation 
+
+The newly discovered highly specific pathways were representative of the hallmarks of cancer corresponding to uncontrolled proliferation (nucleotide metabolism, spindle assembly), genomic instability (dNTP imbalance, meiosis gene reactivation), Angiogenesis (VEGF-mediated sprouting) and therapeutic targets (microtubules, metabolism enzymes). 
+
+Evidence for conserved genes in Ovarian cancer 
+
+AURKA, CNRIP1, CXXC5, DAPK1, MCM2, PEX5L, SEL1L2, WNT2B were the newly discovered genes i.e. obtained through analysis of augmented datasets and absent from original ones. AURKA (Aurora Kinase A) is a critical prognostic marker in epithelial ovarian cancer (EOC ), playing a pivotal role in microtubule formation within ovarian cancer (OC) cell lines. Its overexpression contributes to tumor progression, and its inhibition has demonstrated 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+anti-angiogenic effects as well as increased cell proliferation, migration, and invasion in preclinical studies, making it a promising therapeutic target. DAPK1 (Death-Associated Protein Kinase 1), a tumor suppressor, is frequently silenced by promoter hypermethylation in ovarian cancer, particularly in high-grade tumors, with this silencing correlating with disease progression and chemoresistance. DAPK1 regulates key cellular processes including the cell cycle, autophagy, and apoptosis, and its epigenetic reactivation could offer novel therapeutic opportunities. MCM2 (Minichromosome Maintenance Complex Component 2) is overexpressed in ovarian adenocarcinomas and is associated with higher tumor grades, advanced stages, and poor prognosis, positioning it as a potential biomarker for aggressive disease. WNT2B (Wnt Family Member 2B) contributes to ovarian cancer progression by enhancing cell proliferation, invasion, and angiogenesis through activation of the Wnt/β-catenin signaling pathway; its elevated expression is linked to metastasis and advanced stages, while its silencing improves chemotherapy sensitivity, underscoring its potential as a therapeutic target. 
+
+Based on KEGG database AURKA is found to be associated with colorectal cancer, WNT2B with congenital diarrhoea and DAPK1 with bladder cancer. Also, AURKA is associated with Oocyte meiosis - Homo sapiens (human) and Progesterone-mediated oocyte maturation - Homo sapiens (human) based on KEGG database and DAPK1 is Oocyte meiosis - Homo sapiens (human) and Progesterone-mediated oocyte maturation - Homo sapiens (human). CNRIP1 and CXXC5 are not available in the KEGG database for pathways and disease information. AURKA, MCM2 DAPK1 CXXC5 are the genes found from the literature against ovarian cancer with the highest number of papers from AURKA and least for CXXC5 in the database curated by us against Ovarian cancer. AURKA and MCM2 are also being reported in the HALLMARK class of MSIGDB database supporting the evidence for these genes in cancer finding,whereas rest are absent from this, which demands the need to be investigated further through different approaches for their role in Ovarian cancer. A detailed list of information is provided in the supplementary. Out of the 8 genes obtained, 4 have been found to be highly associated with ovarian cancer and so we suggest the newly discovered genes to be explored through wet lab experimentation for possible association with ovarian cancer. 
+
+Tuberculosis 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Fig. S4 : Qualitative Evaluation of the Synthetic with Original Data across the 10 datasets of Tuberculosis 
+
+Acknowledgement 
+
+The authors gratefully acknowledge funding support from the Centre of Excellence in Healthcare (CoEHE), Indraprastha Institute of Information Technology Delhi (IIIT-Delhi); Department of Biotechnology, Government of India awarded to Prof. Tavpritesh Sethi. We thank the Department of Computational Biology, Indraprastha Institute of Information Technology Delhi (IIIT-Delhi), for infrastructural support, and the IIIT-Delhi IT Department for their technical assistance. We would also like to extend our gratitude to Ayushi Gupta and Harleen Kaur for their support. 
+
+Author contributions: Tavpritesh Sethi (Conceptualization [equal], Methodology [equal], Supervision [lead]); Alok Anand (Conceptualization [equal], Data curation [equal], Software [equal], Visualization [equal], Writing—original draft [equal], Writing—review & editing [equal]); Manas Pratiti (Conceptualization [equal], Data curation [equal], Software [equal], Visualization [equal], Writing—original draft [equal], Writing—review & editing [equal]); Shrishti Parihar (Data curation [equal], Software [equal]); Syed Yaseer Ali (Data curation [equal], Software [equal]); Tanav Bajaj (Software [equal]); Samanyu (Software [equal]); Shriya Verma (Software [equal]). 
+
+All authors read and approved the final version of the manuscript and agree to be accountable for all aspects of the work. 
+
+Conflict of Interest 
+
+The authors declare that they have no competing interests. 
+
+Funding 
+
+The Department of Biotechnology, India project BT/PR38173/MED/97/474/2020 and Department of Biotechnology vide Project BT/PR/34245/AI/133/9/2019. 
+
+Bibliography 
+
+● Abedi, M., Hempel, L., Sadeghi, S., & Kirsten, T. (2022). GAN-Based Approaches for 
+
+Generating Structured Data in the Medical Domain. Applied Sciences , 12 (14), 7075. 
+
+https://doi.org/10.3390/app12147075 
+
+● Argelaguet, R., Arnol, D., Bredikhin, D., Deloro, Y., Velten, B., Marioni, J. C., & Stegle, 
+
+O. (2020). MOFA+: A statistical framework for comprehensive integration of 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+multi-modal single-cell data. Genome Biology , 21 (1), 111. 
+
+https://doi.org/10.1186/s13059-020-02015-1 
+
+● Arjovsky, M., Chintala, S., & Bottou, L. (2017). Wasserstein GAN .
+
+https://doi.org/10.48550/ARXIV.1701.07875 
+
+● Beaulieu-Jones, B. K., Wu, Z. S., Williams, C., Lee, R., Bhavnani, S. P., Byrd, J. B., & 
+
+Greene, C. S. (2019). Privacy-Preserving Generative Deep Neural Networks Support 
+
+Clinical Data Sharing. Circulation: Cardiovascular Quality and Outcomes , 12 (7), 
+
+e005122. https://doi.org/10.1161/CIRCOUTCOMES.118.005122 
+
+● Button, K. S., Ioannidis, J. P. A., Mokrysz, C., Nosek, B. A., Flint, J., Robinson, E. S. J., 
+
+& Munafò, M. R. (2013). Power failure: Why small sample size undermines the 
+
+reliability of neuroscience. Nature Reviews Neuroscience , 14 (5), 365–376. 
+
+https://doi.org/10.1038/nrn3475 
+
+● Chaudhari, P., Agrawal, H., & Kotecha, K. (2020). Data augmentation using MG-GAN 
+
+for improved cancer classification on gene expression data. Soft Computing , 24 (15), 
+
+11381–11391. https://doi.org/10.1007/s00500-019-04602-2 
+
+● Chawla, N. V., Bowyer, K. W., Hall, L. O., & Kegelmeyer, W. P. (2011). SMOTE: 
+
+Synthetic Minority Over-sampling Technique . https://doi.org/10.48550/ARXIV.1106.1813 
+
+● Chen, R., Wang, J., Dai, X., Wu, S., Huang, Q., Jiang, L., & Kong, X. (2022). 
+
+Augmented PFKFB3-mediated glycolysis by interferon-γ promotes inflammatory M1 
+
+polarization through the JAK2/STAT1 pathway in local vascular inflammation in 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Takayasu arteritis. Arthritis Research & Therapy , 24 (1), 266. 
+
+https://doi.org/10.1186/s13075-022-02960-1 
+
+● Chen, X., Chen, S., Liu, X.-A., Zhou, W.-B., Ma, R.-R., & Chen, L. (2015). Vav3 
+
+oncogene is upregulated and a poor prognostic factor in breast cancer patients. Oncology 
+
+Letters , 9(5), 2143–2148. https://doi.org/10.3892/ol.2015.3004 
+
+● Cheng, Y., Peng, H., Chen, Q., Xu, L., & Qin, L. (2025). Machine learning-based 
+
+transcriptmics analysis reveals BMX, GRB10, and GADD45A as crucial biomarkers and 
+
+therapeutic targets in sepsis. Frontiers in Pharmacology , 16 , 1576467. 
+
+https://doi.org/10.3389/fphar.2025.1576467 
+
+● Daniels, P. J., Bittel, D., Smirnova, I. V., Winge, D. R., & Andrews, G. K. (2002). 
+
+Mammalian metal response element-binding transcription factor-1 functions as a zinc 
+
+sensor in yeast, but not as a sensor of cadmium or oxidative stress. Nucleic Acids 
+
+Research , 30 (14), 3130–3140. https://doi.org/10.1093/nar/gkf432 
+
+● Ghahramani, A., Watt, F. M., & Luscombe, N. M. (2018). Generative adversarial 
+
+networks simulate gene expression and predict perturbations in single cells [Preprint]. 
+
+Genomics. https://doi.org/10.1101/262501 
+
+● Goodfellow, I. J., Pouget-Abadie, J., Mirza, M., Xu, B., Warde-Farley, D., Ozair, S., 
+
+Courville, A., & Bengio, Y. (2014). Generative Adversarial Networks .
+
+https://doi.org/10.48550/ARXIV.1406.2661 
+
+● Kaur, D., Sobiesk, M., Patil, S., Liu, J., Bhagat, P., Gupta, A., & Markuzon, N. (2021). 
+
+Application of Bayesian networks to generate synthetic health data. Journal of the 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+American Medical Informatics Association , 28 (4), 801–811. 
+
+https://doi.org/10.1093/jamia/ocaa303 
+
+● Lèbre, S., Becq, J., Devaux, F., Stumpf, M. P., & Lelandais, G. (2010). Statistical 
+
+inference of the time-varying structure of gene-regulation networks. BMC Systems 
+
+Biology , 4(1), 130. https://doi.org/10.1186/1752-0509-4-130 
+
+● Lee, M. Y. Y., & Li, M. (2024). Integration of multi-modal single-cell data. Nature 
+
+Biotechnology , 42 (2), 190–191. https://doi.org/10.1038/s41587-023-01826-4 
+
+● Liebermann, D. A., & Hoffman, B. (2008). Gadd45 in stress signaling. Journal of 
+
+Molecular Signaling , 3, 15. https://doi.org/10.1186/1750-2187-3-15 
+
+● Lotfollahi, M., Wolf, F. A., & Theis, F. J. (2019). scGen predicts single-cell perturbation 
+
+responses. Nature Methods , 16 (8), 715–721. https://doi.org/10.1038/s41592-019-0494-8 
+
+● Ma, Y., Hossen, M. M., Huang, J. J., Yin, Z., Du, J., Ye, Z., Zeng, M., & Huang, Z. 
+
+(2025). Growth arrest and DNA damage-inducible 45: A new player on inflammatory 
+
+diseases. Frontiers in Immunology , 16 , 1513069. 
+
+https://doi.org/10.3389/fimmu.2025.1513069 
+
+● Macdonald, S. P. J., Bosio, E., Neil, C., Arendts, G., Burrows, S., Smart, L., Brown, S. G. 
+
+A., & Fatovich, D. M. (2017). Resistin and NGAL are associated with inflammatory 
+
+response, endothelial activation and clinical outcomes in sepsis. Inflammation Research: 
+
+Official Journal of the European Histamine Research Society ... [et Al.] , 66 (7), 611–619. 
+
+https://doi.org/10.1007/s00011-017-1043-5 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+● Marouf, M., Machart, P., Bansal, V., Kilian, C., Magruder, D. S., Krebs, C. F., & Bonn, S. 
+
+(2020). Realistic in silico generation and augmentation of single-cell RNA-seq data using 
+
+generative adversarial networks. Nature Communications , 11 (1), 166. 
+
+https://doi.org/10.1038/s41467-019-14018-z 
+
+● Nußberger, J., Boesel, F., Lenz, S., Binder, H., & Hess, M. (2020). Synthetic observations 
+
+from deep generative models and binary omics data with limited sample size [Preprint]. 
+
+Bioinformatics. https://doi.org/10.1101/2020.06.11.147058 
+
+● Osugi, Y., Fumoto, K., & Kikuchi, A. (2019). CKAP4 Regulates Cell Migration via the 
+
+Interaction with and Recycling of Integrin. Molecular and Cellular Biology , 39 (16), 
+
+e00073-19. https://doi.org/10.1128/MCB.00073-19 
+
+● Rok Blagus, L. L. (n.d.). SMOTE for high-dimensional class-imbalanced data .
+
+● Saelens, W., Cannoodt, R., Todorov, H., & Saeys, Y. (2019). A comparison of single-cell 
+
+trajectory inference methods. Nature Biotechnology , 37 (5), 547–554. 
+
+https://doi.org/10.1038/s41587-019-0071-9 
+
+● Song, C.-H., Lee, J.-S., Lee, S.-H., Lim, K., Kim, H.-J., Park, J.-K., Paik, T.-H., & Jo, 
+
+E.-K. (2003). Role of Mitogen-Activated Protein Kinase Pathways in the Production of 
+
+Tumor Necrosis Factor-α, Interleukin-10, and Monocyte Chemotactic Protein-1 by 
+
+Mycobacterium tuberculosis H37Rv-Infected Human Monocytes. Journal of Clinical 
+
+Immunology , 23 (3), 194–201. https://doi.org/10.1023/A:1023309928879 
+
+● The DREAM5 Consortium, Marbach, D., Costello, J. C., Küffner, R., Vega, N. M., Prill, 
+
+R. J., Camacho, D. M., Allison, K. R., Kellis, M., Collins, J. J., & Stolovitzky, G. (2012). 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+Wisdom of crowds for robust gene network inference. Nature Methods , 9(8), 796–804. 
+
+https://doi.org/10.1038/nmeth.2016 
+
+● Tucker, A., Wang, Z., Rotalinti, Y., & Myles, P. (2020). Generating high-fidelity synthetic 
+
+patient data for assessing machine learning healthcare software. Npj Digital Medicine ,
+
+3(1), 147. https://doi.org/10.1038/s41746-020-00353-9 
+
+● Vassiliadi, D. A., Tzanela, M., Kotanidou, A., Orfanos, S. E., Nikitas, N., Armaganidis, 
+
+A., Koutsilieris, M., Roussos, C., Tsagarakis, S., & Dimopoulou, I. (2012). Serial changes 
+
+in adiponectin and resistin in critically ill patients with sepsis: Associations with sepsis 
+
+phase, severity, and circulating cytokine levels. Journal of Critical Care , 27 (4), 400–409. 
+
+https://doi.org/10.1016/j.jcrc.2012.04.007 
+
+● Wang, X., Zhao, S., Xin, Q., Zhang, Y., Wang, K., & Li, M. (2024). Recent progress of 
+
+CDK4/6 inhibitors’ current practice in breast cancer. Cancer Gene Therapy , 31 (9), 
+
+1283–1291. https://doi.org/10.1038/s41417-024-00747-x 
+
+● Xiao, M., Liu, D., Xu, Y., Mao, W., & Li, W. (2023). Role of PFKFB3-driven glycolysis 
+
+in sepsis. Annals of Medicine , 55 (1), 1278–1289. 
+
+https://doi.org/10.1080/07853890.2023.2191217 
+
+● Zhu, D., Zhu, K., & Guo, S. (2022). Identification of key genes related to immune cells in 
+
+patients with gram-negative sepsis based on weighted gene co-expression network 
+
+analysis. Annals of Translational Medicine , 10 (14), 787–787. 
+
+https://doi.org/10.21037/atm-22-3307 
+
+> (which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
+
+(which was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint this version posted April 27, 2026. ;https://doi.org/10.64898/2026.04.23.720348 doi: bioRxiv preprint
