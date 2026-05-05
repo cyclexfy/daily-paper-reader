@@ -6,52 +6,79 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-04
-- 运行时间：2026-05-04 20:18:51 UTC
+- 最新运行日期：2026-05-05
+- 运行时间：2026-05-05 20:20:09 UTC
 - 运行状态：成功
-- 本次总论文数：10
-- 精读区：1
-- 速读区：9
+- 本次总论文数：19
+- 精读区：8
+- 速读区：11
 
 ### 今日简报（AI）
-今日精选 10 篇前沿论文，深度聚焦联邦学习在病理图像（WSI）中的蒸馏优化及视觉语言模型（VLM）的鲁棒性提升。
-满分论文提出高斯混合特征对齐与课程集成方案解决联邦 WSI 难题，同时 VLM 在主动学习弱标注与标签噪声抑制方面展现出巨大潜力。
-建议关注联邦蒸馏与 VLM 结合的落地场景，特别是如何在医疗等长尾、高噪声数据领域实现高效模型迭代。
-- 详情：[/202605/04/README](/202605/04/README)
+今日深度解析 19 篇 AI 医疗前沿论文，重点攻克病理图像描述的安全性与基础模型检索验证。
+检索引导生成技术显著提升了病理报告的可靠性，全切片基础模型在 TCGA 大规模数据检索中展现出卓越性能。
+建议关注多模态数据治理与可解释性 AI 框架，探索基础模型在复杂组织表型分析中的实战潜力。
+- 详情：[/202605/05/README](/202605/05/README)
 
 ### 精读区论文标签
-1. [Federated Distillation for Whole Slide Image via Gaussian-Mixture Feature Alignment and Curriculum Integration](/202605/04/2605.00578v1-federated-distillation-for-whole-slide-image-via-gaussian-mixture-feature-alignment-and-curriculum-integration)  
+1. [Retrieval-Guided Generation for Safer Histopathology Image Captioning](/202605/05/2605.00893v1-retrieval-guided-generation-for-safer-histopathology-image-captioning)  
    标签：评分：10.0/10、query:cpath
-   evidence：针对全切片图像(WSI)的多实例学习(MIL)联邦学习框架
+   evidence：用于组织病理学图像描述的视觉语言模型
+2. [Validation of Whole-Slide Foundation Models for Image Retrieval in TCGA Data](/202605/05/2605.00902v1-validation-of-whole-slide-foundation-models-for-image-retrieval-in-tcga-data)  
+   标签：评分：10.0/10、query:cpath
+   evidence：在计算组织病理学中验证全切片基础模型的图像检索效果
+3. [Linking spatial biology and clinical histology via Haiku](/202605/05/2605.00925v1-linking-spatial-biology-and-clinical-histology-via-haiku)  
+   标签：评分：10.0/10、query:cpath
+   evidence：连接组织学、空间蛋白质组学和临床数据的三模态对比学习
+4. [Semantic Context-aware mOdality fUsion Transformer (SCOUT): A Context-Aware Multimodal Transformer for Concept-Grounded Pathology Report Generation](/202605/05/2605.01144v1-semantic-context-aware-modality-fusion-transformer-scout-a-context-aware-multimodal-transformer-for-concept-grounded-pathology-report-generation)  
+   标签：评分：10.0/10、query:cpath
+   evidence：病理基础模型与全切片图像用于报告生成
+5. [Validation of an AI-based end-to-end model for prostate pathology using long-term archived routine samples](/202605/05/2605.02614v1-validation-of-an-ai-based-end-to-end-model-for-prostate-pathology-using-long-term-archived-routine-samples)  
+   标签：评分：10.0/10、query:cpath
+   evidence：验证用于前列腺活检核心切片癌症诊断的端到端注意力机制MIL模型
+6. [Biological Spatial Priors Regularize Foundation Model Representations for Cross-Site MSI Generalization in Colorectal Cancer](/202605/05/2605.02660v1-biological-spatial-priors-regularize-foundation-model-representations-for-cross-site-msi-generalization-in-colorectal-cancer)  
+   标签：评分：10.0/10、query:cpath
+   evidence：用于从全切片图像预测MSI的基础模型表示
+7. [Dino-NestedUNet: Unlocking Foundation Vision Encoders for Pathology Tumor Bulk Segmentation via Dense Decoding](/202605/05/2605.00894v1-dino-nestedunet-unlocking-foundation-vision-encoders-for-pathology-tumor-bulk-segmentation-via-dense-decoding)  
+   标签：评分：9.5/10、query:cpath
+   evidence：用于病理肿瘤分割的视觉基础模型
+8. [Automatic Bevacizumab Response Prediction in Ovarian Cancer from Digital Pathology Images via Novel AI-based Computational Pipeline](/202605/05/biorxiv-10-64898-2026-04-29-721782-v1-automatic-bevacizumab-response-prediction-in-ovarian-cancer-from-digital-pathology-images-via-novel-ai-based-computational-pipeline)  
+   标签：评分：9.0/10、query:cpath
+   evidence：利用数字病理图像预测卵巢癌药物反应的计算流水线
 
 ### 速读区论文标签
-1. [CURE-OOD: Benchmarking Out-of-Distribution Detection for Survival Prediction](/202605/04/2605.00350v1-cure-ood-benchmarking-out-of-distribution-detection-for-survival-prediction)  
+1. [CenSegNet: a generalist high-throughput deep learning framework for centrosome phenotyping at spatial and single-cell resolution in heterogeneous tissues](/202605/05/biorxiv-10-1101-2025-09-15-676250-v3-censegnet-a-generalist-high-throughput-deep-learning-framework-for-centrosome-phenotyping-at-spatial-and-single-cell-resolution-in-heterogeneous-tissues)  
+   标签：评分：7.5/10、query:cpath
+   evidence：用于上皮癌中心体表型分析的深度学习
+2. [Multimodal Data Curation Through Ranked Retrieval](/202605/05/2605.01163v1-multimodal-data-curation-through-ranked-retrieval)  
    标签：评分：7.0/10、query:cpath
-   evidence：癌症生存预测中分布外检测的基准测试
-2. [Leveraging Vision-Language Models as Weak Annotators in Active Learning](/202605/04/2605.00480v1-leveraging-vision-language-models-as-weak-annotators-in-active-learning)  
+   evidence：改进多模态数据整理和跨模态检索对齐的框架
+3. [TumorXAI: Self-Supervised Deep Learning Framework for Explainable Brain MRI Tumor Classification](/202605/05/2605.01999v1-tumorxai-self-supervised-deep-learning-framework-for-explainable-brain-mri-tumor-classification)  
    标签：评分：7.0/10、query:cpath
-   evidence：利用视觉语言模型作为弱标注器
-3. [Intrinsic Gradient Suppression for Label-Noise Prompt Tuning in Vision-Language Models](/202605/04/2605.00591v1-intrinsic-gradient-suppression-for-label-noise-prompt-tuning-in-vision-language-models)  
+   evidence：用于脑肿瘤分类和诊断的自监督深度学习
+4. [Virtual Scanning for NSCLC Histology: Investigating the Discriminatory Power of Synthetic PET](/202605/05/2605.02746v1-virtual-scanning-for-nsclc-histology-investigating-the-discriminatory-power-of-synthetic-pet)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉语言模型（如CLIP）中的提示微调
-4. [Cross-Species Adaptation of RETFound for Rodent OCT Age Estimation Reveals Strong CNN Baselines in Data-Scarce Space Biology](/202605/04/biorxiv-10-64898-2026-04-22-720210-v1-cross-species-adaptation-of-retfound-for-rodent-oct-age-estimation-reveals-strong-cnn-baselines-in-data-scarce-space-biology)  
+   evidence：利用合成PET进行非小细胞肺癌组织学分型
+5. [Using AI to Build AI: AIDO.Builder Enables Autonomous Machine Learning Model Building for Biomedicine](/202605/05/biorxiv-10-64898-2026-04-20-719735-v2-using-ai-to-build-ai-aidobuilder-enables-autonomous-machine-learning-model-building-for-biomedicine)  
    标签：评分：7.0/10、query:cpath
-   evidence：RETFound视网膜基础模型的适配
-5. [spatiAlytica: Viewer-Grounded Multimodal Agentic System for Interactive Spatial Omics Analysis](/202605/04/biorxiv-10-64898-2026-04-29-721735-v1-spatialytica-viewer-grounded-multimodal-agentic-system-for-interactive-spatial-omics-analysis)  
-   标签：评分：7.0/10、query:cpath
-   evidence：用于空间组学分析的多模态智能体系统
-6. [CoRE: Concept-Reasoning Expansion for Continual Brain Lesion Segmentation](/202605/04/2604.25376v1-core-concept-reasoning-expansion-for-continual-brain-lesion-segmentation)  
-   标签：评分：6.5/10、query:cpath
-   evidence：脑成像和临床诊断中的多模态异质性
-7. [RIHA: Report-Image Hierarchical Alignment for Radiology Report Generation](/202605/04/2604.27559v1-riha-report-image-hierarchical-alignment-for-radiology-report-generation)  
+   evidence：生物医学自动化机器学习模型构建
+6. [Learning Multimodal Energy-Based Model with Multimodal Variational Auto-Encoder via MCMC Revision](/202605/05/2605.00644v1-learning-multimodal-energy-based-model-with-multimodal-variational-auto-encoder-via-mcmc-revision)  
    标签：评分：6.0/10、query:cpath
-   evidence：用于放射报告生成的多模态对齐
-8. [Using AI to Build AI: AIDO.Builder Enables Autonomous Machine Learning Model Building for Biomedicine](/202605/04/biorxiv-10-64898-2026-04-20-719735-v2-using-ai-to-build-ai-aidobuilder-enables-autonomous-machine-learning-model-building-for-biomedicine)  
+   evidence：多模态数据依赖与生成模型
+7. [Multi-Dataset Cross-Domain Knowledge Distillation for Unified Medical Image Segmentation, Classification, and Detection](/202605/05/2605.01563v1-multi-dataset-cross-domain-knowledge-distillation-for-unified-medical-image-segmentation-classification-and-detection)  
    标签：评分：6.0/10、query:cpath
-   evidence：生物医学任务的自主机器学习模型构建
-9. [DoFormer: Causal Transformer for Gene Perturbation](/202605/04/biorxiv-10-64898-2026-05-02-722054-v1-doformer-causal-transformer-for-gene-perturbation)  
+   evidence：用于医学图像分析任务的统一跨域迁移学习
+8. [MedScribe: Clinically Grounded CT Reporting through Agentic Workflows](/202605/05/2605.01779v1-medscribe-clinically-grounded-ct-reporting-through-agentic-workflows)  
    标签：评分：6.0/10、query:cpath
-   evidence：转录组基础模型和多模态Transformer
+   evidence：用于自动放射报告生成的视觉语言模型
+9. [M\textsuperscript{4}Fuse: Lightweight State-Space MoE with a Cross-Scale Gating Bridge for Brain Tumor Segmentation](/202605/05/2605.02444v1-mtextsuperscript4fuse-lightweight-state-space-moe-with-a-cross-scale-gating-bridge-for-brain-tumor-segmentation)  
+   标签：评分：6.0/10、query:cpath
+   evidence：使用深度学习进行脑肿瘤分割
+10. [IMAS enables target-aware integration of tumour multiomics to resolve communication-guided regulatory mechanisms](/202605/05/biorxiv-10-64898-2026-04-09-717444-v2-imas-enables-target-aware-integration-of-tumour-multiomics-to-resolve-communication-guided-regulatory-mechanisms)  
+   标签：评分：6.0/10、query:cpath
+   evidence：整合肿瘤多组学以解析调控机制
+11. [Semi supervised GAN for smart microscopy, fast and data efficient cell cycle classification](/202605/05/biorxiv-10-64898-2026-04-23-720294-v2-semi-supervised-gan-for-smart-microscopy-fast-and-data-efficient-cell-cycle-classification)  
+   标签：评分：6.0/10、query:cpath
+   evidence：用于显微镜图像分类的半监督GAN
 
 
 <div class="dpr-home-promo-card">
