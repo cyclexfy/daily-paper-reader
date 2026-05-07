@@ -1,0 +1,3158 @@
+Title: Generalized Category Discovery under Domain Shifts: From Vision to Vision-Language Models
+
+URL Source: https://arxiv.org/pdf/2605.00906v1
+
+Published Time: Tue, 05 May 2026 00:06:56 GMT
+
+Number of Pages: 26
+
+Markdown Content:
+> 1
+
+# Generalized Category Discovery under Domain Shifts: From Vision to Vision-Language Models 
+
+Hongjun Wang , Po Hu , Kai Han 
+
+Abstract —Generalized Category Discovery (GCD) aims to categorize unlabelled instances from both known and unknown classes by transferring knowledge from labelled data of known classes. Existing methods assume all data comes from a single domain, yet real-world unlabelled data often exhibits domain shifts alongside semantic shifts. We study GCD under domain shifts and propose three frameworks that adapt foundation models, ranging from self-supervised vision models to vision-language models. (i) HiLo disentangles domain and semantic features through multi-level feature extraction and mutual information minimization, combined with PatchMix augmentation and curriculum sampling. (ii) HLPrompt extends HiLo with semantic-aware spatial prompt tuning to suppress background and domain noise. (iii) VLPrompt leverages vision-language models via factorized textual prompts and cross-modal consistency regularization. The three methods share core design principles while operating on different founda-tion backbones, making them suitable for different deployment scenarios. Extensive experiments on synthetic corruptions and real-world multi-domain shifts demonstrate consistent improvements over strong baselines. Project page: https://visual-ai.github.io/hilo/ 
+
+Index Terms —Generalized category discovery, domain shift, domain adaptation, vision-language models, mutual information, prompt learning, open-world recognition 
+
+I. I NTRODUCTION 
+
+# CATEGORY Discovery (CD) [1] aims to automatically partition unlabelled data into meaningful groups by leveraging knowledge from a set of labelled categories. The task was initially studied as novel category discovery (NCD) [2], where unlabelled data contains only novel categories, and was later relaxed to generalized category discovery (GCD) [3], where unlabelled data contains both seen and unseen categories, better reflecting practical open-world scenarios. However, most existing GCD methods [1], [3]–[6] assume that all data originates from the same domain. This assumption is frequently violated in real-world deployments where data exhibits low-level covariate shifts arising from diverse sensors, environmental conditions, or data acquisition processes. Con-sider autonomous vehicles operating across varying weather conditions, medical imaging systems with data from different acquisition devices, or web-scale visual recognition systems aggregating images from heterogeneous sources. In these scenarios, unlabelled data not only contains novel semantic categories but also exhibits domain shifts, that is, systematic 
+
+Hongjun Wang, Po Hu and Kai Han are with School of Computing and Data Science, The University of Hong Kong. Emails: {hjwang, stephenhu }@connect.hku.hk, kaihanx@hku.hk. Corresponding author: Kai Han Domain                   
+
+> Semantics
+> Cat Dog Plane Bird Strawberry
+> Real
+> Seen Class Unseen Class
+> Seen Domain  Unseen Domain
+> ?????
+> ?????
+> ????
+> ??
+> ?
+> ?Cat Dog
+
+Fig. 1. We study Generalized Category Discovery with domain shifts, where a model must categorize unlabelled instances that may come from both seen and unseen categories, and also from seen and novel domains. In the example, the model is given labels only for the images in green boxes and must categorize all remaining unlabelled images, including those from different domains (top rows) and novel categories (rightmost columns). 
+
+variations in low-level visual statistics such as lighting, color distribution, texture patterns, or image quality. The confluence of semantic and domain shifts poses a fundamental challenge: the model must remain sensitive to semantic differences while being robust to domain variations 
+
+(see Figure 1). One might consider directly borrowing techniques from domain adaptation or domain generalization. However, domain adaptation methods [7]–[9] focus on learning domain-invariant representations but assume fixed, known label spaces. Domain generalization methods [10], [11] aim to improve cross-domain robustness but require labelled data from multiple source domains and do not address category discovery. Neither paradigm directly addresses the unique challenges of GCD with domain shifts, namely, discovering and clustering novel categories in unlabelled data from unseen domains without any labelled examples of those domains or categories. The difficulty is exacerbated by the fact that domain and semantic information can be entangled in complex ways. For instance, a domain classifier might exploit spurious correlations between domains and classes (e.g., if certain classes appear predominantly in specific domains), leading to features that are neither truly domain-invariant nor purely semantic. Moreover, 
+
+> arXiv:2605.00906v1 [cs.CV] 29 Apr 2026 2
+
+standard domain adaptation objectives like domain adversarial training [7] may inadvertently suppress semantic information that is correlated with domain characteristics, making it harder to discover fine-grained novel categories. GCD with domain shifts presents three coupled challenges: (1) semantic discovery , i.e., clustering novel categories in Du
+
+without labels, (2) domain robustness , i.e., generalizing from the labelled domain(s) to new domains, and (3) domain-semantic entanglement , i.e., preventing domain cues from polluting semantic representations. To address these challenges, we propose a suite of three frameworks grounded in foundation models, covering both self-supervised vision models and vision-language models [12]–[15]. Firstly, we introduce HiLo , a pure-vision framework that extracts high-level semantic features and low-level domain features from different depths of a vision transformer, and minimizes the mutual information (MI) between them to ex-plicitly disentangle domain and semantic factors. HiLo further incorporates PatchMix augmentation [9] in the embedding space to bridge domain gaps and curriculum sampling to stabilize optimization by gradually introducing harder new-domain samples. Secondly, we propose HLPrompt , which enhances the pure-vision path from the perspective of prompt-based adaptation. It introduces semantic-aware spatial prompt tuning based on Nor-malized Cut (NCut) [16] to selectively inject learnable prompts into foreground object regions and suppress background and domain noise through an alternating optimization scheme. Thirdly, we propose VLPrompt , which studies the same problem from the perspective of vision-language foundation models. It leverages textual semantic information as an ad-ditional source of structure for category discovery through factorized textual prompts and cross-modal consistency regular-ization, while inheriting and extending HiLo’s core components to the cross-modal setting. These three methods share core design principles while operating on different foundation backbones. HiLo provides a strong pure-vision formulation for disentangling domain and semantic factors. HLPrompt strengthens visual adaptation through prompt tuning on foreground regions. VLPrompt further incorporates cross-modal semantic priors when vision-language supervision is available. Note that a preliminary ver-sion of HiLo was presented in [17]; HLPrompt and VLPrompt are newly introduced in this extended work. In this work, our main contributions are:  
+
+> •
+
+We formalize GCD with domain shifts and establish benchmarks on both synthetic corruptions (SSB-C) and real-world multi-domain shifts (DomainNet-GCD).  
+
+> •
+
+We present HiLo, which disentangles domain and se-mantic features via multi-level feature extraction and MI minimization, enhanced with PatchMix and curriculum sampling for robust category discovery under domain shifts.  
+
+> •
+
+We develop HLPrompt, extending HiLo with semantic-aware spatial prompt tuning and alternating optimization to better suppress domain noise.  
+
+> •
+
+We develop VLPrompt, which leverages pretrained vision-language models (VLMs) for domain-robust GCD through factorized textual prompts and cross-modal consistency regularization, while inheriting and extending HiLo’s core components to the cross-modal setting. Section II reviews related work. Section III illustrates the problem. Sections IV, V, and VI present HiLo, HLPrompt, and VLPrompt, respectively. Section VII provides experimental evaluation. Section VIII discusses broader implications and concludes the paper. II. R ELATED WORK 
+
+Our work lies at the intersection of several research areas. We review the most relevant literature below. 
+
+Category discovery. 
+
+The problem of category discovery was firstly studied as Novel Category Discovery (NCD), which was initially formalized in [2]. NCD aims to discovery novel categories in the unlabelled data automatically by effectively transferring knowledge from labelled data of seen categories. Subsequent works have achieved promising progress through rank statis-tics [18], [19], contrastive learning [20], unified objectives [21]– [23], knowledge distillation [24], dual ranking with mutual distillation [25], discovery without forgetting [26], and more. However, NCD assumes that unlabelled data contains only novel classes, which is often violated in practice. The task was later relaxed as GCD [3], allowing unlabelled data to contain both known and novel classes. SimGCD [4] introduced a simple parametric baseline with learnable pro-totypes. Recent advances have explored diverse directions including semi-supervised mixture models [27], cross-instance positive relations [28], hierarchical [29] and hyperbolic [30] formulations, dynamic concept learning [6], debiased learn-ing [31], information-theoretic approaches [32], and part-level correspondence priors [33]. [1] provides a comprehensive overview on category discovery. Existing GCD methods are primarily studied in a single-domain setting. To the best of our knowledge, our work is the first to systematically study GCD under domain shifts and develop principled solutions with theoretical backups. 
+
+Foundation models and prompt-based adaptation for category discovery. Recent category discovery methods increasingly rely on pretrained foundation models because trans-ferable representations reduce the dependence on task-specific supervision. In the pure-vision setting, self-supervised ViTs such as the DINO family [12]–[14] provide strong semantic features for category discovery. In the vision-language setting, CLIP [15] introduces semantic priors through cross-modal alignment, motivating VLM-based GCD methods such as CLIP-GCD [34], CPT [35], and GET [36]. Prompt-based adaptation has become a practical way to specialize these foundation models for downstream discovery tasks. On the textual side, CoOp [37] and CoCoOp [38] learn continuous context tokens for CLIP adaptation. On the visual side, VPT [39] prepends learnable tokens to a frozen ViT, and SPTNet [40] proposes spatial prompt tuning with alternating optimization for GCD. PromptCAL [5] and PromptCCD [41] further explore prompt-based strategies for novel and continual category discovery, respectively. However, most existing foundation-model-based 3
+
+GCD methods focus on the standard single-domain setting and do not explicitly address the additional entanglement introduced by unseen domain shifts in the unlabelled pool. Very recently, FREE [42] studies GCD under domain shift from a frequency-domain perspective. In contrast, our work develops a unified suite of frameworks that explicitly disentangle domain and semantics, adapting both DINO-pretrained vision backbones and the CLIP vision-language model to this challenge. 
+
+Domain adaptation. Unsupervised Domain Adaptation (UDA) transfers knowledge from a labelled source domain to an unla-belled target domain under a fixed label space. Representative approaches include moment matching (e.g., MMD/CORAL) [8], [43]–[46], adversarial domain-invariant learning [7], [47]–[50], and self-training with target pseudo-labels [51]–[53], with re-cent variants exploiting distributional distances or intermediate-domain augmentation such as PatchMix [9], [54]–[56]. Domain Generalization (DG) targets robustness to unseen domains without target data, typically via meta-learning, invariant representation learning, data augmentation, ensembling, or causal formulations [10], [57]–[61]. Both UDA and DG assume 
+
+known, fixed label spaces , whereas our setting must discover novel categories in unlabelled data that also comes from unseen/new domains, without any labelled samples from those domains or identities of novel classes. III. P ROBLEM FORMULATION AND ANALYSIS 
+
+We now formally define the problem of Generalized Category Discovery with Domain Shifts and analyze its complexity. Concretely, we consider a setting in which a model is given access to labelled data from a source domain. It is further given access to a pool of unlabelled data, where images may come from either the source domain or new domains , and whose categories may come from the labelled classes or from new ones (see Figure 1). 
+
+A. Problem Definition 
+
+Let X denote the input space (e.g., images), Y the label space, and Ω the domain space. A domain ω ∈ Ω is characterized by a conditional distribution P (x|y, ω ) over inputs given labels, where two domains differ if these conditionals differ for some class y. We are given a labelled dataset Dℓ = {(xi, y i)}Nℓ
+
+> i=1
+
+from a fixed labelled domain ωa ∈ Ωa with labels yi ∈ Y base ⊂Y, together with an unlabelled dataset Du = {xi}Nu 
+
+> i=1
+
+where images come from both the labelled domain set Ωa and a disjoint set of new domains Ωb (Ωa ∩ Ωb = ∅), with labels from both Ybase and novel categories Ynovel (Ybase ∩ Y novel = ∅). The goal is to learn a classifier f : X → Y base ∪ Y novel that minimizes the expected classification error on unlabelled data: 
+
+min  
+
+> f
+
+E(x,y,ω )∼Pu [1(f (x)̸ = y)] (1) where Pu denotes the joint distribution over unlabelled samples, their true labels, and their domains. Formal definitions and assumptions are provided in Appendix D. 
+
+B. Key Challenges 
+
+The problem presents three intertwined challenges that must be addressed simultaneously. First, regarding semantic discovery , the model must identify and cluster novel cate-gories from Ynovel without any labelled examples, relying on transferable knowledge from base categories Ybase . Second, concerning domain robustness , the model must generalize from the labelled domain Ωa to new domains Ωb without labelled data from these new domains, a scenario where standard domain adaptation techniques are not directly applicable. Third, for feature disentanglement , the model must learn representations that are invariant to domain-specific variations while preserving discriminative power for semantic differences, which is particularly challenging when both domain and semantic factors vary simultaneously in the unlabelled data. We make standard assumptions for theoretical analysis— domain-class independence (covariate shift), semantic transfer-ability, and sufficient data diversity—and provide the formal statements and proofs in Appendix D and E2. 
+
+Method roadmap. We propose a suite of three frameworks for GCD with domain shifts, all grounded in foundation models, sharing core design principles. We first introduce HiLo (Sec-tion IV), a pure-vision framework built on a vision foundation model that establishes the shared core principles of domain– semantic feature disentanglement, PatchMix augmentation, and curriculum sampling. In our implementation, HiLo uses a DINO-pretrained ViT [12]. We then introduce HLPrompt 
+
+(Section V), which studies how prompt-based adaptation of vision foundation models can complement HiLo through NCut [16]-guided semantic-aware spatial prompting. In our implementation, HLPrompt uses a DINOv3-pretrained ViT [14]. Finally, we present VLPrompt (Section VI), which studies how textual semantics in vision-language foundation models can further support category discovery through factorized textual prompts and cross-modal consistency regularization. In our implementation, VLPrompt uses CLIP [15]. An overview of the full pipeline is shown in Figure 3. IV. H ILO: F EATURE DISENTANGLEMENT FOR GCD WITH 
+
+DOMAIN SHIFTS 
+
+We begin with HiLo, a pure-vision framework built on a pretrained vision foundation model. The motivation is that self-supervised vision transformers provide transferable representations whose depth-wise hierarchy naturally separates low-level domain cues from high-level semantic abstractions. In our implementation, HiLo uses a DINO-pretrained Vision Transformer (ViT) [12]. HiLo extracts domain and semantic features from different depths of the pretrained ViT and minimizes their mutual information to achieve explicit disentan-glement, while further incorporating PatchMix augmentation to create intermediate-domain representations that bridge the gap between labelled and new domains, and curriculum sampling to gradually introduce harder new-domain samples during training. The components introduced here, namely MI minimization, PatchMix, and curriculum sampling, will be reused and extended in both HLPrompt (Section V) and VLPrompt (Section VI). An overview of the HiLo pipeline is provided in Figure 2. 4t=0 t=T/2 t=T   
+
+> Cat
+> Dog
+> Bird
+> Strawberry
+> Plane
+> Dog
+> Seen
+> domain
+> Unseen
+> domain
+> Strawberry
+> Plane
+> Cat Cat
+> Bird Dog
+> Seen
+> domain
+> Unseen
+> domain
+
+Dataset 
+
+> Curriculum
+> sampling
+
+PatchMix         
+
+> … Low-level
+> information
+> Semantic
+> information
+> …
+> …
+> Cat
+> Dog Plane Strawberry
+> Cat
+> Dog
+> Seen
+> domain
+> Unseen
+> domain
+> Seen
+> domain
+> … 2N×dim zs
+> 2N×dim zd
+
+Projector 
+
+zs
+
+> Tile
+> …
+> …
+> …
+
+…
+
+…  
+
+> N×N
+> dim z s + dim z d
+> Tile
+
+zd
+
+Projector 
+
+Projector 
+
+Mutual information 
+
+minimization 
+
+and z1 to represent semantic inform 179 
+
+respectively. As such, we consider 180 
+
+zd as: 181 
+
+I(zs, zd) ⇡ I(zm, z1) = 
+
+Z
+
+Rs
+
+Z
+
+182 
+
+However, it is intractable to estimate 183 
+
+from finite high-dimensional samp 184 
+
+fore, we utilize variational f -diver 185 
+
+lower bounds on f -divergence, and 186 
+
+than estimating its exact value. He 187 
+
+InfoMax [24] which is based on the 188 
+
+information I(zm, z1) can be estim 189 
+
+Lm = ˆI (zm, z1) = E
+
+ 
+
+190 
+
+where   is an MLP projection head 191 
+
+matrix whose output size is 1. 192 
+
+3.2 PatchMix Contrastive Lear 193 
+
+Mixup [56] is a powerful data augm 194 
+
+samples and their corresponding la 195 
+
+Mixup is more beneficial in learni 196 
+
+obtain rich zm, z1 to estimate zs, z197 
+
+PMTrans in UDA. PMTrans [65] i 198 
+
+perform mixup augmentation among 199 
+
+' for features from labelled zl
+
+0 and 200 
+
+tation: ¯z0 = '(zl
+
+0, zu
+
+0 ;  ) =  k  201 
+
+the random mixing proportion for 202 
+
+element-wise multiplication operat 203 
+
+target samples with the intermedia 204 
+
+both feature and label spaces. Howe 205 
+
+PatchMix. Thus, we consider comb 206 
+
+As Lr is dependent on the sim 207 
+
+batch, the presence of mixed samp 208 
+
+# -
+
+> -
+
+# - -- ~
+
+# intro -
+
+Ls(x) = Lrep s (x) + Lcls s (x). (8) 270 27 271 27 
+
+Then, we proceed to assign cluster labels for each data point based on low-level 272 27 
+
+features ( i.e ., zd). Since covariate and semantic information in the data is independent 273 27 
+
+by definition, we can reformulate Lsim using domain label v, with new weight matrix 274 27 
+
+W ⇤ for domain axis in Equation (2): 275 27 
+
+Ld(x) = Lrep d (x) + Lcls d (x). (9) 276 27 
+
+Note that q in Equation (2) is ¯v = ↵ · v + 1 ↵ 
+
+> |⌦|
+
+· 1 for supervised classification. As for 277 27 
+
+unsupervised classification, we peform SS-kmeans [53] for pseudo-labelling, which has 278 27 
+
+been shown to be reliable and efficient especially when the class number is small. 279 27 
+
+To prevent a trivial solution where all instances are assigned to one class, we add a 280 28 
+
+regularization term  d for domain classification. As shown in Equation (3), we also apply 281 28 
+
+mean-entropy maximization regularization to the domain axis. Putting all perspectives 282 28 
+
+together, we can give the overall loss function as follows: 283 28 
+
+L = Lm + Ls + Ld + ✏  , (10) 284 28 
+
+where ✏ is the balance factor for the regularizer  , which is the summation of  s and 285 28 
+
+ d.286 28  
+
+> 271 271
+
+Then, we proceed to assign cluster labels for each data point based on low-level 272 272 
+
+features ( i.e ., zd). Since covariate and semantic information in the data is independent 273 273 
+
+by definition, we can reformulate Lsim using domain label v, with new weight matrix 274 274 
+
+W ⇤ for domain axis in Equation (2): 275 275 
+
+Ld(x) = Lrep d (x) + Lcls d (x). (9) 276 276 
+
+Note that q in Equation (2) is ¯v = ↵ · v + 1 ↵ 
+
+> |⌦|
+
+· 1 for supervised classification. As for 277 277 
+
+unsupervised classification, we peform SS-kmeans [53] for pseudo-labelling, which has 278 278 
+
+been shown to be reliable and efficient especially when the class number is small. 279 279 
+
+To prevent a trivial solution where all instances are assigned to one class, we add a 280 280 
+
+regularization term  d for domain classification. As shown in Equation (3), we also apply 281 281 
+
+mean-entropy maximization regularization to the domain axis. Putting all perspectives 282 282 
+
+together, we can give the overall loss function as follows: 283 283 
+
+L = Lm + Ls + Ld + ✏  , (10) 284 284 
+
+where ✏ is the balance factor for the regularizer  , which is the summation of  s and 285 285 
+
+ d.286 286 
+
+gate   for all patches to get the instance-level importance and attention scores 263 
+
+involved to eliminate false responses when combining null semantic components 264 
+
+For supervised classification, q in Equation (2) is replaced by ¯y = ↵ · y + 1 
+
+> 265
+
+where the all-one vector 1 smoothes for all categories, given that the ground-tru 266 
+
+unlabelled data is unknown. For the unsupervised classification, q is a pseudo-labe 267 
+
+a sharpened prediction of the mixup from another view. The overall loss for Pat 268 
+
+representation learning is: 269 
+
+Ls(x) = Lrep s (x) + Lcls s (x).270 271 
+
+Then, we proceed to assign cluster labels for each data point based on low 272 
+
+features ( i.e ., zd). Since covariate and semantic information in the data is indepe 273 
+
+by definition, we can reformulate Lsim using domain label v, with new weight 274 
+
+W ⇤ for domain axis in Equation (2): 275 
+
+Ld(x) = Lrep d (x) + Lcls d (x).276 
+
+Note that q in Equation (2) is ¯v = ↵ · v + 1 ↵ 
+
+> |⌦|
+
+· 1 for supervised classification. 277 
+
+unsupervised classification, we peform SS-kmeans [53] for pseudo-labelling, whi 278 
+
+been shown to be reliable and efficient especially when the class number is smal 279 
+
+To prevent a trivial solution where all instances are assigned to one class, we 280 
+
+regularization term  d for domain classification. As shown in Equation (3), we also 281 
+
+mean-entropy maximization regularization to the domain axis. Putting all perspe 282 
+
+together, we can give the overall loss function as follows: 283 
+
+L = Lm + Ls + Ld + ✏  ,284 
+
+where ✏ is the balance factor for the regularizer  , which is the summation of  285 
+
+ d.286 
+
+ViT 
+
+> Transformer
+> Block
+> Transformer
+> Block
+
+with domain shift and GCD, which assumes Yl \ Yu = ; for the former and ⌦a = ⌦b 
+
+> 166 166
+
+with singleton cardinalities for the latter. For notation simplicity, hereafter we omit the 167 167 
+
+subscript i for each image xi.168 168 
+
+3.1 Background: SimGCD 169 169 
+
+SimGCD [59] is a representative end-to-end baseline for GCD, which integrates two pri-170 170 
+
+mary losses for representation learning and parametric classification: (1) a contrastive loss 171 171 
+
+Lrep based on InfoNCE [39] is applied for the representation learning of the feature back-172 172 
+
+bone; and (2) a cross-entropy loss Lcls for training a cosine classification head [19], uti-173 173 
+
+lizing different image views as pseudo-labels for one another. Following [54], SimGCD 174 174 
+
+employs the ViT model as the backbone containing m Transformer layers. Let F be the 175 175 
+
+feature extractor consisting of these m layers and H be a projection head. For an input 176 176 
+
+image x, a `2-normalised feature can be obtained by z = H(F('(x))) , where ' is a 177 177 
+
+standard embedding layer before the multi-head attention layers in the ViT model. The 178 178 
+
+representation loss is 179 179 
+
+Lrep (x) =   1
+
+|P (x)|
+
+X
+
+> z+2P(x)
+
+log  (z · z+; ⌧ ), (1) 180 180 
+
+where  (·; ⌧ ) is the softmax operation with a temperature ⌧ for scaling and P(x) denotes 181 181 
+
+the positive feature set for each x. Suppose we sample a batch B, B contains both labelled 182 182 
+
+and unlabelled images, denoted as Bl, Bu, respectively. If x 2 Bu, P(x) is features of 183 183 
+
+another view from the same image, while if x 2 Bl, P(x) is features from the same 184 184 
+
+class. Likewise, the classification loss can be written as 185 185 
+
+Lcls (x) =   X
+
+> w2W
+
+q log  (ˆ z · w; ⌧ ), (2) 186 186 
+
+where each vector w in W represents a `2-normalised learnable class prototype. q is the 187 187 
+
+one-hot ground-truth label if x 2 Bl, and is a pseudo-label from a sharpened prediction 188 188 
+
+of another view of the image if x 2 Bu. Let Lr,c be the summation of Lrep and Lcls for 189 189 
+
+simplification, the overall loss can then be written as: 190 190 
+
+Lsim =   X
+
+> x2B
+
+Lr,c (x) + (1    ) X
+
+> x2Bl
+
+Lr,c (x) + ✏  , (3) 191 191 
+
+where Bl denotes the subset of labelled samples in the current mini-batch, and   is an 192 192 
+
+entropy maximization term to prevent pseudo-label collapse [1]. Finally,   and ✏ are 193 193 
+
+hyperparameters, and we refer to the original work for further details [59]. 194 194 
+
+Despite achieving strong performance on the standard single-domain GCD task, 195 195 
+
+SimGCD struggles in the more realistic scenario in which the unlabelled data exhibits 196 196 
+
+the label sets for ‘All’, ‘Old’, and ‘New’ categories, respectively. It is important to note 163 163 
+
+that Yl ⇢ Yu. The objective of GCD is to classify all unlabelled images in Du (from 164 164 
+
+either ⌦a or ⌦b) using only the labels in Dl. This is different from the setting of NCD 165 165 
+
+with domain shift and GCD, which assumes Yl \ Yu = ; for the former and ⌦a = ⌦b 
+
+> 166 166
+
+with singleton cardinalities for the latter. For notation simplicity, hereafter we omit the 167 167 
+
+subscript i for each image xi.168 168 
+
+3.1 Background: SimGCD 169 169 
+
+SimGCD [59] is a representative end-to-end baseline for GCD, which integrates two pri-170 170 
+
+mary losses for representation learning and parametric classification: (1) a contrastive loss 171 171 
+
+Lrep based on InfoNCE [39] is applied for the representation learning of the feature back-172 172 
+
+bone; and (2) a cross-entropy loss Lcls for training a cosine classification head [19], uti-173 173 
+
+lizing different image views as pseudo-labels for one another. Following [54], SimGCD 174 174 
+
+employs the ViT model as the backbone containing m Transformer layers. Let F be the 175 175 
+
+feature extractor consisting of these m layers and H be a projection head. For an input 176 176 
+
+image x, a `2-normalised feature can be obtained by z = H(F('(x))) , where ' is a 177 177 
+
+standard embedding layer before the multi-head attention layers in the ViT model. The 178 178 
+
+representation loss is 179 179 
+
+Lrep (x) =   1
+
+|P (x)|
+
+X
+
+> z+2P(x)
+
+log  (z · z+; ⌧ ), (1) 180 180 
+
+where  (·; ⌧ ) is the softmax operation with a temperature ⌧ for scaling and P(x) denotes 181 181 
+
+the positive feature set for each x. Suppose we sample a batch B, B contains both labelled 182 182 
+
+and unlabelled images, denoted as Bl, Bu, respectively. If x 2 Bu, P(x) is features of 183 183 
+
+another view from the same image, while if x 2 Bl, P(x) is features from the same 184 184 
+
+class. Likewise, the classification loss can be written as 185 185 
+
+Lcls (x) =   X
+
+> w2W
+
+q log  (ˆ z · w; ⌧ ), (2) 186 186 
+
+where each vector w in W represents a `2-normalised learnable class prototype. q is the 187 187 
+
+one-hot ground-truth label if x 2 Bl, and is a pseudo-label from a sharpened prediction 188 188 
+
+of another view of the image if x 2 Bu. Let Lr,c be the summation of Lrep and Lcls for 189 189 
+
+simplification, the overall loss can then be written as: 190 190 
+
+Lsim =   X
+
+> x2B
+
+Lr,c (x) + (1    ) X
+
+> x2Bl
+
+Lr,c (x) + ✏  , (3) 191 191 
+
+where Bl denotes the subset of labelled samples in the current mini-batch, and   is an 192 192 
+
+entropy maximization term to prevent pseudo-label collapse [1]. Finally,   and ✏ are 193 193 
+
+hyperparameters, and we refer to the original work for further details [59]. 194 194 
+
+Despite achieving strong performance on the standard single-domain GCD task, 195 195 
+
+SimGCD struggles in the more realistic scenario in which the unlabelled data exhibits 196 196 
+
+ECCV 2024 Submission #4177 5
+
+D be an open-world dataset consisting of a labelled set Dl = {(xi, y i)}Nl 
+
+> i=1
+
+⇢ X l ⇥ Yl 
+
+> 160 160
+
+and an unlabelled set Du = {xi}Nu 
+
+> i=1
+
+⇢ Xu. The label space for labelled samples is 161 161 
+
+Yl = C1 and for unlabelled samples is Yu = C = C1 [ C2, where C, C1, and C2 represent 162 162 
+
+the label sets for ‘All’, ‘Old’, and ‘New’ categories, respectively. It is important to note 163 163 
+
+that Yl ⇢ Yu. The objective of GCD is to classify all unlabelled images in Du (from 164 164 
+
+either ⌦a or ⌦b) using only the labels in Dl. This is different from the setting of NCD 165 165 
+
+with domain shift and GCD, which assumes Yl \ Yu = ; for the former and ⌦a = ⌦b 
+
+> 166 166
+
+with singleton cardinalities for the latter. For notation simplicity, hereafter we omit the 167 167 
+
+subscript i for each image xi.168 168 
+
+3.1 Background: SimGCD 169 169 
+
+SimGCD [59] is a representative end-to-end baseline for GCD, which integrates two pri-170 170 
+
+mary losses for representation learning and parametric classification: (1) a contrastive loss 171 171 
+
+Lrep based on InfoNCE [39] is applied for the representation learning of the feature back-172 172 
+
+bone; and (2) a cross-entropy loss Lcls for training a cosine classification head [19], uti-173 173 
+
+lizing different image views as pseudo-labels for one another. Following [54], SimGCD 174 174 
+
+employs the ViT model as the backbone containing m Transformer layers. Let F be the 175 175 
+
+feature extractor consisting of these m layers and H be a projection head. For an input 176 176 
+
+image x, a `2-normalised feature can be obtained by z = H(F('(x))) , where ' is a 177 177 
+
+standard embedding layer before the multi-head attention layers in the ViT model. The 178 178 
+
+representation loss is 179 179 
+
+Lrep (x) =   1
+
+|P (x)|
+
+X
+
+> z+2P(x)
+
+log  (z · z+; ⌧ ), (1) 180 180 
+
+where  (·; ⌧ ) is the softmax operation with a temperature ⌧ for scaling and P(x) denotes 181 181 
+
+the positive feature set for each x. Suppose we sample a batch B, B contains both labelled 182 182 
+
+and unlabelled images, denoted as Bl, Bu, respectively. If x 2 Bu, P(x) is features of 183 183 
+
+another view from the same image, while if x 2 Bl, P(x) is features from the same 184 184 
+
+class. Likewise, the classification loss can be written as 185 185 
+
+Lcls (x) =   X
+
+> w2W
+
+q log  (ˆ z · w; ⌧ ), (2) 186 186 
+
+where each vector w in W represents a `2-normalised learnable class prototype. q is the 187 187 
+
+one-hot ground-truth label if x 2 Bl, and is a pseudo-label from a sharpened prediction 188 188 
+
+of another view of the image if x 2 Bu. Let Lr,c be the summation of Lrep and Lcls for 189 189 
+
+simplification, the overall loss can then be written as: 190 190 
+
+Lsim =   X
+
+> x2B
+
+Lr,c (x) + (1    ) X
+
+> x2Bl
+
+Lr,c (x) + ✏  , (3) 191 191 
+
+where Bl denotes the subset of labelled samples in the current mini-batch, and   is an 192 192 
+
+entropy maximization term to prevent pseudo-label collapse [1]. Finally,   and ✏ are 193 193 
+
+hyperparameters, and we refer to the original work for further details [59]. 194 194 
+
+Despite achieving strong performance on the standard single-domain GCD task, 195 195 
+
+SimGCD struggles in the more realistic scenario in which the unlabelled data exhibits 196 196 
+
+ECCV 2024 Submission #4177 5
+
+D be an open-world dataset consisting of a labelled set Dl = {(xi, y i)}Nl 
+
+> i=1
+
+⇢ X l ⇥ Yl 
+
+> 160 160
+
+and an unlabelled set Du = {xi}Nu 
+
+> i=1
+
+⇢ Xu. The label space for labelled samples is 161 161 
+
+Yl = C1 and for unlabelled samples is Yu = C = C1 [ C2, where C, C1, and C2 represent 162 162 
+
+the label sets for ‘All’, ‘Old’, and ‘New’ categories, respectively. It is important to note 163 163 
+
+that Yl ⇢ Yu. The objective of GCD is to classify all unlabelled images in Du (from 164 164 
+
+either ⌦a or ⌦b) using only the labels in Dl. This is different from the setting of NCD 165 165 
+
+with domain shift and GCD, which assumes Yl \ Yu = ; for the former and ⌦a = ⌦b 
+
+> 166 166
+
+with singleton cardinalities for the latter. For notation simplicity, hereafter we omit the 167 167 
+
+subscript i for each image xi.168 168 
+
+3.1 Background: SimGCD 169 169 
+
+SimGCD [59] is a representative end-to-end baseline for GCD, which integrates two pri-170 170 
+
+mary losses for representation learning and parametric classification: (1) a contrastive loss 171 171 
+
+Lrep based on InfoNCE [39] is applied for the representation learning of the feature back-172 172 
+
+bone; and (2) a cross-entropy loss Lcls for training a cosine classification head [19], uti-173 173 
+
+lizing different image views as pseudo-labels for one another. Following [54], SimGCD 174 174 
+
+employs the ViT model as the backbone containing m Transformer layers. Let F be the 175 175 
+
+feature extractor consisting of these m layers and H be a projection head. For an input 176 176 
+
+image x, a `2-normalised feature can be obtained by z = H(F('(x))) , where ' is a 177 177 
+
+standard embedding layer before the multi-head attention layers in the ViT model. The 178 178 
+
+representation loss is 179 179 
+
+Lrep (x) =   1
+
+|P (x)|
+
+X
+
+> z+2P(x)
+
+log  (z · z+; ⌧ ), (1) 180 180 
+
+where  (·; ⌧ ) is the softmax operation with a temperature ⌧ for scaling and P(x) denotes 181 181 
+
+the positive feature set for each x. Suppose we sample a batch B, B contains both labelled 182 182 
+
+and unlabelled images, denoted as Bl, Bu, respectively. If x 2 Bu, P(x) is features of 183 183 
+
+another view from the same image, while if x 2 Bl, P(x) is features from the same 184 184 
+
+class. Likewise, the classification loss can be written as 185 185 
+
+Lcls (x) =   X
+
+> w2W
+
+q log  (ˆ z · w; ⌧ ), (2) 186 186 
+
+where each vector w in W represents a `2-normalised learnable class prototype. q is the 187 187 
+
+one-hot ground-truth label if x 2 Bl, and is a pseudo-label from a sharpened prediction 188 188 
+
+of another view of the image if x 2 Bu. Let Lr,c be the summation of Lrep and Lcls for 189 189 
+
+simplification, the overall loss can then be written as: 190 190 
+
+Lsim =   X
+
+> x2B
+
+Lr,c (x) + (1    ) X
+
+> x2Bl
+
+Lr,c (x) + ✏  , (3) 191 191 
+
+where Bl denotes the subset of labelled samples in the current mini-batch, and   is an 192 192 
+
+entropy maximization term to prevent pseudo-label collapse [1]. Finally,   and ✏ are 193 193 
+
+hyperparameters, and we refer to the original work for further details [59]. 194 194 
+
+Despite achieving strong performance on the standard single-domain GCD task, 195 195 
+
+SimGCD struggles in the more realistic scenario in which the unlabelled data exhibits 196 196 
+
+Fig. 2. Overview of HiLo framwork (Section IV). Samples are drawn through our proposed curriculum sampling approach, considering the difficulty of each sample. Labelled and unlabelled samples are paired and augmented through PatchMix which we subtly adapt in the embedding space for contrastive learning for GCD. The mixed-up embeddings are then processed by our network with a high-level (for semantic) and low-level (for domain) feature design, allowing for the domain-semantic disentangled feature learning via mutual information minimization. The full HLPrompt and VLPrompt pipelines are illustrated in Figure 3. 
+
+A. GCD Backbone 
+
+A representative end-to-end baseline for GCD integrates two primary losses for representation learning and parametric classification. The first is a contrastive loss Lrep based on InfoNCE [62] for the representation learning of the feature backbone. The second is a cross-entropy loss Lcls for training a cosine classification head [63], utilizing different image views as pseudo-labels for one another. Following GCD [3], the backbone is a DINO-pretrained [12] ViT containing m
+
+Transformer layers; the self-supervised pretraining provides strong transferable features that generalize to novel categories without task-specific supervision. Let T be the feature extractor consisting of these m layers and ψ be a projection head. For an input image x, a ℓ2-normalised feature can be obtained by h = ψ(T (ϕ(x))) , where ϕ is a standard embedding layer before the multi-head attention layers in the ViT model. The representation loss is 
+
+Lrep (x) = − 1
+
+|P (x)|
+
+X
+
+h+∈P (x)
+
+log σ(h · h+; τ ), (2) where σ(·; τ ) is the softmax operation with a temperature τ for scaling and P(x) denotes the positive feature set for each x.Suppose we sample a batch B, which contains labelled images and unlabelled images, denoted as Bl and Bu, respectively. For each x ∈ B (either a labelled or unlabelled image), P(x)
+
+contains only the feature of a different view of the same image. For each x ∈ B l, an additional P(x) including features of other images from the same class and the feature of a different view of the same image is also used for supervised contrastive learning. Likewise, the classification loss can be written as 
+
+Lcls (x) = − X
+
+w∈W
+
+q log σ(ˆh · w; τ ), (3) where W is a set of prototypes and each vector w in W
+
+represents a ℓ2-normalised learnable class prototype. ˆh is the 
+
+ℓ2-normalised vector of T (ϕ(x)) . For each x ∈ B , q is the pseudo-label from a sharpened prediction of a different view of the same image. For each x ∈ B l, an additional q as the one-hot ground-truth vector is also used for supervised learning. Let Lr,c be the summation of Lrep and Lcls for simplification, the overall loss can then be written as: 
+
+LSimGCD = λ X
+
+x∈B 
+
+Lr,c (x) + (1 − λ) X
+
+x∈B l
+
+Lr,c (x) + ϵ∆,
+
+(4) where Bl denotes the subset of labelled samples in the current mini-batch, and ∆ is an entropy maximization term to prevent pseudo-label collapse [64]. Finally, λ and ϵ are hyperparameters. 
+
+B. Domain and Semantic Features 
+
+Let Tℓ denote the operation of the first ℓ transformer blocks (after the embedding layer ϕ). For an input image x, we extract: 
+
+rdom = T1(ϕ(x)) , rsem = TL(ϕ(x)) , (5) where rdom ∈ Rd1 captures low-level, domain-specific features from the first block, and rsem ∈ RdL captures high-level semantic features from the last block. These representations are then projected through separate MLPs and ℓ2-normalized: 
+
+hdom = ψdom (rdom ), hsem = ψsem (rsem ), (6) where ψdom , ψ sem : Rd → Rd′
+
+are projection heads (3-layer MLPs). This depth-wise hierarchy is well motivated by information-theoretic principles. Since the representation pipeline forms a Markov chain across layers, the data processing inequality implies that information about raw input statistics (including domain-specific patterns) is progressively discarded with depth. Meanwhile, end-to-end semantic supervision drives later layers 5
+
+to retain label-relevant abstractions. This naturally induces a hierarchy where early layers preserve more domain cues and later layers encode more semantics. A formal statement and proof are provided in Appendix E3. 
+
+C. Mutual Information Minimization 
+
+The core of HiLo is encouraging independence between domain and semantic features by minimizing their mutual information. We aim to minimize: 
+
+I(hdom ; hsem ) = H(hdom ) − H(hdom | hsem ), (7) where H(·) denotes entropy. Direct computation is intractable for high-dimensional contin-uous variables. We employ the Jensen-Shannon (JS) divergence-based estimator from Deep InfoMax [65]: 
+
+ˆI(hdom ; hsem ) = max 
+
+> D
+
+
+
+E(hd,hs)∼Pjoint 
+
+ − log(1 + e−D(hd,hs))
+
++ Ehd∼Pd,hs∼Ps
+
+ − log(1 + eD(hd,hs))
+
+,
+
+(8) where D : Rd′
+
+× Rd′
+
+→ R is a discriminator network (MLP with output dimension 1), and marginal distributions are obtained by shuffling. The MI minimization loss is: 
+
+LMI = ˆI(hdom ; hsem ) (9) Minimizing MI between domain and semantic features leads to provably tighter generalization bounds under domain shift. Intuitively, when the semantic feature distribution becomes independent of the domain variable, the domain shift penalty in the generalization bound vanishes. We formalize this in Theorem 3 (Appendix E4), which shows that the risk on any new domain ωb is bounded by the empirical risk plus a standard complexity term and a domain shift term λ(δ) = O(√δ), where 
+
+δ controls the KL divergence between domain-conditional feature distributions and their mixture. Lower MI directly reduces δ, thus tightening the bound. 
+
+D. PatchMix Augmentation for GCD 
+
+For images x, x′ (typically a labelled-domain sample and an unlabelled sample from a potentially new domain), we mix their patch embeddings: 
+
+˜ϕ(x)j = βj ⊙ ϕ(x)j + (1 − βj ) ⊙ ϕ(x′)j (10) where ϕ(x)j ∈ Rd is the j-th patch embedding (for j =1, . . . , P ), βj ∼ Beta is independently sampled for each patch, and ⊙ denotes element-wise multiplication. The mixed embeddings ˜ϕ(x) = { ˜ϕ(x)j }Pj=1 are then processed through transformer blocks to obtain semantic features ˜h = ψsem (T ( ˜ϕ(x))) for contrastive learning. For semantic features from mixed embeddings, we use a modified contrastive loss Eq. 2: 
+
+Lrep  
+
+> PM
+
+(x) = − 1
+
+|P (x)|
+
+X
+
+> ˜h+∈P (x)
+
+α · log σ(˜h · ˜h+; τ ), (11) where h+ 
+
+> sem
+
+denotes positive pairs (same class), σ(·; τ ) is softmax operation with temperature τ , and α = β·sβ·s+(1 −β)·s′
+
+with β = PPj=1 βj , and s and s′ are vectors storing the attention scores for all the patches for x and x′ respectively [9], [66]. The α weighting reflects the proportion of semantic content from the anchor image in the mixed representation. We also use a modified classification loss Eq. 3: 
+
+Lcls P M (x) = − X
+
+> w∈W′
+
+˜q log σ(˜h · w; τ ), (12) where ˜q = α · q + 1−α 
+
+> |Y novel |
+
+· 1 [67] with q being the one-hot ground-truth label of x for labelled x and the pseudo-label from the prediction of another mix-up view for unlabelled x.We also need to learn another set of prototypes W′.The resulting PatchMix objective is: 
+
+LP M = Lrep P M + Lcls P M (13) PatchMix training creates intermediate representations that bridge the domain gap between the labelled-domain distribution and new-domain distributions. When mixing samples x and x′
+
+from different domains but the same semantic class, the mixed representation ˜h forms a convex combination in feature space. Training on these mixed samples encourages the classifier to maintain smooth decision boundaries along interpolation paths between domains, which empirically improves cross-domain generalization. This regularization effect is particularly beneficial when the mixing coefficient β is sampled from a Beta distribution, creating diverse intermediate representations that cover the space between the labelled domain and new domains. 
+
+E. Curriculum Learning 
+
+Curriculum sampling [68] is an effective technique that can enhance generalization by gradually increasing the difficulty of the training data, which is also a natural fit for GCD with domain shifts. We first emphasize labelled-domain-like samples to learn stable semantic representations from labelled supervision, and then introduce more new-domain-like samples as an additional challenge in later training stages. Practically, we design a sampling weight pcs (x|t) for each sample x at training epoch t based on separating labelled-domain-like and new-domain-like samples in the domain-feature space. Since domain labels are generally unavailable for unlabelled samples, we run semi-supervised k-means on domain features extracted using the DINO-pretrained backbone. Let the resulting clusters be ˆDa and ˆDb, which correspond to domains Ωa and Ωb
+
+respectively, and Du = ˆDa ∪ ˆDb. We then define the sampling probability weight pcs (x|t) as follows: 
+
+pcs (x|t) = 
+
+
+
+1, x ∈ D l  
+
+> |D l||ˆDa|
+
+, x ∈ ˆDa,r0 + ( r′ − r0)1(t > t ′), x ∈ ˆDb
+
+(14) where 1(·) is an indicator function, t′ is a constant epoch number after which we increase the portion of samples from new domains, r0 and r′ are constant probabilities for 6
+
+new-domain samples in the earlier ( < t ′) and later ( > t ′)stages, and t indicates the current training time step. In our formulation, (1) if x is a labelled sample, its pcs (x|t) is set to 1, without any discount. (2) If x is an unlabelled sample in ˆDa
+
+(predicted as from the labelled domain), pcs (x|t) is set to |D l|| ˆDa| ,proportional to the ratio of labelled and unlabelled samples from the labelled domain, following the sampling strategy in conventional GCD [3]. (3) If x is an unlabelled sample in ˆDb
+
+(predicted as from a new domain), its pcs (x|t) increases along with training after epoch t′.Under standard stochastic approximation conditions, curriculum-weighted SGD converges to a stationary point, and the warmup phase improves optimization stability by first learning robust semantic features before introducing harder new-domain samples. A theoretical convergence analysis is provided in Appendix E5 (Theorem 4). 
+
+F. Overall Training Objective and Algorithm 
+
+The complete HiLo objective combines domain and seman-tic clustering, MI minimization, PatchMix, and curriculum sampling: 
+
+LHiLo = Ls + ϵs∆s + Ld + ϵd∆d + LMI + LPM (15) The clustering terms Ld and Ls combine supervised con-trastive loss on labelled data with self-supervised contrastive loss on all data using low-level domain features hdom and high-level semantic features hsem respectively, along with a parametric classification loss using learnable prototypes. For the domain classification loss, since domain labels are generally unavailable for unlabelled samples, we run a semi-supervised 
+
+k-means on domain features extracted from the backbone to obtain pseudo-labels. ∆ is the mean entropy maximization term to prevent pseudo-label collapse [64] for both domain and semantic aspects, where ϵs and ϵd are balancing factors. The mutual information term LMI corresponds to the MI minimization loss defined in Eq. 9. The PatchMix term LPM 
+
+applies the modified loss in Eq. 13 on mixed embeddings. Samples are drawn according to curriculum weights pcs (x|t).HiLo establishes the core framework for GCD with domain shifts and serves as the foundation for the two extensions introduced here. The next two sections extend HiLo in two directions: HLPrompt adds input-level adaptation via spatial prompt tuning to suppress background domain noise (Section V), and VLPrompt extends the framework to vision-language models for richer cross-modal semantic structure (Section VI). V. HLP ROMPT : H ILO WITH SEMANTIC -A WARE SPATIAL 
+
+PROMPT TUNING 
+
+HiLo operates entirely in feature space, disentangling domain and semantic representations after the image has already been encoded. However, domain-specific noise—particularly from backgrounds carrying strong domain cues such as sky textures, lighting conditions, or artistic styles—enters the representation 
+
+before feature-level mechanisms can act on it. 
+
+Key idea. HLPrompt complements HiLo’s feature-level dis-entanglement with input-level adaptation that focuses the model on foreground object regions while suppressing background domain noise. The core challenge is how to identify foreground regions reliably across different domains without any segmen-tation labels. We address this by leveraging Normalized Cut (NCut) [16] on patch affinity graphs from early ViT layers, exploiting the fact that self-supervised DINO attention naturally concentrates on foreground objects [12]. 
+
+Approach. Concretely, HLPrompt introduces two mech-anisms on top of HiLo: (i) semantic-aware spatial prompt tuning that injects learnable prompts selectively into foreground patches identified by NCut, and (ii) a two-stage alternating optimization that decouples prompt learning from model parameter updates for stable convergence. All of HiLo’s core components—MI minimization, PatchMix, and curriculum sampling—are retained; the training objective remains LHiLo 
+
+(Eq. 15). HLPrompt uses a DINOv3-pretrained ViT [14], whose self-supervised attention yields reliable NCut masks even under domain shifts. See Figure 3 for an overview. 
+
+A. Semantic-Aware Spatial Prompt Tuning with NCut 
+
+Standard visual prompting methods [39], [69] apply prompts uniformly to all image regions, wasting capacity on back-grounds that carry domain-specific noise. Building upon our prior work on spatial prompt tuning [40], HLPrompt extends this idea by leveraging NCut [16] to identify foreground regions and applying prompts only there. Given an input image x, we construct a patch affinity graph from intermediate ViT features and apply NCut to obtain a foreground mask M ∈ { 0, 1}P
+
+(full details in Appendix E7). 
+
+1) Selective Spatial Prompt Application: With the fore-ground mask M, we define spatial prompts Qs =
+
+{q1, q2, . . . , qP } that are applied selectively: 
+
+˜xj = xj + Mj · qj (16) where xj denotes the j-th patch embedding, Mj ∈ { 0, 1} is the foreground indicator, and qj is the learnable spatial prompt for patch j.This selective application concentrates prompt capacity on semantically relevant regions and avoids background regions that carry domain-specific cues, improving both parameter efficiency and domain robustness. In practice, we use a single shared foreground prompt qfg ∈ Rd modulated by the mask: 
+
+qj = Mj · qfg .
+
+2) Two-Stage Alternating Optimization: Following SPT-Net [40], we decouple prompt and model optimization via alternation. Stage 1 freezes the encoder and heads and updates only spatial prompts Qs; Stage 2 freezes prompts and updates the encoder, projection heads, and discriminator using LHiLo 
+
+(Eq. 15). The two stages alternate every k iterations: 
+
+Stage 1: Q(t+1)  
+
+> s
+
+← Q(t) 
+
+> s
+
+− ηp∇Qs LHiLo 
+
+Stage 2: Θ(t+1)  
+
+> T
+
+← Θ(t) 
+
+> T
+
+− sη ∇L HiLo 
+
+{Θψ , ΘD }(t+1) ← { Θψ , ΘD }(t) − η∇L HiLo 
+
+(17) where ηp and η are learning rates for spatial prompts and model parameters respectively, and s is a scaling factor that reduces the learning rate for the encoder backbone T . This 7{ }
+
+t=0 t=T/2 t=T   
+
+> Cat
+> Dog
+> Bird
+> Strawberry
+> Plane
+> Dog
+> Seen
+> domain
+> Unseen
+> domain
+> Strawberry
+> Plane
+> Cat Cat
+> Bird Dog
+> Seen
+> domain
+> Unseen
+> domain
+
+Dataset   
+
+> Sampler
+> Cat
+> Dog Plane Strawberry
+> Cat
+> Dog
+> Seen
+> domain
+> Unseen
+> domain
+> Seen
+> domain
+> …
+> NCut
+> prompt
+> Text
+> Encoder
+
+Semantic-aware Spatial Prompt 
+
+> Spatial
+
+with domain shift and GCD, which assumes Y ↔ Y = ↗ for the former and ω = ω166 166 
+
+with singleton cardinalities for the latter. For notation simplicity, hereafter we omit the 167 167 
+
+subscript i for each image xi.168 168 
+
+3.1 Background: SimGCD 169 169 
+
+SimGCD [59] is a representative end-to-end baseline for GCD, which integrates two pri-170 170 
+
+mary losses for representation learning and parametric classification: (1) a contrastive loss 171 171 
+
+Lrep based on InfoNCE [39] is applied for the representation learning of the feature back-172 172 
+
+bone; and (2) a cross-entropy loss Lcls for training a cosine classification head [19], uti-173 173 
+
+lizing different image views as pseudo-labels for one another. Following [54], SimGCD 174 174 
+
+employs the ViT model as the backbone containing m Transformer layers. Let F be the 175 175 
+
+feature extractor consisting of these m layers and H be a projection head. For an input 176 176 
+
+image x, a ε2-normalised feature can be obtained by z = H(F(ϑ(x))) , where ϑ is a 177 177 
+
+standard embedding layer before the multi-head attention layers in the ViT model. The 178 178 
+
+representation loss is 179 179 
+
+Lrep (x) = ↘ 1
+
+|P (x)|
+
+∑
+
+> z+→P(x)
+
+log ϖ(z · z+; ϱ ), (1) 180 180 
+
+where ϖ(·; ϱ ) is the softmax operation with a temperature ϱ for scaling and P(x) denotes 181 181 
+
+the positive feature set for each x. Suppose we sample a batch B, B contains both labelled 182 182 
+
+and unlabelled images, denoted as Bl, Bu, respectively. If x ≃ Bu, P(x) is features of 183 183 
+
+another view from the same image, while if x ≃ Bl, P(x) is features from the same 184 184 
+
+class. Likewise, the classification loss can be written as 185 185 
+
+Lcls (x) = ↘ ∑
+
+> w→W
+
+q log ϖ(ˆ z · w; ϱ ), (2) 186 186 
+
+where each vector w in W represents a ε2-normalised learnable class prototype. q is the 187 187 
+
+one-hot ground-truth label if x ≃ Bl, and is a pseudo-label from a sharpened prediction 188 188 
+
+of another view of the image if x ≃ Bu. Let Lr,c be the summation of Lrep and Lcls for 189 189 
+
+simplification, the overall loss can then be written as: 190 190 
+
+Lsim = ς ∑
+
+> x→B
+
+Lr,c (x) + (1 ↘ ς) ∑
+
+> x→Bl
+
+Lr,c (x) + φ↼ , (3) 191 191 
+
+where Bl denotes the subset of labelled samples in the current mini-batch, and ↼ is an 192 192 
+
+entropy maximization term to prevent pseudo-label collapse [1]. Finally, ς and φ are 193 193 
+
+hyperparameters, and we refer to the original work for further details [59]. 194 194 
+
+Despite achieving strong performance on the standard single-domain GCD task, 195 195 
+
+SimGCD struggles in the more realistic scenario in which the unlabelled data exhibits 196 196 
+
+the label sets for ‘All’, ‘Old’, and ‘New’ categories, respectively. It is important to note 163 163 
+
+that Yl → Yu. The objective of GCD is to classify all unlabelled images in Du (from 164 164 
+
+either ωa or ωb) using only the labels in Dl. This is different from the setting of NCD 165 165 
+
+with domain shift and GCD, which assumes Yl ↔ Yu = ↗ for the former and ωa = ωb 
+
+> 166 166
+
+with singleton cardinalities for the latter. For notation simplicity, hereafter we omit the 167 167 
+
+subscript i for each image xi.168 168 
+
+3.1 Background: SimGCD 169 169 
+
+SimGCD [59] is a representative end-to-end baseline for GCD, which integrates two pri-170 170 
+
+mary losses for representation learning and parametric classification: (1) a contrastive loss 171 171 
+
+Lrep based on InfoNCE [39] is applied for the representation learning of the feature back-172 172 
+
+bone; and (2) a cross-entropy loss Lcls for training a cosine classification head [19], uti-173 173 
+
+lizing different image views as pseudo-labels for one another. Following [54], SimGCD 174 174 
+
+employs the ViT model as the backbone containing m Transformer layers. Let F be the 175 175 
+
+feature extractor consisting of these m layers and H be a projection head. For an input 176 176 
+
+image x, a ε2-normalised feature can be obtained by z = H(F(ϑ(x))) , where ϑ is a 177 177 
+
+standard embedding layer before the multi-head attention layers in the ViT model. The 178 178 
+
+representation loss is 179 179 
+
+Lrep (x) = ↘ 1
+
+|P (x)|
+
+∑
+
+> z+→P(x)
+
+log ϖ(z · z+; ϱ ), (1) 180 180 
+
+where ϖ(·; ϱ ) is the softmax operation with a temperature ϱ for scaling and P(x) denotes 181 181 
+
+the positive feature set for each x. Suppose we sample a batch B, B contains both labelled 182 182 
+
+and unlabelled images, denoted as Bl, Bu, respectively. If x ≃ Bu, P(x) is features of 183 183 
+
+another view from the same image, while if x ≃ Bl, P(x) is features from the same 184 184 
+
+class. Likewise, the classification loss can be written as 185 185 
+
+Lcls (x) = ↘ ∑
+
+> w→W
+
+q log ϖ(ˆ z · w; ϱ ), (2) 186 186 
+
+where each vector w in W represents a ε2-normalised learnable class prototype. q is the 187 187 
+
+one-hot ground-truth label if x ≃ Bl, and is a pseudo-label from a sharpened prediction 188 188 
+
+of another view of the image if x ≃ Bu. Let Lr,c be the summation of Lrep and Lcls for 189 189 
+
+simplification, the overall loss can then be written as: 190 190 
+
+Lsim = ς ∑
+
+> x→B
+
+Lr,c (x) + (1 ↘ ς) ∑
+
+> x→Bl
+
+Lr,c (x) + φ↼ , (3) 191 191 
+
+where Bl denotes the subset of labelled samples in the current mini-batch, and ↼ is an 192 192 
+
+entropy maximization term to prevent pseudo-label collapse [1]. Finally, ς and φ are 193 193 
+
+hyperparameters, and we refer to the original work for further details [59]. 194 194 
+
+Despite achieving strong performance on the standard single-domain GCD task, 195 195 
+
+SimGCD struggles in the more realistic scenario in which the unlabelled data exhibits 196 196 
+
+❄
+
+Textual Prompt Embedding 
+
+Curriculum sampling 
+
+> Boundary prompt
+
+PatchMix  Mutual Information minimization 
+
+Stage 2: Prompt update 
+
+Stage 1: Model update     
+
+> ❄🔥 /
+> 🔥 ❄/
+> A photo of a
+> A photo of a
+> A photo of a …
+> Learnable tokens
+> 🔥 ❄/
+> 🔥 ❄/
+
+ViT block 
+
+ViT block ❄       
+
+> 🔥 ❄/
+> 2N×dim zs
+> 2N×dim zd
+
+Projector 
+
+zs
+
+> Tile
+> …
+> …
+> …
+
+…
+
+…  
+
+> N×N
+> dim z s + dim z d
+> Tile
+
+zd
+
+Projector 
+
+Projector 
+
+domain information ( i.e ., styles). Thus, the image representation o 174 
+
+as z(1) = ( z(1) 
+
+s , z(1) 
+
+d ), similarly for x2, we have z(2) = ( z(2) 
+
+s , z(2) 
+
+d175 
+
+semantic representations z(1) 
+
+s and z(2) 
+
+s encapsulate category infor 176 
+
+dogs), while exclusive representations z(1) 
+
+d and z(2) 
+
+d pertain to style 177 
+
+As high-level features carry more abstraction than shallow feature [4 178 
+
+and z1 to represent semantic information z(1) 
+
+s [ Rs and domain in 179 
+
+respectively. As such, we consider minimizing the mutual informa 180 
+
+zd as: 181 
+
+I(zs, zd) \ I(zm, z1) = 
+
+P
+
+Rs
+
+P
+
+Rd
+
+p(zm, z 1) log 
+
+Z p(zm, z 1)
+
+p(zm)p(z1)
+
+182 
+
+However, it is intractable to estimate the density ratio between p(zm,183 
+
+from finite high-dimensional samples without parametric assump 184 
+
+fore, we utilize variational f -divergence estimation approach [33 185 
+
+lower bounds on f -divergence, and subsequently to mutual informa 186 
+
+than estimating its exact value. Here we use the mutual informa 187 
+
+InfoMax [24] which is based on the Jensen-Shannon divergence in 188 
+
+information I(zm, z1) can be estimated using samples from p(zm189 
+
+Lm = ˆI (zm, z1) = Ep(zm,z1)
+
+◆
+
+; log 
+
+h
+
+1 + e⇤ (zm,z
+
+; Ep(zm)p(z1)
+
+◆
+
+log 
+
+h
+
+1 + e (zm
+
+190 
+
+where ` is an MLP projection head with a single linear layer param 191 
+
+matrix whose output size is 1. 192 
+
+3.2 PatchMix Contrastive Learning 193 
+
+Mixup [56] is a powerful data augmentation technique that involv 194 
+
+samples and their corresponding labels to create new synthetic tr 195 
+
+Mixup is more beneficial in learning in-between and even rare f 196 
+
+obtain rich zm, z1 to estimate zs, zd more precisely. 197 
+
+PMTrans in UDA. PMTrans [65] introduces a linear interpolation 198 
+
+perform mixup augmentation among the embedding features z0. We 199 
+
+  for features from labelled zl
+
+0 and unlabelled data zu
+
+0 to perform 200 
+
+tation: ¯z0 =  (zl
+
+0, zu
+
+0 ;  ) =  k ⇢ zl
+
+0 + (1 ;  k) ⇢ zu
+
+0 , where  201 
+
+the random mixing proportion for the k-th patch, sampled from B 202 
+
+element-wise multiplication operation is denoted by ⇢. PMTrans a 203 
+
+target samples with the intermediate sample constructed by Patch 204 
+
+both feature and label spaces. However, new categories in Du canno 205 
+
+PatchMix. Thus, we consider combining PatchMix with end-to-en 206 
+
+As Lr is dependent on the similarity matrix computed betw 207 
+
+batch, the presence of mixed samples with varying proportions of 208 
+
+## I ·↳ / X
+
+# D re D// & - -
+
+## Not 
+
+?
+
+-- --
+
+(
+
+~
+
+- -
+
+# - -- ~ - -
+
+introducy a Patal Mix 
+
+> -
+
+known semantics occupied in the mixed samples: ε = ω·sl+(1 ↔ω)·su , where we aggre-262 262 
+
+gate ϱ for all patches to get the instance-level importance and attention scores s are 263 263 
+
+involved to eliminate false responses when combining null semantic components [7, 72]. 264 264 
+
+For supervised classification, q in Equation (2) is replaced by ¯y = ε · y + 1↔ε 
+
+> C
+
+· 1,265 265 
+
+where the all-one vector 1 smoothes for all categories, given that the ground-truth for 266 266 
+
+unlabelled data is unknown. For the unsupervised classification, q is a pseudo-label from 267 267 
+
+a sharpened prediction of the mixup from another view. The overall loss for PatchMix 268 268 
+
+representation learning is: 269 269 
+
+Ls(x) = Lrep s (x) + Lcls s (x). (8) 270 270 271 271 
+
+Then, we proceed to assign cluster labels for each data point based on low-level 272 272 
+
+features ( i.e ., zd). Since covariate and semantic information in the data is independent 273 273 
+
+by definition, we can reformulate Lsim using domain label v, with new weight matrix 274 274 
+
+W ↓ for domain axis in Equation (2): 275 275 
+
+Ld(x) = Lrep d (x) + Lcls d (x). (9) 276 276 
+
+Note that q in Equation (2) is ¯v = ε · v + 1↔ε 
+
+> |ϑ|
+
+· 1 for supervised classification. As for 277 277 
+
+unsupervised classification, we peform SS-kmeans [53] for pseudo-labelling, which has 278 278 
+
+been shown to be reliable and efficient especially when the class number is small. 279 279 
+
+To prevent a trivial solution where all instances are assigned to one class, we add a 280 280 
+
+regularization term ςd for domain classification. As shown in Equation (3), we also apply 281 281 
+
+mean-entropy maximization regularization to the domain axis. Putting all perspectives 282 282 
+
+together, we can give the overall loss function as follows: 283 283 
+
+L = Lm + Ls + Ld + φς , (10) 284 284 
+
+where φ is the balance factor for the regularizer ς, which is the summation of ςs and 285 285 
+
+ςd.286 286 
+
+involved to eliminate false responses when combining null semantic components [7, 72]. 264 264 
+
+For supervised classification, q in Equation (2) is replaced by ¯y = ε · y + 1↔ε 
+
+> C
+
+· 1,265 265 
+
+where the all-one vector 1 smoothes for all categories, given that the ground-truth for 266 266 
+
+unlabelled data is unknown. For the unsupervised classification, q is a pseudo-label from 267 267 
+
+a sharpened prediction of the mixup from another view. The overall loss for PatchMix 268 268 
+
+representation learning is: 269 269 
+
+Ls(x) = Lrep s (x) + Lcls s (x). (8) 270 270 271 271 
+
+Then, we proceed to assign cluster labels for each data point based on low-level 272 272 
+
+features ( i.e ., zd). Since covariate and semantic information in the data is independent 273 273 
+
+by definition, we can reformulate Lsim using domain label v, with new weight matrix 274 274 
+
+W ↓ for domain axis in Equation (2): 275 275 
+
+Ld(x) = Lrep d (x) + Lcls d (x). (9) 276 276 
+
+Note that q in Equation (2) is ¯v = ε · v + 1↔ε 
+
+> |ϑ|
+
+· 1 for supervised classification. As for 277 277 
+
+unsupervised classification, we peform SS-kmeans [53] for pseudo-labelling, which has 278 278 
+
+been shown to be reliable and efficient especially when the class number is small. 279 279 
+
+To prevent a trivial solution where all instances are assigned to one class, we add a 280 280 
+
+regularization term ςd for domain classification. As shown in Equation (3), we also apply 281 281 
+
+mean-entropy maximization regularization to the domain axis. Putting all perspectives 282 282 
+
+together, we can give the overall loss function as follows: 283 283 
+
+L = Lm + Ls + Ld + φς , (10) 284 284 
+
+where φ is the balance factor for the regularizer ς, which is the summation of ςs and 285 285 
+
+ςd.286 286 
+
+Lrep s (x) = → 1
+
+|P (x)|
+
+∑ 
+
+> ¯z+
+> s↑P(x)
+
+ε log ϑ(¯zs · ¯z+ 
+
+> s
+
+; ϖ↓). (7) 260 260 
+
+Specifically, the confidence factor ε is calculated based on the global proportion of 261 261 
+
+known semantics occupied in the mixed samples: ε = ω·sl 
+
+> ω·sl+(1 ↔ω)·su
+
+, where we aggre-262 262 
+
+gate ϱ for all patches to get the instance-level importance and attention scores s are 263 263 
+
+involved to eliminate false responses when combining null semantic components [7, 72]. 264 264 
+
+For supervised classification, q in Equation (2) is replaced by ¯y = ε · y + 1↔ε 
+
+> C
+
+· 1,265 265 
+
+where the all-one vector 1 smoothes for all categories, given that the ground-truth for 266 266 
+
+unlabelled data is unknown. For the unsupervised classification, q is a pseudo-label from 267 267 
+
+a sharpened prediction of the mixup from another view. The overall loss for PatchMix 268 268 
+
+representation learning is: 269 269 
+
+Ls(x) = Lrep s (x) + Lcls s (x). (8) 270 270 271 271 
+
+Then, we proceed to assign cluster labels for each data point based on low-level 272 272 
+
+features ( i.e ., zd). Since covariate and semantic information in the data is independent 273 273 
+
+by definition, we can reformulate Lsim using domain label v, with new weight matrix 274 274 
+
+W ↓ for domain axis in Equation (2): 275 275 
+
+Ld(x) = Lrep d (x) + Lcls d (x). (9) 276 276 
+
+Note that q in Equation (2) is ¯v = ε · v + 1↔ε 
+
+> |ϑ|
+
+· 1 for supervised classification. As for 277 277 
+
+unsupervised classification, we peform SS-kmeans [53] for pseudo-labelling, which has 278 278 
+
+been shown to be reliable and efficient especially when the class number is small. 279 279 
+
+To prevent a trivial solution where all instances are assigned to one class, we add a 280 280 
+
+regularization term ςd for domain classification. As shown in Equation (3), we also apply 281 281 
+
+mean-entropy maximization regularization to the domain axis. Putting all perspectives 282 282 
+
+together, we can give the overall loss function as follows: 283 283 
+
+L = Lm + Ls + Ld + φς , (10) 284 284 
+
+where φ is the balance factor for the regularizer ς, which is the summation of ςs and 285 285 
+
+ςd.286 286      
+
+> 🔥 ❄/🔥 ❄/
+> 🔥 ❄/
+> ❄🔥 /
+
+ViT block ❄
+
+> …
+> Low-level
+> information
+
+{ }Semantic 
+
+> information
+> Every  step k
+> Every  step k
+
+Sk = concat ([ ε1, ε2, . . . , εN , ϑk]) (30) This sequence is processed by the frozen text encoder to obtain the category embedding: 
+
+ϖk = !(t)(Sk) (31) For categories embeddings ϑk, we initialize them randomly from a Gaussian distribution N (0 , εID ) where ε controls initialization scale. Context embeddings !ctx are initialized from embeddings of generic phrases like “a photo of a” and then optimized end-to-end. 
+
+2) Analysis of Factorization Benefits: 
+
+Theorem 3 (Sample Efficiency of Factorized Prompts) . Con-sider learning class representations for K categories with factorized embeddings versus independent embeddings. Let 
+
+Ffact denote the function class using factorized prompts with 
+
+N shared context embeddings and K category embeddings, and 
+
+Findep using fully independent prompts. For achieving expected error at most ϑ with probability 1 ↑ ϖ, factorized prompts require: 
+
+nfact = O
+
+( (N + K) · D · log(1 /ϖ)
+
+ϑ2
+
+)
+
+(32) 
+
+samples, while independent prompts require: 
+
+nindep = O
+
+( K · (N + 1) · D · log(1 /ϖ)
+
+ϑ2
+
+)
+
+(33) 
+
+samples, where D is embedding dimension. When K ↓ N ,factorization reduces sample complexity by approximately factor K(N +1)   
+
+> N+K
+
+↔ N + 1 .Proof Sketch. The factorized representation has (N + K) · D
+
+learnable parameters: N · D for shared context and K · D
+
+for category-specific embeddings. Independent prompts have 
+
+K · (N + 1) · D parameters with no sharing. By Rademacher complexity bounds, sample complexity scales with the effective parameter dimension. The shared context embeddings !ctx distribute learning signal across all categories, effectively reducing the per-category parameter burden from (N + 1) · D
+
+> k=1
+
+where tk → T = [ ti]Ki=1 is a set of K text descriptions, ε(·; ϱ )
+
+is the softmax operation with temperature ϱ , and q is the one-hot ground-truth label for labelled x and is the pseudo-label from a sharpened prediction (cross-modal matching score) of a different view of the same image for unlabelled x.
+
+D. Vision-Language Alignment 
+
+To further fit CLIP into the GCD with domain shift task by factorized text representations, the model must learn semantically meaningful context embeddings ”ctx and category-specific embeddings #, which should also be consistent with visual representations. Therefore, given a sampled mini-batch 
+
+B = Bl ↗ Bu of size N , we generate M augmented views for each image, resulting in a total batch size of M N . Let 
+
+V = ς(v)(X) be the batch of normalized visual embeddings extracted by the image encoder, where X is the mini-batch of images. We aim to derive a corresponding batch of aligned text representations T from the text bank $ = [φk]Kk=1 . For a labelled sample xi → Bl, we directly select the text representation ti → $ according to its class label. For an unlabelled sample xi → Bu, we utilize the pseudo-label 
+
+qi derived from the sharpened cross-modal matching score of a different view of the image: qi = ε(ω(x↓
+
+> i
+
+, $); ϱtext ),where ε(·; ϱ ) is the softmax operation with temperature ϱ .We then adopt a soft assignment scheme to compute the text representation as the probability-weighted sum of all category embeddings: ti = qi · $.With the constructed visual batch V and text batch T, we compute the image-text similarity logits as S = VT →. To enforce alignment, we design a vision-language consistency objective LVL that minimizes the symmetric Kullback-Leibler (KL) divergence between the image-to-text and text-to-image matching distributions: 
+
+Lvl = 12 (Li2t + Lt2i) , (35) 
+
+p(t1 | x)
+
+p(t𝒴  | x)
+
+> …
+> Logits
+> …
+> image-text
+> similarity
+> image-text
+> similarity
+> image-text
+> similarity
+> HLPrompt VLPrompt
+
+VLPrompt 
+
+HLPrompt   
+
+> NCut Input Output
+> Input Output
+
+(a) The overall pipeline of VLPrompt and HLPprompt  (b) Details of 
+
+VLPrompt and HLPprompt 
+
+Fig. 3. Overview of HLPrompt and VLPrompt. We summarize both the pure-vision path (HLPrompt; building on HiLo) and the vision-language path (VLPrompt) in this figure. The core HiLo components shared by both paths are detailed in Figure 2. (1) HLPrompt. AViT backbone extracts low-level domain features from early layers and high-level semantic features from late layers. HLPrompt enforces domain–semantic disentanglement via mutual information minimization, improves cross-domain interpolation via PatchMix, and adopts curriculum sampling pcs (x | t) to emphasize labelled-domain-like samples early and new-domain-like samples later. We further integrate NCut [16]-based semantic-aware spatial prompt tuning to inject visual prompts only into foreground object regions, and optimize prompts and model parameters using a two-stage alternating scheme. (2) VLPrompt. Starting from a pretrained vision-language model (VLM; e.g., CLIP), VLPrompt learns factorized textual prompts (shared context + category embeddings) and aligns vision/text through a symmetric vision-language objective (Eq. 23) together with semi-supervised classification, MI minimization, and cross-modal PatchMix. VLPrompt uses boundary-based spatial prompt tuning and a two-stage alternating optimization between the visual prompt Qs and model/text prompt parameters. Dashed components indicate the optional text branch: when adopting the pure-vision mechanism, the pipeline ignores the text encoder/prompt pathway; when adopting the vision-language mechanism, the dashed pathway is activated to leverage cross-modal alignment. 
+
+decomposition avoids interference between prompt and model gradients, leading to more stable convergence. During inference, the same NCut-based foreground detection is applied to new images. The detailed HLPrompt training procedure is provided in Algorithm 1 (Appendix B4). HLPrompt is dominated by the ViT forward and backward passes, while prompt injection and shallow heads add com-paratively small overhead. We defer a detailed complexity breakdown (including NCut mask estimation) to Appendix E9. 
+
+Summary. HLPrompt extends HiLo with NCut-guided fore-ground prompting and alternating optimization. It retains HiLo’s loss LHiLo but changes the optimization landscape: prompts act as learned domain-invariant input transformations that complement HiLo’s feature-level disentanglement, and the alternating scheme (Eq. 17) stabilizes convergence by decoupling prompt and model updates. Together, HiLo and HLPrompt form a complete pure-vision path. The next section turns to vision-language foundation models for an additional source of semantic structure. VI. VLP ROMPT : V ISION -L ANGUAGE PROMPT TUNING FOR 
+
+GCD WITH DOMAIN SHIFTS 
+
+HiLo and HLPrompt operate in a pure-vision setting, relying solely on visual representations. However, vision-language foundation models (VLMs) offer a complementary advantage: their aligned visual and textual representations provide richer semantic structure that can be leveraged for category discovery, and large-scale cross-modal pretraining endows them with broader robustness to visual style variations. 
+
+Key idea. VLPrompt extends HiLo’s principles to the vision-language setting. The core challenge is twofold: (i) standard VLM prompts like “a photo of a [CLASS]” cannot handle 
+
+unnamed novel categories that must be discovered, and (ii) do-main shifts such as photos-to-sketches can disrupt the pretrained vision-language alignment. We address (i) by introducing 
+
+factorized textual prompts that decompose each category representation into shared context embeddings (encoding task-level information) and category-specific embeddings (initialized randomly for novel categories), enabling discovery without predefined class vocabularies. We address (ii) through cross-modal consistency regularization that maintains vision-language alignment under domain-interpolating perturbations. 
+
+Approach. VLPrompt inherits HiLo’s core components— MI minimization, PatchMix, and curriculum sampling—while adapting them to the cross-modal setting. It uses CLIP [15] as the backbone, preserving HiLo’s feature hierarchy by extracting domain features from early blocks and semantic features from late blocks of the CLIP vision encoder, with MI minimiza-tion applied in the shared vision-language embedding space. Compared with prior CLIP-based GCD methods that focus on single-domain settings (e.g., CLIP-GCD [34], CPT [35]), VLPrompt additionally targets unseen domain shifts in the unlabelled pool. 
+
+A. Architecture 
+
+We instantiate VLPrompt with CLIP’s dual-encoder archi-tecture: vision encoder Φ(v) : X → RD and text encoder 
+
+Φ(t) : T → RD project to a shared D-dimensional embedding space. The vision branch is Φ(v) = W ◦ F ◦ ϕ, where ϕ is the 8
+
+patchify operation, F is the multi-head attention stack, and 
+
+W projects from vision to text space. For image x and text descriptions u, the model computes ℓ2-normalized embeddings: 
+
+π(v)(x) = Φ(v)(x)
+
+∥Φ(v)(x)∥2
+
+, π(t)(u) = Φ(t)(u)
+
+∥Φ(t)(u)∥2
+
+, (18) where ϕ is the patchify operation in Φ(v). The cross-modal matching score is: 
+
+ρ(x, u) = π(v)(x)⊤π(t)(u). (19) 
+
+B. Adaptive Prompt Learning with Factorized Representations 
+
+Instead of hand-crafted text templates, we learn continu-ous prompt representations through a factorized embedding structure. 
+
+1) Factorized Prompt Embeddings: We introduce a factor-ized prompt representation where each class k is described by combining context embeddings shared across all categories with category-specific embeddings. Let Θctx = [ θ1, θ2, . . . , θN ] ∈
+
+RD×N denote a set of N learnable context embeddings shared globally, encoding task-agnostic contextual information. Let 
+
+Γ = [ γ1, γ2, . . . , γK ] ∈ RD×K denote K category-specific embeddings, where γk ∈ RD captures discriminative features for class k.For category k, we construct the composite textual represen-tation as a sequence: 
+
+Sk = concat  [Θctx , γk] (20) This sequence is processed by the frozen text encoder to obtain the category embedding: 
+
+ξk = Φ (t)(Sk) (21) For categories embeddings γk, we initialize them randomly from a Gaussian distribution N (0 , σ ID ) where σ controls initialization scale. Context embeddings Θctx are initialized from embeddings of generic phrases like “a photo of a” and then optimized end-to-end. 
+
+2) Analysis of Factorization Benefits: Factorization reduces the number of free parameters from K(N + 1) D (independent prompts) to (N +K)D (shared context + category embeddings), which improves sample efficiency by sharing task-level context across categories—especially in the common regime K ≫ N .
+
+C. Semi-supervised Classification 
+
+We adopt a similar semi-supervised classification objective as Eq. 3. The only difference is that instead of learning prototypes 
+
+W in a parametric way, we use the cross-modal matching score 
+
+ρ(·, ·) in Eq. 19. The classification objective is: 
+
+Lcls (x) = −
+
+> K
+
+X
+
+> k=1
+
+q log σ(ρ(x, t k); τ ), (22) where tk ∈ T = [ ti]Ki=1 is a set of K text descriptions, σ(·; τ )
+
+is the softmax operation with temperature τ , and q is the one-hot ground-truth label for labelled x and is the pseudo-label from a sharpened prediction (cross-modal matching score) of a different view of the same image for unlabelled x.
+
+D. Vision-Language Alignment 
+
+To further fit CLIP into the GCD with domain shift task by factorized text representations, the model must learn semantically meaningful context embeddings Θctx and category-specific embeddings Γ, which should also be consistent with visual representations. Therefore, given a sampled mini-batch 
+
+B = Bl ∪ B u of size N , we generate M augmented views for each image, resulting in a total batch size of M N . Let 
+
+V = π(v)(X) be the batch of normalized visual embeddings extracted by the image encoder, where X is the mini-batch of images. We aim to derive a corresponding batch of aligned text representations T from a bank of category text embeddings. Let 
+
+E = [ ξk]Kk=1 ∈ RK×D denote the embedding bank, where each row is a ℓ2-normalized category embedding ξk. For a labelled sample xi ∈ B l, we directly select the text representation 
+
+ti ∈ E according to its class label. For an unlabelled sample 
+
+xi ∈ B u, we utilize the pseudo-label qi derived from the sharpened cross-modal matching score of a different view of the image: qi = σ(ρ(x′
+
+> i
+
+, E); τtext ), where σ(·; τ ) is the softmax operation with temperature τ . We then adopt a soft assignment scheme to compute the text representation as the probability-weighted sum of all category embeddings: ti = qi · E.With the constructed visual batch V and text batch T, we compute the image-text similarity logits as S = VT ⊤. To enforce alignment, we design a vision-language consistency objective Lvl that minimizes the symmetric Kullback-Leibler (KL) divergence between the image-to-text and text-to-image matching distributions: 
+
+Lvl = 12 (Li2t + Lt2i) , (23) where 
+
+Li2t = 1
+
+M N 
+
+> M N
+
+X
+
+> i=1
+
+DKL (pt2ii ∥pi2ti ),
+
+Lt2i = 1
+
+M N 
+
+> M N
+
+X
+
+> i=1
+
+DKL (pi2ti ∥pt2ii ),
+
+(24) where pi2ti = σ(Si) and pt2ii = σ(( S⊤)i).
+
+E. Mutual Information Minimization 
+
+We integrate HiLo’s mutual information minimization (Sec-tion IV) into the VLPrompt architecture. The motivation is the same—encouraging domain-invariant semantic features—but the adaptation is non-trivial: since CLIP aligns vision and text in a shared embedding space, we perform MI minimization 
+
+after the projection layer W so that the disentangled semantic features can be directly matched with text features, which are purely semantic. Let F denote the transformer stack in the vision encoder, and let Fℓ denote the composition of its first 
+
+ℓ transformer blocks (so FL = F for the final block index 
+
+L). For an input image x, we extract the first-block and last-block outputs of F (after the projection W) as the domain and semantic features, respectively: 
+
+rdom = W · F 1(ϕ(x)) , rsem = W · F L(ϕ(x)) , (25) 9
+
+and estimate mutual information using Eq. 8 with a discrimi-nator D : RD × RD → R. The MI minimization loss is: 
+
+LM I = ˆI(rdom , rsem ) (26) according to Eq. 9. 
+
+F. Cross-modal PatchMix 
+
+We extend HiLo’s PatchMix augmentation (Section IV) to the vision-language setting. The key new challenge is that, unlike the pure-vision case where only visual features are mixed, we must simultaneously construct consistent mixed representations in both the visual and text modalities to maintain cross-modal alignment. When we construct a mixed representation of x and 
+
+x′ by mixing their patch token embeddings as in Eq. 10: 
+
+˜ϕ(x)j = βj ⊙ ϕ(x)j + (1 − βj ) ⊙ ϕ(x′)j , (27) where ϕ is the patchify operator in Φ(v). We still need to align the mixed visual tokens with text features according to Eq. 23. Therefore, we construct mixed text features as well. Let ts and 
+
+tt be the text features constructed for x ∈ B l and x′ ∈ B u
+
+using the factorized prompts in Section VI-B 1. Naturally, the text mixing coefficient should correspond to the visual mixing coefficients. Since βj acts on patches while text features are global, we take their mean: 
+
+˜t = ˜β · ts + (1 − ˜β) · tt, (28) where ˜β = 1
+
+> P
+
+PPj=1 βj . Importantly, PatchMix can mix patches from different semantic categories, and our formulation treats the resulting view as a mixed-label training instance rather than forcing a single “clean” text description. We view the prompt-induced text embeddings {ξk} as prototype-like class anchors in the shared embedding space, so a patch-mixed visual representation naturally corresponds to a soft semantic target over anchors. Eq. 28 makes this explicit by constructing a mixed text feature using the same mixing weight as the visual mixing, which ensures that both the PatchMix classification loss (with soft targets) and the symmetric vision-language consistency loss (Eq. 23) optimize a consistent cross-modal mixup objective. Therefore, even when PatchMix blends heterogeneous semantics, the learning signal remains well-defined: the mixed image is trained to match a mixed distribution over class anchors, which stabilizes alignment under strong, domain-interpolating perturbations. Therefore, 
+
+˜S = ˜V ˜ T⊤, where ˜V = concat (F( ˜ϕ(x))) and ˜T = concat (˜ t).The resulting PatchMix vision-language alignment loss is derived according to Eq. 23 and Eq. 24. The PatchMix classification loss Lcls P M is the combination of Eq. 12 and Eq. 22: 
+
+Lcls P M (x) = −
+
+> K
+
+X
+
+> k=1
+
+˜q log σ(˜ ρ(x, t k); τ ), (29) where ˜ρ(x, ·) = 
+
+ W·F ( ˜ϕ(x)) 
+
+> ∥W·F ( ˜ϕ(x)) ∥2
+
+⊤
+
+· π(t)(·) is the modified cross-modal matching score with the mixed token embedding as the visual input. The resulting PatchMix objective for VLPrompt is: 
+
+LP M = Lcls P M + Lvl P M . (30) 
+
+G. Training Objective 
+
+The complete VLPrompt training objective integrates semi-supervised classification, mutual information minimization, vision-language alignment, and cross-modal PatchMix: 
+
+LVLPrompt = Lcls + ϵ∆ + β1LM I + β2Lvl + LP M , (31) where ∆ is the mean-entropy maximization regularizer in Eq. 4 to prevent pseudo-label collapse. The coefficients 
+
+ϵ, β 1, β 2 > 0 balance the different objective components. The optimization procedure and data sampling schedule are described in Section VI-I below. 
+
+H. Spatial Prompt Tuning 
+
+Both HLPrompt and VLPrompt employ spatial prompt tuning (SPT) [40], but with different masking strategies. HLPrompt uses NCut-based foreground masking (Section V-A ), which is reliable for the DINO backbone whose attention concentrates on foreground objects [12]. VLPrompt instead adopts boundary-based SPT: a learnable prompt Qs ∈ R3×H×W is injected at patch boundaries via a fixed binary mask M, yielding ˜x =
+
+x+( Qs ⊙M). Boundary masking is preferred for CLIP because its attention distributes uniformly across patches for cross-modal alignment, making NCut masks less stable; boundary prompting modulates inter-patch interactions while preserving patch centroids, better respecting CLIP’s pretrained geometry (verified in Appendix C2 and Table V). Mask construction details are provided in Appendix E8. 
+
+I. Two-Stage Alternating Optimization 
+
+The VLPrompt framework jointly optimizes three groups of parameters: the vision encoder and discriminator, the textual prompt embeddings ( Θctx , Γ), and the spatial prompts Qs. We adopt a two-stage alternating training procedure, following the EM-inspired scheme from SPTNet [40] (also used in HLPrompt, Section V), to decouple visual prompt learning from the remaining parameters. 
+
+Stage 1: Vision Encoder and Textual Prompt Update. 
+
+With spatial prompts fixed, we update CLIP’s encoders Φ,textual context embeddings Θctx and category embeddings Γ
+
+using the full VLPrompt objective from Eq. 31. Importantly, the spatial prompts provide an augmented view of the input, serving as a learned domain-invariant transformation. 
+
+Stage 2: Visual Prompt Learning. With the visual encoder and textual prompt embeddings fixed, we optimize the spatial prompts Qs.The two stages alternate every k iterations until convergence: 
+
+Stage 1: Θ(t+1) Φ ← Θ(t)Φ − sη ∇L VLPrompt 
+
+Θ(t+1)  
+
+> ctx
+
+← Θ(t) 
+
+> ctx
+
+− η∇L VLPrompt 
+
+Γ(t+1) ← Γ(t) − η∇L VLPrompt 
+
+Stage 2: Q(t+1)  
+
+> s
+
+← Q(t) 
+
+> s
+
+− ηp∇Qs LVLPrompt 
+
+(32) where η and ηp are learning rates for textual and spatial prompts respectively, and s is a scaling factor that reduces the learning rate for CLIP vision encoder Φ(v). Samples are drawn according to the curriculum sampling weight pcs (x|t) in Eq. 14, following the same schedule as HiLo (Section IV). 10 
+
+TABLE I EVALUATION ON THE DOMAIN NET -GCD D ATASET . T HE MODEL IS TRAINED ON THE LABELLED DOMAIN ‘R EAL ’ ( I.E., Ωa ) TOGETHER WITH ONE NEW DOMAIN (I.E., Ωb ) FROM ‘P AINTING ’/‘S KETCH ’/‘Q UICKDRAW ’/‘C LIPART ’/‘I NFOGRAPH ’ IN TURN .                                                                                                        
+
+> Real+Painting Real+Sketch Real+Quickdraw Real+Clipart Real+Infograph
+> Real Painting Real Sketch Real Quickdraw Real Clipart Real Infograph
+> Methods All Old New All Old New All Old New All Old New All Old New All Old New All Old New All Old New All Old New All Old New RankStats+ 34.1 62.0 19.7 29.7 49.7 9.6 34.2 62.0 19.8 17.1 31.1 6.8 34.1 62.5 19.5 4.1 4.4 3.9 34.0 62.4 19.4 24.1 45.1 6.2 34.2 62.4 19.6 12.5 21.9 6.3 UNO+ 44.2 72.2 29.7 30.1 45.1 17.2 43.7 72.5 28.9 12.5 17.0 9.2 31.1 60.0 16.1 6.3 5.8 6.8 44.5 66.1 33.3 21.9 35.6 10.1 42.8 69.4 29.0 10.9 15.2 8.0 ORCA 31.9 49.8 23.5 28.7 38.5 7.1 32.5 50.0 23.9 11.4 14.5 7.2 19.2 39.1 15.3 3.4 3.5 3.2 32.0 49.7 23.9 19.1 31.8 4.3 29.1 47.7 20.1 8.6 13.7 7.1 GCD 47.3 53.6 44.1 32.9 41.8 23.0 48.0 53.8 45.3 16.6 22.4 11.1 37.6 41.0 35.2 5.7 4.2 6.9 47.7 53.8 44.3 22.4 34.4 16.0 41.9 46.1 39.0 10.9 17.1 8.8 SimGCD 61.3 77.8 52.9 34.5 35.6 33.5 62.4 77.6 54.6 16.4 20.2 13.6 47.4 64.5 37.4 6.6 5.8 7.5 61.6 77.2 53.6 23.9 31.5 17.3 52.7 67.0 44.8 11.6 15.4 9.1 FREE 67.7 78.1 61.2 45.6 46.1 44.8 67.8 78.2 61.6 22.5 25.8 20.9 61.4 78.1 55.1 8.9 7.8 9.0 66.4 78.1 60.1 29.3 37.2 26.3 68.1 78.9 60.2 16.1 18.6 13.4 HiLo (Ours) 64.4 77.6 57.5 42.1 42.9 41.3 63.3 77.9 55.9 19.4 22.4 17.1 58.6 76.4 52.5 7.4 6.9 8.0 63.8 77.6 56.6 27.7 34.6 21.7 64.2 78.1 57.0 13.7 16.4 11.9 HLPrompt (Ours) 70.0 81.7 64.0 51.8 54.2 49.5 69.2 82.5 62.3 43.2 47.8 39.9 62.9 75.8 56.2 8.2 8.0 8.4 70.5 82.8 64.1 53.7 60.9 47.4 68.6 82.1 61.6 21.8 26.7 18.5 VLPrompt (Ours) 77.6 83.5 74.5 61.7 62.5 60.9 77.1 85.1 73.0 55.1 61.4 50.5 74.1 81.3 70.3 12.3 12.3 12.3 78.8 84.4 76.0 64.2 68.5 60.4 77.9 84.4 74.5 35.8 43.0 31.1
+
+TABLE II EVALUATION ON SSB-C DATASETS . W E REPORT BASELINE RESULTS ON THE LABELLED /ORIGINAL DOMAIN (I.E., Ωa ) AND OVERALL PERFORMANCE UNDER CORRUPTIONS (I.E., NEW DOMAINS Ωb ). CUB-C Scars-C FGVC-C Original Corrupted Original Corrupted Original Corrupted Methods All Old New All Old New All Old New All Old New All Old New All Old New RankStats+ 19.3 22.0 15.4 13.6 23.9 4.5 14.8 20.8 7.8 11.5 22.6 1.0 14.4 16.4 14.5 8.3 15.6 5.0 UNO+ 25.9 40.1 21.3 21.5 33.4 8.6 22.0 41.8 7.0 16.9 29.8 4.5 22.0 33.4 15.8 16.5 25.2 8.8 ORCA 18.2 22.8 14.5 21.5 23.1 18.9 19.1 28.7 11.2 15.0 22.4 8.3 17.6 19.3 16.1 13.9 17.3 10.1 GCD 26.6 27.5 25.7 25.1 28.7 22.0 22.1 35.2 20.5 21.6 29.2 10.5 25.2 28.7 23.0 21.0 23.1 17.3 SimGCD 31.9 33.9 29.0 28.8 31.6 25.0 26.7 39.6 25.6 22.1 30.5 14.1 26.1 28.9 25.1 22.3 23.2 21.4 UniOT 27.5 29.3 26.8 27.3 33.2 22.5 24.3 37.5 22.3 22.9 31.4 13.7 27.3 29.8 22.5 21.6 23.5 19.6 FREE 60.4 58.5 63.2 55.7 57.1 53.7 43.6 48.1 40.8 38.9 46.1 32.6 48.5 54.9 51.2 35.0 32.4 38.9 HiLo (Ours) 56.8 54.0 60.3 52.0 53.6 50.5 39.5 44.8 37.0 35.6 42.9 28.4 44.2 50.6 47.4 31.2 29.0 33.4 HLPrompt (Ours) 60.4 72.8 54.2 59.1 60.8 57.4 67.5 82.3 60.3 63.3 70.7 56.2 59.1 56.7 60.3 50.9 44.1 57.8 
+
+VLPrompt (Ours) 59.7 68.5 55.3 55.6 60.3 51.0 62.4 81.6 53.0 59.0 71.6 46.9 41.5 42.3 41.0 35.5 34.1 36.8 
+
+Note that, unlike what HLPrompt does in Eq. 17, we first optimize the model parameters, i.e., textual prompt and category embeddings, and then visual prompts. This is because if we optimize visual prompts first with text descriptions randomly initialized and fixed, the model cannot output meaningful predictions with cross-modal matching score, and thus fails to provide any meaningful updates to the visual prompts as well. During inference, we apply the learned spatial prompts and compute category probabilities via the cross-modal matching score with the learned textual descriptions. The full training procedure is provided in Algorithm 2, and a detailed complexity breakdown in Section E9. VII. E XPERIMENTS 
+
+We present a comprehensive experimental evaluation of our proposed suite of methods: HiLo, HLPrompt, and VLPrompt. 
+
+A. Experimental Setup 
+
+Datasets. We evaluate our methods on SSB-C [70], which augments standard GCD benchmarks with ImageNet-C-style corruptions [71] on CUB-200 [72], Stanford Cars [73], and FGVC-Aircraft [74], and on DomainNet-GCD constructed from DomainNet [75] (345 categories across six domains). In both benchmarks, labelled data comes from a single source domain covering 50% base classes, while unlabelled data spans all classes and multiple (possibly unseen) domains. 
+
+Evaluation protocols. Following standard GCD proto-cols [3], we report clustering accuracy on three splits after Hungarian matching: All (all classes), Known (base classes), and Novel (novel classes only). Full implementation details, including datasets statistics, hyperparameter settings, augmentation strategies, corruption specifications, and curriculum sampling configurations, are provided in Appendix B. 
+
+B. Main Results 
+
+We compare against representative baselines and state-of-the-art methods, including GCD [3], ORCA [76], SimGCD [4], RankStats+ [19], UNO+ [21], and FREE [42]. FREE is the only concurrent method that also considers GCD with domain shifts. Among our methods, HiLo establishes the core framework; HLPrompt and VLPrompt are two extensions built upon HiLo with prompt-based adaptation, leveraging vision and vision-language foundation models respectively. Results on DomainNet-GCD and SSB-C are reported in Tables I and II, respectively, where all three of our methods are highlighted. Tables I and II reveal a clear progression across our three methods. HiLo substantially outperforms all prior baselines that do not explicitly model domain shifts, confirming the effectiveness of the core disentanglement, PatchMix, and curriculum sampling framework. HLPrompt builds upon HiLo by introducing spatial prompt tuning and alternating 11 
+
+optimization; on DomainNet-GCD, it obtains consistent gains on the shifted target domains Ωb (e.g., +9 .7% on Painting ‘All’, +23 .8% on Sketch ‘All’ compared with HiLo), and on SSB-C it achieves particularly strong improvements on fine-grained benchmarks (e.g., +28 .0% on Scars-C ‘All’ and 
+
++14 .9% on FGVC-C ‘All’). These gains confirm that NCut-guided foreground prompting effectively suppresses background domain cues that HiLo’s feature-level disentanglement alone cannot fully address. VLPrompt extends HiLo’s principles to the vision-language setting by inheriting MI minimization, PatchMix, and curriculum sampling while adding factorized textual prompts and cross-modal consistency regularization to leverage CLIP’s aligned visual–textual representations. On DomainNet-GCD, VLPrompt achieves the best results across nearly all domain pairs—for example, +9 .9% over HLPrompt on Painting ‘All’ and +11 .9% on Sketch ‘All’—demonstrating that cross-modal semantic priors provide a powerful comple-ment to visual disentanglement for handling extreme real-world domain gaps. On SSB-C, however, HLPrompt’s pure-vision path is more effective for fine-grained corruption-type shifts (e.g., HLPrompt outperforms VLPrompt by 5.1% on Scars-C ‘All’ and by 17 .6% on FGVC-C ‘All’). This asymmetry reflects complementary strengths: the corruption-type domain shifts in SSB-C (noise, blur, weather) are well handled by explicit domain-semantic disentanglement and foreground prompting, while the large visual style gaps in DomainNet (photos vs. sketches vs. infographics) are better bridged by CLIP’s cross-modal pretraining. 
+
+TABLE III HILO ABLATION STUDY ON DOMAIN NET -GCD (R EAL → PAINTING ). W EINCREMENTALLY ADD EACH HILO COMPONENT ON TOP OF SIM GCD, AND ALSO ABLATE THE FEATURE HIERARCHY DESIGN . + AND - INDICATE ABSOLUTE GAIN /DROP RELATIVE TO SIM GCD. Real ( Ωa) Painting ( Ωb)Method All Old New All Old New Ref. SimGCD 61.3 77.8 52.9 34.5 35.6 33.5 (1) + PatchMix (original [9]) 62.5 +1.2 76.3 -1.5 54.2 +1.3 34.8 +0.3 36.0 +0.4 33.8 +0.3                                                            
+
+> (2) + PatchMix for GCD 63.5 +2.2 75.0 -2.8 57.6 +4.7 36.6 +2.1 39.6 +4.0 33.6 +0.1
+> (3) + MI Minimization 66.4 +5.1 79.2 +1.4 59.8 +6.9 35.6 +1.1 36.7 +1.1 34.2 +0.7
+> (4) + Curriculum Sampling (HiLo) 64.4 77.6 57.5 42.1 42.9 41.3 (5) Both features from deep layers only 28.2 -33.1 40.3 -37.5 22.7 -30.2 13.6 -20.9 20.0 -15.6 11.0 -22.5
+> (6) Both features from shallow layers only 10.1 -51.2 18.1 -59.7 6.4 -46.5 5.7 -28.8 9.2 -26.4 5.7 -27.8
+
+C. Ablation Studies 
+
+We conduct comprehensive ablation studies for all three methods to quantify the contribution of each design choice. We first ablate HiLo’s core modules, which are shared across all three frameworks, to demonstrate their effectiveness. We then examine each module in HLPrompt and VLPrompt, including new modules introduced by them, respectively. Component ablations are presented on DomainNet-GCD (Real →Painting) and SSB-C (CUB-C). Further analysis (classifier feature choices, backbone strength, and training dynamics) is deferred to Appendix C. 
+
+HiLo. We validate the contribution of HiLo’s core components in Table III, starting from SimGCD as the baseline. Adapting PatchMix for contrastive learning in the GCD setting (row 2) yields a noticeable boost on the shifted domain Ωb, confirming the benefit of intermediate-domain augmentation. Adding the domain-semantic feature disentanglement via MI minimization (row 3) significantly improves performance on both Ωa and 
+
+Ωb, demonstrating that dissociating spurious domain-semantic correlations is essential. Curriculum sampling (row 4) further improves performance on Ωb by gradually exposing the model to harder new-domain samples, leading to the full HiLo model. The engineering ablations (rows 5–6) confirm that the hi-lo feature hierarchy is critical: using only deep or only shallow features for both branches leads to drastic performance drops, validating the design choice of extracting domain features from early layers and semantic features from late layers. 
+
+HLPrompt. We ablate each HLPrompt component in Table IV. 
+
+MI minimization and PatchMix yield consistent gains on the shifted target domains Ωb, validating their role in domain robustness. Alternating training is crucial for making spatial prompt tuning effective; without it, performance drops sharply on Ωb. The preferred SPT variant depends on the dataset: semantic-aware prompts work better on DomainNet-GCD, while boundary prompts are more reliable on CUB-C. Appendix Figs. A1 and A3 further show that HLPrompt’s gains are not solely due to a stronger backbone. A full metric-by-metric analysis is provided in Appendix C1. 
+
+VLPrompt. We ablate each VLPrompt component in Ta-ble V. The vision-language alignment loss is the most critical component for adapting CLIP to GCD under domain shifts; removing it causes the largest drops on both domains. SPT with 
+
+alternating training is critical for robustness on Ωb. Boundary SPT is consistently more reliable than semantic-aware SPT for VLPrompt, consistent with the attention-pattern analysis in Appendix C2. CLIP fine-tuning choices and textual context embedding updates are further ablated in Appendix Figs. A2 
+
+TABLE IV HLP ROMPT ABLATION STUDY . E ACH COMPONENT IS REMOVED IN TURN . T HE LEFT SIDE SHOWS RESULTS ON DOMAIN NET -GCD (R EAL → PAINTING ) 
+
+> AND THE RIGHT SIDE SHOWS RESULTS ON
+
+CUB-C (O RIGINAL → CORRUPTED ). + AND - INDICATE ABSOLUTE PERFORMANCE GAIN AND DROP RELATIVE TO THE REFERENCE , RESPECTIVELY .                                                                                                                                                           
+
+> DomainNet CUB-C
+> Real Painting Original Corrupted Methods All Old New All Old New All Old New All Old New Ref. HLPrompt 70.0 81.7 64.0 51.8 54.2 49.5 60.4 72.8 54.2 59.1 60.8 57.4 (1) w/o MI Minimization 68.7 -1.3 82.2 +0.5 61.8 -2.2 50.1 -1.7 53.4 -0.8 46.9 -2.6 55.5 -8.4 64.3 -7.4 51.1 -8.9 51.2 -9.2 52.6 -8.7 49.8 -9.7
+> (2) w/o PatchMix 68.0 -2.0 80.4 -1.3 61.5 -2.5 47.5 -4.3 50.4 -3.8 44.6 -4.9 59.9 -4.0 67.8 -3.9 55.9 -4.1 55.8 -4.6 58.2 -3.1 53.4 -6.1
+> (3) w/o Alt. Training 69.8 -0.2 81.5 -0.2 63.8 -0.2 45.8 -6.0 47.8 -6.4 43.7 -6.0 55.8 -8.1 63.7 -8.0 51.9 -8.1 52.1 -8.3 54.1 -7.2 50.2 -9.3
+> (4) w/o SPT 71.1 +1.1 82.8 +1.1 65.0 +1.0 45.3 -6.5 47.5 -6.7 43.1 -6.4 62.3 -1.6 71.4 -0.3 57.7 -2.3 58.4 -2.0 59.2 -2.1 57.6 -1.9
+> (5) w/ Semantic-aware SPT (HLPrompt) 70.0 81.7 64.0 51.8 54.2 49.5 60.4 72.8 54.2 59.1 60.8 57.4 (6) w/ Boundary SPT 68.9 79.3 63.5 52.4 56.1 48.8 63.9 71.7 60.0 60.4 61.3 59.5 12
+
+TABLE V VLP ROMPT ABLATION STUDY . E ACH COMPONENT IS REMOVED IN TURN . T HE LEFT SIDE SHOWS RESULTS ON DOMAIN NET -GCD (R EAL → PAINTING ) 
+
+> AND THE RIGHT SIDE SHOWS RESULTS ON
+
+CUB-C (O RIGINAL → CORRUPTED ). + AND - INDICATE ABSOLUTE PERFORMANCE GAIN AND DROP RELATIVE TO THE REFERENCE , RESPECTIVELY .                                                                                                                                                                                 
+
+> DomainNet CUB-C
+> Real Painting Original Corrupted Methods All Old New All Old New All Old New All Old New Ref. VLPrompt 77.6 83.5 74.5 61.7 62.5 60.9 59.7 68.5 55.3 55.6 60.3 51.0 (1) w/o MI Minimization 78.1 +0.5 84.8 +1.3 74.6 +0.1 61.2 -0.5 62.5 59.9 -1.0 59.3 -0.4 67.2 -1.3 55.3 55.3 -0.3 59.9 -0.4 50.7 -0.3
+> (2) w/o Vision-language Loss 72.3 -5.3 84.5 +1.0 65.9 -8.6 55.1 -6.6 58.0 -4.5 52.2 -8.7 46.9 -12.8 61.0 -7.5 39.9 -15.4 42.0 -13.6 43.0 -17.3 41.1 -9.9
+> (3) w/o Cross-modal PatchMix 78.6 +1.0 84.1 +0.6 75.7 +1.2 60.7 -1.0 61.2 -1.3 60.1 -0.8 58.9 -0.8 66.8 -1.7 55.0 -0.3 54.8 -0.8 59.7 -0.6 50.0 -1.0
+> (4) w/o Alt. Training 77.8 +0.2 84.7 +1.2 74.3 -0.2 58.1 -3.6 58.8 -3.7 57.5 -3.4 51.0 -8.7 63.0 -5.5 45.1 -10.2 47.4 -8.2 53.4 -6.9 41.4 -9.6
+> (5) w/o SPT 77.6 85.3 +1.8 73.7 -0.8 56.1 -5.6 58.8 -3.7 53.4 -7.5 54.0 -5.7 64.0 -4.5 48.9 -6.4 45.8 -9.8 52.0 -8.3 39.7 -11.3
+> (6) w/ Boundary SPT (VLPrompt) 77.6 83.5 74.5 61.7 62.5 60.9 59.7 68.5 55.3 55.6 60.3 51.0 (7) w/ Semantic-aware SPT 77.1 84.1 73.6 57.8 58.8 56.9 45.0 54.3 40.4 39.4 45.4 33.4
+
+and A4. VIII. C ONCLUSION 
+
+We study Generalized Category Discovery under domain shifts and propose a suite of three frameworks grounded in DINO-pretrained vision backbones and the CLIP vision-language model. HiLo achieves domain-semantic disentan-glement through multi-level feature extraction and MI min-imization, enhanced with PatchMix augmentation and cur-riculum learning, with provably tighter generalization bounds (Theorem 3). HLPrompt extends HiLo with NCut [16]-based spatial prompt tuning and alternating optimization to suppress input-level background and domain noise, completing the pure-vision solution. VLPrompt adapts vision-language models through factorized textual prompts and cross-modal consistency regularization, inheriting HiLo’s core components in the cross-modal setting. We hope this work encourages the community to consider more realistic open-world assumptions where domain shifts are the norm rather than the exception. Several limitations point to productive future directions. All three methods rely on Assumption 1 (domain-class independence), which may be violated when certain categories appear predominantly in specific domains; future work could relax this via joint domain-label modeling [49] or causal disentanglement. Our methods also assume that the number of categories K is known in advance; relaxing this would require principled model selection or non-parametric category estimation [2]. Furthermore, extremely large domain gaps (e.g., RGB to depth or thermal imagery) remain challenging, suggesting multi-modal pretraining as a promising avenue. An expanded discussion of complementary strengths, VLM generalization versus memorization [77], [78], and potential future directions are provided in Appendix A. ACKNOWLEDGEMENTS 
+
+This work is supported by Hong Kong Research Grant Council - Early Career Scheme (Grant No. 27208022), Hong Kong Research Grant Council - General Research Fund (Grant No. 17211024), and HKU Seed Fund for Basic Research. REFERENCES [1] Z. He, Y. Liu, and K. Han, “Category discovery: An open-world perspective,” arXiv preprint arXiv:2509.22542 , 2025. [2] K. Han, A. Vedaldi, and A. Zisserman, “Learning to discover novel visual categories via deep transfer clustering,” in ICCV , 2019. [3] S. Vaze, K. Han, A. Vedaldi, and A. Zisserman, “Generalized category discovery,” in CVPR , 2022. [4] X. Wen, B. Zhao, and X. Qi, “Parametric classification for generalized category discovery: A baseline study,” in ICCV , 2023. [5] S. Zhang, S. Khan, Z. Shen, M. Naseer, G. Chen, and F. Khan, “Promptcal: Contrastive affinity learning via auxiliary prompts for generalized novel category discovery,” in CVPR , 2023. [6] N. Pu, Z. Zhong, and N. Sebe, “Dynamic conceptional contrastive learning for generalized category discovery,” in CVPR , 2023. [7] Y. Ganin, E. Ustinova, H. Ajakan, P. Germain, H. Larochelle, F. Lavio-lette, M. Marchand, and V. Lempitsky, “Domain-adversarial training of neural networks,” JMLR , 2016. [8] M. Long, H. Zhu, J. Wang, and M. I. Jordan, “Deep transfer learning with joint adaptation networks,” in ICML , 2017. [9] J. Zhu, H. Bai, and L. Wang, “Patch-mix transformer for unsupervised domain adaptation: A game perspective,” in CVPR , 2023. [10] K. Zhou, Y. Yang, Y. Qiao, and T. Xiang, “Domain generalization with mixstyle,” in ICLR , 2021. [11] Y. Shi, J. Seely, P. H. S. Torr, N. Siddharth, A. Hannun, N. Usunier, and G. Synnaeve, “Gradient matching for domain generalization,” in 
+
+ICLR , 2022. [12] M. Caron, H. Touvron, I. Misra, H. J ´egou, J. Mairal, P. Bojanowski, and A. Joulin, “Emerging properties in self-supervised vision transformers,” in ICCV , 2021. [13] M. Oquab, T. Darcet, T. Moutakanni, H. Vo, M. Szafraniec, V. Khalidov, P. Fernandez, D. Haziza, F. Massa, A. El-Nouby, M. Assran, N. Ballas, W. Galuba, R. Howes, P.-Y. Huang, S.-W. Li, I. Misra, M. Rabbat, V. Sharma, G. Synnaeve, H. Xu, H. J ´egou, J. Mairal, P. Labatut, A. Joulin, and P. Bojanowski, “Dinov2: Learning robust visual features without supervision,” arXiv preprint arXiv:2304.07193 , 2023. [14] O. Sim ´eoni, H. V. Vo, M. Seitzer, F. Baldassarre, M. Oquab, C. Jose, V. Khalidov, M. Szafraniec, S. Yi, M. Ramamonjisoa, F. Massa, D. Haziza, L. Wehrstedt, J. Wang, T. Darcet, T. Moutakanni, L. Sentana, C. Roberts, A. Vedaldi, J. Tolan, J. Brandt, C. Couprie, J. Mairal, H. J ´egou, P. Labatut, and P. Bojanowski, “DINOv3,” arXiv preprint arXiv:2508.10104 , 2025. [15] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal, G. Sastry, A. Askell, P. Mishkin, J. Clark, G. Krueger, and I. Sutskever, “Learning transferable visual models from natural language supervision,” in ICML , 2021. [16] J. Shi and J. Malik, “Normalized cuts and image segmentation,” IEEE TPAMI , 2000. [17] H. Wang, S. Vaze, and K. Han, “Hilo: A learning framework for generalized category discovery robust to domain shifts,” in ICLR , 2025. [18] K. Han, S.-A. Rebuffi, S. Ehrhardt, A. Vedaldi, and A. Zisserman, “Automatically discovering and learning new visual categories with ranking statistics,” ICLR , 2020. [19] ——, “Autonovel: Automatically discovering and learning novel visual categories,” IEEE TPAMI , 2021. [20] Z. Zhong, E. Fini, S. Roy, Z. Luo, E. Ricci, and N. Sebe, “Neighborhood contrastive learning for novel class discovery,” in CVPR , 2021. [21] E. Fini, E. Sangineto, S. Lathuili `ere, Z. Zhong, M. Nabi, and E. Ricci, “A unified objective for novel class discovery,” in ICCV , 2021. 13 
+
+[22] X. Jia, K. Han, Y. Zhu, and B. Green, “Joint representation learning and novel category discovery on single- and multi-modal data,” in ICCV ,2021. [23] Z. Zhong, L. Zhu, Z. Luo, S. Li, Y. Yang, and N. Sebe, “Openmix: Reviving known knowledge for discovering novel visual categories in an open world,” in CVPR , 2021. [24] P. Gu, C. Zhang, R. Xu, and X. He, “Class-relation knowledge distillation for novel class discovery,” in ICCV , 2023. [25] B. Zhao and K. Han, “Novel visual category discovery with dual ranking statistics and mutual knowledge distillation,” in NeurIPS , 2021. [26] K. J. Joseph, S. Paul, G. Aggarwal, S. Biswas, P. Rai, K. Han, and V. N. Balasubramanian, “Novel class discovery without forgetting,” in 
+
+ECCV , 2022. [27] B. Zhao, X. Wen, and K. Han, “Learning semi-supervised gaussian mixture models for generalized category discovery,” in ICCV , 2023. [28] S. Hao, K. Han, and K.-Y. K. Wong, “Cipr: An efficient framework with cross-instance positive relations for generalized category discovery,” 
+
+TMLR , 2023. [29] Z. He, Y. Liu, and K. Han, “SEAL: Semantic-aware hierarchical learning for generalized category discovery,” in NeurIPS , 2025. [30] Y. Liu, Z. He, and K. Han, “Hyperbolic category discovery,” in CVPR ,2025. [31] Y. Liu and K. Han, “Debgcd: Debiased learning with distribution guidance for generalized category discovery,” in ICLR , 2025. [32] S. Rastegar, H. Doughty, and C. Snoek, “Learn to categorize or categorize to learn? self-coding for generalized category discovery,” in NeurIPS , 2024. [33] F. J. Cendra and K. Han, “Partco: Part-level correspondence priors enhance category discovery,” arXiv preprint arXiv:2509.22769 , 2025. [34] R. Ouldnoughi, C.-W. Kuo, and Z. Kira, “CLIP-GCD: Simple language guided generalized category discovery,” arXiv preprint arXiv:2305.10420 , 2023. [35] M. Yang, J. Yin, Y. Gu, C. Deng, H. Zhang, and H. Zhu, “Consistent prompt tuning for generalized category discovery,” IJCV , 2025. [36] E. Wang, Z. Peng, Z. Xie, F. Yang, X. Liu, and M.-M. Cheng, “GET: Unlocking the multi-modal potential of CLIP for generalized category discovery,” in CVPR , 2025. [37] K. Zhou, J. Yang, C. C. Loy, and Z. Liu, “Learning to prompt for vision-language models,” IJCV , 2022. [38] ——, “Conditional prompt learning for vision-language models,” in 
+
+CVPR , 2022. [39] M. Jia, L. Tang, B.-C. Chen, C. Cardie, S. Belongie, B. Hariharan, and S.-N. Lim, “Visual prompt tuning,” in ECCV , 2022. [40] H. Wang, S. Vaze, and K. Han, “Sptnet: An efficient alternative framework for generalized category discovery with spatial prompt tuning,” in ICLR , 2024. [41] F. J. Cendra, B. Zhao, and K. Han, “Promptccd: Learning gaussian mixture prompt pool for continual category discovery,” in ECCV , 2024. [42] W. Feng and Z. Ge, “Generalized category discovery under domain shift: A frequency domain perspective,” in NeurIPS , 2025. [43] E. Tzeng, J. Hoffman, N. Zhang, K. Saenko, and T. Darrell, “Deep domain confusion: Maximizing for domain invariance,” arXiv preprint arXiv:1412.3474 , 2014. [44] M. Long, Y. Cao, J. Wang, and M. Jordan, “Learning transferable features with deep adaptation networks,” in ICML , 2015. [45] P. Panareda Busto and J. Gall, “Open set domain adaptation,” in ICCV ,2017. [46] B. Sun and K. Saenko, “Deep coral: Correlation alignment for deep domain adaptation,” in ECCV Workshop , 2016. [47] E. Tzeng, J. Hoffman, K. Saenko, and T. Darrell, “Adversarial discriminative domain adaptation,” in CVPR , 2017. [48] H. Tang and K. Jia, “Discriminative adversarial domain adaptation,” in 
+
+AAAI , 2020. [49] M. Long, Z. Cao, J. Wang, and M. I. Jordan, “Conditional adversarial domain adaptation,” in NeurIPS , 2018. [50] C.-Y. Lee, T. Batra, M. H. Baig, and D. Ulbricht, “Sliced wasserstein discrepancy for unsupervised domain adaptation,” in CVPR , 2019. [51] Y. Zou, Z. Yu, B. V. Kumar, and J. Wang, “Unsupervised domain adaptation for semantic segmentation via class-balanced self-training,” in ECCV , 2018. [52] R. Li, Q. Jiao, W. Cao, H.-S. Wong, and S. Wu, “Model adaptation: Unsupervised domain adaptation without source data,” in CVPR , 2020. [53] J. Na, H. Jung, H. J. Chang, and W. Hwang, “Fixbi: Bridging domain spaces for unsupervised domain adaptation,” in CVPR , 2021. [54] L. Chen, H. Chen, Z. Wei, X. Jin, X. Tan, Y. Jin, and E. Chen, “Reusing the task-specific classifier as a discriminator: Discriminator-free adversarial domain adaptation,” in CVPR , 2022. [55] Z. Du, J. Li, H. Su, L. Zhu, and K. Lu, “Cross-domain gradient discrepancy minimization for unsupervised domain adaptation,” in 
+
+CVPR , 2021. [56] Y. Jin, X. Wang, M. Long, and J. Wang, “Minimum class confusion for versatile domain adaptation,” in ECCV , 2020. [57] D. Li, Y. Yang, Y.-Z. Song, and T. Hospedales, “Learning to generalize: Meta-learning for domain generalization,” in AAAI , 2018. [58] K. Muandet, D. Balduzzi, and B. Sch ¨olkopf, “Domain generalization via invariant feature representation,” in ICML , 2013. [59] J. Cha, S. Chun, K. Lee, H.-C. Cho, S. Park, Y. Lee, and S. Park, “Swad: Domain generalization by seeking flat minima,” in NeurIPS ,2021. [60] D. Mahajan, S. Tople, and A. Sharma, “Domain generalization using causal matching,” in ICML , 2021. [61] J. Tobin, R. Fong, A. Ray, J. Schneider, W. Zaremba, and P. Abbeel, “Domain randomization for transferring deep neural networks from simulation to the real world,” in IROS , 2017. [62] A. v. d. Oord, Y. Li, and O. Vinyals, “Representation learning with contrastive predictive coding,” arXiv preprint arXiv:1807.03748 , 2018. [63] S. Gidaris and N. Komodakis, “Dynamic few-shot visual learning without forgetting,” in CVPR , 2018. [64] M. Assran, M. Caron, I. Misra, P. Bojanowski, F. Bordes, P. Vincent, A. Joulin, M. Rabbat, and N. Ballas, “Masked siamese networks for label-efficient learning,” in ECCV , 2022. [65] R. D. Hjelm, A. Fedorov, S. Lavoie-Marchildon, K. Grewal, P. Bachman, A. Trischler, and Y. Bengio, “Learning deep representations by mutual information estimation and maximization,” in ICLR , 2018. [66] J.-N. Chen, S. Sun, J. He, P. H. Torr, A. Yuille, and S. Bai, “Transmix: Attend to mix for vision transformers,” in CVPR , 2022. [67] C. Szegedy, V. Vanhoucke, S. Ioffe, J. Shlens, and Z. Wojna, “Rethinking the inception architecture for computer vision,” in CVPR , 2016. [68] S. Bengio, O. Vinyals, N. Jaitly, and N. Shazeer, “Scheduled sampling for sequence prediction with recurrent neural networks,” in NeurIPS ,2015. [69] H. Bahng, A. Jahanian, S. Sankaranarayanan, and P. Isola, “Explor-ing visual prompts for adapting large-scale models,” arXiv preprint arXiv:2203.17274 , 2022. [70] S. Vaze, K. Han, A. Vedaldi, and A. Zisserman, “Open-set recognition: A good closed-set classifier is all you need,” in ICLR , 2021. [71] D. Hendrycks and T. Dietterich, “Benchmarking neural network robustness to common corruptions and perturbations,” in ICLR , 2019. [72] C. Wah, S. Branson, P. Welinder, P. Perona, and S. Belongie, “The Caltech-UCSD Birds-200-2011 dataset,” California Institute of Tech-nology, Tech. Rep., 2011. [73] J. Krause, M. Stark, J. Deng, and L. Fei-Fei, “3d object representations for fine-grained categorization,” in ICCV workshop , 2013. [74] S. Maji, E. Rahtu, J. Kannala, M. Blaschko, and A. Vedaldi, “Fine-grained visual classification of aircraft,” arXiv preprint arXiv:1306.5151 ,2013. [75] X. Peng, Q. Bai, X. Xia, Z. Huang, K. Saenko, and B. Wang, “Moment matching for multi-source domain adaptation,” in ICCV , 2019. [76] K. Cao, M. Brbic, and J. Leskovec, “Open-world semi-supervised learning,” in ICLR , 2021. [77] P. Mayilvahanan, R. S. Zimmermann, T. Wiedemer, E. Rusak, A. Juhos, M. Bethge, and W. Brendel, “In search of forgotten domain generaliza-tion,” in ICLR , 2025. [78] P. Mayilvahanan, T. Wiedemer, E. Rusak, M. Bethge, and W. Brendel, “Does clip’s generalization performance mainly stem from high train-test similarity?” in ICLR , 2024. [79] S. Ben-David, J. Blitzer, K. Crammer, and F. Pereira, “Analysis of representations for domain adaptation,” in NeurIPS , 2006. [80] S. Ben-David, J. Blitzer, K. Crammer, A. Kulesza, F. Pereira, and J. W. Vaughan, “A theory of learning from different domains,” Machine Learning , 2010. [81] D. Kifer, S. Ben-David, and J. Gehrke, “Detecting change in data streams,” in VLDB , 2004. [82] T. M. Cover and J. A. Thomas, Elements of Information Theory , 2nd ed. Wiley-Interscience, 2006. [83] V. N. Vapnik, Statistical Learning Theory . Wiley, 1998. [84] S. Shalev-Shwartz and S. Ben-David, Understanding Machine Learning: From Theory to Algorithms . Cambridge University Press, 2014. [85] P. Awasthi, A. S. Bandeira, M. Charikar, R. Krishnaswamy, S. Villar, and R. Ward, “Relax, no need to round: Integrality of clustering formulations,” in ITCS , 2015. [86] H. Ashtiani, S. Kushagra, and S. Ben-David, “Clustering with same-cluster queries,” in NeurIPS , 2016. 14 
+
+[87] L. Devroye, L. Gy ¨orfi, and G. Lugosi, A Probabilistic Theory of Pattern Recognition . Springer Science & Business Media, 2013. [88] B. Yu, “Assouad, fano, and le cam,” Festschrift for Lucien Le Cam ,1997. [89] N. Tishby, F. C. Pereira, and W. Bialek, “The information bottleneck method,” arXiv preprint physics/0004057 , 2000. [90] A. M. Saxe, J. L. McClelland, and S. Ganguli, “Exact solutions to the nonlinear dynamics of learning in deep linear neural networks,” in 
+
+ICLR , 2014. [91] A. Jacot, F. Gabriel, and C. Hongler, “Neural tangent kernel: Conver-gence and generalization in neural networks,” in NeurIPS , 2018. [92] J. Yosinski, J. Clune, Y. Bengio, and H. Lipson, “How transferable are features in deep neural networks?” in NeurIPS , 2014. [93] M. Raghu, J. Gilmer, J. Yosinski, and J. Sohl-Dickstein, “Svcca: Singular vector canonical correlation analysis for deep learning dynamics and interpretability,” in NeurIPS , 2017. [94] R. Geirhos, P. Rubisch, C. Michaelis, M. Bethge, F. A. Wichmann, and W. Brendel, “Imagenet-trained cnns are biased towards texture; increasing shape bias improves accuracy and robustness,” in ICLR ,2019. [95] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai, T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly, J. Uszkoreit, and N. Houlsby, “An image is worth 16x16 words: Transformers for image recognition at scale,” in ICLR , 2021. [96] M. Raghu, T. Unterthiner, S. Kornblith, C. Zhang, and A. Dosovitskiy, “Do vision transformers see like convolutional neural networks?” in 
+
+NeurIPS , 2021. [97] Y. Mansour, M. Mohri, and A. Rostamizadeh, “Domain adaptation: Learning bounds and algorithms,” arXiv preprint arXiv:0902.3430 ,2009. [98] A. B. Tsybakov, Introduction to Nonparametric Estimation . Springer, 2009. [99] C. L. Canonne, “A survey on distribution testing: Your data is big. but is it blue?” Theory of Computing , 2020. [100] H. Kushner and G. G. Yin, Stochastic Approximation and Recursive Algorithms and Applications . Springer, 2003. [101] A. Benveniste, M. Metivier, and P. Priouret, Adaptive Algorithms and Stochastic Approximations . Springer Science & Business Media, 2012. [102] H. Robbins and S. Monro, “A stochastic approximation method,” The Annals of Mathematical Statistics , 1951. [103] E. Hazan, “Introduction to online convex optimization,” Foundations and Trends in Optimization , 2016. [104] L. Bottou, F. E. Curtis, and J. Nocedal, “Optimization methods for large-scale machine learning,” SIAM Review , 2018. [105] G. Hacohen and D. Weinshall, “On the power of curriculum learning in training deep networks,” in ICML , 2019. [106] S. Spigler, M. Geiger, and M. Wyart, “Asymptotic learning curves of kernel methods: Empirical data versus teacher-student paradigm,” 
+
+Journal of Statistical Mechanics: Theory and Experiment , 2020. [107] T. Chen, S. Kornblith, M. Norouzi, and G. Hinton, “A simple framework for contrastive learning of visual representations,” in ICML , 2020. [108] C. Shorten and T. M. Khoshgoftaar, “A survey on image data augmentation for deep learning,” Journal of Big Data , 2019. [109] A. Foi, M. Trimeche, V. Katkovnik, and K. Egiazarian, “Practical poissonian-gaussian noise modeling and fitting for single-image raw-data,” TIP , 2008. [110] P. T. Jackson, A. Atapour-Abarghouei, S. Bonner, T. P. Breckon, and B. Obara, “Style augmentation: Data augmentation via style randomization,” in CVPR Workshops , 2019. [111] L. A. Gatys, A. S. Ecker, and M. Bethge, “Image style transfer using convolutional neural networks,” in CVPR , 2016. [112] E. D. Cubuk, B. Zoph, D. Mane, V. Vasudevan, and Q. V. Le, “Autoaugment: Learning augmentation strategies from data,” in CVPR ,2019. [113] D. Hendrycks, N. Mu, E. D. Cubuk, B. Zoph, J. Gilmer, and B. Lakshminarayanan, “Augmix: A simple data processing method to improve robustness and uncertainty,” in ICLR , 2020. [114] R. Volpi, H. Namkoong, O. Sener, J. C. Duchi, V. Murino, and S. Savarese, “Generalizing to unseen domains via adversarial data augmentation,” in NeurIPS , 2018. [115] M. Cisse, P. Bojanowski, E. Grave, Y. Dauphin, and N. Usunier, “Parseval networks: Improving robustness to adversarial examples,” in 
+
+ICML , 2017. [116] H. Gouk, E. Frank, B. Pfahringer, and M. J. Cree, “Regularisation of neural networks by enforcing lipschitz continuity,” Machine Learning ,2021. [117] C. Wang, W. Zhang, T. Qiu, Y. Deng, F. Gao, Y. Tian, J. Bai, H. Liu, X. Liu, and Z. Zhao, “Maxup: Lightweight adversarial training with data augmentation improves neural network training,” in CVPR , 2021. [118] H. Wang, C. Ge, Z. Xing, and L. Carin, “Augmax: Adversarial composition of random augmentations for robust training,” in NeurIPS ,2021. [119] E. D. Cubuk, B. Zoph, J. Shlens, and Q. V. Le, “Randaugment: Practical automated data augmentation with a reduced search space,” in CVPR Workshops , 2020. 15 
+
+APPENDIX 
+
+This appendix is organized as follows. Section A discusses the complementary strengths of the three frameworks, the role of VLM generalization, and the remaining limitations. Section B summarizes implementation details and training algorithms. Section C reports additional results, including component ablations and the analysis of semantic-aware SPT. Section D states the formal definitions and assumptions. Section E provides proofs and technical details, including the complexity analysis and the NCut formulation. 
+
+A. Extended Discussion 1) Complementary Strengths of the Three Frameworks: 
+
+We propose a suite of three complementary frameworks that share the same core ingredients, including disentangle-ment, PatchMix, and curriculum sampling, while operating on different foundation backbones and introducing different adaptation mechanisms. As a result, they are suitable for different deployment constraints and domain-shift regimes. HiLo establishes the foundational pure-vision formulation of our suite. It disentangles domain-specific and semantic features through multi-level extraction and MI minimization, and it further combines PatchMix augmentation with curriculum sampling for stable optimization. This design is especially attractive when one prefers a pure-vision pipeline with explicit control over feature disentanglement. HLPrompt extends this pure-vision path from the perspective of prompt-based adaptation. By selectively injecting prompts into foreground object regions, it complements HiLo’s feature-level disentanglement with input-level adaptation. This makes HLPrompt a natural choice when foreground localization and prompt-based specialization are beneficial. VLPrompt approaches the same problem from the perspec-tive of vision-language foundation models. It leverages aligned visual and textual representations to provide richer semantic structure for category discovery, while retaining the domain-aware principles introduced by HiLo. This setting is particularly appealing when cross-modal priors and parameter-efficient adaptation are available. These complementary characteristics suggest that method selection should be guided by application requirements. The pure-vision path of HiLo and HLPrompt is well suited to settings that prioritize architectural flexibility, interpretability, or deployment without a text branch. VLPrompt is well suited to settings that can benefit from textual semantics and broader cross-modal prior knowledge. 
+
+2) On VLM Generalization versus Data Memorization: Anatural question for VLM-based methods is whether strong performance under domain shift reflects genuine transfer or simple memorization of similar web examples. Recent systematic studies [77], [78] provide two useful observations. First, CLIP retains substantial performance even after ag-gressive similarity-based pruning of its training data, which indicates that it learns transferable representations beyond direct pattern matching. Second, genuine OOD generalization remains challenging, which makes careful evaluation essential when claiming robustness.                              
+
+> TABLE A1 STATISTICS OF THE DATASETS .Labelled Unlabelled Dataset #Image #Class
+> |Y base |
+> #Domain
+> |Ωa|#Image #Class
+> |Y novel |
+> #Domain
+> |Ω|
+> DomainNet 39.1K 172 1547.5K 345 6CUB-C 1.5K 100 145K 200 10 Scars-C 2.0K 98 161K 196 10 FGVC-C 1.7K 50 150K 100 10
+
+VLPrompt is designed with this perspective in mind. Rather than relying on zero-shot predictions alone, it adapts the pretrained model through task-specific prompt learning, spatial prompting, and domain-aware regularization. Our benchmarks also introduce controlled domain shifts whose structure differs from the natural diversity of web data. Together with the ablation results, this supports the view that VLPrompt’s gains come from the proposed adaptation mechanisms rather than from pretraining alone. 
+
+3) Limitations and Future Work: Current limitations include: the domain-class independence assumption (Assumption 1), which may be violated when categories correlate with specific domains—a problem that joint domain-label modeling or causal approaches could address; the need to know the total number of categories K in advance, which could be relaxed via non-parametric category estimation; the difficulty of handling extremely large domain gaps such as RGB to depth imagery, where multi-modal pretraining may help; and the computational cost of training on large-scale datasets. Promising directions for future work include: (i) a unified framework combining pure-vision disentanglement with VLM-based cross-modal alignment; (ii) automatic estimation of the number of novel classes; (iii) extension to continual settings with streaming domains and categories; (iv) incorporation of additional modalities (audio, depth, text metadata); and (v) tighter theoretical guarantees under weaker assumptions beyond domain-class independence. 
+
+B. Implementation Details 
+
+We summarize the implementation details for HLPrompt and VLPrompt in this section. 
+
+1) Datasets: SSB-C contains three fine-grained recognition datasets: CUB-200 [72] with 200 bird species and 11,788 images, Stanford Cars [73] with 196 car models and 16,185 images, and FGVC-Aircraft [74] with 100 aircraft variants and 10,000 images. For each dataset, the labelled set consists of clean images from 50% of the base classes, while the unlabelled set contains a mixture of clean and corrupted images spanning all classes. We consider five severity levels and a diverse set of noise, blur, weather, and digital corruptions. DomainNet-GCD contains 345 object categories across six visually distinct domains, namely Real, Clipart, Infograph, Painting, Quickdraw, and Sketch. The protocol uses labelled data from the Real domain for 50% of the base classes, while the unlabelled set spans all six domains and all classes. Statistics of the datasets are recorded in Table A1. 16 
+
+2) HLPrompt: We employ ViT-B/16 pretrained with DI-NOv3 [14] as the backbone. The projection heads are 3-layer MLPs (768-2048-2048-256), and the MI discriminator is a 3-layer MLP (256-2048-2048-1). We generate M = 2 augmented views per image. For DomainNet-GCD, we use random crop, random horizontal flip, color jitter, and random grayscale. For SSB-C, we use random crop, random horizontal flip, and color jitter. For curriculum sampling on SSB-C, we compute the sam-pling weight pcs (x|t) inspired by FREE [42]: we apply 2D FFT, use the amplitude spectrum as domain representation, downsample with average pooling, and run semi-supervised K-Means to partition samples into Ωa and Ωb.Detailed optimization and hyperparameter settings of HL-Prompt are recorded in Table A2 (a). 
+
+3) VLPrompt: VLPrompt builds on pretrained CLIP [15] ViT-B/16. The MI discriminator is a 3-layer MLP (512-2048-2048-1). We learn 4 context tokens initialized from “a photo of a” and K category embeddings with 4 tokens each, where 
+
+K equals the total number of classes in each dataset. Category embeddings are initialized from N (0 , 0.02 2I).Augmentation and curriculum sampling settings follow those of HLPrompt. Detailed optimization and hyperparameter settings of VLPrompt are recorded in Table A2 (b). 
+
+4) Training Algorithms: We next summarize the full training procedures of HLPrompt and VLPrompt for completeness. Both algorithms follow the same high-level principle of curriculum-based mini-batch sampling and alternating optimization, while differing in the underlying backbone, prompt parameterization, and cross-modal alignment components. The pseudo-code below makes explicit how the proposed modules are integrated into each training iteration. 
+
+C. Additional Results 1) Detailed Discussion of Component Ablations: For HL-Prompt on DomainNet-GCD Real →Painting (Table IV, left), removing MI minimization reduces performance on most metrics, with the largest degradation on domain Ωb (‘Painting’), where the ‘New’ metric drops by 2.6% . Removing PatchMix augmentation also consistently degrades performance, including a 4.3% drop on ‘All’ and a 4.9% drop on ‘New’ in Ωb, which highlights the benefit of intermediate-domain augmentation. Removing alternating training causes only minor changes on 
+
+Ωa (‘Real’) but large drops on Ωb, showing that it is important for effective spatial prompt adaptation. Removing SPT slightly improves Ωa while substantially harming robustness on Ωb.Among SPT variants, semantic-aware prompts are preferable to boundary prompts on DomainNet-GCD. For HLPrompt on CUB-C (Table IV, right), removing MI minimization causes severe degradation on all metrics. During training, performance on the ‘Original’ domain can initially match the reference, but it deteriorates after corrupted samples are introduced, which indicates that semantic alignment collapses without the disentanglement constraint. Removing PatchMix leads to large drops across metrics, especially on corrupted samples. Removing alternating training also leads to severe degradation, and using spatial prompts without                                      
+
+> TABLE A2 OPTIMIZATION DETAILS AND HYPERPARAMETERS .
+> (a) HLPrompt Setting Value
+> Optimization
+> Optimizer SGD Epochs 200 Batch Size (DomainNet / SSB-C) 128 / 150 Weight Decay 5×10 −5
+> Model-specific
+> ϵs2
+> ϵd0.1
+> τ0.07
+> k20
+> Curriculum sampling
+> DomainNet r′= 1 , t ′= 80
+> SSB-C r0= 0 , r ′= 0 .05 , t ′= 80
+> (b) VLPrompt Setting Value
+> Optimization
+> Optimizer SGD Epochs 200 Batch Size (DomainNet / SSB-C) 128 / 150 Weight Decay 5×10 −4
+> Model-specific
+> ϵ2
+> β10.5
+> β20.4
+> τ0.007
+> k20
+> Curriculum sampling
+> DomainNet r′= 1 , t ′= 80
+> SSB-C r0= 0 , r ′= 0 .05 , t ′= 80
+
+alternating training performs worse than removing spatial prompts entirely. On this benchmark, boundary prompts are more reliable than semantic-aware prompts. For VLPrompt on DomainNet-GCD Real →Painting (Ta-ble V, left), MI minimization improves generalization to Ωb
+
+with a 1.0% gain on Ωb ‘New’. The vision-language loss is the most important component for adapting VLMs to GCD, and removing it causes the largest drops on both domains. Cross-modal PatchMix improves generalization to Ωb while causing only minor trade-offs on Ωa. Removing alternating training reduces performance on Ωb by 3.6% on average, and removing SPT produces even larger drops. Boundary SPT is consistently more reliable than semantic-aware SPT for VLPrompt. For VLPrompt on CUB-C (Table V, right), the overall pattern is similar. The vision-language loss remains the most critical component, cross-modal PatchMix improves performance across metrics, and both alternating training and SPT are essential for robustness on the shifted domain. Boundary SPT again outperforms semantic-aware SPT by a large margin, which is consistent with the supplemental figures below and the mask visualizations analyzed in Section C2. 
+
+2) Analysis on the Effectiveness of Semantic-aware SPT: 
+
+To understand the different behavior of semantic-aware SPT 17 
+
+Algorithm 1: HLPrompt Training Algorithm 
+
+1: Input: Labeled data Dℓ, unlabeled data Du, hyperpa-rameters ϵs, ϵ d, τ, r 0, r ′, t ′, k 
+
+2: Initialize: ViT encoder T , projection heads ψdom , ψ sem ,discriminator D, spatial prompts Qs.
+
+3: Define parameter sets: Θmodel = {T , ψ dom , ψ sem , D },
+
+Θprompt = {Qs}
+
+4: Set optimization phase flag: phase ← 1
+
+5: for epoch t = 0 to Tmax do 
+
+6: for mini-batch b = 0 to Bmax do 
+
+7: if (b + 1) (mod k) == 0 then 
+
+8: phase ← 1 − phase 
+
+9: end if 
+
+10: if phase == 0 then 
+
+11: Θactive ← Θmodel ; Freeze Θprompt 
+
+12: else 
+
+13: Θactive ← Θprompt ; Freeze Θmodel 
+
+14: end if 
+
+15: Data Sampling: 
+
+16: Sample Bℓ ∼ D ℓ uniformly; Bu ∼ D u with weights p(x|t)
+
+17: Forward Propagation: 
+
+18: for each x ∈ B ℓ ∪ B u do 
+
+19: Compute foreground mask M and apply prompts: 
+
+20: ˜x = x + M ⊙ Qs
+
+21: Apply PatchMix augmentation to ˜x
+
+22: Extract features: rdom = T1(ϕ(˜ x)) , rsem =
+
+TL(ϕ(˜ x)) 
+
+23: Project: hdom = ψdom (rdom ), hsem =
+
+ψsem (rsem )
+
+24: end for 
+
+25: Optimization: 
+
+26: Compute loss: Ltotal = Ls + ϵs∆s + Ld + ϵd∆d +
+
+LMI + LPM 
+
+27: Update Θactive via gradient descent on 
+
+∇Θactive Ltotal 
+
+28: end for 
+
+29: end for 
+
+30: Return: Trained Θprompt and Θmodel All Old New 40 50 60 70 80 90       
+
+> ACC (%)
+> 66.4 77.6 57.5 69.7 80.8 63.9 46.1 47.1 45.6
+> Real
+> All Old New 30 40 50 60
+> ACC (%)
+> 42.1 42.9 41.3 48.1 52.7 43.6 39.7 49.2 30.2
+> Painting
+> HiLo Post-Backbone Post-Projector
+
+Fig. A1. Ablation study on which feature representation for classification. We compare the performance of using features after the backbone (Post-Backbone) versus after the projection head (Post-Projector) on DomainNet-GCD ’Real’ and ’Painting’ domains. HiLo is included as a baseline. 
+
+Algorithm 2: VLPrompt Training Algorithm 
+
+1: Input: Labeled data Dℓ, unlabeled data Du, hyperpa-rameters ϵ, β 1, β 2, τ, r 0, r ′, t ′, k 
+
+2: Initialize: CLIP’s image encoder Φ(v) and text en-coder Φ(t); Context Θctx , Category Γ; Discriminator 
+
+D; Foreground prompt Qs.
+
+3: Define Parameter Sets: 
+
+4: Θmodel = {Φ, Θctx , Γ, D }
+
+5: Θprompt = {Qs}
+
+6: Set optimization phase flag: phase ← 0
+
+7: for epoch t = 0 to Tmax do 
+
+8: for mini-batch b = 0 to Bmax do 
+
+9: if (b + 1) (mod k) == 0 then 
+
+10: phase ← 1 − phase 
+
+11: end if 
+
+12: if phase == 0 then 
+
+13: Θactive ← Θmodel ; Freeze Θprompt 
+
+14: else 
+
+15: Θactive ← Θprompt ; Freeze Θmodel 
+
+16: end if 
+
+17: Data Sampling: 
+
+18: Sample Bℓ ∼ D ℓ uniformly; Bu ∼ D u with weights pcs (x|t)
+
+19: Forward Propagation: 
+
+20: for each x ∈ B ℓ ∪ B u do 
+
+21: Apply foreground mask M and inject prompts: 
+
+22: ˜ϕ(x) = ϕ(x) + M ⊙ Qs
+
+23: Apply PatchMix augmentation to the prompted tokens ˜ϕ(x)
+
+24: Extract features: rdom = W·F 1( ˜ϕ(x)) , rsem =
+
+W · F L( ˜ϕ(x)) 
+
+25: Construct text embeddings: S =
+
+concat ([Θ ctx , Γ]) 
+
+26: Normalize: π(v) = rsem /∥rsem ∥2, π(t) =
+
+S/∥S∥2
+
+27: Compute matching score: ρ = π(v) · π(t)
+
+28: end for 
+
+29: Optimization: 
+
+30: Compute loss: Ltotal = Lcls + ϵ∆ + β1LMI +
+
+β2Lvl + LPM 
+
+31: Update Θactive via gradient descent on 
+
+∇Θactive Ltotal 
+
+32: end for 
+
+33: end for 
+
+34: Return: Trained prompts Qs, vision encoder Φ(v),and embeddings Θctx , Γ
+
+in HLPrompt and VLPrompt, we visualize the NCut [16]-based masks produced by DINOv3 ViT and CLIP ViT together with the final-layer [CLS] attention maps. DomainNet-GCD examples are shown in Fig. A5, and CUB-C examples are shown in Fig. A6. On DomainNet-GCD, both backbones produce masks of comparable visual quality, but their attention patterns differ. DINO concentrates attention on the foreground object, which 18 All Old New 72 76 80 84 88         
+
+> ACC (%)
+> Real
+> 77.6 83.5 74.5
+> 78.4 83.9 75.5 All Old New 56 58 60 62 64 66
+> ACC (%)
+> Painting
+> 61.7 62.5 60.9
+> 60.0 60.1 59.8
+> Visual + Proj + Text Visual Visual + Proj Visual + Text
+> Fig. A2. Comparison between which backbone parameters of the CLIP backbone to fine-tune on DomainNet-GCD ’Real’ and ’Painting’ domains.
+
+makes foreground-focused prompting compatible with the pretrained representation. CLIP distributes attention more broadly across the image in order to preserve global information for cross-modal alignment. As a result, masking and prompting large foreground or background regions can disturb the image-text geometry more strongly in VLPrompt, which explains why boundary prompting is more reliable in that setting. On CUB-C, CLIP often produces visually cleaner masks than DINO under severe corruptions. However, this does not make semantic-aware SPT preferable for VLPrompt. The same strong masks can remove or alter image regions that contribute to CLIP’s global alignment behavior. For HLPrompt, the results also indicate that semantic-aware prompting becomes less reliable when corruptions distort the object itself. These observations explain why boundary prompting becomes the more robust choice on CUB-C for both methods. 
+
+D. Formal Definitions and Assumptions 
+
+Before presenting our theoretical results, we formalize the problem setup and state the assumptions used throughout the paper. These definitions precisely specify the GCD problem with domain shifts and the conditions under which our theoretical guarantees hold. 
+
+Definition 1 (Domain) . A domain ω ∈ Ω is characterized by a conditional distribution P (x|y, ω ) over inputs given labels. Two domains ω, ω ′ ∈ Ω differ if P (x|y, ω )̸ = P (x|y, ω ′) for some y ∈ Y .
+
+Definition 2 (GCD with Domain Shifts) . We are given a labelled dataset Dℓ = {(xi, y i)}Nℓ 
+
+> i=1
+
+where each image xi is drawn from P (x|yi, ω a) for a fixed labelled domain ωa ∈ Ωa,with labels yi belonging to the base category set Ybase ⊂Y. We are also given an unlabelled mixed dataset Du =
+
+{xi}Nu 
+
+> i=1
+
+where images xi are drawn from P (x|yi, ω i) with domains ωi coming from either the labelled domain set Ωa
+
+or a disjoint set of new domains Ωb (i.e., Ωa ∩ Ωb = ∅), and with labels yi from either Ybase or Ynovel where Ybase ∩ Y novel =
+
+∅. The objective is to learn a classifier f : X → Y base ∪Ynovel that minimizes the expected error on unlabelled data: 
+
+min f E(x,y,ω )∼Pu [1(f (x)̸ = y)] , where Pu denotes the joint distribution over unlabelled samples, their true labels, and their domains. 
+
+Assumption 1 (Domain-Class Independence) . The class label distribution is domain-invariant: P (y|ω) = P (y) for all ω ∈ Ω.This ensures that domain shifts are purely covariate shifts in 
+
+P (x|y, ω ) rather than semantic shifts. 
+
+Assumption 2 (Semantic Transferability) . Features useful for discriminating classes in Ybase are also useful for discriminat-ing classes in Ynovel . Formally, there exists a feature extractor 
+
+ϕ : X → Z such that if ϕ separates Ybase in feature space Z,it also separates Ynovel .
+
+Assumption 3 (Sufficient Diversity) . |Y base | ≥ Kmin for some minimum Kmin to learn generalizable features, and unlabelled data contains sufficient samples per novel class for clustering: 
+
+min y∈Y novel |{ x : y(x) = y, x ∈ D u}| ≥ Mmin .E. Proofs and Technical Details 
+
+This section provides the detailed proofs and technical analyses referenced in the main paper. Each subsection begins with a brief motivation that explains how the result connects to the method design. 
+
+1) Pure-Vision HiLo: Target-Risk Bounds via A-Distance: 
+
+A core premise of HiLo is that disentangling domain-specific from semantic features reduces the distributional gap between labelled and unlabelled data, thereby improving classification on the unlabelled (target) set. To make this argument precise, we appeal to the A-distance framework of Ben-David et al. [79], [80], which provides upper bounds on target risk in terms of source risk and a measurable domain divergence. The results below formalize the intuition that smaller domain divergence— achieved by HiLo’s disentanglement—leads to tighter target-risk guarantees. Let D be an open-world dataset consisting of a labelled set Dl = {(xi, y i)}Nl 
+
+> i=1
+
+⊂ X l × Y l and an unlabelled set 
+
+Du = {xi}Nu 
+
+> i=1
+
+⊂ X u. We view Dl as samples drawn from a 
+
+source-domain distribution with density ps(X, Y ), and Du as drawn from an unlabelled mixture that includes both ps(X)
+
+and a target-domain marginal pt(X). Let g be a hypothesis (classifier) from a hypothesis class G and let ℓ denote the 0–1
+
+loss. The target error is defined by 
+
+eDu (g) := E(x,y )∼D u [ℓ(g(x), y )] . (33) More generally, if labels are induced by a (possibly unknown) labelling function g′, we define 
+
+eDu (g, g ′) := Ex∼D u [ℓ(g(x), g ′(x))] . (34) Similarly, the corresponding source errors are eDl (g) and 
+
+eDl (g, g ′).Following Ben-David et al. [79], the A-distance between two distributions D1 and D2 is 
+
+dG(D1, D2) = 2 sup 
+
+> g∈G
+
+Pr 
+
+> D1
+
+[g(x) = 1] − Pr 
+
+> D2
+
+[g(x) = 1] . (35) 
+
+Lemma 1 (Empirical A-distance concentration) . Consider a symmetric hypothesis class G defined on X with VC dimension 
+
+d. Let Ωa and Ωb be sample sets drawn from domains D1
+
+and D2, respectively, and let ˆdG(Ω a, Ωb) denote the empirical 19 All Old New               
+
+> 40 50 60 70 80 90
+> ACC (%)
+> 66.4 77.6 57.5 71.7 82.8 65.0 70.0 81.7 64.0
+> Real
+> All Old New
+> 30 35 40 45 50 55 60 65
+> 42.1 42.9 41.3 45.3 47.5 43.1 51.8 54.2 49.5
+> Painting
+> All Old New
+> 40 45 50 55 60 65 70 75 80
+> ACC (%)
+> 56.8 54.0 60.3 62.3 71.4 57.7 63.9 71.7 60.0
+> Original
+> All Old New
+> 40 45 50 55 60 65 70
+> 52.0 53.6 50.5 58.4 59.2 57.6 60.4 61.3 59.5
+> Corrupted DomainNet-GCD CUB-C
+> HiLo (DINOv1) HiLo (DINOv3) HLPrompt (Ours)
+
+Fig. A3. Comparison between DINOv1 and DINOv3 backbone. We compare the performance gain from direct replacement of a stronger backbone on the HiLo baseline on DomainNet-GCD Real-Painting and CUB-C. We include HLPrompt results to present further performance gain. All Old New 72 75 78 81 84 87     
+
+> ACC (%) Real
+> 77.6 83.5 74.5
+> 77.7 84.5 74.2
+> All Old New 59 60 61 62 63 64
+> ACC (%) Painting
+> 61.7 62.5 60.9
+> 61.3 62.7 59.9
+> Train ctx tokens Fixed ctx tokens
+
+Fig. A4. Comparison between fine-tuning and fixing textual context embed-dings Θctx on DomainNet-GCD ’Real’ and ’Painting’ domains. 
+
+A-distance between these samples. Denote the empirical prob-ability over a finite sample set Ω by cPr Ω[A] ≜ 1
+
+|Ω|
+
+P
+
+x∈Ω 1[A].For any δ ∈ (0 , 1) , with probability at least 1 − δ,
+
+dG(D1, D2) ≤ 2 1 − min 
+
+g∈G
+
+hcPr Ωa [g(x) = 0] + cPr Ωb [g(x) = 1] 
+
+i!
+
++ 4 max 
+
+( p d log(2 |Ωa|) + log( δ/ 2) 
+
+p|Ωa| ,
+
+pd log(2 |Ωb|) + log( δ/ 2) 
+
+p|Ωb|
+
+)
+
+.
+
+(36) 
+
+Proof. By definition, the empirical A-distance is 
+
+ˆdG(Ω a, Ωb) = 2 sup 
+
+g∈G
+
+Pr 
+
+Ωa (g(x) = 1) − Pr 
+
+Ωb
+
+(g(x) = 1) ,
+
+(37) where Pr Ωa (g(x) = 1) = 1
+
+|Ωa|
+
+P
+
+x∈Ωa 1(g(x) = 1) and similarly for Ωb. Using the complement event and symmetry of G (as in [79], [81]), the supremum can be rewritten into the equivalent minimization form in (36) . Finally, applying uniform convergence bounds for VC classes (Theorem 3.4 in [81]) and a union bound over the two samples yields the stated additive complexity terms. 
+
+Theorem 1 (Target-risk upper bound (vision-only HiLo)) . Let 
+
+G be a symmetric hypothesis class on X with VC dimension 
+
+d. Let Ωa and Ωb be sample sets drawn from domains D1 and 
+
+D2. Then for any δ ∈ (0 , 1) , with probability at least 1 − δ,
+
+eDu (g) ≤ eDl (g)+ 2 1 − min 
+
+g∈G
+
+hcPr Ωa [g(x) = 0] + cPr Ωb [g(x) = 1] 
+
+i!
+
++ 2 max 
+
+( p d log(2 |Ωa|) + log( δ/ 2) 
+
+p|Ωa| ,
+
+pd log(2 |Ωb|) + log( δ/ 2) 
+
+p|Ωb|
+
+)
+
+.
+
+(38) 
+
+Proof. The A-distance can be written as dG(D1, D2) =2 sup g1,g 2∈G |eD1 (g1, g 2) − eD2 (g1, g 2)| (see [79]). Applying the domain adaptation risk bound from [79], [80] yields 
+
+eDu (g) ≤ eDl (g)+ 12 dG(Dl, Du)+ λ∗, where λ∗ is the optimal joint error term (small when an ideal classifier performs well on both domains). Bounding dG(Dl, Du) via Lemma 1 (and absorbing λ∗ into constants, as customary in this appendix discussion) gives (38). 
+
+Lemma 2 (A-distance vs. total variation) . For the hypothesis class G,
+
+dG(D1, D2) ≤ 2∥D 1 − D 2∥T V . (39) 
+
+Proof. Recall ∥D 1 − D 2∥T V = sup A |D 1(A) − D 2(A)|. For any g ∈ G, define Ag = {x | g(x) = 1 }, then | Pr D1 [g(x) = 1] − Pr D2 [g(x) = 1] | = |D 1(Ag ) − D 2(Ag )| ≤ ∥D 1 − D 2∥T V .Taking sup g∈G and multiplying by 2 gives the claim. 
+
+Lemma 3 (Mutual information controls dependence in TV) .
+
+Let (Zd, Z s) be random variables with joint distribution PZd,Z s
+
+and marginals PZd , P Zs . Then 
+
+∥PZd,Z s − PZd PZs ∥T V ≤
+
+r 12 I(Zd; Zs). (40) 
+
+Proof. Pinsker’s inequality gives ∥P −Q∥2
+
+T V ≤ 12 DKL (P ∥Q).Setting P = PZd,Z s and Q = PZd PZs yields DKL (P ∥Q) = 
+
+I(Zd; Zs) by definition of mutual information [82]. 20 painting 
+
+DINO 
+
+mask 
+
+CLIP 
+
+mask 
+
+real 
+
+DINO 
+
+mask 
+
+CLIP 
+
+mask 
+
+DINO 
+
+attn map 
+
+CLIP 
+
+attn map 
+
+DINO 
+
+attn map 
+
+CLIP 
+
+attn map      
+
+> Fig. A5. Visualization of last-layer [CLS] attention maps and NCut [16]-based foreground masks produced by DINOv3 ViT and CLIP ViT. Samples are randomly drawn from DomainNet-GCD with the Real domain (top row) and the Painting domain (bottom row).
+
+2) Proof of Theorem 2 (Sample Complexity Lower Bound): 
+
+Understanding the intrinsic difficulty of GCD under domain shifts requires characterizing how much data is fundamen-tally needed. The following theorem establishes information-theoretic lower bounds on both the labelled and unlabelled sample sizes. Notably, the unlabelled complexity scales multi-plicatively with the number of domains |Ω|, formalizing the intuition that domain shifts make the discovery problem strictly harder than standard (single-domain) GCD and motivating HiLo’s explicit domain handling. 
+
+Theorem 2 (Sample Complexity Lower Bound) . Under Assumptions 1-3, any algorithm that solves GCD with domain shifts with error at most ϵ requires at least 
+
+Nℓ = Ω 
+
+ |Y base | · dϵ2
+
+
+
+labelled samples (41) 21 original 
+
+> DINO mask original
+> CLIP mask gaussian noise
+> CLIP mask gaussian noise
+> DINO mask shot noise
+> CLIP mask shot noise
+> DINO mask impulse noise
+> DINO mask impulse noise
+> CLIP mask original original
+> DINO
+> attn map original
+> CLIP
+> attn map zoom blur
+> DINO mask zoom blur
+> CLIP mask snow
+> DINO mask snow
+> CLIP mask frost
+> DINO mask frost
+> CLIP mask fog
+> DINO mask fog
+> CLIP mask speckle noise
+> DINO mask speckle noise
+> CLIP mask spatter
+> DINO mask spatter
+> CLIP mask
+
+Fig. A6. Visualization of last-layer [CLS] attention maps and NCut [16]-based foreground masks produced by DINOv3 ViT and CLIP ViT. Samples are randomly drawn from CUB-C and cover all nine corruption types. 
+
+and 
+
+Nu = Ω 
+
+ (|Y base | + |Y novel |) · d · | Ω|
+
+ϵ2
+
+
+
+unlabelled samples 
+
+(42) 
+
+where d is the feature dimension and |Ω| = |Ωa| + |Ωb|.Proof. We establish information-theoretic lower bounds for the sample complexity of GCD with domain shifts. Consider the labelled set Dℓ where the learning task reduces to standard su-pervised classification over |Y base | classes. By the fundamental theorem of statistical learning theory [83], [84], for a hypothesis class H with VC dimension dV C , achieving generalization error at most ϵ with probability at least 1 − δ requires 
+
+Nℓ ≥ Ω
+
+ dV C log( |Y base |/δ )
+
+ϵ2
+
+
+
+(43) samples. For linear classifiers in d-dimensional feature space with |Y base | classes, we have dV C = O(d·|Y base |) by the Vapnik-Chervonenkis dimension bound for multi-class problems [83]. For the unlabelled set Du, the problem becomes substantially more complex as the learner must simultaneously discover 
+
+|Y base | + |Y novel | semantic categories while adapting across |Ω|
+
+domains. Following the analysis of clustering complexity by Awasthi et al. [85] and Ashtiani et al. [86], the information-theoretic sample complexity for clustering with K = |Y base | +
+
+|Y novel | classes satisfies 
+
+N (semantic )
+
+u ≥ Ω
+
+ K · d log( K)
+
+ϵ2∆2
+
+
+
+(44) where ∆ denotes the minimum separation between cluster centers. Simultaneously, domain adaptation theory developed by Ben-David et al. [79], [80] establishes that learning a hypothesis robust to |Ω| domains requires sample complexity scaling with the H-divergence between domains. When domains must be learned from unlabelled data without explicit domain labels, the complexity grows linearly with |Ω| by standard distribution estimation bounds [87]: 
+
+N (domain )
+
+u ≥ Ω
+
+ |Ω| · dϵ2
+
+
+
+(45) Under Assumption 1 of domain-class independence, the joint distribution factors as P (x, y, ω ) = P (x|y, ω )P (y)P (ω),implying that domain and semantic factors vary independently. Consequently, the learner must distinguish (|Y base | + |Y novel |) ×|Ω| distinct conditional distributions P (x|y, ω ). By Le Cam’s method [88] and Fano’s inequality [82], testing between M
+
+hypotheses with minimum separation ∆ requires Ω(log M/ ∆2)22 
+
+samples. Applying this to our setting yields the multiplicative lower bound 
+
+Nu ≥ Ω
+
+ (|Y base | + |Y novel |) · | Ω| · dϵ2 · log 
+
+ |Y|| Ω|
+
+δ
+
+ 
+
+(46) To establish tightness, we construct a matching upper bound using the method of types [82]. When classes are uniformly distributed across domains and satisfy minimal separation ∆ ≥
+
+ϵ, the empirical risk minimizer over H achieves error ϵ with high probability using O(( |Y|| Ω|d log( |Y|| Ω|/δ )) /ϵ 2) samples, matching our lower bound up to logarithmic factors. This completes the proof. 
+
+3) Proof of Lemma 4 (Layer-wise Feature Hierarchy): 
+
+HiLo’s architecture extracts domain features from early trans-former layers and semantic features from late layers. This design choice is not arbitrary: the following lemma establishes that, under standard training for semantic classification, a deep network naturally develops a hierarchy in which early-layer representations are rich in domain-specific (low-level) infor-mation while late-layer representations concentrate semantic content. The proof combines the data processing inequality with empirical findings from network analysis literature, providing a principled basis for HiLo’s layer assignment strategy. 
+
+Lemma 4 (Layer-wise Feature Hierarchy) . Consider a deep network with L layers. Let rℓ denote features at layer ℓ.Under mild regularity conditions, the mutual information between features and domain decreases with depth while mutual information with semantic labels increases: 
+
+I(rℓ; ω) > I (rℓ′ ; ω),I(rℓ; y) < I (rℓ′ ; y) (47) 
+
+for ℓ < ℓ ′, when the network is trained end-to-end on semantic classification. Proof. We establish that deep neural networks trained on semantic classification naturally develop a hierarchical rep-resentation structure where early layers encode domain-specific information while later layers encode semantic abstractions. Consider a deep network with L layers producing intermedi-ate representations {r1, r2, . . . , rL} where layer ℓ computes 
+
+rℓ = fℓ(rℓ−1) with r0 = X.Since the network forms a deterministic processing pipeline, the representations constitute a Markov chain X → rℓ → rℓ′
+
+for any ℓ < ℓ ′. By the data processing inequality [82], mutual information can only decrease along this chain: 
+
+I(X; rℓ) ≥ I(X; rℓ′ ) for all ℓ < ℓ ′ (48) This fundamental result from information theory implies that deeper layers progressively discard information about the raw input, retaining only task-relevant features. When optimizing the cross-entropy loss L =
+
+−E[log P (y|rL)] for semantic classification, the gradient with respect to the final layer representation is 
+
+∂L
+
+∂rL
+
+= −∇ rL log P (y|rL) (49) which directly drives rL toward maximizing I(rL; y) by the information bottleneck principle [89]. However, gradients for earlier layers propagate through the composition of Jacobian matrices: 
+
+∂L
+
+∂rℓ
+
+= ∂L
+
+∂rL
+
+·
+
+> L−1
+
+Y
+
+> k=ℓ
+
+∂f k+1 
+
+∂rk
+
+(50) The analysis of gradient flow in deep networks by Saxe et al. [90] and neural tangent kernel theory [91] reveals that this product of Jacobians leads to exponentially decaying gradients for early layers, particularly when networks are deep or use saturating nonlinearities. Consequently, early layers receive substantially weaker supervision for semantic discrimination and evolve more slowly during training. This differential optimization pressure creates a natural strat-ification documented extensively in network analysis literature. Yosinski et al. [92] demonstrated that early convolutional layers learn generic edge and texture detectors regardless of the task, while later layers become increasingly task-specific. The SVCCA analysis by Raghu et al. [93] quantified this hierar-chy, showing that early layers develop stable representations quickly while later layers continue evolving throughout training. Geirhos et al. [94] further established that standard ImageNet-trained networks exhibit strong texture bias in early layers, with shape-based semantic reasoning emerging only in deeper layers. For vision transformers specifically, Dosovitskiy et al. [95] and subsequent analysis by Raghu et al. [96] revealed that early attention layers capture local spatial relationships and low-level statistics, while later layers develop global semantic under-standing. The work of Zhou et al. [10] on domain adaptation explicitly measured that domain-specific information (texture, color statistics, local patterns) concentrates in early layers with mutual information I(rℓ; ω) decreasing monotonically with depth ℓ.Formalizing these observations, we can characterize the learned representations through their conditional mutual in-formation with domain ω and semantic label y. Since the optimization objective prioritizes semantic accuracy, later layers maximize I(rℓ′ ; y) while discarding domain information to achieve generalization. This leads to the ordering: 
+
+I(rℓ; ω | y) > I (rℓ′ ; ω | y),I(rℓ; y) < I (rℓ′ ; y) (51) for ℓ < ℓ ′, where the conditional mutual information I(rℓ; ω|y)
+
+quantifies domain-specific information not explained by seman-tic content. This hierarchical structure provides the theoretical foundation for HiLo’s architectural design: extracting domain features hdom 
+
+from early layers (e.g., layers 1-4 of ViT-B/16) captures rep-resentations rich in domain-specific patterns, while extracting semantic features hsem from late layers (e.g., layer 12) obtains representations optimized for semantic discrimination. The mu-tual information minimization objective min I(hdom ; hsem ) then encourages statistical independence between these naturally separated representations, further enhancing disentanglement beyond what emerges from standard training. A central component of HiLo is the mutual-information (MI) minimization objective min I(hdom ; hsem ), which encourages 23 
+
+the semantic feature representation to be domain-invariant. The following theorem makes this benefit rigorous: it shows that when domain-conditional semantic-feature distributions are uniformly close (as measured by KL divergence to their mixture), the target-domain risk decomposes into an empirical risk term, a standard complexity term, and a domain-shift penalty of order √δ. Thus, enforcing smaller MI directly translates into tighter generalization bounds under domain shift. 
+
+Theorem 3 (Generalization bound with MI regularization) .
+
+Let h ∈ H be a classifier that operates on semantic features hsem extracted from inputs. Let π be a distribu-tion over domains and define the semantic-feature mixture 
+
+¯P (hsem ) ≜ P 
+
+> ω∈Ω
+
+π(ω) P (hsem |ω). Assume the domain-conditional semantic-feature distributions are uniformly close to the mixture: 
+
+sup 
+
+> ω∈Ω
+
+DKL 
+
+ P (hsem |ω) ∥ ¯P (hsem ) ≤ δ. (52) 
+
+Then, for any target domain ωt (and a source domain ωs used to compute empirical risk), with probability at least 1 − η over 
+
+N i.i.d. samples from ωs, the target risk is bounded by 
+
+Rωt (h) ≤ R emp (h) + 
+
+r 2dV C log(2 N/d V C ) + 2 log(4 /η )
+
+N
+
++ √2δ + λ∗,
+
+(53) 
+
+where dV C is the VC dimension of H, and λ∗ =min h∗∈H [Rωs (h∗) + Rωt (h∗)] is the optimal combined error term from domain adaptation theory. 4) Proof of Theorem 3 (Generalization Bound with MI Regularization): Proof. We establish that minimizing mutual information be-tween semantic features and domain variables leads to provably tighter generalization bounds under domain shift. Our analysis builds upon the domain adaptation theory of Ben-David et al. [80], [97] combined with information-theoretic tools. For a hypothesis class H with finite VC dimension dV C , the classical PAC learning result [83], [84] guarantees that with probability at least 1 − η over N i.i.d. samples from source domain ωs:
+
+Rωs (h) ≤ R emp (h) + 
+
+r 2dV C log(2 N/d V C ) + 2 log(4 /η )
+
+N (54) where Rωs (h) = E(x,y )∼Pωs [1(h(x)̸ = y)] denotes the true risk and Remp (h) denotes empirical risk. This bound, however, only characterizes performance on the source distribution. The fundamental challenge of domain adaptation is bounding performance on a target domain ωt when training data comes exclusively from ωs. Ben-David et al. [80] established that for binary classification: 
+
+Rωt (h) ≤ R ωs (h) + 12 dH∆H(ωs, ω t)+ min 
+
+> h∗∈H
+
+Rωs (h∗) + Rωt (h∗) (55) where dH∆H(ωs, ω t) = 2 sup h,h ′∈H |Pωs (h(x)̸ = h′(x)) −
+
+Pωt (h(x)̸ = h′(x)) | is the H∆H-divergence measuring distributional difference through the hypothesis class. The final term λ∗ = min h∗ [Rωs (h∗) + Rωt (h∗)] represents the optimal combined error, which is small when an ideal hypothesis performs well on both domains. Our key contribution is connecting the H∆H-divergence to the mutual information I(hsem ; ω) between semantic features and domain labels. When the hypothesis class H operates on semantic features hsem , the divergence satisfies 
+
+dH∆H(ωs, ω t) ≤ 2 sup 
+
+> h∈H
+
+Eh∼Pωs [h(hsem )] − Eh∼Pωt [h(hsem )] 
+
+≤ 2 sup 
+
+> A
+
+|Pωs (hsem ∈ A) − Pωt (hsem ∈ A)|
+
+(56) for measurable sets A, where the final expression equals twice the total variation distance TV (Pωs (hsem ), P ωt (hsem )) .To relate total variation to KL divergence, we invoke Pinsker’s inequality [82], [98], a fundamental result in in-formation theory stating that for any distributions P and Q:TV (P, Q )2 ≤ 12 DKL (P ∥Q) (57) where DKL (P ∥Q) = EP [log( P/Q )] denotes Kullback-Leibler divergence. Let π be a distribution over domains and define the mixture ¯P (hsem ) ≜ P 
+
+> ω∈Ω
+
+π(ω) P (hsem |ω). The assumption of Theorem 3 is that each domain-conditional distribution is uniformly close to this mixture: 
+
+sup 
+
+> ω∈Ω
+
+DKL 
+
+ P (hsem |ω) ∥ ¯P (hsem ) ≤ δ. (58) Applying Pinsker’s inequality yields, for every ω ∈ Ω,TV  P (hsem |ω), ¯P (hsem ) ≤
+
+r δ
+
+2 . (59) Therefore, for any pair of domains ωs, ω t, triangle inequality gives TV (P (hsem |ωs), P (hsem |ωt)) ≤ TV  P (hsem |ωs), ¯P 
+
++ TV   ¯P , P (hsem |ωt)
+
+≤ √2δ. 
+
+(60) Combining these results with the domain adaptation bound: 
+
+Rωt (h) ≤ R ωs (h) + dH∆H(ωs, ω t) + λ∗ (61) 
+
+≤ R ωs (h) + 2 TV (Pωs (hsem ), P ωt (hsem )) + λ∗ (62) 
+
+≤ R ωs (h) + 2 √2δ + λ∗ (63) 
+
+≤ R emp (h) + 
+
+r 2
+
+N
+
+pdV C log(2 N/d V C ) + log(4 /η )
+
+(64) 
+
++ 2 √2δ + λ∗ (65) Setting λ(δ) = O(√δ) + λ∗ = O(√δ) yields the stated bound. This formalizes that enforcing small domain dependence in the semantic feature distribution (captured here via closeness to the domain-mixture) reduces the domain shift penalty. The square-root dependence on δ is a direct consequence of Pinsker’s inequality and matches information-theoretic limits for distribution testing [99]. 24 
+
+5) Proof of Theorem 4 (Curriculum Learning Convergence): 
+
+In practice, HiLo trains with a curriculum that initially focuses on labelled-domain (easier) samples before gradually introducing new-domain (harder) samples. This schedule is motivated by the observation that learning robust semantic features first—without domain confusion—provides a better initialization for subsequent cross-domain adaptation. The following theorem formalizes this intuition by proving that SGD under our curriculum-weighted sampling distribution converges to a stationary point of the full objective, while the warmup phase improves optimization stability compared with uniform sampling. 
+
+Theorem 4 (Curriculum learning convergence) . Under stan-dard stochastic approximation conditions (e.g., Robbins–Monro step-size and regularity of the loss), stochastic gradient training with the curriculum-weighted sampling distribution induced by pcs (x|t) converges to a stationary point of the limiting objective as t increases. Moreover, the curriculum warmup yields an initialization that improves optimization stability compared with uniform sampling when new-domain samples are substantially harder early in training. Proof. We analyze the convergence properties of our cur-riculum learning schedule using the framework of stochastic approximation with time-varying distributions [100], [101]. Let 
+
+θ ∈ Rp denote the model parameters. At training iteration t,our curriculum reweights the data distribution to focus initially on labelled-domain-like samples before gradually incorporating new-domain-like samples. The curriculum-weighted objective is 
+
+Lt(θ) = Ex∼Pw (·;t)[ℓ(x, θ )] (66) where Pw(x; t) ∝ w(x, t )P (x) denotes the curriculum-weighted distribution with sample weights w(x, t ) = 1
+
+for labelled-domain-like samples and w(x, t ) = η(t) ·
+
+exp( −C dom (x)) for new-domain-like samples, governed by the pacing function η(t).Stochastic gradient descent with learning rate schedule 
+
+{αt} performs the update θt+1 = θt − αt∇ℓ(xt, θ t) where 
+
+xt ∼ Pw(·; t). Convergence theory requires the Robbins-Monro conditions [102]: 
+
+> ∞
+
+X
+
+> t=1
+
+αt = ∞ and 
+
+> ∞
+
+X
+
+> t=1
+
+α2 
+
+> t
+
+< ∞ (67) Our implementation uses αt = α0/(1 + γt ) which satisfies both conditions. Classical stochastic approximation theory [100] establishes convergence to stationary points of time-invariant objectives. However, our curriculum introduces time-varying weights, requiring analysis of tracking behavior. Let θ∗ 
+
+> t
+
+= arg min θ Lt(θ) denote the instantaneous minimizer at time t, and θ∗ = arg min θ L(θ) the minimizer of the final uniform objective L(θ) = EP [ℓ(x, θ )] . The tracking error decomposes as 
+
+∥θT − θ∗∥ ≤ ∥ θT − θ∗ 
+
+> T
+
+∥ + ∥θ∗ 
+
+> T
+
+− θ∗∥ (68) where the first term captures optimization error and the second term captures bias from time-varying objectives. For the pacing function 
+
+η(t) = 
+
+
+
+0 t < T warmup  
+
+> t−Twarmup
+> Tramp
+
+Twarmup ≤ t < T warmup + Tramp 
+
+1 t ≥ Twarmup + Tramp 
+
+(69) the bias term satisfies ∥θ∗ 
+
+> t
+
+− θ∗∥ ≤ Lθ (1 − η(t)) for some Lipschitz constant Lθ depending on the objective’s sensitivity to distribution shift [103]. By construction, η(t) → 1 as t → ∞ ,ensuring the bias vanishes asymptotically. Under standard regularity conditions [104]— μ-strong con-vexity of Lt (or weaker Polyak-Łojasiewicz condition) and bounded gradient variance E[∥∇ ℓ(x, θ ) − ∇L t(θ)∥2] ≤
+
+σ2—the optimization error satisfies 
+
+E[∥θT − θ∗ 
+
+> T
+
+∥2] ≤ σ2
+
+μT 
+
+> T
+
+X
+
+> t=1
+
+α2 
+
+> t
+
+= O
+
+ σ2
+
+μT 
+
+
+
+(70) for αt = O(1 /t ). Combined with the bias analysis, we obtain 
+
+E[∥θT − θ∗∥2] ≤ O
+
+ σ2
+
+μT 
+
+
+
++ L2 
+
+> θ
+
+(1 − η(T )) 2 = O
+
+ 1
+
+T
+
+
+
+(71) since η(T ) = 1 for T ≥ Twarmup + Tramp .Beyond convergence rates, curriculum learning provides qualitative benefits for non-convex objectives by shaping the op-timization landscape. Hacohen and Weinshall [105] and Spigler et al. [106] established that training on progressively harder examples increases the volume of the basin of attraction around good local minima. In our setting, initial training on labelled-domain samples—which have strong supervision—learns robust semantic features uncontaminated by domain confusion. This provides a better initialization for subsequent learning on new domains compared to uniform sampling, which can cause the model to latch onto spurious domain-specific correlations early in training. Formally, let B(θ0, r ) = {θ : L(θ) < L(θ0) − r} denote the 
+
+r-sub-level set around initialization θ0. Curriculum learning produces an initialization θcurriculum  
+
+> 0
+
+after warmup that satisfies Vol (B(θcurriculum  
+
+> 0
+
+, r )) ≥ Vol (B(θuniform  
+
+> 0
+
+, r )) (72) with strict inequality when labelled and new domains differ significantly, as established by the dynamical stability analysis of Saxe et al. [90]. This geometric property makes curriculum SGD more likely to converge to global or high-quality local minima. Synthesizing these results, curriculum learning achieves the convergence rate 
+
+L(θT ) − L (θ∗) ≤ σ2
+
+μT 
+
+> T
+
+X
+
+> t=1
+
+αt + Lθ (1 − η(T )) = O
+
+ 1
+
+T
+
+
+
+(73) matching the rate of standard SGD while providing superior constant factors and better local minima due to curriculum initialization. For our linear ramp schedule with Twarmup = 50 
+
+and Tramp = 50 , the curriculum bias becomes negligible after 100 epochs while the initial warmup phase establishes robust semantic representations that facilitate subsequent domain adaptation. 25 
+
+Both HLPrompt and VLPrompt employ intra-modal stability regularization, which encourages consistent predictions across multiple augmented views of the same input. The following lemma formalizes how this regularization mechanism translates to domain robustness: when the augmentation set is rich enough to mimic typical domain variations (e.g., noise, color shifts, blur), enforcing prediction stability across augmentations provably reduces the total-variation gap between prediction distributions under different domains. The √ϵ scaling, arising from Pinsker’s inequality, shows that tighter stability constraints yield progressively smaller domain gaps. 
+
+Lemma 5 (Domain gap reduction via intra-modal consistency) .
+
+Let Qω denote the induced prediction distribution under domain 
+
+ω. If the intra-modal stability regularizer enforces Rintra (x) ≤ ϵ
+
+uniformly over inputs and the augmentation set covers domain-mimicking transformations, then the induced domain gap satisfies TV (Qω1 , Qω2 ) = O(√ϵ).6) Proof of Lemma 5 (Domain Gap Reduction): Proof. We establish that intra-modal prediction stability reg-ularization across domain-mimicking augmentations prov-ably reduces the distributional gap between prediction dis-tributions induced by different domains. Let P (m)(x) =(P (m)1 (x), . . . , P (m) 
+
+> K
+
+(x)) denote the categorical prediction dis-tribution for the m-th augmented view of input x, where 
+
+P (m) 
+
+> k
+
+(x) = P[class k|˜xm] for ˜xm = Am(x) under augmenta-tion Am.Our intra-modal stability regularization enforces consistency across M augmented views through the objective 
+
+Rintra (x) = 1
+
+M
+
+> M
+
+X
+
+> m=1
+
+DKL (P (m)(x)∥ ¯P (x)) (74) where ¯P (x) = 1
+
+> M
+
+PMm=1 P (m)(x) represents the average prediction. When this regularization is bounded as Rintra (x) ≤ ϵ
+
+uniformly over all inputs x, we can bound the prediction variance using Pinsker’s inequality [82]. For each view m:
+
+∥P (m)(x) − ¯P (x)∥1 ≤
+
+q
+
+2DKL (P (m)(x)∥ ¯P (x)) ≤ √2ϵ
+
+(75) This establishes that predictions remain within an O(√ϵ)
+
+neighborhood in total variation distance across all augmented views. The critical connection to domain robustness arises from our choice of augmentation set A = {A1, . . . , A M }, which in-cludes domain-mimicking transformations designed to simulate the types of distributional shifts encountered across domains. Following the data augmentation theory of Chen et al. [107] and Shorten and Khoshgoftaar [108], we construct A to span typical domain variations, including noise corruptions (Gaussian and salt-and-pepper) to simulate sensor variations [109], color jitter-ing and brightness adjustments to mimic lighting changes [110], Gaussian and motion blur to approximate optical differences and motion artifacts [71], and style transfer operations to simulate artistic rendering and sketch-like domains [111]. The augmentation coverage principle of Cubuk et al. [112] and Hendrycks et al. [113] establishes that when augmenta-tions comprehensively span domain variations, stability across augmentations implies robustness to domain shifts. To formalize this connection, define the induced prediction distribution for domain ω as 
+
+Qω (k) = Ex∼Pω [Pk(x)] (76) representing the marginal probability of predicting class k when inputs are drawn from domain ω. For two domains ω1 and ω2,the total variation distance between their induced distributions satisfies TV (Qω1 , Qω2 ) = 12
+
+> K
+
+X
+
+> k=1
+
+|Q ω1 (k) − Q ω2 (k)|
+
+= 12 ∥Q ω1 − Q ω2 ∥1
+
+(77) By Jensen’s inequality and the triangle inequality for total variation [98]: TV (Qω1 , Qω2 ) ≤ Ex1∼Pω1 ,x2∼Pω2
+
+ 12 ∥P (x1) − P (x2)∥1
+
+
+
+(78) The augmentation coverage assumption posits that for any pair (x1, x2) from different domains, there exists an augmentation A ∈ A such that A(x1) is distributionally similar to x2 in terms of domain characteristics. This is the key bridging assumption that connects augmentation stability to domain robustness, validated empirically by studies on domain randomization [61] and augmentation-based domain adaptation [114]. Under this assumption, we can decompose the prediction difference using triangle inequality: 
+
+∥P (x1) − P (x2)∥1 ≤ ∥ P (x1) − P (A(x1)) ∥1 (79) 
+
++ ∥P (A(x1)) − P (x2)∥1 (80) 
+
+≤ √2ϵ + L · dX (A(x1), x2) (81) where L denotes the Lipschitz constant of the prediction function with respect to input distance dX [115], [116]. The first term is bounded by stability regularization, while the second term depends on how well augmentations approximate domain transformations. For practical augmentation sets that achieve C-covering of typical domain variations—meaning that for any domain pair, there exists an augmentation sequence approximating the transformation within distance C—we obtain TV (Qω1 , Qω2 ) ≤ √2ϵ + LC = O(√ϵ) (82) when the covering constant C is absorbed into the notation. The constant hidden in the O(·) notation depends on three factors analyzed by Wang et al. [117]: (1) the quality of domain-mimicking augmentations measured by coverage radius C, (2) the Lipschitz constant L of the predictor governing sensitivity to input perturbations, and (3) the distributional overlap be-tween augmentation-generated examples and true new-domain samples. Modern augmentation strategies like AugMax [118] and RandAugment [119] are explicitly designed to maximize this coverage while maintaining semantic preservation. In summary, enforcing tighter stability constraints (smaller ϵ)through Rintra directly reduces the domain gap TV (Qω1 , Qω2 )26 
+
+with square root dependence, providing theoretical justification for our multi-view consistency regularization as a mechanism for achieving domain-robust predictions. The √ϵ scaling is optimal under Pinsker’s inequality and matches fundamental information-theoretic limits for distribution testing from sam-ples [99]. 
+
+7) NCut-Based SPT Details: Semantic-aware SPT injects learnable prompts selectively into foreground patches, guided by a foreground mask. We describe the Normalized Cut (NCut) [16] procedure used to obtain this mask from interme-diate ViT features, which avoids requiring any segmentation annotations. Foreground Segmentation via Normalized Cut: Given an input image x, we construct an affinity graph G = ( V, E)
+
+where nodes V correspond to image patches and edges E encode pairwise similarities. Specifically, for a ViT architecture that divides the image into P patches, we extract intermediate fea-ture representations {f1, f2, . . . , fP } from an early transformer layer that captures both semantic and spatial information. The affinity matrix W ∈ RP ×P is defined as: 
+
+Wij = exp 
+
+
+
+− ∥fi − fj ∥22
+
+2σ2
+
+
+
+· 1[dist (i, j ) < r ] (83) where σ controls the feature similarity bandwidth, dist (i, j )
+
+denotes the spatial distance between patches i and j, and 
+
+r is a locality radius that enforces spatial coherence in the segmentation. Normalized Cut [16] partitions the graph into foreground F
+
+and background B by minimizing: NCut (F, B) = cut (F, B)
+
+assoc (F, V) + cut (F, B)
+
+assoc (B, V) (84) where cut (F, B) = P 
+
+> i∈F ,j ∈B
+
+Wij measures the total edge weight between partitions, and assoc (F, V) = P 
+
+> i∈F ,j ∈V
+
+Wij 
+
+measures the total connection from F to all nodes. This optimization can be efficiently solved through the generalized eigenvalue problem: 
+
+(D − W)v = μDv (85) where D = diag (P 
+
+> j
+
+Wij ) is the degree matrix. The second smallest eigenvector v2 provides the partition indicator, and we threshold it to obtain the foreground mask M ∈ { 0, 1}P .To disambiguate foreground from background (since NCut is symmetric), we leverage the observation that object regions typically exhibit higher feature variance and attention concen-tration. We assign the partition with higher average attention score from the CLS token as foreground. 
+
+8) Boundary-Based SPT Details: VLPrompt uses boundary-based spatial prompt tuning (Section VI). Let the input image be 
+
+x ∈ R3×H×W , processed as a grid of NH ×NW patches of size 
+
+S. A learnable spatial prompt Qs ∈ R3×H×W is constrained by a spatially periodic binary mask M that preserves each patch center. Let p denote the prompt border width. The local patch mask 
+
+m ∈ { 0, 1}S×S is defined as: 
+
+mu,v =
+
+(
+
+0 if p ≤ u < S − p and p ≤ v < S − p
+
+1 otherwise (86) This is tiled spatially to form M = Tile (m, N H , N W ), and the prompted image is ˜x = x + ( Qs ⊙ M).
+
+9) Computational Complexity Details: To help practitioners assess the computational overhead introduced by HiLo’s components (domain/semantic projection heads, discrimina-tor, NCut mask estimation, and cross-modal matching), we provide detailed per-iteration complexity expressions for both HLPrompt and VLPrompt below. 
+
+a) HLPrompt.: Let B denote the total batch size, L the number of transformer layers, P the number of patches per image, and D the embedding dimension. The per-iteration computation of HLPrompt is dominated by the ViT encoder and is: 
+
+O BL (P 2D + P D 2) + BD 2. (87) The self-attention term scales as O(P 2D) and the FFN term scales as O(P D 2). The projection heads and discriminator are shallow MLPs on global features, contributing O(BD 2). NCut-based foreground estimation operates on a patch graph with P
+
+nodes; in practice we use a sparse affinity (local neighborhood) and efficient eigensolvers, so its overhead is modest compared to the transformer forward/backward. 
+
+b) VLPrompt.: Let K be the number of categories. The per-iteration computation of VLPrompt is determined by the CLIP vision/text transformer passes and cross-modal matching: 
+
+O BL (P 2D + P D 2) + KLD 2 + BKD . (88) The text-branch term accounts for backpropagating through the (frozen-weight) text encoder to update the prompt embeddings. NCut-based mask estimation is computed over P patch tokens and adds a small overhead relative to the transformer passes.

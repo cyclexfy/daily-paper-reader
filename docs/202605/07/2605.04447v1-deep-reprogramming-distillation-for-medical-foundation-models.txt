@@ -1,0 +1,762 @@
+Title: Deep Reprogramming Distillation for Medical Foundation Models
+
+URL Source: https://arxiv.org/pdf/2605.04447v1
+
+Published Time: Thu, 07 May 2026 00:30:25 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+> JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 1
+
+# Deep Reprogramming Distillation for Medical Foundation Models 
+
+Siyuan Du, Yuhang Zhou, Haolin Li, Jiangchao Yao, Haishuai Wang, Hui Lin, Ya Zhang, Yanfeng Wang 
+
+Abstract —Medical foundation models pre-trained on large-scale datasets have shown powerful versatile performance. How-ever, when adapting medical foundation models for specific medical scenarios, it remains the inevitable challenge due to the gap induced by the discrepancy between pre-training and down-stream tasks, the real-world computation, and speed constraints. Relevant techniques that probably handle this challenge more or less suffer from some intrinsic limitations. For example, knowl-edge distillation (KD) assumes that teacher and student models share the same task, training strategy, and model structure family, while prevalent parameter-efficient fine-tuning (PEFT) fails to achieve personalized and lightweight deployment. Even the combination of PEFT and KD still struggles to resolve model structures and training strategies inconsistencies between teacher and student models, leading to inefficient knowledge transfer. In this study, we propose a novel framework called Deep Repro-gramming Distillation (DRD) to combat the general adaptation challenge. Specifically, DRD introduces the novel reprogramming module that on the one side overcomes the domain and task discrepancy between pretraining and downstream scenarios, and on the other side builds the student-friendly efficient distillation from foundation models to lightweight downstream models. Furthermore, to mitigate variability under different training con-ditions, we design a centered kernel alignment (CKA) distillation method to promote robust knowledge transfer. Empirical results show that DRD surpasses previous PEFT and KD methods across 18 medical downstream tasks under different foundation models, covering various scenarios including 2D/3D classification and 2D/3D segmentation. 
+
+Index Terms —Knowledge Distillation, Transfer Learning, Foundation Models, Model Reprogramming, Downstream Adap-tation. 
+
+I. I NTRODUCTION 
+
+# LARGE-SCALE pre-training has promoted the rapid de-velopment of medical foundation models, which provides generalizable feature base for various downstream tasks [1]– [5]. Nevertheless, given the downstream-agnostic proxy train-ing strategies ( e.g., self-supervised or weakly-supervised learn-ing [1], [3], [6]), we usually cannot directly apply the medical foundation models to the specific downstream tasks like tumor benign-malignant diagnosis and rare lung disease diagnosis. In addition, for the real-world deployment, we inevitably need to consider many constraints regarding model computational 
+
+> S. Du, H. Li are with School of Computer Science, Fudan University and with the Shanghai AI Laboratory, Shanghai, China H. Wang is with College of Computer Science and Technology, Zhejiang University Hui Lin is with Sir Run Run Shaw Hospital, School of Medicine, Zhejiang University Ya Zhang and Y. Wang are with School of Artificial Intelligence, Shanghai Jiao Tong University and with the Shanghai AI Laboratory, Shanghai, China. Y. Zhou, J. Yao are with the Cooperative Medianet Innovation Center, Shanghai Jiao Tong University and with the Shanghai AI Laboratory, Shang-hai, China. (Corresponding authors: Jiangchao Yao. Corresponding e-mails: Sunarker@sjtu.edu.cn)
+
+limits and inference speed [7]. Therefore, a downstream adap-tation process must be conducted to mitigate the potential task or domain inconsistencies while ensuring efficient deployment. Currently, the mainstream downstream adaptation meth-ods for foundation models are parameter-efficient fine-tuning (PEFT) [8]–[13], which leverage a small number of trainable parameters to achieve performance comparable to full fine-tuning. Despite the reduction in training cost, these methods might not meet the deployment constraints for memory us-age and inference speed in practice. Knowledge distillation (KD) [14]–[20], as an effective means of knowledge transfer, can compress the model size without sacrificing much perfor-mance of teacher models. However, unlike the ordinary knowl-edge distillation scenario, the pre-training data used by medical foundation models might be task- or domain- inconsistent with the downstream data, leading to a lack of direct correlation between the foundation model and the student model, thereby weakening the adaptation gain of the foundation model. A naive integration of KD and PEFT involves pre-tuning the foundation model with PEFT for downstream tasks before ap-plying KD. However, this still disregards the model structures and training strategies inconsistencies between the foundation and downstream models, which hinders the transfer of student-friendly knowledge and thus limits the improvements. As shown in Fig. 1, when adapting medical foundation models to downstream tasks, we actually need to consider several inconsistency issues while reducing deployment cost on resource-limited devices. Basically, we can transfer the general knowledge embedded in medical foundation models to guide the training of a lightweight downstream model. However, the gap between tasks, model structures, and training strategies often results in non-negligible negative impact when transferred naively. To guarantee the effectiveness of knowl-edge transfer to the downstream model, it is crucial to refine the potentially biased knowledge in medical foundation models with mediating the inconsistencies related to tasks, structural designs, as well as training strategies etc .Specifically, to address the main challenge, we propose an effective framework called deep reprogramming distillation (DRD) for adapting medical foundation models on down-stream tasks. Firstly, we introduce a reprogramming module to mitigate inconsistency, which helps extract features more rele-vant to downstream tasks. Here, we treat the foundation model as a basic stack of blocks with fixed parameters. Secondly, to ensure that reprogrammed features can be smoothly mimicked by downstream models, we adopt a deep co-training mech-anism to establish connections between the reprogrammed knowledge and the knowledge extracted by student models, and encourage them to learn similar feature representation through the shared student branches. Additionally, we in- 
+
+> arXiv:2605.04447v1 [cs.CV] 6 May 2026 JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 2
+
+Downstream Tasks 
+
+Foundation Model 
+
+Downstream Lightweight Models 
+
+Task -specific 
+
+Knowledge              
+
+> 𝐿 =−log exp (𝑠𝑖𝑚 (𝑧 !,𝑧 !
+> ")/𝜏 )
+> ∑exp 𝑠𝑖𝑚 (𝑧 !,𝑧 #/𝜏 )$
+> #%&𝐿 =−5𝑦 !,(log (𝑃 !,()
+> )
+> (%*
+
+Self -Supervised Supervised 
+
+ViT -Based CNN -Based 
+
+Adaptation Inconsistencies 
+
+Multi -tasks Single -task 
+
+Task/Domain 
+
+Structure 
+
+Strategy 
+
+Diverse Tasks 
+
+Pretrain 
+
+High -cost 
+
+Deployment 
+
+Low -cost 
+
+Deployment 
+
+Resource -constrained hardware 
+
+Computation Constraints 
+
+Fig. 1: Real-world consideration for the adaptation of medical foundation models. It requires to overcome different inconsistency issues and enables low cost to deploy on resource-constrained devices. The resulting downstream models should well learn task-specific knowledge and build with a lightweight structure to allow for broader application in certain medical scenarios. troduce the Centered Kernel Alignment (CKA) distillation to promote robust knowledge transfer, so as to alleviate the randomness introduced due to the various training conditions. This paper is an extension of our preliminary work [21], which introduced model reprogramming to address task bias during adaptation and utilized CKA distillation to facilitate robust feature transfer. The contributions of this paper on top of [21] are summarized as follows.  
+
+> •
+
+We design a new framework, Deep Reprogramming Dis-tillation, to facilitate downstream adaptation of medi-cal foundation models. DRD targets a broader practi-cal setting than previous methods by jointly handling task/domain discrepancy, teacher–student structural dis-crepancy, and lightweight deployment in one stage.  
+
+> •
+
+We propose a novel component for DRD, Deep Co-training Reprogramming, which aligns tasks, modalities and structures for easier feature mimic by downstream models to promote more robust knowledge transfer.  
+
+> •
+
+We select eight types of medical foundation models to conduct extensive experiments on eighteen public datasets, encompassing various tasks and modalities, and the results prove that DRD consistently improves the performance across different training conditions. II. R ELATED WORK 
+
+A. Knowledge Distillation 
+
+Knowledge Distillation origins for model compression, which utilizes a smaller “student” model to mimic a larger “teacher” model. This concept was initially introduced by Bucila et al. [22] and later enhanced by Hinton et al. [14]. Subsequent research has advanced logits-based Knowledge Distillation through model ensembles [23], contrastive learning techniques [16] or by means of incorporation of structural information [17]. Other stream of approaches utilize interme-diate features as guiding knowledge. For example, Romero et al. [24] introduced FitNets, which minimised the discrepancy between the projected feature and the teacher feature using mean square loss. Zagoruyko et al. [25] proposed an attention transfer mechanism in which the student learns to mimic the attention maps of the teacher. Furthermore, Some studies aimed to address how to distil efficiently when student and teacher architectures are heterogeneous. For instance, Hao et al. [26] transferred the mismatched representations into the aligned logits space by incorporating additional exit branches into the student model before matching the outputs with logits from teacher. Although existing distillation methods have achieved remarkable performance, they typically assume that the student and teacher models share the same task or belong to the same model family. However, when tasks, model structures, or even training strategies differ significantly, they will struggle to transfer knowledge effectively due to the large discrepancy between the teacher and student features. 
+
+B. Parameter-Efficient Fine-Tuning (PEFT) 
+
+Parameter-Efficient Fine-Tuning methods facilitate the adap-tation of pre-trained models to specific tasks by fine-tuning a small fraction of parameters, which can be roughly categorized into three types. First, adapter-based methods involve intro-ducing additional trainable components into the frozen back-JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 3
+
+bone [27]–[30]. Second, prompt-based methods incorporate additional soft tokens (prompts) into the initial input, focusing on fine-tuning these specific parameters [10], [31]–[33]. The third category includes LoRA [12] and its variants [34]–[36], which are particularly notable for not increasing the inference burden. These techniques utilize low-rank matrices to simulate weight modifications during fine-tuning, allowing them to be seamlessly integrated with pre-trained weights before infer-ence. Moreover, the application of PEFT in medical imaging has expanded to include methods such as MeLo [37], which employs low-rank adaptation in medical scenarios, enabling the development of a single CAD model for multiple clinical tasks in a lightweight manner. Wu et al. [38] introduced a specialized adapter module into the Segmentation Anything Model (SAM) to adapt it for medical segmentation tasks. Although PEFT methods reduce the training costs for adaption, it cannot decrease the practical deployment costs, making them unsuitable for resource-limited scenarios. III. D EEP REPROGRAMMING DISTILLATION 
+
+In this section, we initially present the preliminary and motivation, followed by a detailed description of three key components of our method: Reprogramming Module, Deep Co-training Reprogramming, and Centered Kernel Alignment Distillation. Finally, we give the loss functions and discuss the advantages of DRD in comparison with previous approaches. 
+
+A. Preliminary 
+
+Let T represents the medical foundation model pre-trained on broad data, namely, the teacher model, and S represents the lightweight model to be deployed, namely, the student model. In the downstream adaptation, medical foundation models may have different structures, and the downstream tasks may also be segmentation or classification. For simplicity, we group the layers of both T and S into a fixed number of N blocks, which define a coarse stage-level correspondence in DRD, and retain the output head of S. This correspondence only specifies coarse stage-wise injection points, rather than assuming a priori semantic equivalence between the i-th blocks of T and 
+
+S. Note that, the layer size of each block in T and S can vary. We denote BT = {BTi }Ni=1 as the teacher’s blocks, 
+
+BS = {BSi }Ni=1 as the student’s blocks, and HS as the output head of S. Given the downstream data D = {xi, y i}Mi=1 ,where M is the training data size, xi represents the input image, and yi represents the label in classification tasks or the mask in segmentation tasks. Our goal is to transfer task-relevant knowledge from T to S, enabling S to use foundation model knowledge while ensuring memory and computational efficiency during inference. 
+
+B. Motivation 
+
+The size of medical foundation models has steadily in-creased over time [39], significantly limiting their deploy-ment in downstream medical scenarios due to computational resource constraints. Simultaneously, the tasks and domains covered by the training datasets of these models are becoming TABLE I: Performance comparison between foundation model MedSAM and lightweight models on downstream task datasets FIVES [41], USC [42], CDPRD [43].                          
+
+> Model Params (M) Training Tasks FIVES USC CDPRD MedSAM 93.6 84 diverse tasks 16.53 83.73 78.34 ViT-Tiny 6.2 Downstream task 83.06 87.93 90.91 ResNet18 15.9 68.00 85.32 87.61 ShuffleNet 6.1 56.25 86.19 76.54 MobileNet 7.2 69.58 86.47 84.04
+
+TABLE II: Performance changes of downstream student mod-els using different adaptation methods, with or without model structural inconsistencies, compared to vanilla-trained models on FIVES dataset.                      
+
+> Teacher Student Structure Change Hint MobSAM Lora+KD MedSAM ViT-Tiny ViT →ViT 2.2 ↑2.2 ↑3.8 ↑
+> ResNet18
+> ViT →CNN
+> 4.1 ↓8.4 ↓5.0 ↑
+> ShuffleNet 0.1 ↑7.8 ↓11.0 ↑
+> MobileNet 4.3 ↓11.8 ↓1.5 ↓
+
+more expansive [40]. While this enhances their versatility and generalization, the broad scope of knowledge they encompass may lack the necessary expertise for downstream medical tasks. Consequently, their performance sometimes is inferior to that of lightweight models independently trained on down-stream data. Through a series of preliminary experiments, we observed that large-scale foundation models like MedSAM fall short in specialized downstream medical tasks. Specifically, as shown in the Table I, despite the large scale and the richness of pre-training tasks (84 segmentation tasks across 10 modalities), MedSAM underperforms on downstream tasks compared to several lightweight models. Basically, existing KD and PEFT approaches might be used for adaptation. However, as discussed in the introduction section, these methods derived from KD and PEFT also suffer from some limitations. Most KD methods assume that both the teacher (foundation model) and the student (downstream model) share the same task, employ similar training strategies, and belong to the same model family, which limits the perfor-mance in scenarios where the downstream model deviates from the foundation model’s task or architecture to meet specific clinical requirements. PEFT methods typically fall short in enabling the lightweight model deployment across diverse real-world medical scenarios. Even attempts to integrate PEFT with KD have been inadequate in addressing model structures and training strategies inconsistencies between teacher and student models, resulting in inefficient knowledge transfer. As shown in the Table II, KD methods like Hint and MobSAM, PEFT methods like LoRA combined with KD, can enhance student model performance when both the teacher and student belong to the same model family. However, when the teacher and student models are heterogeneous, these methods often lead to the negative outcomes. These results suggest that directly applying existing KD/PEFT paradigms is insufficient for heterogeneous foundation-model adaptation, where the transferred knowledge should be aligned with the downstream JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 4Medical Tasks  
+
+> Pre -train
+
+Foundation Model 
+
+𝐵 ! 
+
+> "
+
+𝐵 # 
+
+> "
+
+𝐵 $ 
+
+> "
+
+𝐵 %
+
+> "
+
+𝜙 1 𝜙 2 𝜙 3 𝜙 4  
+
+> Student Logits
+> Hybrid Logits
+
+## 𝐿 !"#$%& 
+
+# 𝐿 !" 
+
+CKA 
+
+Distillation 
+
+> Transfer
+
+## 𝐿 '() 
+
+𝐵 !
+
+> &
+
+Student Model 
+
+Head 𝑍 & 𝐿 *+# 
+
+> CKA CKA CKA CKA
+
+Deep Reprogramming 
+
+🔥 
+
+❄
+
+🔥 
+
+> 𝑍 !
+> "→$
+> 𝑍 %
+> "→$
+> 𝑍 &
+> "→$
+> 𝑍 '
+> "→$
+
+Downstream Data 
+
+𝐵 # 
+
+> &
+
+𝐵 $ 
+
+> &
+
+𝐵 %
+
+> &
+
+Fig. 2: The overall framework of Deep Reprogramming Distillation. During training, the foundation model is frozen. The deep reprogramming module reprograms the intermediate features of the foundation model through the student model branches, with downstream data supervising the co-training process. Additionally, the student model further benefits from CKA distillation for enhanced feature alignment and hybrid student logits distillation for effective logits-level knowledge transfer. task and student architecture. The drawbacks of existing methods w.r.t. the inconsistency issues during adaptation motivate us to design a new frame-work. Specifically, to mitigate inconsistencies related to task, model structures, and training strategies, we build reprogram-ming blocks to establish connections between the teacher and the student model. We implement a novel co-training reprogramming strategy, where the reprogramming blocks are jointly optimized with downstream supervised learning, enabling teacher features to be reshaped into task-relevant and student-compatible representations during adaptation. Further-more, to achieve a lightweight downstream student model, we incorporate both centered kernel alignment distillation and multi-level logits distillation, which efficiently transfer the reprogrammed knowledge to the student model. Our DRD framework is illustrated in Fig. 2, and in the following, we discuss the key components concretely. 
+
+C. Reprogramming Module 
+
+To mitigate aforementioned challenge, we introduce the reprogramming module to re-purpose the feature space of the teacher model, which is inspired by the recent model reprogramming study [44], [45]. By adding proper transforma-tion layers, it promotes the cross-domain adaptation. Despite effectiveness [44], our goal here extends both domain and task prototypes. We aim to enable the lightweight deployment of adapted models to specific medical tasks, which requires to extract task-relevant knowledge for efficient transfer. For clarity, the feature maps that are output from BT
+
+and BS are represented {f Ti }Ni=1 , f Ti ∈ RC×H×W and 
+
+{f Si }Ni=1 , f Si ∈ RC′×H′×W ′
+
+, where C, C ′ denote channel numbers, and H, W , H′, W ′ are the dimensions of the feature maps. We have designed a set of feature reprogramming blocks along with corresponding teacher blocks, denoted as 
+
+{ϕi(·)}Ni=1 , to perform the mapping and resizing of the teacher’s features, with the objective of reprogramming the teacher’s knowledge at the feature level. These blocks employ a trainable convolutional network that adjusts the channels and spatial dimensions of the teacher features {f Ti }Ni=1 to align with the student features {f Si }Ni=1 . In implementation, each 
+
+ϕi(·) is instantiated as a lightweight three-layer convolutional projector. For the i-th block, the reprogrammed feature is defined as 
+
+f T →Si = ϕi(f Ti ),
+
+where ϕi is the reprogramming function that transforms the teacher’s feature map f Ti to match the student’s feature map 
+
+f Si in dimensions and assist the training of the student model. 
+
+D. Deep Co-training Reprogramming 
+
+Considering that different model structures and training strategies may cause different tendencies in feature extraction, we propose a novel co-training mechanism to ensure that the reprogrammed features can be smoothly mimicked by the student model. In this mechanism, the output features from each block of the teacher network are reprogrammed and fed into the corresponding blocks of the student network. Formally, the downstream image input x is processed by the reprogramming module after being input into T . The reprogrammed feature f T →Si from the i-th block is fed into the subsequent student blocks BSi+1 , B Si+2 , . . . , B SN , H S to com-pute the final logits, named hybrid logits and denoted as zT →Si .Meanwhile, the input x is also fed into S to obtain the student final logits zS . Subsequently, we compute the loss of the JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 5
+
+two types of logits: {zT →Si }Ni=1 and zS , using the same loss function to measure the discrepancy with the ground truth y.Additionally, we use the Kullback-Leibler divergence to align 
+
+{zT →Si }Ni=1 and zS , in order to multi-level distill the student-friendly knowledge, reprogrammed from the teacher, into the student at the logits level. This co-training mechanism utilizes downstream data and student models to facilitate the feature reprogramming process of the teacher model. It ensures that the knowledge transferred to the student models encompasses both the robust feature extraction capabilities inherent in the teacher model and the adaptability to the downstream data and the student model architecture. Notably, rather than hand-crafted fine-grained matching, DRD relies only on a coarse stage decomposition, while the final cross-model alignment is progressively learned by the reprogramming blocks through end-to-end training. 
+
+E. Centered Kernel Alignment Distillation 
+
+In the previous subsection, we can obtain the reprogrammed student-friendly teacher features and perform the teacher-to-student knowledge transfer at the logit level. Here, we build the knowledge distillation at the feature level to improve the efficiency. Specifically, during downstream adaptation, various training conditions such as different model structures, random seeds, etc., may introduce noise or uncertainty in feature distillation [46]. For robustness, we explore using Centered Kernel Alignment (CKA) distillation w.r.t. the correlation and higher-order information in features to reduce training instability [47]. As aforementioned, {f T →Si }Ni=1 denotes the extracted fea-tures after reprogramming blocks, f Si denotes features from student model. We use Ki = ( f T →Si )( f T →Si )⊤ and Li =(f Si )( f Si )⊤ to represent the pair-wise feature similarities. Let 
+
+H = In − 1 
+
+> n
+
+11 T be the centering matrix and K′ 
+
+> i
+
+= HK iH,
+
+L′ 
+
+> i
+
+= HL iH, where n is the batch size. Then, the sim-ilarity of the centered similarity matrices can be measured by HSIC( Ki, L i) = Ki′·Li′ 
+
+> (n−1) 2
+
+[47]. Note that, although HSIC 
+
+is invariant to orthogonal transformations of features, it is not invariant to isotropic scaling [47]. To address this, we normalize HSIC and then construct the CKA loss as follows, 
+
+LCKA i = − HSIC( Ki, L i)
+
+pHSIC( Ki, K i) · HSIC( Li, L i) , (1) which can be used to determine the correspondence between hidden layers of networks with different random initializa-tion and widths [48]. Here, CKA feature alignment can be utilized not only as a feature distillation method to transfer the teacher’s reprogrammed information to the students at the feature level, but also as a constraint for co-training reprogramming to achieve robust similarity between the two. Maximizing feature similarity during co-training reprogram-ming helps establish a strong starting point for downstream models and adapts features for downstream structure early, resulting in more suitable transfer feature patterns. 
+
+F. Training Objective 
+
+The training process is driven by two types of loss functions: 1) One type is the supervised learning loss for the downstream TABLE III: Comparison of different methods for medical foundation model downstream adaptation from different as-pects. Here, MeLo* combines MeLo and KD.                                            
+
+> Methods Eff. Deploy One-stage Cla. Seg. Task Diff. Struct. Diff. Hint [24] ✓✓✓✓✗✗
+> OFA [26] ✓✓✓✗✗✓
+> CIRKD [50] ✓✓✗✓✗✗
+> MobSAM [51] ✓✓✗✓✗✓
+> MeLo [52] ✗✓✓✓✓✗
+> MeLo* ✓✗✓✓✓✗
+> Ours ✓✓✓✓✓✓
+
+task, which ensures the performance of the student model and directs the reprogramming of the foundation model. For classification tasks, cross-entropy loss is used, while DICE loss [49] is applied for segmentation tasks. 2) The second type is the distillation loss, which is designed to efficiently transfer knowledge from both the logits and feature levels.  
+
+> •
+
+Student Supervised Learning Loss : The cross-entropy loss or Dice loss between the student’s final logits zS and the ground truth y, defined as: 
+
+Lsup = CE (zS , y ) or Dice (zS , y ) 
+
+> •
+
+Hybrid Supervised Learning Loss : The cross-entropy loss or DICE loss calculated between each of the N
+
+hybrid logits zT →Si and the ground truth y, defined as: 
+
+Lhybrid =
+
+> N
+
+X
+
+> i=1
+
+CE (zT →Si , y ) or 
+
+> N
+
+X
+
+> i=1
+
+Dice (zT →Si , y ) 
+
+> •
+
+Hybrid Logits Distillation Loss : The Kullback-Leibler divergence loss between the hybrid logits and the stu-dent’s logits, defined as: 
+
+LKD =
+
+> N
+
+X
+
+> i=1
+
+KL (zT →Si , z S ). 
+
+> •
+
+CKA Features Distillation Loss : The CKA loss, ensur-ing robust feature-level alignment, as defined earlier: 
+
+LCKA = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+LCKA i .
+
+The total loss function is a weighted sum of these losses: 
+
+Ltrain = Lsup + αLhybrid + βLKD + LCKA ,
+
+where α and β are hyperparameters that balance the contribu-tions of each loss component. 
+
+G. Discussion on advantages 
+
+As illustrated in Table III, DRD addresses a broader prac-tical adaptation setting than previous downstream adaptation methods, covering lightweight deployment, task diversity, and structural discrepancy. Specifically, DRD has several advan-tages: 1) The model obtained after downstream adaptation is lightweight, and the structure can be customized according to medical scenarios, making deployment more flexible; 2) Since the trainable parameters are completely isolated from the JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 6
+
+TABLE IV: Detail information for downstream medical image datasets with different tasks used in the experiment. “Cla.” is Classification and “Seg.” means Segmentation. Data size refers to the number of images.                                                            
+
+> Scenario Dataset Targets Modality Data Size
+> 2D Cla. ISIC2018 [54] Melanoma RGB 11527 COVID [55] COVID-19 CT 746 BTC [56] Brain Tumor MRI 3264 BUSI [53] Breast Cancer Ultrasound 626 ChestXray [57] Lung Diseases X-Ray 7135 3D Cla. MMD [58] COVID-19 CT 1110 LAC [59] Lung Tumor CT 1050 2D Seg. CDPRD [43] Teeth X-ray 596 FIVES [41] Retinal Vessels Fundus 698 USC [42] Skin Cancer Dermoscopy 206 TN3K [62] Thyroid Nodule Ultrasound 3400 Robo [63] Surgical Tools RGB 500 CHAOS [64]–[66] Abdominal Organs MRI 1240 CONIC [60], [61] Cell Nucleus RGB 4841 3D Seg. MSD-Prostate [68] Prostate MRI 64 MSD-Pancreas [68] Pancreas Tumor CT 281 MSD-Spleen [68] Spleen CT 41 BTCV [67] Abdominal Organs CT 30
+
+medical foundation model, there is no need to backpropagate gradients through the backbone of medical foundation model during training, which actually reduces the GPU usage; 3) The framework exhibits the strong generalization, providing downstream adaptation solutions for various foundation mod-els in both classification and segmentation scenarios; 4) Its distinctive co-training framework mitigates the inconsistencies between the teacher and student models, and its CKA pro-motes an end-to-end training to avoid the heuristic stage-wise training [45], facilitating more effective knowledge transfer. IV. E XPERIMENTAL SETUP 
+
+In this section, we detail the experimental setup, including datasets, evaluation metrics, baselines, implementation details, and the models used. 
+
+A. Datasets 
+
+To comprehensively verify DRD, we selected eighteen med-ical image datasets with various modalities and tasks for down-stream adaptation. 2D classification datasets: BUSI [53], ISIC [54], Covid [55], BTC [56] and ChestXray [57]. 3D classification datasets: MosMedData (MMD) [58], Lung Adenocarcinoma Classification (LAC) [59]. 2D segmenta-tion datasets: CoNIC [60], [61], CDPRD [43], FIVES [41], UWaterloo Skin Cancer (USC) [42], TN3K [62], Robotool (Robo) [63], CHAOS [64]–[66]. The CHAOS dataset is de-rived by slicing original 3D images along the x, y, and z axes. 
+
+3D segmentation datasets: BTCV [67], MSD-Prostate [68], MSD-Spleen [68], MSD-Pancreas [68] . In the cases of official test set absence, we divide the data as training and test sets in a 4:1 ratio. The detailed dataset information is summarized in Table IV. 
+
+B. Evaluation Metrics 
+
+Two evaluation metrics were used to assess the performance of the medical image classification and segmentation models. For classification, accuracy was employed as a measure of cor-rect predictions. For the segmentation task, the Dice Similarity Coefficient (DSC) was used to evaluate the overlap between the predicted segmentation and the ground truth, with values closer to 1 indicating better segmentation performance. 
+
+C. Baselines 
+
+We compared DRD with several baselines. First, we in-cluded the performance of medical foundation models and the vanilla-trained downstream models. For the absence of task-specific classification heads in foundation models, we employed full fine-tuning with a tailored classification head for 2D cases. For 3D scenarios, we employed full fine-tuning to assess the teacher’s performance. We also compared our method with several existing downstream adaptation tech-niques. For knowledge distillation, we evaluated Hint [24], AT [25], VID [69], PKT [70], SemCKD [71], CRD [16], MGD [18], Norm [19], and OFA [26], a representative hetero-geneous distillation method. In addition, we included compar-isons with various PEFT methods, such as the adapter tuning method AdaptFormer [9], LoRA-based method MeLo [52], prompt tuning methods VPT [10] and LPT [33], and the prefix tuning method VQT [72]. We also evaluated specialized adaptation methods designed for specific tasks, including the segmentation-specific distillation method CIRKD [50] and MobileSAM [51]. 
+
+D. Medical Foundation Models and Downstream Models 
+
+Classification Scenarios. We selected three 2D medical classi-fication foundation models to validate the proposed method’s effectiveness: PMC-CLIP [1], RadDenseNet [2], and LVM-Med [3]. PMC-CLIP is trained on 1.6 million pairs of image-caption data by contrastive learning with ResNet-50. RadDenseNet is trained on 1 million images by supervised learning with DenseNet-121. LVM-Med is trained on 1.3 million images by self-supervised learning with VIT-B. For the 2D downstream models, we used three lightweight structures, namely ResNet18 [73], MobileNet [74], and ShuffleNet [75]. Additionally, we extended our setup to 3D classification using the Merlin [76] as the medical foundation model, trained on 6.3 million images, 1.8 million EHR diagnosis codes, and 6 million radiology report tokens. For downstream models, we used the 3D versions of ResNet18 and DenseNet121 [77]. 
+
+Segmentation Scenarios. We selected three foundation mod-els for 2D segmentation: MedSAM [78], MSA [38], and Swin-UMamba [79], and one model for 3D segmentation: SAT [80]. MedSAM, based on the SAM architecture, was adapted for medical images using 1.57 million image-mask pairs spanning 10 modalities and over 30 cancer types. MSA (also based on the SAM model) provides a variety of pre-trained checkpoints for different organs and lesions. Swin-UMamba is built on the emerging Mamba architecture tailored for medical use cases. SAT, trained on 22,000 3D medical images across JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 7Accuracy(%)        
+
+> (a) BUSI (b) ISIC (c) COVID (d) BTC
+> MeLo VPT VQT LPT AdaptFormer Ours
+
+Fig. 3: Comparison with PEFT methods in classification experiments. Subfigures (a)-(d) present the results of four datasets respectively. Since PEFT is mainly applied to transformer structures, the foundation model here is LVM-Med (ViT-Based). 72 segmentation datasets, covers diverse anatomical sites, diseases, and modalities. For MedSAM and MSA, which accept image-mask pairs and prompt inputs like points or boxes, downstream models should be designed to match their input style, with similar prompts used for consistency. Inspired by MobileSAM [51], we opted to use lightweight models such as ResNet18, ShuffleNet, MobileNet, and ViT-Tiny [81] to replace the image encoder of SAM, while retaining the structure of the mask decoder and prompt encoder parts. For fair comparison, all downstream adaptation methods applied to SAM-like models use the same single bounding-box prompt for each sample, without any prompt sampling strategy. For the Swin-UMamba model, we selected lightweight segmentation models Unet and Unet3+ [82]. For the 3D segmentation tasks, we exclusively chose the classic 3D Unet segmentation model as the downstream model. For both classification and segmentation scenarios, stage partitioning is defined coarsely in an architecture-aware man-ner: hierarchical CNN-like backbones follow natural stage boundaries, while flat transformer- or Mamba-like backbones are partitioned by grouping consecutive blocks. The teacher and student only need to share the same number of coarse stages, rather than the same internal layer counts. 
+
+E. Implementation Details 
+
+We utilized the AdamW optimizer with a learning rate of 5e-3 for all experiments. For 2D classification tasks, each downstream dataset was run for 240 epochs with a batch size of 32. For 2D segmentation tasks, the models were trained for 100 epochs with a batch size of 8. Due to the high computational cost associated with processing 3D images, each 3D dataset was run for 100 epochs with a reduced batch size of 4. The input image sizes for training were set according to the foundation model’s requirements: 224×224 for LVM-Med, PMC-CLIP, and Rad-DenseNet; 224x224x160 for Mer-lin; 256×256 for Swin-UMamba; 1024×1024 for MedSAM and MSA; and 144×144×48 for SAT. In our loss function, the hyperparameters α and β were initially set to 1 and decreased linearly throughout the training, so that the training gets more guidance at the early stage, but then progressively follows more relaxed constraints and the downstream supervision. All adaptation experiments were conducted on RTX 4090 GPUs. Due to the high memory cost, the full fine-tuning of the 3D teacher was conducted on a single 80GB NVIDIA A100. V. R ESULTS 
+
+In this section, we provide the comprehensive experimental verification of our method and in-depth analysis. 
+
+A. Main Results on Classification 
+
+In this subsection, we present the classification results of DRD against the relevant KD methods and PEFT methods. 
+
+1) Compared with KD methods: We compare DRD with other KD methods on 2D/3D Classification Downstream Tasks in Table V. As can be seen, DRD is superior overall to previous KD methods, even approaching the performance of fully fine-tuning 2D foundation models while using more lightweight structures. The improvement offered by KD meth-ods over directly training a student model is limited, and the performance enhancements vary significantly across dif-ferent datasets. For example, when using the BUSI dataset, the results of almost all KD methods are inferior to those achieved by directly training student models. This indicates that direct knowledge distillation, without addressing task or structure inconsistencies, is inefficient and can sometimes be counterproductive to downstream model training. In contrast, DRD significantly enhances downstream model performance across various datasets, structures. Consequently, DRD proves to be a versatile and robust approach for improving model performance in diverse applications. 
+
+2) Compared with PEFT methods: Fig. 3 compares DRD with several Parameter-Efficient Fine-Tuning (PEFT) methods on various classification tasks. For a fair comparison, these methods also employ knowledge distillation to obtain the same student models. The foundation model used in these experi-ments is LVM-Med, as PEFT methods are primarily designed for transformer-based architectures. The results indicate that the performance of PEFT methods varies considerably across different datasets. For instance, while the AdaptFormer method performs well on several datasets, its performance declines significantly on the BUSI. However, DRD consistently proves a significant performance, particularly on smaller datasets such as BUSI and COVID, where it achieves the highest accuracy in nearly all configurations. For larger datasets like ISIC, DRD’s performance is comparable to that of PEFT methods, which reflects that PEFT techniques benefit from a larger quantity of training data. In contrast, our method consistently maintains strong performance, regardless of dataset size. This suggests that DRD is less dependent on large volumes of labeled data, JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 8
+
+TABLE V: Comparison with KD methods in 2D and 3D classification experiments. The numbers next to the teacher model names represent their performance.                                                                                                                                                                                                                                                              
+
+> Downstream Task Adaptation for 2D Medical Classification Scenarios Dataset Teacher Student Vanilla VID SemCKD Crd Hint MGD Norm OFA Ours BUSI PMC-CLIP 88.31 ResNet18 77.92 77.92 68.83 75.32 77.92 77.27 73.38 83.12 88.31
+> ShuffleNet 81.82 85.06 75.97 82.47 81.17 84.41 64.94 72.08 86.36
+> MobileNet 80.52 85.06 85.06 81.82 83.12 85.06 82.47 77.27 86.36
+> RadImageNet 86.36 ResNet18 77.92 76.62 70.13 75.97 77.27 78.57 68.83 76.62 88.31
+> ShuffleNet 81.82 81.82 76.62 81.17 83.77 84.41 56.49 61.69 85.71
+> MobileNet 80.52 83.12 84.42 81.17 83.12 82.46 61.04 73.38 87.01
+> LVM-Med 94.16 ResNet18 77.92 73.38 69.48 68.83 79.22 66.23 64.29 80.52 88.96
+> ShuffleNet 81.82 81.82 80.52 79.87 81.17 82.47 79.87 75.32 85.71
+> MobileNet 80.52 83.77 86.36 83.12 83.77 81.17 71.43 79.22 87.01
+> BTC PMC-CLIP 80.20 ResNet18 77.92 77.16 78.17 68.78 77.66 75.89 77.66 72.59 80.71
+> ShuffleNet 78.17 77.41 77.16 69.29 77.16 76.90 75.13 69.29 79.44
+> MobileNet 76.90 77.92 77.41 61.93 76.65 77.92 74.62 71.07 79.70
+> RadImageNet 80.46 ResNet18 77.92 77.66 77.41 76.40 77.16 76.90 60.41 68.53 78.68
+> ShuffleNet 78.17 77.41 77.16 76.90 75.63 76.65 55.08 65.99 79.95
+> MobileNet 76.90 78.17 77.41 76.90 76.90 77.16 54.82 73.35 79.95
+> LVM-Med 80.71 ResNet18 77.92 77.41 78.43 75.13 80.71 55.33 71.57 70.30 81.98
+> ShuffleNet 78.17 76.65 78.68 75.13 77.92 79.95 67.77 67.77 80.46
+> MobileNet 76.90 77.41 79.44 74.87 77.92 72.91 69.04 70.81 82.49
+> ISIC PMC-CLIP 76.92 ResNet18 70.50 75.73 75.66 76.26 75.33 77.05 75.79 76.92 78.11
+> RadImageNet 73.41 70.50 75.99 75.99 76.32 76.52 77.18 63.76 74.40 77.18
+> LVM-Med 82.74 70.50 75.93 77.18 78.77 79.23 75.99 78.37 76.72 79.76
+> COVID PMC-CLIP 78.82 ResNet18 75.86 77.34 76.85 74.88 75.37 75.86 79.80 80.30 81.28
+> RadImageNet 77.34 75.86 77.83 77.83 73.89 77.83 79.31 73.89 78.82 78.82
+> LVM-Med 83.74 75.86 76.85 80.79 75.86 79.80 73.40 82.27 79.80 82.27
+> ChestXray PMC-CLIP 96.11 ResNet18 92.87 92.74 94.16 93.64 93.13 93.51 72.24 -95.33
+> RadImageNet 94.55 92.87 93.77 92.35 94.03 93.39 92.09 90.53 -94.68
+> LVM-Med 94.16 92.87 93.64 93.51 93.51 94.42 92.22 81.84 -96.11
+
+Downstream Task Adaptation for 3D Medical Classification Scenarios Dataset Teacher Student Vanilla VID SemCKD PKT Hint Ours MMD Merlin 74.64 Resnet3D 55.14 60.00 57.30 53.51 58.92 62.70 
+
+Densenet3D 54.59 56.22 59.46 58.38 57.84 63.78 
+
+LAC Merlin 77.92 Resnet3D 54.29 58.29 57.14 54.29 58.86 60.57 
+
+Densenet3D 63.43 64.57 66.29 63.43 61.71 69.71 
+
+which actually is critical to medical scenarios where data collection and labeling are expensive and time-consuming. 
+
+B. Main Results on Segmentation 
+
+In this subsection, we present the comparative results of DRD against baselines on segmentation foundation models. 
+
+1) Experiments on MedSAM and MSA: As shown in Ta-ble VI, DRD method consistently outperformed established baselines across multiple medical imaging datasets and dif-ferent downstream models. In some cases, DRD even signifi-cantly outperforms medical foundation models on downstream tasks with smaller deployment cost. Notably, we observed that on the challenging FIVES dataset, both MedSAM and MSA exhibited poor zero-shot performance. However, DRD method demonstrated a consistently superior advantage compared to other baseline approaches across all student models, particu-larly when the student models had relatively worse perfor-mance. For instance, Shufflenet significantly underperforms relative to other student models, and while other baseline methods offer limited or even negative improvements, DRD substantially enhances its performance, achieving nearly a 17 percentage point increase over vanilla-trained model. This highlights the robustness of the DRD method when dealing with various student model architectures. 
+
+2) Experiments on Swin-UMamba: In experiments of Swin-UMamba, we chose the near-domain datasets of its pre-training task as the downstream datasets. From Table VI, we can see that DRD exhibits strong adaptability, even when dealing with models based on entirely different architectures, such as Mamba based on state space models, and the UNet that utilizes a convolutional neural network framework. DRD consistently enhances downstream model performance and surpasses other adaptation methods, demonstrating the merit of reprogramming the teacher model’s features across archi-tectures into highly compatible downstream model space. 
+
+3) Results on SAT: In the 3D segmentation task, we com-pared the performance of DRD with SAT, Unet without pre-training, and knowledge distillation methods. It is evident that the DRD method significantly and consistently outperforms both the Unet and knowledge distillation approaches. In most cases, DRD enables Unet that has a lower deployment cost, to surpass the foundation model SAT in performance on down-JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 9
+
+TABLE VI: Comparing DRD with baselines across multiple datasets and medical foundation models. The numbers next to the teacher model names represent their performance. ResNet, ShuffleNet, MobileNet, ViT-Tiny here to the lightweight SAM-like models that replace the SAM image encoder with these models. 
+
+Downstream Task Adaptation for 2D Medical Segmentation Scenarios Dataset Teacher Student Vanilla Hint VID SemCKD PKT CIRKD MobSAM Ours FIVES MedSAM 16.53 ResNet18 68.00 63.95 65.51 58.09 68.05 72.57 59.62 74.39 
+
+ShuffleNet 56.25 56.30 54.14 47.95 53.43 66.97 48.46 73.06 
+
+MobileNet 69.58 65.29 68.22 59.62 69.61 70.04 57.80 74.90 
+
+ViT-Tiny 83.06 85.30 86.38 81.69 86.87 87.43 85.18 88.35 
+
+MSA 42.05 ResNet18 68.00 69.91 70.02 67.31 70.57 70.61 52.78 74.57 
+
+ShuffleNet 56.25 60.46 59.62 57.60 57.10 70.29 46.01 72.83 
+
+MobileNet 69.58 66.03 66.13 63.69 66.30 73.18 56.01 75.25 
+
+ViT-Tiny 83.06 86.30 86.66 85.00 86.99 87.36 69.07 88.51 
+
+USC MedSAM 83.73 ResNet18 85.32 88.93 88.07 89.15 89.32 88.96 88.77 90.63 
+
+ShuffleNet 86.19 86.38 86.64 86.55 86.54 86.65 87.34 86.79 MobileNet 86.47 86.65 88.44 86.82 86.87 87.46 87.61 88.68 
+
+ViT-Tiny 87.93 90.22 89.04 89.88 88.26 88.59 89.86 89.23 MSA 87.88 ResNet18 85.32 88.37 89.69 88.60 89.97 88.34 82.74 89.42 ShuffleNet 86.19 87.92 87.27 88.33 88.29 85.87 76.68 89.18 
+
+MobileNet 88.47 87.90 87.62 87.92 87.08 85.04 87.60 89.44 
+
+ViT-Tiny 87.93 88.72 88.95 88.73 89.39 88.05 62.78 90.81 
+
+CDPRD MedSAM 78.34 ResNet18 87.61 88.77 87.83 80.45 81.62 88.40 81.82 89.33 
+
+ShuffleNet 76.54 79.92 77.28 78.83 76.49 81.66 77.54 87.54 
+
+MobileNet 84.04 87.15 84.04 84.21 83.47 84.43 82.97 89.41 
+
+ViT-Tiny 90.91 94.66 94.53 94.38 93.80 94.08 94.62 95.33 
+
+TN3K MSA 56.32 ResNet18 82.36 87.00 86.46 87.07 85.06 85.39 81.04 87.73 
+
+ShuffleNet 82.32 84.84 85.50 84.85 84.51 84.31 83.59 86.99 
+
+MobileNet 83.29 87.44 86.24 84.91 85.56 83.10 86.06 88.16 
+
+ViT-Tiny 84.96 84.29 84.44 84.66 83.68 85.47 80.53 86.92 
+
+CONIC Swin-UM 83.02 UNet 82.87 82.74 83.06 82.76 83.10 83.06 - 84.83 
+
+UNet3+ 80.39 82.43 80.07 81.71 80.70 80.51 - 83.27 
+
+Robo Swin-UM 81.60 UNet 82.47 88.17 86.69 88.35 88.35 87.72 - 88.76 
+
+UNet3+ 83.80 84.54 83.97 85.19 83.24 81.13 - 85.53 
+
+CHAOS Swin-UM 84.51 UNet 90.04 93.68 93.36 93.20 93.78 92.94 - 94.51 
+
+UNet3+ 90.70 93.16 93.70 92.84 93.07 93.03 - 94.05 
+
+Downstream Task Adaptation for 3D Medical Segmentation Scenarios Dataset Teacher Student Vanilla Hint VID SemCKD PKT Ours BTCV-Stomach SAT 21.57 Unet3D 57.90 62.48 59.39 59.79 58.61 66.47 
+
+BTCV-kidney SAT 64.37 Unet3D 50.43 57.76 54.82 64.72 58.85 66.33 
+
+BTCV-Gallbladder SAT 70.80 Unet3D 19.15 27.23 21.64 21.67 20.27 43.80 
+
+MSD-Spleen SAT 87.21 Unet3D 80.87 87.78 86.88 85.75 87.15 89.83 
+
+MSD-Prostate SAT 72.76 Unet3D 75.18 77.46 77.11 76.36 76.52 77.55 
+
+MSD-Pancreas SAT 77.21 Unet3D 20.07 65.88 65.83 64.89 64.70 66.41 
+
+stream tasks. This is particularly evident in the BTCV-Stomach task, where we found that SAT performed poorly, likely due to the absence of similar labels in its pre-training data. Neverthe-less, our method still achieved substantial improvements over the baseline, suggesting that even when specific knowledge for downstream tasks is lacking, DRD can extract general and effective knowledge from SAT. Conversely, in the BTCV-Gallbladder task, SAT exhibits performance that far exceeded the Unet. In this case, the knowledge distillation methods resulted in only a modest improvement, with an average enhancement of 3.5%. In contrast, our method achieved a notable improvement of 24.7%, further demonstrating the high efficiency of DRD in knowledge transfer. 
+
+C. Further analysis 1) Multi-seed Robustness: To quantify robustness more explicitly, we repeated representative classification and seg-mentation settings with four random seeds. Specifically, we evaluate BUSI and BTC with LVM-Med as the teacher for classification, and FIVES and CDPRD with MedSAM as the teacher for segmentation. For compact presentation, Table VII reports only the strongest competing baseline and DRD in each setting. Across these 14 settings, DRD achieves the best mean performance in all cases. We further conduct paired two-sided t-tests by comparing DRD against the strongest competing baseline in each setting: 13 out of 14 comparisons are significant at p < 0.05 , while the remaining FIVES/ViT-JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 10 (c) (d) 
+
+> Accuracy
+> Dice Coefficient
+
+## (a) (b)      
+
+> Accuracy
+> Dice Coefficient
+> 77.92 77.65
+> 74.79
+> 88.96 90.26 91.56
+> 85.77
+> 84.72
+> 85.30
+> 87.84 87.92 88.35
+
+Fig. 4: Subfigures (a) and (b) compare the effects of varying depths on KD and DRD in classification and segmentation tasks, respectively. Subfigures (c) and (d) compare the cost and performance of models in classification and segmentation respectively, where the circular radius is proportional to the model parameter size, and the asterisk (*) means model using DRD. TABLE VII: Four-seed results on representative adaptation settings. Only the strongest baseline is shown. Superscript ∗
+
+indicates p < 0.05 , and ns denotes no significant difference.                                                                                        
+
+> Dataset Student Best baseline Ours
+> Cla. (teacher: LVM-Med)
+> BUSI ResNet18 83.60 ±3.05 (Hint) 88.15 ±0.85 ∗
+> ShuffleNet 79.06 ±0.97 (SemCKD) 86.36 ±1.00 ∗
+> MobileNet 84.58 ±1.83 (SemCKD) 87.01 ±0.43 ∗
+> BTC ResNet18 78.68 ±1.21 (Hint) 79.70 ±1.38 ∗
+> ShuffleNet 75.44 ±2.18 (SemCKD) 80.20 ±0.57 ∗
+> MobileNet 77.85 ±1.16 (SemCKD) 80.46 ±1.52 ∗
+> Seg. (teacher: MedSAM)
+> FIVES ResNet18 70.98 ±1.08 (CIRKD) 72.16 ±1.49 ∗
+> ShuffleNet 67.83 ±0.61 (CIRKD) 70.76 ±1.54 ∗
+> MobileNet 71.97 ±1.30 (CIRKD) 75.22 ±0.23 ∗
+> ViT-Tiny 87.02 ±0.30 (PKT) 88.65 ±0.21 ns
+> CDPRD ResNet18 85.09 ±2.21 (CIRKD) 86.74 ±1.73 ∗
+> ShuffleNet 82.09 ±0.50 (CIRKD) 85.28 ±1.52 ∗
+> MobileNet 87.09 ±0.05 (Hint) 89.85 ±0.36 ∗
+> ViT-Tiny 91.78 ±1.92 (Hint) 92.11 ±1.15 ∗
+
+Tiny case is not statistically significant. These results provide direct statistical evidence that DRD is both effective and stable across random seeds. 
+
+2) Ablation of different components: We conduct the abla-tion experiments to illustrate the effectiveness of the DRD components by removing or replacing the key components and then conducting comparative experiments. The results are shown in Table VIII, where “Di. Reprog” and “Co. Reprog” represent direct reprogramming [44] and our co-training re-programming respectively. It can be seen that replacing direct reprogramming with our co-training reprogramming results in a significant performance improvement. This indicates that the co-training reprogramming can better transfer knowledge to downstream models while mitigating task and model incon-sistencies. Besides, the CKA distillation similarly improves performance, which could be attributed to robust knowledge transfer that tends to focus on the critical patterns in features, reducing the impact of randomness on training. 
+
+3) Ablation of Reprogramming Depth and Stability Anal-ysis: In this part, we target to explore the effect of repro-gramming depths in DRD and a baseline of KD to directly TABLE VIII: Ablation of different components in DRD.            
+
+> Di. Reprog. Co. Reprog. KD CKA Acc
+> 75.86
+> ✓✓80.79
+> ✓✓82.27
+> ✓✓✓85.71
+
+mimic features between the teacher and student models under that depth. Specifically, we divide the foundation model into 
+
+N segments, and when N = 1 , the model is treated as a black box, processing only the output features from the final layer. Similarly, when N = 2 or N = 4 , the foundation model is divided into 2 or 4 segments, allowing for the extraction of intermediate features for transfer. We study the classification and segmentation performance of DRD and the baseline KD under different depths in Fig. 4(a) and Fig. 4(b). As can be seen, DRD significantly outperforms KD when N=1, indicating its strong knowledge transfer capability even when medical foundation models are treated as black box. As 
+
+N increases and features become deeper, the performance of KD fluctuates and declines, whereas our method consistently improves. This suggests that KD struggles to efficiently trans-fer deeper intermediate features from the foundation model. In contrast, DRD can effectively leverage deep features and ensures efficient knowledge transfer. Beyond the performance trend, we further examine whether increasing N affects optimization stability. As detailed in Ap-pendix A and Appendix B, DRD exhibits smooth convergence under different reprogramming depths ( N = 1 , 2, 3, 4), while the parameter-level diagnosis shows that the main auxiliary gradients remain aligned with the supervised gradient. These results suggest that using a larger reprogramming depth does not introduce severe convergence instability or destructive late-block gradient conflict. 
+
+4) Ablation of Reprogramming Block Design: Besides the reprogramming depth, we further ablate the design of the reprogramming projector on BUSI and BTC with LVM-Med as the teacher and ResNet18 as the student. We compare a linear mapping, a resize + 1 × 1 convolution, a 2-layer con-volutional block, a wider 3-layer convolutional block, and our JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 11 
+
+TABLE IX: Ablation of reprogramming block design.                                                                           
+
+> Projection block BUSI Acc BTC Acc Params GFLOPs Linear 85.45 ±0.61 76.53 ±0.67 0.393M 0.077 Resize + 1 ×186.58 ±1.33 77.51 ±0.32 0.393M 0.019 Conv-2 86.58 ±0.61 78.53 ±1.21 8.849M 1.735 Wide Conv-3 87.01 ±0.92 78.76 ±0.32 23.206M 4.549 Ours 88.15 ±0.85 79.70 ±1.38 10.752M 2.108 T1 T2 T3 T4
+> Teacher stage
+> S1
+> S2
+> S3
+> S4
+> Student stage
+> 0.23 -0.04 -0.06 -0.02
+> 0.07 0.24 -0.07 -0.01
+> 0.13 -0.05 0.21 -0.01
+> 0.11 -0.06 -0.07 0.23
+> MedSAM to student ResNet18
+> T1 T2 T3 T4
+> Teacher stage
+> S1
+> S2
+> S3
+> S4
+> Student stage
+> 0.30 0.01 -0.01 0.01
+> -0.04 0.41 0.02 0.04
+> -0.01 -0.01 0.47 0.05
+> -0.00 0.05 0.06 0.76
+> MedSAM to student ViT-Tiny
+> 0.6
+> 0.4
+> 0.2
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> Cosine alignment
+
+Fig. 5: Post-training cosine similarity matrices between teacher and student coarse stages. default design. Table IX shows that overly simple projectors underfit the cross-model transformation, while overly wide convolutional blocks increase cost substantially. Our default design achieves the best accuracy on both datasets, improving over the linear baseline by 2.70% on BUSI and 3.17% on BTC, while maintaining a much better accuracy-cost trade-off than the widest alternative. 
+
+5) Boundary Sensitivity and Stage Alignment: We further analyze whether DRD depends on a delicate manual partition of heterogeneous teacher and student models. Specifically, we vary the selected teacher output blocks used to define the four coarse stages while keeping the other settings unchanged. As shown in Table X (a), the performance remains stable across reasonable boundary choices, with a fluctuation range of only 0.90% for ResNet18 and 0.67% for ViT-Tiny, indicating that DRD is not sensitive to a delicate hand-crafted boundary. We also test deliberately mismatched stage pairings under the same setting. In Table X (b), compared with the normal identity pairing, reverse pairing drops by 5.02% for ResNet18 and 4.67% for ViT-Tiny, while shift-right pairing also de-grades performance, showing that the transfer is not arbitrary and still benefits from stage-aware correspondence. Finally, Fig. 5 presents the post-training cosine similarity matrices between teacher and student stages, where the diagonals are consistently brighter than the off-diagonal regions, suggesting that DRD learns an emergent stage-wise alignment during optimization rather than relying on pre-defined blockwise semantic equivalence. 
+
+6) Model Costs Comparison: In Fig. 4(c) and Fig. 4(d), we visualize the cost and performance of the models with or without DRD. It can be observed that DRD achieves performance comparable to that of the foundation model while significantly reducing the model parameter size and compu-tational costs during inference. Additionally, when compared to a model trained using the vanilla method with the same deployment cost, DRD also shows a significant performance improvement. It is worth noting that in 3D segmentation tasks, TABLE X: Boundary sensitivity and stage pairing ablations with MedSAM as teacher. 
+
+(a) Boundary sensitivity analysis. 
+
+Student Selected Blocks Dice (%) ∆ vs. Def. (%) ResNet18 1-2-5-11 90.26 -0.37 1-4-7-10 90.97 +0.34 1-6-9-11 89.73 -0.90 2-6-9-11 89.92 -0.71 2-5-8-11 (Def.) 90.63 0.00 ViT-Tiny 1-2-5-11 89.42 +0.19 1-4-7-10 89.06 -0.17 1-6-9-11 88.91 -0.32 2-6-9-11 88.56 -0.67 2-5-8-11 (Def.) 89.23 0.00 
+
+(b) Stage pairing strategy ablation. 
+
+Student Pairing Strategy Dice (%) ∆ vs. Id. (%) ResNet18 Identity 90.63 0.00 Reverse 85.61 -5.02 Shift-Right 86.70 -3.93 ViT-Tiny Identity 89.23 0.00 Reverse 84.56 -4.67 Shift-Right 87.28 -1.95 
+
+TABLE XI: Measured training overhead. Time is the average per-iteration wall-clock time, memory is peak GPU allocation, and Acc is four-seed mean/std. 
+
+Method Time (ms/iter) Memory (MB) Acc 
+
+VID 134.94 2768 75.89 ± 1.45 OFA 194.67 2670 70.94 ± 0.94 LoRA 235.32 9194 78.32 ± 1.97 Full Fine-tuning 271.94 11065 79.24 ± 1.96 DRD w/o CKA 141.31 4170 76.10 ± 2.45 
+
+DRD 150.29 4379 79.70 ± 1.38 
+
+the significant computational cost of SAT hinders its deploy-ment on consumer-grade GPUs, such as NVIDIA GeForce RTX 4090. However, by utilizing DRD, this overhead can be significantly reduced, which allows a lightweight model to be effectively deployed on the RTX 4090 while still achieving high performance in downstream tasks. We further evaluate the training efficiency of DRD, includ-ing full fine-tuning of the foundation model as a reference. As summarized in Table XI, all measurements were conducted on the BTC dataset under the LVM-Med-to-ResNet18 adaptation setting using a single NVIDIA RTX 4090 GPU. Compared with full fine-tuning of the foundation model, DRD reduces the average per-iteration wall-clock time from 271.94 to 150.29 ms ( 44.73% ) and the peak GPU memory from 11065 to 4379 MB ( 60.42% ), while achieving comparable and slightly higher mean accuracy. Compared with the vanilla KD, DRD is moderately more expensive than VID during training (+15.35 ms/iter and +1611 MB), but improves the mean accuracy from 75.89 to 79.70; compared with OFA and LoRA, DRD is not only faster in wall-clock time, but also achieves higher mean accuracy (79.70 vs. 70.94/78.32). To quantify the per-iteration cost of CKA, we compare DRD with its variant without CKA. Adding CKA increases the average per-iteration wall-clock JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 12 Ground -Truth SemCKD MobSAM DRD 
+
+Nuclear Segmentation    
+
+> Ground -Truth SemCKD MobSAM DRD
+
+Organ Segmentation 
+
+Fig. 6: Comparison of segmentation results. Randomly selected images were input into different models for nuclear and organ segmentation, and the results were compared with the ground truth. Blue masks represent the segmentation targets. The second-row images are enlarged versions of the yellow-boxed regions in the first-row images. 10 8 6 4 2 0 2 4 6             
+
+> DSC Score (%)
+> Ours 6.39
+> CIRKD 4.57
+> Adapter 4.14
+> Lora 4.00
+> PKT 0.05
+> VID -2.49
+> Hint -4.05
+> MobSAM -8.38
+> SemCKD -9.91 10 50510
+> ACC Score (%)
+> Ours 10.39
+> Lora 8.44
+> Adapter 2.28
+> Hint 1.30
+> VID -4.54
+> SemCKD -8.44
+> Crd -9.09
+> MGD -11.69
+> Norm -13.63
+
+Fig. 7: Comparison of methods in handling inconsistencies. The central axes in both figures represent the performance of the vanilla downstream model. The left figure shows perfor-mance gap when transferring knowledge from MedSAM (ViT-based) to ResNet18 (CNN-based) under structural inconsisten-cies. The right figure shows the gap when transferring from LVM-Med (self-supervised) to ResNet18 (supervised) under training strategy inconsistencies. Full -finetuning KD Di. Reprog+KD Ours 
+
+> Case1 Case2 Case3
+
+Fig. 8: Comparison of decision boundaries of different meth-ods on BUSI. In these plots, each color represents a class. time by only 6.35% and the peak GPU memory by 5.01%, while improving the mean accuracy by 3.60 percentage points, corresponding to a relative gain of 4.73%. It also reduces the standard deviation by 43.67%, suggesting that CKA provides a favorable efficiency–robustness trade-off. 
+
+7) Mitigating Inconsistencies: Similar to the observation in section III-B, we further compare different methods in ad-dressing inconsistencies between foundation and downstream models. As shown in Fig. 7, in the presence of structural or training strategic inconsistencies, previous methods often fail to significantly improve the performance of the student model, with some methods even having detrimental effects. This reveals that the knowledge transferred by previous methods that ignore inconsistencies offer limited performance gains and sometimes produce adverse effects. In contrast, DRD effectively mitigates these inconsistencies by reprogramming the knowledge from medical foundation model tailored to downstream task, promoting a beneficial knowledge transfer. 
+
+8) Decision Boundaries Comparison in Classification Mod-els: Inspired by the visualization method in [83], where deci-sion boundaries between classes are visualized by the borders between the colored regions, we also visualize the decision boundaries of classification models under different adaptation methods in Fig. 8. It can be seen that DRD has decision boundaries similar to those of fully fine-tuned foundation mod-els compared with other baselines, even though in DRD, the vanilla foundation model backbone is not tuned. It proves that DRD can smartly transform the prior in medical foundation model into highly relevant knowledge for downstream tasks and transfer it efficiently, achieving similar effect of fully fine-tuning but in a lightweight manner. 
+
+9) Segmentation Results Comparison in Segmentation Mod-els: We visualize the segmentation results of DRD and other methods for both nuclear and organ segmentation tasks, com-paring them with the ground truth, as shown in Fig. 6. As observed in the first row of images, all methods roughly produce segmentation masks similar to the ground truth. However, in the second row, where the segmentation results are magnified to reveal finer details, we find that, compared to previous methods, DRD demonstrates a clear advantage by producing segmentation masks that are more accurate and better aligned with the ground truth. VI. C ONCLUSION 
+
+To construct efficient and computation-friendly adaptation of medical foundation models in the downstream tasks, it is crucial to address knowledge transfer challenges arising from inconsistencies in data distribution, model structure and practical constraints. Different from previous PEFT methods and KD methods that cannot simultaneously address the do-main, task and structure inconsistency and achieve lightweight JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 13 
+
+deployment according to different real-world demands, we propose a novel DRD framework designed to overcome this challenge. By conducting a large number of experiments across various medical application scenarios, including 2D/3D classification and 2D/3D segmentation tasks, we demonstrate the generalizability and effectiveness of our method. In the future, we will explore the in-hospital applications by means of DRD with the state-of-the-art medical foundation models. APPENDIX ACONVERGENCE ANALYSIS UNDER DIFFERENT 
+
+REPROGRAMMING DEPTHS 
+
+We further examine the optimization behavior of DRD when the reprogramming depth N increases. Fig. 9 shows the training total loss and validation Dice curves under N =1, 2, 3, 4 on USC with MedSAM as the teacher and ViT-Tiny as the student. All tested settings exhibit steadily decreasing training loss and improving validation Dice in the early stage, followed by stable saturation rather than divergence. This suggests that increasing the reprogramming depth does not introduce noticeable convergence instability, and the default 
+
+N = 4 setting maintains smooth optimization while achieving favorable late-stage validation performance. 0 10 20 30 
+
+> Epoch
+> 0
+> 1
+> 2
+> 3
+> 4
+> Loss
+
+Training loss    
+
+> 010 20 30
+> Epoch
+> 0.75
+> 0.80
+> 0.85
+> Dice
+
+Validation Dice    
+
+> N=1 N=2 N=3 N=4
+
+Fig. 9: Convergence curves of DRD under different reprogram-ming depths N . Left: training total loss; right: validation Dice. APPENDIX BPARAMETER -LEVEL GRADIENT DIAGNOSIS 
+
+We also diagnose whether using a larger reprogramming depth introduces conflicting gradients on the late student layers. The analysis is conducted on USC with MedSAM as the teacher and four representative students. For each minibatch, we separately compute the gradients induced by 
+
+Lhybrid , LKD , and LCKA on the last shared student encoder parameters, and compare them with the supervised gradient from Lsup . As shown in Table XII, the gradients from Lhybrid 
+
+and LKD have positive cosine similarity with the supervised gradient across all four students, indicating that they are cooperative rather than destructively opposed to the task objective. The CKA gradient on the last shared block is also extremely small relative to the supervised gradient (0.00%– 0.39%), which is consistent with its role as an intermediate feature-alignment regularizer. Therefore, even when a larger reprogramming depth is used, the late student layers are not TABLE XII: Gradient diagnosis on the last shared student encoder parameters (USC, teacher: MedSAM, default N = 4 ). “CKA/Sup” denotes the ratio between the gradient norm of 
+
+LCKA and that of Lsup on the last shared student parameters. 
+
+Student Hybrid vs. Sup cosine KD vs. Sup cosine CKA/Sup on last block 
+
+ResNet18 0.541 0.552 0.39% ShuffleNet 0.399 0.397 0.00% MobileNet 0.406 0.309 0.14% ViT-Tiny 0.454 0.442 0.28% 
+
+optimized by repeated conflicting updates; instead, they re-ceive a single total gradient whose main auxiliary components remain task-aligned. REFERENCES [1] W. Lin, Z. Zhao, X. Zhang, C. Wu, Y. Zhang, Y. Wang, and W. Xie, “Pmc-clip: Contrastive language-image pre-training using biomedical documents,” arXiv preprint arXiv:2303.07240 , 2023. [2] X. Mei, Z. Liu, P. M. Robson, B. Marinelli, M. Huang, A. Doshi, A. Jacobi, C. Cao et al. , “Radimagenet: an open radiologic deep learning research dataset for effective transfer learning,” Radiology: Artificial Intelligence , vol. 4, no. 5, p. e210315, 2022. [3] D. M. Nguyen, H. Nguyen, N. T. Diep, T. N. Pham et al. , “Lvm-med: Learning large-scale self-supervised vision models for medical imaging via second-order graph matching,” arXiv preprint arXiv:2306.11925 ,2023. [4] J. Yao, S. Zhang, Y. Yao, F. Wang, J. Ma, J. Zhang, Y. Chu, L. Ji, K. Jia 
+
+et al. , “Edge-cloud polarization and collaboration: A comprehensive survey for ai,” IEEE Transactions on Knowledge and Data Engineering ,vol. 35, no. 7, pp. 6866–6886, 2022. [5] Y. Zhou, Z. Zhao, S. Du, J. Yao, Y. Zhang, Y. Wang et al. , “Exploring training on heterogeneous data with mixture of low-rank adapters,” in 
+
+Forty-first International Conference on Machine Learning .[6] K. He, X. Chen, S. Xie, Y. Li, P. Doll´ ar, and R. Girshick, “Masked au-toencoders are scalable vision learners,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2022, pp. 16 000–16 009. [7] Y. Zhou, H. Li, S. Du, J. Yao, Y. Zhang, and Y. Wang, “Low-rank knowl-edge decomposition for medical foundation models,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,2024, pp. 11 611–11 620. [8] Y. Xin, S. Luo, H. Zhou, J. Du, X. Liu, Y. Fan, Q. Li, and Y. Du, “Parameter-efficient fine-tuning for pre-trained vision models: A survey,” 
+
+arXiv preprint arXiv:2402.02242 , 2024. [9] S. Chen, C. Ge, Z. Tong, J. Wang, Y. Song, J. Wang, and P. Luo, “Adaptformer: Adapting vision transformers for scalable visual recogni-tion,” Advances in Neural Information Processing Systems , vol. 35, pp. 16 664–16 678, 2022. [10] M. Jia, L. Tang, B.-C. Chen, C. Cardie, S. Belongie et al. , “Visual prompt tuning,” in European Conference on Computer Vision . Springer, 2022, pp. 709–727. [11] X. L. Li and P. Liang, “Prefix-tuning: Optimizing continuous prompts for generation,” arXiv preprint arXiv:2101.00190 , 2021. [12] E. J. Hu, Y. Shen, P. Wallis, Z. Allen-Zhu, Y. Li, S. Wang, L. Wang, and W. Chen, “Lora: Low-rank adaptation of large language models,” 
+
+arXiv preprint arXiv:2106.09685 , 2021. [13] X. He, C. Li, P. Zhang, J. Yang, and X. E. Wang, “Parameter-efficient model adaptation for vision transformers,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 37, no. 1, 2023, pp. 817–825. [14] G. Hinton, O. Vinyals, and J. Dean, “Distilling the knowledge in a neural network,” arXiv preprint arXiv:1503.02531 , 2015. [15] F. Tung and G. Mori, “Similarity-preserving knowledge distillation,” in Proceedings of the IEEE/CVF international conference on computer vision , 2019, pp. 1365–1374. [16] Y. Tian, D. Krishnan, and P. Isola, “Contrastive representation distilla-tion,” arXiv preprint arXiv:1910.10699 , 2019. [17] W. Park, D. Kim, Y. Lu, and M. Cho, “Relational knowledge distilla-tion,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2019, pp. 3967–3976. JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 14 
+
+[18] Z. Yang, Z. Li, M. Shao, D. Shi, Z. Yuan, and C. Yuan, “Masked generative distillation,” in European Conference on Computer Vision .Springer, 2022, pp. 53–69. [19] X. Liu, L. Li, C. Li, and A. Yao, “Norm: Knowledge distillation via n-to-one representation matching,” arXiv preprint arXiv:2305.13803 , 2023. [20] H. Li, Y. Zhou, Z. Zhao, S. Du, J. Yao, W. Xie, Y. Zhang, and Y. Wang, “Lorkd: Low-rank knowledge decomposition for medical foundation models,” arXiv preprint arXiv:2409.19540 , 2024. [21] Y. Zhou, S. Du, H. Li, J. Yao, Y. Zhang, and Y. Wang, “Reprogramming distillation for medical foundation models,” in International Conference on Medical Image Computing and Computer-Assisted Intervention .Springer, 2024, pp. 533–543. [22] C. Buciluˇ a, R. Caruana, and A. Niculescu-Mizil, “Model compression,” in Proceedings of the 12th ACM SIGKDD international conference on Knowledge discovery and data mining , 2006, pp. 535–541. [23] A. Malinin, B. Mlodozeniec, and M. Gales, “Ensemble distribution distillation,” arXiv preprint arXiv:1905.00076 , 2019. [24] A. Romero, N. Ballas, S. E. Kahou, A. Chassang, C. Gatta, and Y. Ben-gio, “Fitnets: Hints for thin deep nets,” arXiv preprint arXiv:1412.6550 ,2014. [25] S. Zagoruyko and N. Komodakis, “Paying more attention to attention: Improving the performance of convolutional neural networks via atten-tion transfer,” arXiv preprint arXiv:1612.03928 , 2016. [26] Z. Hao, J. Guo, K. Han, Y. Tang, H. Hu, Y. Wang, and C. Xu, “One-for-all: Bridge the gap between heterogeneous architectures in knowledge distillation,” Advances in Neural Information Processing Systems , vol. 36, 2024. [27] N. Houlsby, A. Giurgiu, S. Jastrzebski, B. Morrone, Q. De Laroussilhe, A. Gesmundo, M. Attariyan, and S. Gelly, “Parameter-efficient transfer learning for nlp,” in International conference on machine learning .PMLR, 2019, pp. 2790–2799. [28] J. He, C. Zhou, X. Ma, T. Berg-Kirkpatrick, and G. Neubig, “Towards a unified view of parameter-efficient transfer learning,” arXiv preprint arXiv:2110.04366 , 2021. [29] R. K. Mahabadi, S. Ruder, M. Dehghani, and J. Henderson, “Parameter-efficient multi-task fine-tuning for transformers via shared hypernet-works,” arXiv preprint arXiv:2106.04489 , 2021. [30] R. Karimi Mahabadi, J. Henderson, and S. Ruder, “Compacter: Efficient low-rank hypercomplex adapter layers,” Advances in Neural Information Processing Systems , vol. 34, pp. 1022–1035, 2021. [31] B. Lester, R. Al-Rfou, and N. Constant, “The power of scale for parameter-efficient prompt tuning,” arXiv preprint arXiv:2104.08691 ,2021. [32] A. Razdaibiedina, Y. Mao, R. Hou, M. Khabsa, M. Lewis, J. Ba, and A. Almahairi, “Residual prompt tuning: Improving prompt tuning with residual reparameterization,” arXiv preprint arXiv:2305.03937 , 2023. [33] B. Dong, P. Zhou, S. Yan, and W. Zuo, “Lpt: Long-tailed prompt tuning for image classification,” arXiv preprint arXiv:2210.01033 , 2022. [34] S.-Y. Liu, C.-Y. Wang, H. Yin, P. Molchanov, Y.-C. F. Wang, K.-T. Cheng, and M.-H. Chen, “Dora: Weight-decomposed low-rank adapta-tion,” arXiv preprint arXiv:2402.09353 , 2024. [35] Z. Qiu, W. Liu, H. Feng, Y. Xue, Y. Feng, Z. Liu, D. Zhang, A. Weller, and B. Sch¨ olkopf, “Controlling text-to-image diffusion by orthogo-nal finetuning,” Advances in Neural Information Processing Systems ,vol. 36, pp. 79 320–79 362, 2023. [36] S.-Y. Yeh, Y.-G. Hsieh, Z. Gao, B. B. Yang, G. Oh, and Y. Gong, “Navigating text-to-image customization: From lycoris fine-tuning to model evaluation,” in The Twelfth International Conference on Learning Representations , 2023. [37] E. B. Zaken, S. Ravfogel, and Y. Goldberg, “Bitfit: Simple parameter-efficient fine-tuning for transformer-based masked language-models,” 
+
+arXiv preprint arXiv:2106.10199 , 2021. [38] J. Wu, W. Ji, Y. Liu, H. Fu, M. Xu, Y. Xu, and Y. Jin, “Medical sam adapter: Adapting segment anything model for medical image segmentation,” arXiv preprint arXiv:2304.12620 , 2023. [39] B. Azad, R. Azad, S. Eskandari, A. Bozorgpour, A. Kazerouni, I. Rekik, and D. Merhof, “Foundational models in medical imaging: A com-prehensive survey and future vision,” arXiv preprint arXiv:2310.18689 ,2023. [40] S. Zhang and D. Metaxas, “On the challenges and perspectives of foundation models for medical image analysis,” Medical image analysis ,vol. 91, p. 102996, 2024. [41] K. Jin, X. Huang, J. Zhou, Y. Li, Y. Yan, Y. Sun, Q. Zhang, Y. Wang, and J. Ye, “Fives: A fundus image dataset for artificial intelligence based vessel segmentation,” Scientific Data , vol. 9, no. 1, p. 475, 2022. [42] J. Glaister, “skin-cancer-detection,” 2013. [Online]. Avail-able: https://uwaterloo.ca/vision-image-processing-lab/research-demos/ skin-cancer-detection [43] H. I. T. Loop, “Teeth segmentation on dental x-ray images,” 2023. [Online]. Available: https://www.kaggle.com/dsv/5884500 [44] P.-Y. Chen, “Model reprogramming: Resource-efficient cross-domain machine learning,” arXiv preprint arXiv:2202.10629 , 2022. [45] S. Xu, J. Yao, R. Luo, S. Zhang, Z. Lian, M. Tan, B. Han, and Y. Wang, “Towards efficient task-driven model reprogramming with foundation models,” arXiv preprint arXiv:2304.02263 , 2023. [46] L. Ge, C. Hu et al. , “Discrepancy and uncertainty aware denoising knowledge distillation for zero-shot cross-lingual named entity recogni-tion,” in Proceedings of the AAAI Conference on Artificial Intelligence ,vol. 38, no. 16, 2024, pp. 18 056–18 064. [47] S. Kornblith, M. Norouzi, H. Lee, and G. Hinton, “Similarity of neural network representations revisited,” in International conference on machine learning . PMLR, 2019, pp. 3519–3529. [48] T. Nguyen, M. Raghu, and S. Kornblith, “Do wide and deep networks learn the same things? uncovering how neural network representations vary with width and depth,” arXiv preprint arXiv:2010.15327 , 2020. [49] L. R. Dice, “Measures of the amount of ecologic association between species,” Ecology , vol. 26, no. 3, pp. 297–302, 1945. [50] C. Yang, H. Zhou, Z. An, X. Jiang, Y. Xu, and Q. Zhang, “Cross-image relational knowledge distillation for semantic segmentation,” in 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2022, pp. 12 319–12 328. [51] C. Zhang, D. Han, Y. Qiao, J. U. Kim, S.-H. Bae, S. Lee, and C. S. Hong, “Faster segment anything: Towards lightweight sam for mobile applications,” arXiv preprint arXiv:2306.14289 , 2023. [52] Y. Zhu, Z. Shen, Z. Zhao, S. Wang, X. Wang, X. Zhao, D. Shen, and Q. Wang, “Melo: Low-rank adaptation is better than fine-tuning for medical image diagnosis,” arXiv preprint arXiv:2311.08236 , 2023. [53] W. Al-Dhabyani, M. Gomaa, H. Khaled, and A. Fahmy, “Dataset of breast ultrasound images,” Data in brief , vol. 28, p. 104863, 2020. [54] P. Tschandl, C. Rosendahl, and H. Kittler, “The ham10000 dataset, a large collection of multi-source dermatoscopic images of common pigmented skin lesions,” Scientific data , vol. 5, no. 1, pp. 1–9, 2018. [55] Y. Xingyi, H. Xuehai, Z. Jinyu, Z. Yichen et al. , “Covid-ct-dataset: a ct image dataset about covid-19,” arXiv preprint arXiv:2003.13865 , 2020. [56] A. Saleh, R. Sukaik, and S. S. Abu-Naser, “Brain tumor classification using deep learning,” in 2020 International Conference on Assistive and Rehabilitation Technologies (iCareTech) , 2020, pp. 131–136. [57] J. P. Cohen, P. Morrison, and L. Dao, “Covid-19 image data collection,” 
+
+arXiv preprint arXiv:2003.11597 , 2020. [58] S. P. Morozov, A. E. Andreychenko, N. Pavlov, A. Vladzymyrskyy, N. Ledikhova, V. Gombolevskiy, I. A. Blokhin, P. Gelezhe, A. Gonchar, and V. Y. Chernina, “Mosmeddata: Chest ct scans with covid-19 related findings dataset,” arXiv preprint arXiv:2005.06465 , 2020. [59] Y. Feng, “Ct volume samples for lung adenocarcinoma classification,” 2020. [60] S. Graham, Q. D. Vu, M. Jahanifar, M. Weigert, U. Schmidt, W. Zhang, J. Zhang, S. Yang, J. Xiang, X. Wang et al. , “Conic challenge: Push-ing the frontiers of nuclear detection, segmentation, classification and counting,” Medical image analysis , vol. 92, p. 103047, 2024. [61] S. Graham, M. Jahanifar, A. Azam, M. Nimir, Y.-W. Tsang, K. Dodd, E. Hero, H. Sahota, A. Tank, K. Benes et al. , “Lizard: A large-scale dataset for colonic nuclear instance segmentation and classification,” in Proceedings of the IEEE/CVF international conference on computer vision , 2021, pp. 684–693. [62] H. Gong, G. Chen, R. Wang, X. Xie, M. Mao, Y. Yu, F. Chen, and G. Li, “Multi-task learning for thyroid nodule segmentation with thyroid region prior,” in 2021 IEEE 18th international symposium on biomedical imaging (ISBI) . IEEE, 2021, pp. 257–261. [63] L. C. Garcia-Peraza-Herrera, L. Fidon, C. D’Ettorre, D. Stoyanov, T. Vercauteren, and S. Ourselin, “Image compositing for segmentation of surgical tools without manual annotations,” IEEE transactions on medical imaging , vol. 40, no. 5, pp. 1450–1460, 2021. [64] A. E. Kavur, N. S. Gezer, M. Barıs ¸, Y. S ¸ ahin, S. ¨Ozkan, B. Baydar, U. Y¨ uksel, C ¸ . Kılıkc ¸ıer, S ¸ . Olut, G. B. Akar et al. , “Comparison of semi-automatic and deep learning-based automatic methods for liver segmentation in living liver transplant donors,” Diagnostic and Inter-ventional Radiology , vol. 26, no. 1, p. 11, 2019. [65] A. E. Kavur, N. S. Gezer, M. Barıs ¸, S. Aslan, P.-H. Conze, V. Groza, D. D. Pham, S. Chatterjee, P. Ernst, S. ¨ Ozkan, B. Baydar, D. Lachinov, S. Han, J. Pauli, F. Isensee, M. Perkonigg, R. Sathish, R. Rajan, D. Sheet, G. Dovletov, O. Speck, A. N¨ urnberger, K. H. Maier-Hein, G. Bozda˘ gı Akar, G. ¨Unal, O. Dicle, and M. A. Selver, “CHAOS Challenge -JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 15 
+
+combined (CT-MR) healthy abdominal organ segmentation,” Medical Image Analysis , vol. 69, p. 101950, Apr. 2021. [Online]. Available: http://www.sciencedirect.com/science/article/pii/S1361841520303145 [66] A. E. Kavur, M. A. Selver, O. Dicle, M. Barıs ¸, and N. S. Gezer, “CHAOS - Combined (CT-MR) Healthy Abdominal Organ Segmentation Challenge Data,” Apr. 2019. [Online]. Available: https://doi.org/10.5281/zenodo.3362844 [67] B. Landman, Z. Xu, J. Igelsias, M. Styner, T. Langerak, and A. Klein, “Miccai multi-atlas labeling beyond the cranial vault–workshop and challenge,” in Proc. MICCAI Multi-Atlas Labeling Beyond Cranial Vault—Workshop Challenge , vol. 5, 2015, p. 12. [68] M. Antonelli, A. Reinke, S. Bakas, K. Farahani, A. Kopp-Schneider, B. A. Landman, G. Litjens, B. Menze, O. Ronneberger, R. M. Summers 
+
+et al. , “The medical segmentation decathlon,” Nature communications ,vol. 13, no. 1, p. 4128, 2022. [69] S. Ahn, S. X. Hu, A. Damianou, N. D. Lawrence, and Z. Dai, “Varia-tional information distillation for knowledge transfer,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition ,2019, pp. 9163–9171. [70] N. Passalis, M. Tzelepi, and A. Tefas, “Probabilistic knowledge transfer for lightweight deep representation learning,” IEEE Transactions on Neural Networks and Learning Systems , vol. 32, no. 5, pp. 2030–2039, 2020. [71] D. Chen, J.-P. Mei, Y. Zhang, C. Wang, Z. Wang, Y. Feng, and C. Chen, “Cross-layer distillation with semantic calibration,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 35, no. 8, 2021, pp. 7028–7036. [72] C.-H. Tu, Z. Mai, and W.-L. Chao, “Visual query tuning: Towards ef-fective usage of intermediate representations for parameter and memory efficient transfer learning,” in Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 2023, pp. 7725–7735. [73] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in Proceedings of the IEEE conference on computer vision and pattern recognition , 2016, pp. 770–778. [74] M. Sandler, A. Howard, M. Zhu, A. Zhmoginov, and L.-C. Chen, “Mobilenetv2: Inverted residuals and linear bottlenecks,” in Proceedings of the IEEE conference on computer vision and pattern recognition ,2018, pp. 4510–4520. [75] N. Ma, X. Zhang, H.-T. Zheng, and J. Sun, “Shufflenet v2: Practical guidelines for efficient cnn architecture design,” in Proceedings of the European conference on computer vision (ECCV) , 2018, pp. 116–131. [76] L. Blankemeier, J. P. Cohen, A. Kumar, D. Van Veen, S. J. S. Gardezi, M. Paschali, Z. Chen, J.-B. Delbrouck, E. Reis, C. Truyts et al. , “Merlin: A vision language foundation model for 3d computed tomography,” 
+
+arXiv preprint arXiv:2406.06512 , 2024. [77] K. Hara, H. Kataoka, and Y. Satoh, “Learning spatio-temporal features with 3d residual networks for action recognition,” in Proceedings of the IEEE international conference on computer vision workshops , 2017, pp. 3154–3160. [78] J. Ma, Y. He, F. Li, L. Han, C. You, and B. Wang, “Segment anything in medical images,” Nature Communications , vol. 15, no. 1, p. 654, 2024. [79] J. Liu, H. Yang, H.-Y. Zhou, Y. Xi, L. Yu, C. Li, Y. Liang, G. Shi, Y. Yu, S. Zhang et al. , “Swin-umamba: Mamba-based unet with imagenet-based pretraining,” in International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 2024, pp. 615–625. [80] Z. Zhao, Y. Zhang, C. Wu, X. Zhang, Y. Zhang, Y. Wang, and W. Xie, “One model to rule them all: Towards universal segmentation for medical images with text prompts,” arXiv preprint arXiv:2312.17183 , 2023. [81] H. Touvron, M. Cord, M. Douze, F. Massa, A. Sablayrolles, and H. J´ egou, “Training data-efficient image transformers & distillation through attention,” in International conference on machine learning .PMLR, 2021, pp. 10 347–10 357. [82] H. Huang, L. Lin, R. Tong, H. Hu, Q. Zhang, Y. Iwamoto, X. Han, Y.-W. Chen, and J. Wu, “Unet 3+: A full-scale connected unet for medical image segmentation,” in ICASSP 2020-2020 IEEE international conference on acoustics, speech and signal processing (ICASSP) . IEEE, 2020, pp. 1055–1059. [83] G. Somepalli, L. Fowl, A. Bansal, P. Yeh-Chiang, Y. Dar et al. , “Can neural nets learn the same model twice? investigating reproducibility and double descent from the decision boundary perspective,” in Proceedings of the ieee/cvf conference on computer vision and pattern recognition ,2022, pp. 13 699–13 708. 
+
+BIOGRAPHY SECTION 
+
+Siyuan Du received a B.S. degree from University of Electronic Science and Technology of China, in 2023. He is currently working toward the PhD degree from Fudan University, advised by Prof. J. Yao and Prof. Y. Zhang. His research interests include computer vision and AI for healthcare. 
+
+Yuhang Zhou received a B.S. degree from Univer-sity of Electronic Science and Technology of China, in 2019. He is currently working toward the PhD degree from Shanghai Jiao Tong University, advised by Prof. J. Yao and Prof. Y. Zhang. His research interests include computer vision, machine learning and AI for healthcare. 
+
+Haolin Li received a B.S. degree from University of Electronic Science and Technology of China, in 2023. He is currently working toward the PhD degree from Fudan University, advised by Prof. J. Yao and Prof. Y. Zhang. His research interests include computer vision and AI for healthcare. 
+
+Jiangchao Yao is an Assistant Professor of Shanghai Jiao Tong University, Shnaghai China. He received the B.S. degree in information engineering from South China University of Technology, Guangzhou, China, in 2013. He got a dual Ph.D. degree under the supervision of Ya Zhang in Shanghai Jiao Tong University and Ivor W. Tsang in University of Tech-nology Sydney. His research interests include deep representation learning and robust machine learning. 
+
+Haishuai Wang is a Ph.D. supervisor at the School of Computer Science and Technology, Zhejiang Uni-versity, and a dual-appointed professor at the Second Affiliated Hospital of Zhejiang University School of Medicine. He received his Ph.D. from the Australian Artificial Intelligence Institute and the University of Technology Sydney, with a joint Ph.D. program at Washington University in St. Louis. He was also a postdoctoral researcher at Harvard University. Pre-viously, he was an Assistant Professor at Fairfield University and a Research Assistant Professor at Harvard Medical School. His main research interests include knowledge mining and discovery, AI for healthcare, and large-scale medical models. 
+
+Hui Lin received his B.S., M.S., and Ph.D. de-grees from Zhejiang University, Zhejiang, China. He is currently the Associate Dean of the College of Biomedical Engineering and Instrument Science, Zhejiang University, and a Chief Physician in Gen-eral Surgery at the Sir Run Run Shaw Hospital, Zhejiang University. His research interests mainly include the pathogenesis and diagnostic/treatment technologies of hepatobiliary and pancreatic tu-mors, surgical navigation, tumor-targeted therapy, and smart healthcare. JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. 8, AUGUST 2021 16 
+
+Ya Zhang (Member, IEEE) received the B.S. degree from Tsinghua University and the Ph.D. degree in information sciences and technology from the Pennsylvania State University. Since March 2010, she has been a professor with Cooperative Medianet Innovation Center, Shanghai Jiao Tong University. Prior to that, she worked with Lawrence Berkeley National Laboratory, University of Kansas, and Ya-hoo! Labs. Her research interest is mainly on data mining and machine learning, with applications to information retrieval, web mining, and multimedia analysis. 
+
+Yanfeng Wang received the B.E. degree in infor-mation engineering from the University of PLA, Beijing, China, and the M.S. and Ph.D. degrees in business management from the Antai College of Economics and Management, Shanghai Jiao Tong University, Shanghai, China. He is currently the Vice Director of the Cooperative Medianet Innovation Center and also the Vice Dean of the School of Electrical and Information Engineering, Shanghai Jiao Tong University. His research interests mainly include media big data and emerging commercial applications of information technology.
