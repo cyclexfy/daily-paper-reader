@@ -6,73 +6,73 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-07
-- 运行时间：2026-05-07 20:16:13 UTC
+- 最新运行日期：2026-05-08
+- 运行时间：2026-05-08 20:23:51 UTC
 - 运行状态：成功
 - 本次总论文数：17
 - 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今日深度复盘 17 篇前沿论文，重点聚焦数字病理 AI 助手与全切片图像表征的范式革新。
-满分研究展示了 AI Copilot 在多中心数据上挑战病理医生的实力，并提出几何感知 SSM 模型以优化 WSI 表征。
-建议关注 AI 如何通过主动推理与多组学分析，在胰腺癌及乳腺癌等复杂临床场景中实现精准诊疗。
-- 详情：[/202605/07/README](/202605/07/README)
+今日深度解析 17 篇前沿文献，聚焦空间生物学突破与数字病理 AI 助手的实战表现。
+重点关注 Haiku 算法对临床组织学的跨维度链接，以及 DALPHIN 框架下 AI 助手与人类病理医生的权威对标。
+推荐深入探索视觉显著性与大模型的结合，把握医疗影像可解释性与多模态融合的技术趋势。
+- 详情：[/202605/08/README](/202605/08/README)
 
 ### 精读区论文标签
-1. [DALPHIN: Benchmarking Digital Pathology AI Copilots Against Pathologists on an Open Multicentric Dataset](/202605/07/2605.03544v1-dalphin-benchmarking-digital-pathology-ai-copilots-against-pathologists-on-an-open-multicentric-dataset)  
+1. [Linking spatial biology and clinical histology via Haiku](/202605/08/2605.00925v1-linking-spatial-biology-and-clinical-histology-via-haiku)  
    标签：评分：10.0/10、query:cpath
-   evidence：针对数字病理诊断的病理专用基础模型和AI副驾驶的基准测试。
-2. [Geometry-Aware State Space Model: A New Paradigm for Whole-Slide Image Representation](/202605/07/2605.05164v1-geometry-aware-state-space-model-a-new-paradigm-for-whole-slide-image-representation)  
+   evidence：连接H&E组织学和空间蛋白质组学的三模态对比学习
+2. [DALPHIN: Benchmarking Digital Pathology AI Copilots Against Pathologists on an Open Multicentric Dataset](/202605/08/2605.03544v1-dalphin-benchmarking-digital-pathology-ai-copilots-against-pathologists-on-an-open-multicentric-dataset)  
    标签：评分：10.0/10、query:cpath
-   evidence：使用多实例学习和状态空间模型的全切片图像表示
-3. [Linking spatial biology and clinical histology via Haiku](/202605/07/2605.00925v1-linking-spatial-biology-and-clinical-histology-via-haiku)  
-   标签：评分：9.5/10、query:cpath
-   evidence：H&E组织学与空间蛋白质组学的三模态对比学习
-4. [Deep Reprogramming Distillation for Medical Foundation Models](/202605/07/2605.04447v1-deep-reprogramming-distillation-for-medical-foundation-models)  
-   标签：评分：9.0/10、query:cpath
-   evidence：将医学基础模型适配到特定医学场景
-5. [Pan-cancer virtual spatial transcriptomics from routine histology with Phoenix](/202605/07/biorxiv-10-64898-2026-04-25-720812-v2-pan-cancer-virtual-spatial-transcriptomics-from-routine-histology-with-phoenix)  
-   标签：评分：9.0/10、query:cpath
-   evidence：从常规组织学图像预测基因表达
-6. [Metastatic Site Prediction in Breast Cancer using Kirchhoff's Law and Omics Knowledge Graph](/202605/07/biorxiv-10-1101-2020-07-14-203208-v3-metastatic-site-prediction-in-breast-cancer-using-kirchhoffs-law-and-omics-knowledge-graph)  
+   evidence：数字病理学基础模型和AI副驾驶的基准测试
+3. [BRIDGE: A Multi-organ Histo-ST Foundation Model Enables Virtual Spatial Transcriptomics for Enhanced Few-shot Cancer Diagnosis](/202605/08/biorxiv-10-64898-2026-05-05-722971-v1-bridge-a-multi-organ-histo-st-foundation-model-enables-virtual-spatial-transcriptomics-for-enhanced-few-shot-cancer-diagnosis)  
+   标签：评分：10.0/10、query:cpath
+   evidence：对齐组织学和基因组学用于癌症诊断的多器官基础模型
+4. [Weak supervision of H&E slides reveals systems-level biology and functional states that govern therapeutic resistance](/202605/08/biorxiv-10-64898-2026-05-05-723013-v1-weak-supervision-of-he-slides-reveals-systems-level-biology-and-functional-states-that-govern-therapeutic-resistance)  
+   标签：评分：10.0/10、query:cpath
+   evidence：使用常规H&E全切片图像 (WSIs) 的弱监督深度学习模型
+5. [Retina-RAG: Retrieval-Augmented Vision-Language Modeling for Joint Retinal Diagnosis and Clinical Report Generation](/202605/08/2605.06173v1-retina-rag-retrieval-augmented-vision-language-modeling-for-joint-retinal-diagnosis-and-clinical-report-generation)  
    标签：评分：8.5/10、query:cpath
-   evidence：整合多组学和临床数据进行乳腺癌转移预测
+   evidence：用于医学诊断的检索增强视觉语言模型
+6. [Prompt-Free and Efficient SAM2 Adaptation for Biomedical Semantic Segmentation via Dual Adapters](/202605/08/2605.05979v1-prompt-free-and-efficient-sam2-adaptation-for-biomedical-semantic-segmentation-via-dual-adapters)  
+   标签：评分：8.0/10、query:cpath
+   evidence：SAM2基础模型在生物医学分割中的适配
 
 ### 速读区论文标签
-1. [Integrated Multi-Omics Analysis for the Identification of Disease-Associated Variations and Prognostic Biomarkers in Triple-Negative Breast Cancer (TNBC)](/202605/07/biorxiv-10-64898-2026-05-03-722461-v1-integrated-multi-omics-analysis-for-the-identification-of-disease-associated-variations-and-prognostic-biomarkers-in-triple-negative-breast-cancer-tnbc)  
-   标签：评分：8.5/10、query:cpath
-   evidence：乳腺癌预后生物标志物的集成多组学分析
-2. [Assessing Pancreatic Ductal Adenocarcinoma Vascular Invasion: the PDACVI Benchmark](/202605/07/2604.27582v1-assessing-pancreatic-ductal-adenocarcinoma-vascular-invasion-the-pdacvi-benchmark)  
+1. [Bridging visual saliency and large language models for explainable deep learning in medical imaging](/202605/08/2605.06197v1-bridging-visual-saliency-and-large-language-models-for-explainable-deep-learning-in-medical-imaging)  
    标签：评分：8.0/10、query:cpath
-   evidence：评估胰腺导管腺癌血管侵犯用于癌症分期
-3. [Active Reasoning Vision-Language Models via Sequential Experimental Design](/202605/07/2605.01345v1-active-reasoning-vision-language-models-via-sequential-experimental-design)  
-   标签：评分：8.0/10、query:cpath
-   evidence：用于连续十亿像素空间的自动推理视觉语言模型
-4. [Tumor cell specific total mRNA expression informed neural networks predicts cancer progression](/202605/07/biorxiv-10-64898-2026-05-01-722212-v1-tumor-cell-specific-total-mrna-expression-informed-neural-networks-predicts-cancer-progression)  
-   标签：评分：8.0/10、query:cpath
-   evidence：利用深度学习整合多组学数据进行癌症进展预测
-5. [MIRAGE: Retrieval and Generation of Multimodal Images and Texts for Medical Education](/202605/07/2605.04772v1-mirage-retrieval-and-generation-of-multimodal-images-and-texts-for-medical-education)  
-   标签：评分：7.5/10、query:cpath
-   evidence：多模态医学文本和图像检索与生成系统
-6. [Multi-Dataset Cross-Domain Knowledge Distillation for Unified Medical Image Segmentation, Classification, and Detection](/202605/07/2605.01563v1-multi-dataset-cross-domain-knowledge-distillation-for-unified-medical-image-segmentation-classification-and-detection)  
+   evidence：桥接视觉显著性和大语言模型以实现医学影像的可解释性
+2. [Learning to Segment using Summary Statistics and Weak Supervision](/202605/08/2605.03059v1-learning-to-segment-using-summary-statistics-and-weak-supervision)  
    标签：评分：7.0/10、query:cpath
-   evidence：统一的医学图像分割、分类和检测框架
-7. [The Detector Teaches Itself: Lightweight Self-Supervised Adaptation for Open-Vocabulary Object Detection](/202605/07/2605.03642v1-the-detector-teaches-itself-lightweight-self-supervised-adaptation-for-open-vocabulary-object-detection)  
+   evidence：乳腺癌超声图像的弱监督分割
+3. [Disentangling Shared and Task-Specific Representations from Multi-Modal Clinical Data](/202605/08/2605.03570v1-disentangling-shared-and-task-specific-representations-from-multi-modal-clinical-data)  
    标签：评分：7.0/10、query:cpath
-   evidence：利用视觉语言模型（VLM）进行开放词汇目标检测
-8. [A Scalable Sign-Aware Multi-Omics Knowledge Graph Foundation Model for Mechanistic Drug Action and Clinical Response Predictions](/202605/07/biorxiv-10-64898-2026-04-29-721775-v1-a-scalable-sign-aware-multi-omics-knowledge-graph-foundation-model-for-mechanistic-drug-action-and-clinical-response-predictions)  
+   evidence：使用统一Transformer进行多模态临床数据融合
+4. [Feature Dimensionality Outweighs Model Complexity in Breast Cancer Subtype Classification Using TCGA-BRCA Gene Expression Data](/202605/08/2605.06562v1-feature-dimensionality-outweighs-model-complexity-in-breast-cancer-subtype-classification-using-tcga-brca-gene-expression-data)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于临床反应的大规模多组学知识图谱基础模型
-9. [Spartan: activation-aware framework for spatial domain and variable gene discovery](/202605/07/biorxiv-10-64898-2026-02-18-706570-v2-spartan-activation-aware-framework-for-spatial-domain-and-variable-gene-discovery)  
+   evidence：利用TCGA基因表达数据进行乳腺癌亚型分类
+5. [ZScribbleSeg: A comprehensive segmentation framework with modeling of efficient annotation and maximization of scribble supervision](/202605/08/2605.06266v1-zscribbleseg-a-comprehensive-segmentation-framework-with-modeling-of-efficient-annotation-and-maximization-of-scribble-supervision)  
    标签：评分：6.5/10、query:cpath
-   evidence：组织结构空间域发现的计算框架
-10. [Generalized Category Discovery under Domain Shifts: From Vision to Vision-Language Models](/202605/07/2605.00906v1-generalized-category-discovery-under-domain-shifts-from-vision-to-vision-language-models)  
+   evidence：医学图像的弱监督分割
+6. [Learning from Compressed CT: Feature Attention Style Transfer and Structured Factorized Projections for Resource-Efficient Medical Image Analysis](/202605/08/2605.00448v1-learning-from-compressed-ct-feature-attention-style-transfer-and-structured-factorized-projections-for-resource-efficient-medical-image-analysis)  
    标签：评分：6.0/10、query:cpath
-   evidence：将视觉语言模型应用于广义类别发现
-11. [Deep neural networks with Fisher vector encoding for medical image classification](/202605/07/2605.01667v1-deep-neural-networks-with-fisher-vector-encoding-for-medical-image-classification)  
+   evidence：用于胸部异常检测的资源高效型医学图像分析
+7. [DMDSC: A Dynamic-Margin Deep Simplex Classifier for Open-Set Recognition on Medical Image Datasets](/202605/08/2605.00675v1-dmdsc-a-dynamic-margin-deep-simplex-classifier-for-open-set-recognition-on-medical-image-datasets)  
    标签：评分：6.0/10、query:cpath
-   evidence：使用混合CNN和Vision Transformer进行医学图像分类
+   evidence：医学图像数据集上的开集识别与类别不平衡处理
+8. [Synthetic Data Generation for Long-Tail Medical Image Classification: A Case Study in Skin Lesions](/202605/08/2605.03221v1-synthetic-data-generation-for-long-tail-medical-image-classification-a-case-study-in-skin-lesions)  
+   标签：评分：6.0/10、query:cpath
+   evidence：皮肤病变医学图像分类的合成数据生成
+9. [Attention-Based Chaotic Self-Supervision for Medical Image Classification](/202605/08/2605.04985v1-attention-based-chaotic-self-supervision-for-medical-image-classification)  
+   标签：评分：6.0/10、query:cpath
+   evidence：用于医学图像分类的自监督学习
+10. [External Validation of Deep Learning Models for BI-RADS Breast Density Prediction from Ultrasound Images](/202605/08/2605.05082v1-external-validation-of-deep-learning-models-for-bi-rads-breast-density-prediction-from-ultrasound-images)  
+   标签：评分：6.0/10、query:cpath
+   evidence：深度学习用于超声图像癌症诊断
+11. [multiVIB: A unified probabilistic contrastive learning framework for atlas-scale integration of single-cell multi-omics data](/202605/08/biorxiv-10-1101-2025-11-29-691308-v2-multivib-a-unified-probabilistic-contrastive-learning-framework-for-atlas-scale-integration-of-single-cell-multi-omics-data)  
+   标签：评分：6.0/10、query:cpath
+   evidence：用于多组学数据整合的概率对比学习框架
 
 
 <div class="dpr-home-promo-card">
