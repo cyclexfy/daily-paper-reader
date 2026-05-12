@@ -6,64 +6,73 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-11
-- 运行时间：2026-05-11 20:31:54 UTC
+- 最新运行日期：2026-05-12
+- 运行时间：2026-05-12 21:13:37 UTC
 - 运行状态：成功
-- 本次总论文数：14
-- 精读区：3
+- 本次总论文数：17
+- 精读区：6
 - 速读区：11
 
 ### 今日简报（AI）
-今日精选 14 篇 AI 医疗前沿进展，重点聚焦多器官组织学与空间转录组融合的诊断大模型。
-满分论文 BRIDGE 通过虚拟空间转录组实现少样本癌症诊断，多模态临床引导技术则显著优化了乳腺癌疗效预测。
-建议深入探索跨模态大模型在病理表征中的潜力，利用预训练权重提升临床任务的标注效率与鲁棒性。
-- 详情：[/202605/11/README](/202605/11/README)
+今日深度解析17篇AI医疗前沿，聚焦病理大模型在临床实用性与细胞级密集预测上的双重突破。
+重点推荐两篇满分论文：掩码扩散预训练显著提升了卷积病理模型的预测精度，而乳腺视觉大模型则为真实临床应用树立了标杆。
+建议关注病理基础模型从宏观诊断向细胞级精准分析的演进，并探索多模态技术在药物反应预测中的应用。
+- 详情：[/202605/12/README](/202605/12/README)
 
 ### 精读区论文标签
-1. [BRIDGE: A Multi-organ Histo-ST Foundation Model Enables Virtual Spatial Transcriptomics for Enhanced Few-shot Cancer Diagnosis](/202605/11/biorxiv-10-64898-2026-05-05-722971-v1-bridge-a-multi-organ-histo-st-foundation-model-enables-virtual-spatial-transcriptomics-for-enhanced-few-shot-cancer-diagnosis)  
+1. [A Breast Vision Pathology Foundation Model for Real-world Clinical Utility](/202605/12/2605.08207v1-a-breast-vision-pathology-foundation-model-for-real-world-clinical-utility)  
    标签：评分：10.0/10、query:cpath
-   evidence：对齐组织学和空间转录组学的多器官基础模型
-2. [Multimodal Stepwise Clinically-Guided Attention Learning for Pathological Complete Response Prediction in Breast Cancer](/202605/11/2605.07561v1-multimodal-stepwise-clinically-guided-attention-learning-for-pathological-complete-response-prediction-in-breast-cancer)  
+   evidence：使用全视野切片图像的乳腺视觉病理基础模型
+2. [Beyond ViT Tokens: Masked-Diffusion Pretrained Convolutional Pathology Foundation Model for Cell-Level Dense Prediction](/202605/12/2605.08276v1-beyond-vit-tokens-masked-diffusion-pretrained-convolutional-pathology-foundation-model-for-cell-level-dense-prediction)  
+   标签：评分：10.0/10、query:cpath
+   evidence：掩码扩散预训练卷积病理基础模型
+3. [CellDX AI Autopilot: Agent-Guided Training and Deployment of Pathology Classifiers](/202605/12/2605.10362v1-celldx-ai-autopilot-agent-guided-training-and-deployment-of-pathology-classifiers)  
+   标签：评分：10.0/10、query:cpath
+   evidence：基于全切片图像的智能体引导病理分类器训练
+4. [BRIDGE: A Multi-organ Histo-ST Foundation Model Enables Virtual Spatial Transcriptomics for Enhanced Few-shot Cancer Diagnosis](/202605/12/biorxiv-10-64898-2026-05-05-722971-v1-bridge-a-multi-organ-histo-st-foundation-model-enables-virtual-spatial-transcriptomics-for-enhanced-few-shot-cancer-diagnosis)  
+   标签：评分：10.0/10、query:cpath
+   evidence：对齐组织学和基因组数据的多器官基础模型
+5. [Multimodal Stepwise Clinically-Guided Attention Learning for Pathological Complete Response Prediction in Breast Cancer](/202605/12/2605.07561v1-multimodal-stepwise-clinically-guided-attention-learning-for-pathological-complete-response-prediction-in-breast-cancer)  
    标签：评分：8.0/10、query:cpath
-   evidence：用于乳腺癌预后预测的多模态集成
-3. [Benchmarking Foundation Models for Renal Lesion Stratification in CT](/202605/11/2605.07749v1-benchmarking-foundation-models-for-renal-lesion-stratification-in-ct)  
+   evidence：乳腺癌病理完全缓解预测
+6. [DeepTumorVQA: A Hierarchical 3D CT Benchmark for Stage-Wise Evaluation of Medical VLMs and Tool-Augmented Agents](/202605/12/2605.09679v1-deeptumorvqa-a-hierarchical-3d-ct-benchmark-for-stage-wise-evaluation-of-medical-vlms-and-tool-augmented-agents)  
    标签：评分：8.0/10、query:cpath
-   evidence：基准测试医疗基础模型用于肾脏病变分类
+   evidence：用于肿瘤诊断的医学视觉语言模型（VLM）评估
 
 ### 速读区论文标签
-1. [Pan-FM: A Pan-Organ Foundation Model with Saliency-Guided Masking for Missing Robustness](/202605/11/2605.07055v1-pan-fm-a-pan-organ-foundation-model-with-saliency-guided-masking-for-missing-robustness)  
+1. [Clone-level multi-modal prediction of tumour drug response](/202605/12/biorxiv-10-64898-2026-05-06-723206-v1-clone-level-multi-modal-prediction-of-tumour-drug-response)  
+   标签：评分：7.5/10、query:cpath
+   evidence：整合DNA和RNA测序的肿瘤药物反应多模态预测
+2. [A Unified Framework for the Detection and Classification of Fatty Pancreas in Ultrasound Images](/202605/12/2605.07466v1-a-unified-framework-for-the-detection-and-classification-of-fatty-pancreas-in-ultrasound-images)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于多模态医学影像的泛器官基础模型
-2. [Hierarchical Perfusion Graphs for Tumor Heterogeneity Modeling in Glioma Molecular Subtyping](/202605/11/2605.07156v1-hierarchical-perfusion-graphs-for-tumor-heterogeneity-modeling-in-glioma-molecular-subtyping)  
+   evidence：胰腺癌风险的自动分类与诊断
+3. [3DBrainOne: an integrated end-to-end platform for 3D histological analysis of whole mouse brains](/202605/12/biorxiv-10-64898-2026-05-06-723327-v1-3dbrainone-an-integrated-end-to-end-platform-for-3d-histological-analysis-of-whole-mouse-brains)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于胶质瘤分子分型和肿瘤异质性建模的深度学习
-3. [DINO-MVR: Multi-View Readout of Frozen DINOv3 for Annotation-Efficient Medical Segmentation](/202605/11/2605.07221v1-dino-mvr-multi-view-readout-of-frozen-dinov3-for-annotation-efficient-medical-segmentation)  
-   标签：评分：7.0/10、query:cpath
-   evidence：将DINOv3等基础模型应用于医学图像分割
-4. [Orientation-Aware Unsupervised Domain Adaptation for Brain Tumor Classification Across Multi-Modal MRI](/202605/11/2605.03490v1-orientation-aware-unsupervised-domain-adaptation-for-brain-tumor-classification-across-multi-modal-mri)  
+   evidence：用于全器官成像的3D组织学分析和深度学习
+4. [InterScale reveals multi-scale cellular interaction programs in spatial transcriptomics](/202605/12/biorxiv-10-64898-2026-05-07-723456-v1-interscale-reveals-multi-scale-cellular-interaction-programs-in-spatial-transcriptomics)  
+   标签：评分：6.5/10、query:cpath
+   evidence：用于空间转录组学中多尺度细胞相互作用的图变换器
+5. [PromptDx: Differentiable Prompt Tuning for Multimodal In-Context Alzheimer's Diagnosis](/202605/12/2605.08585v1-promptdx-differentiable-prompt-tuning-for-multimodal-in-context-alzheimers-diagnosis)  
    标签：评分：6.0/10、query:cpath
-   evidence：跨多模态MRI的自动脑肿瘤分类
-5. [CAST: Mitigating Object Hallucination in Large Vision-Language Models via Caption-Guided Visual Attention Steering](/202605/11/2605.04641v1-cast-mitigating-object-hallucination-in-large-vision-language-models-via-caption-guided-visual-attention-steering)  
+   evidence：用于医疗诊断中多模态上下文学习的可微提示微调
+6. [Automated Optical Density Normalization for Myelin Quantification: Cross-Modal Validation with 7T Ex Vivo MRI](/202605/12/2605.08711v1-automated-optical-density-normalization-for-myelin-quantification-cross-modal-validation-with-7t-ex-vivo-mri)  
    标签：评分：6.0/10、query:cpath
-   evidence：减轻大型视觉语言模型中的对象幻觉
-6. [AGA3DNet: Anatomy-Guided Gaussian Priors with Multi-view xLSTM for 3D Brain MRI Subtype Classification](/202605/11/2605.07142v1-aga3dnet-anatomy-guided-gaussian-priors-with-multi-view-xlstm-for-3d-brain-mri-subtype-classification)  
+   evidence：用于髓鞘定量的全切片图像参考区域自动识别流水线
+7. [From pre-training to downstream performance: Does domain-specific pre-training make sense?](/202605/12/2605.08819v1-from-pre-training-to-downstream-performance-does-domain-specific-pre-training-make-sense)  
    标签：评分：6.0/10、query:cpath
-   evidence：利用放射报告短语进行3D脑部MRI亚型分类
-7. [Toward Privileged Foundation Models:LUPI for Accelerated and Improved Learning](/202605/11/2605.07799v1-toward-privileged-foundation-modelslupi-for-accelerated-and-improved-learning)  
+   evidence：医疗影像模型的领域特定预训练
+8. [KEPIL: Knowledge-Enhanced Prompt-Image Learning for Prompt-Robust Disease Detection](/202605/12/2605.09132v1-kepil-knowledge-enhanced-prompt-image-learning-for-prompt-robust-disease-detection)  
    标签：评分：6.0/10、query:cpath
-   evidence：表格基础模型框架
-8. [PPI-Net connects molecular protein interactions to functional processes in disease](/202605/11/2605.07838v1-ppi-net-connects-molecular-protein-interactions-to-functional-processes-in-disease)  
+   evidence：用于放射科临床决策支持的视觉语言模型
+9. [Cross-Modal Semantic-Enhanced Diffusion Framework for Diabetic Retinopathy Grading](/202605/12/2605.09242v1-cross-modal-semantic-enhanced-diffusion-framework-for-diabetic-retinopathy-grading)  
    标签：评分：6.0/10、query:cpath
-   evidence：整合蛋白质相互作用和分子图谱进行疾病建模
-9. [A general method for bootstrapping dense 3D segmentations from sparse 2D annotations](/202605/11/biorxiv-10-1101-2024-06-14-599135-v3-a-general-method-for-bootstrapping-dense-3d-segmentations-from-sparse-2d-annotations)  
+   evidence：将视觉语言预训练与扩散模型结合用于医学分级
+10. [Uncertainty-Guided Dual-Domain Learning for Reliable Skin Lesion Segmentation](/202605/12/2605.09600v1-uncertainty-guided-dual-domain-learning-for-reliable-skin-lesion-segmentation)  
    标签：评分：6.0/10、query:cpath
-   evidence：在显微镜成像中从稀疏2D标注引导3D分割
-10. [Scalable integration and prediction of unpaired single-cell and spatial multi-omics via regularized disentanglement](/202605/11/biorxiv-10-1101-2025-11-25-689803-v2-scalable-integration-and-prediction-of-unpaired-single-cell-and-spatial-multi-omics-via-regularized-disentanglement)  
+   evidence：用于癌症诊断的可靠皮肤病变分割
+11. [Frequency Adapter with SAM for Generalized Medical Image Segmentation](/202605/12/2605.09925v1-frequency-adapter-with-sam-for-generalized-medical-image-segmentation)  
    标签：评分：6.0/10、query:cpath
-   evidence：单细胞与空间多组学的整合
-11. [Decoding Condition-Specific Cellular Crosstalk in Spatial Omics via Bilinear Edge Classification](/202605/11/biorxiv-10-64898-2026-05-03-722470-v1-decoding-condition-specific-cellular-crosstalk-in-spatial-omics-via-bilinear-edge-classification)  
-   标签：评分：6.0/10、query:cpath
-   evidence：疾病进展中细胞通讯和空间组学的计算分析
+   evidence：利用SAM等基础模型进行医学图像分割
 
 
 <div class="dpr-home-promo-card">
