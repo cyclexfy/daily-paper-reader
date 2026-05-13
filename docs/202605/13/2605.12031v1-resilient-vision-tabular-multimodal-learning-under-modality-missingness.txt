@@ -1,0 +1,766 @@
+Title: Resilient Vision-Tabular Multimodal Learning under Modality Missingness
+
+URL Source: https://arxiv.org/pdf/2605.12031v1
+
+Published Time: Wed, 13 May 2026 01:13:43 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+# Resilient Vision-Tabular Multimodal Learning under Modality Missingness 
+
+Camillo Maria Caruso a, Valerio Guarrasi a,1 , Paolo Soda a,b,1, ∗
+
+> aResearch Unit of Artificial Intelligence and Computer Systems, Department of Engineering, Università Campus Bio-Medico di Roma, Roma, Italy, Europe
+> bDepartment of Diagnostics and Intervention, Radiation Physics, Biomedical Engineering, Umeå University, Umeå, Sweden, Europe
+
+Abstract 
+
+Multimodal deep learning has shown strong potential in medical applications by integrating heterogeneous data sources such as medical images and structured clinical variables. However, most existing approaches implicitly assume complete modality avail-ability, an assumption that rarely holds in real-world clinical settings where entire modalities and individual features are frequently missing. In this work, we propose a multimodal transformer framework for joint vision-tabular learning explicitly designed to oper-ate under pervasive modality missingness, without relying on imputation or heuristic model switching. The architecture integrates three components: a vision, a tabular, and a multimodal fusion encoder. Unimodal representations are weighted through learnable modality tokens and fused via intermediate fusion with masked self-attention, which excludes missing tokens and modalities from information aggregation and gradient propagation. To further enhance resilience, we introduce a modality-dropout regularization strategy that stochastically removes available modalities during training, encouraging the model to exploit complementary informa-tion under partial data availability. We evaluate our approach on the MIMIC-CXR dataset paired with structured clinical data from MIMIC-IV for multilabel classification of 14 diagnostic findings with incomplete annotations. Two parallel systematic stress-test protocols progressively increase training and inference missingness in each modality separately, spanning fully multimodal to fully unimodal scenarios. Across all missingness regimes, the proposed method consistently outperforms representative baselines, show-ing smoother performance degradation and improved robustness. Ablation studies further demonstrate that attention-level masking and intermediate fusion with joint fine-tuning are key to resilient multimodal inference. 
+
+Keywords: Self-Attention Mechanism, Data Fusion, Missing Data Handling, Clinical Data, Chest X-Ray 
+
+1. Introduction 
+
+In recent years, multimodal deep learning has become a cor-nerstone of artificial intelligence (AI) in healthcare, enabling the integration of heterogeneous data such as medical images, clinical variables, and laboratory results to provide more accu-rate and interpretable diagnostic and prognostic tools [1]. By combining complementary sources of information, multimodal models can capture complex relationships that remain hidden in unimodal analyses, ultimately improving clinical decision-making [2, 3]. Most multimodal AI systems implicitly assume that every patient record contains data from all the required modalities but, in practice, this assumption rarely holds [2]. Missing in-formation, whether individual features or entire modalities, is a pervasive issue caused by several factors, such as data frag-mentation across institutions, incompatible storage platforms, retrospective collected data, or privacy limitations. However, missing data can seriously compromise model re-liability and generalization, especially when this missingness aff ects modalities that are usually more informative for making      
+
+> ∗Corresponding author: paolo.soda@umu.se
+> Email addresses: camillomaria.caruso@unicampus.it (Camillo Maria Caruso), valerio.guarrasi@unicampus.it (Valerio Guarrasi),
+> p.soda@unicampus.it, paolo.soda@umu.se (Paolo Soda)
+> 1These authors contributed equally to this work.
+
+a decision, such as medical imaging [4]. Therefore, multimodal deep learning models must be explicitly designed to be resilient, meaning that they can be trained and perform reliably even un-der partial data availability, without relying on weak assump-tions of complete inputs. Hereinafter, we use the term missing data to indicate scenarios in which, for a given patient, an entire modality is unavailable. Although the proposed framework is capable of handling both forms of incompleteness, either indi-vidual features within a modality or entire modalities, the pri-mary focus of this work is on resilience to missing modalities, which represents a particularly critical and understudied chal-lenge in real-world clinical settings. Classical approaches to address missing data rely on modal-ity completion techniques, which attempt to reconstruct absent information from the available one [5]. While simple to im-plement, these methods may introduce bias by inferring val-ues that do not faithfully reflect the patient’s actual underlying measurements, degrading downstream performance and driving the model toward clinically misleading predictions. To avoid these issues, recent research has focused on the following four main strategies that make models inherently resilient to miss-ing inputs [5]: (i) Modality Augmentation methods, which re-place missing representations, usually with constant or random values [6]; (ii) Feature Space Engineering techniques, which combine unimodal representations through simple operations such as averaging or pooling [7]; (iii) Architecture Engineering 
+
+> arXiv:2605.12031v1 [cs.LG] 12 May 2026
+
+approaches, which explicitly model modality-wise interactions and missingness (e.g., via attention mechanisms) [8]; and (iv) 
+
+Model Selection methods, which dynamically switch between unimodal and multimodal predictors based on the modalities available at inference time [9]. While the interested readers can refer to [5] for further details, on the one hand, we notice that the approaches belonging to categories (i), (ii) and (iv) rely on simplified fusion schemes or modality-wise heuristics, treat-ing the modalities as loosely coupled sources, thus preventing the model from learning the fine-grained cross-modal depen-dencies that are essential for robust clinical reasoning. On the other hand, the methods from group (iii) exploit cross-modality supervision during pre-training to enhance downstream uni-modal performance. Representative approaches are TIP [10] and CHARM [11], which jointly learn from image-tabular pairs to infuse the unimodal vision encoder with complementary cross-modal information, thereby improving its representation power and performance. While e ff ective in enhancing unimodal representations, they do not address multimodal training and inference under arbitrary modality availability, as they remain dependent on the presence of the target modality. Because real-world clinical applications often lack complete imaging or tabu-lar information, their applicability becomes constrained outside of controlled benchmark settings. This motivates the need for architectures that can operate natively on any subset of available modalities and sustain reliable performance even under extreme and unpredictable conditions with missing modalities. To address the issue of Multimodal Learning with Missing Modalities described so far, here we propose a multimodal vision-tabular transformer framework designed for flexible data fusion. Rather than attempting to reconstruct absent inputs, the model conditions its training and inference exclusively on the information that is actually available, allowing it to adapt seam-lessly to any subset of modalities. The architecture performs in-termediate fusion through a unified transformer encoder trained end-to-end, enabling the model to learn joint representations that integrate imaging and tabular information. Moreover, to prevent the model from over-relying on the most informative modality and to promote balanced learning across sources, we introduce a modality-dropout regularization strategy that ran-domly removes one of the available modalities during training. This mechanism forces the model to exploit complementary in-formation and discourages degenerate solutions dominated by a single modality. Additionally, our method not only enables resilience when an entire modality is absent, but also naturally accommodates fine-grained missingness within the tabular do-main, a widespread circumstance in real settings [12]. To rigorously evaluate the proposed framework, we formu-late two complementary research questions (RQs) that capture distinct challenges encountered in clinical multimodal learn-ing. The first question examines how e ff ectively the model can be trained when multimodal data are only partially available. This situation commonly arises in retrospective or multi-center datasets, where di ff erent data sources are collected at di ff erent times or only for subsets of patients [12]. As a result, learning must proceed from incomplete and weakly paired supervision, requiring the model to extract meaningful representations even when cross-modal alignment is limited. The second question focuses on the model’s behavior at inference time under varying levels of data availability. In real deployment scenarios, one or more modalities may be missing due to acquisition delays, lim-ited resources, or fragmented records. Under these conditions, the model must adapt its predictions to the subset of observed inputs while maintaining stable and reliable performance. To address these aspects, we evaluate our approach on the MIMIC-CXR dataset [13] paired with clinical records from MIMIC-IV [14], and we design two controlled evaluation pro-tocols that progressively reduce the availability of each modal-ity, either during training or only at test time. This setup allows us to disentangle the impact of incomplete supervision from that of partial observations at inference, and to assess robust-ness across the entire spectrum of data availability, from fully multimodal inputs to strictly unimodal scenarios. The main contributions of this work are therefore summa-rized as follows: 
+
+• Multimodal architecture for incomplete data: We propose a multimodal vision-tabular transformer that, through a masked attention mechanism, is resilient during training and inference to any missing modality. 
+
+• Robust evaluation: We evaluate our approach on 62071 patient records from the MIMIC-CXR dataset, comparing also with three state-of-the-art approaches representing the main families of missing-modality strategies, as well as early and late fusion baselines. 
+
+• Interpretability under missingness: We provide an inter-pretability analysis of modality importance under increas-ing missingness, revealing how complementary modalities contribute to decision-making. To support reproducibility and facilitate comparison with future methods, the implementation of the proposed frame-work and the experimental protocols is publicly available at: 
+
+https://github.com/arco-group/Resilient-VT .The remainder of this paper is organized as follows. Sec-tion 2 presents the proposed multimodal framework, detailing the vision, tabular, and multimodal encoders, together with the masking mechanisms, modality-dropout regularization, and the training strategy. Section 3 describes the dataset construction and preprocessing pipeline, including the alignment of imaging and clinical data. Section 4 introduces the experimental design, including the considered baselines and the ablation analyses used to assess the contribution of each component. Section 5 details the experimental configuration and evaluation protocols adopted to study robustness under varying data availability con-ditions. Section 6 presents and discusses the results, structured around the two research questions, analyzing the model’s be-havior under missingness in training and in test. Finally, Sec-tion 7 concludes the paper and outlines directions for future work. 22. Methods 
+
+In the context of multimodal learning under heterogeneous and irregular data availability, where entire modalities, individ-ual features and target labels may be missing at both training and inference time, let 
+
+D = {(ximg  
+
+> i
+
+, xtab  
+
+> i
+
+, yi)}Ni=1 (1) be a multimodal dataset composed of N patient records, where 
+
+ximg  
+
+> i
+
+∈ RH×W denotes the image of the i-th patient, xtab  
+
+> i
+
+∈ RF
+
+the corresponding clinical variables, and yi ∈ { 0, 1}C the mul-tilabel target vector across C classes. To formulate multimodal learning as a function that is exclusively based on observed in-formation, we introduce the following three binary masks that model when some instance is partially missing: 
+
+• mimg  
+
+> i
+
+∈ { 0, 1}, indicating whether the image modality is available (1) or missing (0); 
+
+• mtab  
+
+> i
+
+∈ { 0, 1}F , denoting which of the F tabular features are observed; 
+
+• my 
+
+> i
+
+∈ { 0, 1}C , specifying which of the C multilabel classes are available. Our model consists of three main components (Figure 1): a vi-sion encoder, a tabular encoder, and a multimodal fusion en-coder. It learns a mapping 
+
+fΘ : ( ximg  
+
+> i
+
+, xtab  
+
+> i
+
+, mimg  
+
+> i
+
+, mtab  
+
+> i
+
+) −→ ˆyi, (2) parameterized by Θ = {θvi , θ ta , θ mm , θ cl }, where the subscripts denote the parameters of the vision encoder vi , tabular encoder 
+
+ta , multimodal encoder mm , and classification head cl , respec-tively; ˆyi ∈ RC is the vector of estimated posterior class prob-abilities for the i-th patient. Since label annotations may also be partially missing, learning is performed exclusively on the subset of observed targets. The training objective is therefore defined through a masked multilabel binary cross-entropy loss that excludes unobserved labels from supervision. The com-plete formulation of the loss function and the training strategy is detailed in section 2.5. When both modalities are available ( ximg  
+
+> i
+
+and xtab  
+
+> i
+
+in Fig-ure 1.A), the vision and tabular encoders produce modality-specific latent representations (zimg  
+
+> i
+
+and ztab  
+
+> i
+
+), which are weighted using learnable modality tokens, timg and ttab , and concatenated into a shared representation zmm  
+
+> i
+
+processed by the multimodal encoder. This enables intermediate fusion be-tween the modalities, enabling joint optimization of unimodal and cross-modal representations. Under partial data availability (Figure 1.B), mimg  
+
+> i
+
+and mtab 
+
+> i
+
+are exploited by the model fΘ to ensure that missing modali-ties and features do not contribute to representation learning, attention aggregation, or gradient propagation. Indeed, if the image modality is absent, the corresponding visual represen-tation is multiplicatively masked by mimg  
+
+> i
+
+, which prevents it from contributing to the fused representation and from influ-encing parameter updates in the vision branch, as it will be detailed in section 2.1. Similarly, missing tabular features are handled through a masked self-attention mechanism using the mask mtab  
+
+> i
+
+(section 2.2). Then, in the multimodal encoder (sec-tion 2.3), both missing features or even entire missing modal-ities are masked using a similar self-attention mechanism that, based on the composite mask mmm  
+
+> i
+
+, can suppress attention scores involving unobserved tokens, preventing missing fea-tures or modalities from either sending or receiving informa-tion. As a result, the multimodal encoder aggregates only the available evidence, dynamically adapting its reasoning process to the subset of available modalities for each patient. To further promote robustness, modality-dropout regularization is applied during training (section 2.4): by stochastically removing avail-able modalities, the model is encouraged to learn complemen-tary and non-redundant representations, enhancing its ability to generalize under severe and previously unseen missingness pat-terns. 
+
+2.1. Vision Encoder 
+
+The vision encoder fθvi extracts high-level visual representa-tions from raw images ximg  
+
+> i
+
+∈ RH×W using a residual convolu-tional backbone (section 5.1) producing a dv-dimensional latent representation zimg  
+
+> i
+
+:
+
+zimg  
+
+> i
+
+= fθvi (ximg  
+
+> i
+
+; mimg  
+
+> i
+
+) ∈ Rdv (3) For compatibility with tabular tokens, this vector is reshaped into a d-dimensional latent representation, yielding zimg  
+
+> i
+
+∈
+
+R dv d ×d. To ensure that the downstream multimodal module is aware of the modalities to which the input tokens belong, we introduce a learnable modality token timg ∈ Rd that, together with zimg  
+
+> i
+
+, produces the conditioned latent representation ˜zimg 
+
+> i
+
+as follows: 
+
+˜zimg  
+
+> i
+
+= zimg  
+
+> i
+
+⊙ timg , (4) where the ⊙ denotes element-wise product. When the image modality is missing, either during training or inference, this conditioned latent representation is masked out by the mask 
+
+mimg  
+
+> i
+
+= 0, thus excluding it from gradient updates: 
+
+mimg  
+
+> i
+
+˜zimg  
+
+> i
+
+= 0 → ∇θvi ˜zimg  
+
+> i
+
+= 0. (5) This mechanism ensures that missing images, since they do not need to be generated or replaced, neither contribute to the mul-timodal representation nor a ff ect the learning dynamics of the visual branch. 
+
+2.2. Tabular Encoder 
+
+The tabular encoder fθta extracts feature-wise contextual rep-resentations from numerical and categorical clinical variables and transforms them into a sequence of latent representations suitable for attention-based processing: 
+
+ztab  
+
+> i
+
+= fθta (xtab  
+
+> i
+
+; mtab  
+
+> i
+
+) ∈ RF×d. (6) To this aim, let first introduce the mapping we apply to the feature vector xtab  
+
+> i
+
+so defined: 
+
+xtab  
+
+> i
+
+= [xtab  
+
+> i,1
+
+, . . . , xtab   
+
+> i,j
+
+, . . . , xtab  
+
+> i,F
+
+] ∈ RF , (7) 3ximg                 
+
+> i
+> xtab
+> i
+> Vision Encoder
+> fθvi
+> Tabular Encoder
+> fθta
+> Lookup Tables
+> Ej
+> ˙xtab
+> i
+> zimg
+> i
+> ztab
+> i
+> ⊗
+> ⊗
+> ⊕
+> ˜zimg
+> i
+> ˜ztab
+> i
+> timg
+> ºººº
+> ttab
+> ****
+> zmm
+> i
+> ºººº
+> ******
+> ºººº
+> ******
+> Multimodal Encoder
+> fθmm
+> MLP
+> fθcl
+> zi
+> ˆyi
+
+(A) ximg            
+
+> i
+> xtab
+> i
+> Vision Encoder
+> fθvi
+> mimg
+> i
+> Tabular Encoder
+> fθta
+> Lookup Tables
+> Ej
+> ˙xtab
+> i
+> mtab
+> i
+> zimg
+> i
+> ztab
+> i
+> ⊗
+> ⊗
+> ⊕
+> ˜zimg
+> i
+> ˜ztab
+> i
+> timg
+> ºººº
+> ttab
+> ****
+> zmm
+> i
+> ****
+> ****
+> Multimodal Encoder
+> fθmm
+> mmm
+> i
+> MLP
+> fθcl
+> zi
+> ˆyi
+
+(B) 
+
+Figure 1: Overview of the proposed multimodal architecture. (A) When both image and tabular data are available, the vision and tabular encoders produce modality-specific embeddings that are fused by the multimodal transformer. (B) Under missing-modality or missing-feature conditions, visual and tabular embeddings are masked, so the multimodal encoder integrates only the available information through masked attention. 
+
+This operation maps each of its elements, considered as a single token, to the latent space through a feature-specific embedding function, producing the tabular embedding matrix ˙ xtab  
+
+> i
+
+:˙xtab  
+
+> i
+
+= [˙ xtab  
+
+> i,1
+
+, . . . , ˙xtab   
+
+> i,j
+
+, . . . , ˙xtab  
+
+> i,F
+
+] ∈ RF×d. (8) It is worth noting that we compute each row of this matrix, i.e., ˙xtab   
+
+> i,j
+
+, using two di ff erent strategies according to the feature type: ˙xtab   
+
+> i,j
+
+=
+
+
+
+E jcat (xtab   
+
+> i,j
+
+), if xtab   
+
+> i,j
+
+is categorical 
+
+xtab   
+
+> i,j
+
+E jnum (xtab   
+
+> i,j
+
+), if xtab   
+
+> i,j
+
+is numerical (9) where both E jcat and E jnum are look-up tables for categorical and numerical features. In other words, categorical features are mapped to indices and then embedded into a latent vector via 
+
+E jcat , which assigns an embedding vector to each possible cat-egory. Note that E jcat contains an embedding vector for each possible entry in the specific categorical feature, and it is also able to encode missing features through a dedicated padding in-dex related to a not-trainable embedding vector. Numerical fea-tures, instead, are first normalized and their presence or miss-ingness is encoded through E jnum , which consists of two entries only (absence /presence). Then, when the feature is present, its value is multiplied by the embedding vector to maintain the fea-ture’s scale. Turning back our attention to equation 6, fθta is a vanilla transformer-based encoder that models the dependencies be-tween the previous embeddings ˙ xtab  
+
+> i
+
+through self-attention and produces the tabular latent representation ztab  
+
+> i
+
+∈ RF×d. To cor-rectly cope with fine-grained missingness, the attention compu-tation is guided by the binary mask mtab  
+
+> i
+
+, ensuring that absent features do not influence the training process. To enforce this behavior at the level of all query-key interactions, the mask vec-tor is expanded into a matrix mtab  
+
+> i
+
+= {0, 1}F×F where each row replicates the feature-availability pattern. We then introduce the following modified masked self-attention mechanism: Attn( qtab  
+
+> i
+
+, ktab  
+
+> i
+
+, vtab  
+
+> i
+
+, mtab  
+
+> i
+
+) =
+
+ReLU 
+
+Softmax 
+
+ qtab  
+
+> i
+
+(ktab  
+
+> i
+
+)T
+
+√d + log( mtab  
+
+> i
+
+)
+
+ + log( mtab  
+
+> i
+
+)T
+
+ vtab  
+
+> i
+
+. (10) where missing features are explicitly prevented from both send-ing and receiving attention. Indeed, we modify the standard masked self-attention by adding the transpose of the masking matrix to the attention logits, together with a ReLU activa-tion that suppresses any residual contributions involving miss-ing features. Finally, a modality token ttab ∈ Rd is multiplied element-wise by each latent representation in ztab  
+
+> i
+
+, analogous to the one used in the vision branch, to scale the modality-level context. 
+
+˜ztab  
+
+> i
+
+= ztab  
+
+> i
+
+⊙ ttab . (11) 
+
+2.3. Multimodal Encoder 
+
+The multimodal fusion encoder fθmm integrates the latent rep-resentations produced by the vision and tabular encoders into a shared embedding space, enabling joint reasoning across modalities. Its design follows a transformer architecture equipped with a masked self-attention mechanism that selec-tively aggregates information from the available modalities, while we inject again the ability to ignore the missing ones. Formally, 
+
+zi = fθmm (zmm  
+
+> i
+
+; mmm  
+
+> i
+
+) ∈ R( dv d +F)×d (12) where zmm  
+
+> i
+
+and mmm  
+
+> i
+
+are the multimodal latent representations and the composite mask, respectively. The former, i.e., zmm  
+
+> i
+
+, is the concatenation of the unimodal latent sequences along the token dimension: 
+
+zmm  
+
+> i
+
+= [˜zimg  
+
+> i
+
+; ˜ztab  
+
+> i
+
+] ∈ R( dv d +F)×d. (13) This quantity is then processed by a stack of encoder layers from the vanilla transformer that model inter-modality depen-dencies through self-attention, finally returning the multimodal latent representation zi ∈ R( dv d +F)×d. The masked attention mechanism within the multimodal encoder plays a key role in achieving robustness under partial data availability. When one modality (or even more when more than two modalities are available) is missing, a binary modality mask is used to exclude its tokens from both the attention and gradient computations. The latter, i.e., mmm  
+
+> i
+
+∈ { 0, 1} dv d +F , is the composite mask de-rived from mimg  
+
+> i
+
+and mtab  
+
+> i
+
+, where the value of the mask mimg 
+
+> i
+
+is repeated dv 
+
+> d
+
+times equal to the number of visual tokens pro-duced. Similarly to before, we expand this masking vector into 4a matrix, and the encoder computes the following masked self-attention transformation: Attn( qmm                     
+
+> i,kmm
+> i,vmm
+> i,mmm
+> i)=
+> ReLU
+> Softmax
+> qmm
+> i(kmm
+> i)T
+> √d+log( mmm
+> i)
+> +log( mmm
+> i)T
+> vmm
+> i.
+
+(14) Therefore, the multimodal representation zi produced by the multimodal encoder integrates only the available modalities and features, guaranteeing that missing representations do not influ-ence the context of available ones. The final prediction is ob-tained through a classification head fθcl fed with the flattened version of the multimodal representation zi:
+
+ˆyi = fθcl (zi). (15) 
+
+2.4. Modality-Dropout Regularization 
+
+To further enhance resilience under missing-modality condi-tions, we introduce a regularization strategy that implements a 
+
+modality-dropout approach. It acts in synergy with the masked attention mechanisms introduced in sections 2.2 and 2.3, which handles deterministic missingness originating from the dataset, modality-dropout introduces controlled stochastic missingness during training as a form of regularization. This complemen-tarity enables the model to develop adaptive fusion strategies that remain e ff ective across a continuum of data completeness conditions. Inspired by classical dropout, our approach operates at the modality level rather than on individual neurons or layers. In-deed, given a patient i where mimg  
+
+> i
+
++ max( mtab  
+
+> i
+
+) > 1, a Bernoulli variable ri determines whether a stochastic masking event oc-curs. On the one hand, if the patient is selected for masking, one modality is randomly dropped among the two available, setting its mask to zero, i.e., mimg  
+
+> i
+
+= 0 or mtab  
+
+> i
+
+= 0. On the other hand, if a patient has only one modality in the dataset, modality dropout is disabled, preventing the complete removal of information. It is worth noting that such a regularization o ff ers two key advantages. First, it prevents the model from over-relying on a single dominant modality, encouraging balanced feature learn-ing and redundancy across sources when the patient includes all the available modalities. Second, it exposes the multimodal en-coder to a wide range of missingness patterns during training, allowing it to learn to exploit the complementary information available from any subset of modalities. This stochastic ex-posure improves the model’s ability to generalize at inference time, even under extreme missingness scenarios where one or more modalities are entirely absent. 
+
+2.5. Training Objective 
+
+For all training phases, i.e., the unimodal pre-training and the multimodal fine-tuning that will be presented in the next section, we optimize the model using a multilabel binary cross-entropy loss computed only on the set of observed labels for each patient. For each class c ∈ { 1, . . . , C}, let myi,c ∈ { 0, 1}
+
+denote whether the corresponding label yi,c of patient i is ob-served. The training objective is a masked binary cross-entropy loss:              
+
+> L=−1Pi,cmyi,c
+> PNi=1
+> PCc=1myi,c
+> hyi,clog ˆ yi,c+(1 −yi,c) log(1 −ˆyi,c)i.
+
+(16) This label-wise masking ensures that the model receives consis-tent supervision even when the target vector is partially missing, as is common in clinical multilabel settings. 
+
+2.6. Pre-training and Fine-tuning 
+
+The proposed framework is trained end-to-end following a two-stage procedure designed to stabilize optimization and en-courage balanced learning across modalities. Since the vision and tabular encoders operate on heterogeneous data types and exhibit di ff erent convergence behaviours, we first optimize each unimodal branch independently before performing multimodal fine-tuning. 
+
+Unimodal pre-training. The vision encoder fθvi and the tabular encoder fθta are initially trained on their respective modalities using the same cross-validation folds, defined in section 5.1, used in the next multimodal fine-tuning. Indeed, we defined a unique stratified cross-validation scheme [15], and the corre-sponding folds are used both during unimodal and multimodal training to avoid any form of data leakage. A reduce-on-plateau scheduler reduces the learning rate when the validation loss plateaus, and an early-stopping criterion with a greater patience monitors training. 
+
+Multimodal fine-tuning. After pre-training, the multimodal en-coder fθmm and the classification head fθcl are trained jointly with the unimodal branches. To prevent catastrophic forget-ting of the pre-trained representations, while allowing the fu-sion mechanism to learn the joint representations, we update the parameter of the unimodal encoders with a smaller learn-ing rate, corresponding to the order of magnitude reached at the end of the unimodal pre-training, while for the multimodal en-coder we use a learning rate policy equal to the one used in the unimodal pre-training. 
+
+3. Material 
+
+We use a multimodal dataset obtained by pairing chest X-Rays from the MIMIC-CXR repository with structured clini-cal information from MIMIC-IV. The multimodal dataset em-ployed, resulting from the data preparation and filtering process reported in Appendix A, contains 62071 imaging-clinical pairs, each including 1 scan and 10 clinical features (Table A.2). Ad-ditional preprocessing was applied to the clinical features be-fore training the multimodal models, which is described in sec-tion 3.1. Label information consisted of 14 diagnostic findings ex-tracted for each study. Owing to substantial label incomplete-ness, both training and evaluation employed label-wise mask-ing by myi,c to ensure that only observed labels contributed to the optimization objective and performance metrics. This de-sign reflects common clinical documentation practices and pro-vides a realistic testing environment for evaluating multimodal learning under heterogeneous and irregular missingness pat-terns. Table 1 summarizes the distribution of positive, negative, and missing labels across the dataset. The high missing rates 5of the annotations further motivates the need for models capa-ble of robust inference under uncertain and partially observed multimodal conditions.                                              
+
+> Class # of Negatives # of Positives # of Missing
+> Atelectasis 33747 (54.37%) 6371 (10.26%) 21953 (35.37%) Cardiomegaly 34124 (54.98%) 5435 (8.75%) 22512 (36.27%) Consolidation 35743 (57.58%) 1110 (1.79%) 25218 (40.63%) Edema 35516 (57.22%) 4225 (6.81%) 22330 (35.97%) Enlarged Cardiomediastinum 33826 (54.49%) 413 (0.67%) 27832 (44.84%) Fracture 33763 (54.39%) 958 (1.54%) 27350 (44.07%) Lung Lesion 33725 (54.33%) 1278 (2.06%) 27068 (43.61%) Lung Opacity 33909 (54.63%) 8994 (14.49%) 19168 (30.88%) No Finding 24459 (39.40%) 33665 (54.24%) 3947 (6.36%) Pleural E ff usion 35004 (56.39%) 5887 (9.49%) 21180 (34.12%) Pleural Other 33671 (54.24%) 240 (0.39%) 28160 (45.37%) Pneumonia 35903 (57.84%) 3262 (5.26%) 22906 (36.90%) Pneumothorax 35173 (56.67%) 623 (1.00%) 26275 (42.33%) Support Devices 32075 (51.67%) 4044 (6.52%) 25952 (41.81%)
+> Table 1: List of available labels together with the numbers of their negative, positive and missing patients and rates in brackets.
+
+3.1. Data Preprocessing 
+
+Before training the unimodal and multimodal models, both modalities underwent modality-specific preprocessing to en-sure consistent and stable input representations. Chest X-Rays were resized to 224 × 224 pixels, normalized to the [0 , 1] range, and replicated across three channels to match the input format required by the ResNet-50 backbone. During training, we apply data augmentation with a 50% probability and using random horizontal flipping and random rotations of ±15 ◦.Clinical features were preprocessed using a deterministic preprocessing procedure, whose normalization parameters and category mappings were estimated on the training data and across all evaluated settings applied to the corresponding val-idation and test sets. Numerical variables were scaled to the [0 , 1] interval to harmonize their magnitude across di ff erent measurement units. Categorical variables (sex and ethnicity) were converted into integer indices corresponding to their dis-crete categories. The high-cardinality textual description of the presenting problem was mapped into a multi-hot encoding that retained only the categories observed in the dataset. After these transformations, the final structured clinical representa-tion consisted of 381 features, each subsequently embedded as described in section 2.2. 
+
+4. Competitors 
+
+We compare our architecture against three representative strategies, such baselines correspond to the main methodologi-cal families outlined in the introduction, namely modality aug-mentation, feature space engineering, and model selection ap-proaches. Since vision-tabular learning under arbitrary modal-ity missingness remains an emerging setting, the literature does not yet provide a clearly established benchmark method, al-though several related approaches are available. For this rea-son, we focus on representative competitors that capture the main conceptual strategies used to handle missing modalities, rather than attempting an exhaustive comparison with all ex-isting variants. To ensure a fair analysis, all competitor meth-ods were built using the same unimodal encoders adopted in our framework described in sections 2.1 and 2.2, whereas the multimodal module consisted of a multilayer perceptron (MLP) further described in section 5.1. This design choice maintains architectural consistency across methods, ensuring that di ff er-ences in performance arise from the missing-modality strategy rather than from discrepancies in model capacity. 
+
+Modality Augmentation. In the first category, we include the 
+
+constant value modality composition baseline, a simple yet widely adopted strategy for handling missing inputs [6]. Under this approach, any missing representation, either from the vi-sion or the tabular encoders, is replaced with an array of zeros. This method preserves architectural completeness, enabling the model to operate without explicit missingness modeling. How-ever, it treats missingness as if it were a meaningful numeric value, which can bias representation learning and introduce un-intended distributional shifts. 
+
+Feature Space Engineering. This approach attempts to achieve resilience through deterministic fusion rules rather than archi-tectural modifications: each modality is encoded separately us-ing its unimodal encoder, and the final joint representation is obtained by max pooling across the available unimodal embed-dings [7]. In practice, the visual and tabular latent vectors are computed independently; if a modality is missing, its embed-ding is simply omitted from the pooling operation. Max pooling selects, dimension-wise, the most dominant activation among the present modalities, e ff ectively functioning as a hard selec-tion mechanism. 
+
+Model Selection. This approach trains both unimodal and mul-timodal predictors using only patients with complete data modalities, and then, at inference time, it dynamically selects the appropriate one based on modality availability [9]. Under this strategy: (i) when only the CXR is available, predictions are generated by the pre-trained vision model; (ii) when only clin-ical features are available, the tabular model is used instead; (iii) when both modalities are present, a multimodal network, trained exclusively on full-data samples, provides the predic-tion. This approach avoids the pitfalls of imputing or generat-ing missing data and does not require specific fusion strategies able to operate on incomplete inputs. 
+
+4.1. Ablation analysis 
+
+To disentangle the contribution of each component of the proposed framework and assess the e ff ectiveness of its architec-tural choices, we conducted an ablation study organized along two complementary axes: (i) resilience mechanisms inherited from competitor strategies, (ii) and fusion strategy. We first examined whether two representative families of missing-modality methods, specifically modality augmentation and model selection, could enhance or replace the masking-based design of our architecture when incorporated into our 6vision-tabular framework. In the modality augmentation condi-tion, the masking pipeline was disabled and any missing latent representation was replaced using the constant-value imputa-tion rules described for the baseline in section 4. This allows us to test whether the improvements brought by our method stem from the explicit attention-level masking or whether a simpler strategy is su ffi cient. In the model selection ablation, the mul-timodal model is trained on the fully available patients only, and then the model employed at inference time dynamically switches between the unimodal and multimodal approaches based on the modalities available, mirroring the logic of the corresponding baseline. This ablation isolates the benefit of integrating partial-modality inputs within a single model from that of relying on specialized unimodal predictors. Although feature space engineering was included as a competitor, this family could not be meaningfully adapted to our architecture. Its fusion principle, pooling unimodal embeddings into a sin-gle latent vector, is incompatible with the attention-based en-coder, which operates on token sequences rather than a single latent representation. Since this would require replacing the core mechanism that defines our model, the feature space engi-neering strategy was not included in the ablation variants. To quantify the importance of intermediate fusion within our architecture, we further compared our approach against its early and late fusion counterparts. In the early fusion variant, the unimodal encoders were kept frozen while training the mul-timodal component, preventing joint optimization across uni-modal modules and isolating the contribution of the fusion layer alone. In the late fusion variant, the unimodal outputs were combined through simple averaging, bypassing any cross-modal interaction within a shared transformer space. These ab-lations evaluate whether the benefits of our model derive from the unified masked-attention fusion layer or simply from the presence of separate unimodal encoders. Together, these ablations provide a structured analysis of how resilience to missing data emerges in our framework, whether from explicit masking, from the fusion mechanism, or from the interplay between modality-aware encoders and the multimodal transformer. 
+
+5. Experiments 
+
+To comprehensively assess the resilience of the proposed multimodal architecture, we design two complementary exper-imental protocols, each targeting a distinct and clinically moti-vated research question. RQ1: How resilient is the proposed framework when trained on increasingly incomplete multimodal data? In retrospective and multi-center clinical datasets, di ff erent modalities are often collected asynchronously or only for a subset of patients, result-ing in highly unpaired training data. To address this question, we progressively increase the missing rate of one modality at a time during training, while keeping the other modality fully available. Missingness is introduced by randomly masking the selected modality for a given fraction of training patients, whereas the test set always contains fully available multimodal inputs. We consider missingness in training levels of 0%, 25%, 50%, and 75% for each modality. The maximum missing rate is intentionally capped at 75% to ensure that a su ffi cient number of patients remain available to train the corresponding unimodal encoder, while also exposing the multimodal encoder to enough paired data to learn meaningful cross-modal interactions. This protocol evaluates whether the model can learn stable unimodal and multimodal representations even when a large fraction of the training data lacks one modality, and whether modality-dropout and masked attention prevent catastrophic degradation under severe but realistic training sparsity. RQ2: How resilient is the proposed framework when de-ployed under partial or fully unimodal data availability? In rou-tine clinical practice, one modality may be partially or entirely unavailable for a given patient due to acquisition delays, re-source constraints, or incomplete records. To address this ques-tion, all models are trained on fully available multimodal data, while missingness is progressively introduced only at test time. For each modality, we evaluate performance under missingness levels of 0%, 25%, 50%, 75%, and 100%, masking one modal-ity at a time and leaving the other intact. Unlike the missingness in training scenario, missingness in test can reach 100%, corre-sponding to a fully unimodal inference setting. This allows us to assess how the multimodal model’s performance degrades as information is removed, and also directly compare unimodal performance before and after multimodal fine-tuning. This pro-tocol captures realistic operational scenarios such as missing imaging studies, delayed acquisitions, or unavailable clinical records, and evaluates whether the multimodal encoder can re-liably condition its predictions exclusively on the observed in-formation. In both protocols, a random subset of patients had one of the available modalities removed by independently applying the missing rate to the imaging and tabular domains, thus producing two parallel stress curves: 
+
+• Tabular-missingness curve: progressively masking the clinical variables while keeping the radiographs intact; 
+
+• Imaging-missingness curve: progressively masking the CXR modality while keeping the clinical features intact. This design isolates the contribution of each modality and al-lows us to quantify how strongly the model depends on imaging versus tabular information in di ff erent prediction tasks. 
+
+5.1. Experimental Configuration 
+
+All models were trained under a unified optimization proto-col to ensure consistency across unimodal and multimodal con-figurations. Training was performed with a batch size of 512, for a maximum of 500 epochs, using the AdamW optimizer and an initial learning rate of 0.001. A 50-epoch warm-up phase was employed during which neither the scheduler nor the early-stopping patience counters were updated, allowing the models to stabilize before adaptive learning rate adjustments. After warm-up, a Reduce-on-Plateau scheduler reduced the learning rate by a factor of 10 whenever the validation loss failed to im-prove for 25 consecutive epochs; early stopping was governed 7by the same validation-loss criterion but had 50 epochs of pa-tience. The unimodal encoders were trained independently and served as the initialization for the multimodal model. The vision encoder consisted of a ResNet-50, producing a 2048-dimensional latent vector. The tabular encoder was imple-mented as a transformer with 2 encoder layers, 16 attention heads, and 1024-dimensional tokens. All unimodal models were trained on 2 NVIDIA A40 GPUs. Following unimodal convergence, the multimodal model was trained end-to-end by concatenating the unimodal representa-tions into a joint sequence by reshaping the vision token into two tokens of size 1024 to match the dimension of the tabular token. The multimodal encoder mirrored the tabular architec-ture, employing 2 transformer layers and 16 attention heads. Its parameters were optimized using the same learning rate policy adopted for unimodal training, while the parameters of the vi-sion and tabular encoders were fine-tuned with a learning rate three orders of magnitude smaller, preventing catastrophic drift from their pre-trained representations. To improve resilience to partial data availability, a 30% probability was set to the ri vari-able in the modality-dropout regularization during multimodal training. In the competitors’ models, the multimodal encoder was implemented as an MLP composed of three layers, each with 300 neurons and ReLU activations. Multimodal training required 4 NVIDIA A40 GPUs due to the increased memory demands associated with joint token processing. 
+
+Stratification Strategy. We adopted a five-fold stratified cross-validation scheme for the test sets. Within each training fold, the validation set was obtained through a 20 /80 stratified hold-out. Stratification followed the method presented in [15], which extends classical stratification to multilabel datasets by preserv-ing not only marginal label frequencies but also the distribu-tion of label co-occurrences across folds. This ensures that rare combinations of diagnostic findings are across all evaluated set-tings represented in all partitions, thereby reducing sampling bias and improving the reliability of comparative evaluation. 
+
+Evaluation Metric. Performance was assessed using the weighted average AUC across the 14 diagnostic classes. For each fold, the AUC was computed per class and then aggre-gated using weights proportional to the ratio of positive pa-tients for that class. This weighting scheme ensures that the final metric reflects the relative prevalence of each diagnostic category within the dataset. Final results are reported as the mean weighted AUC across the five cross-validation folds. 
+
+6. Results and Discussion 
+
+To facilitate interpretation of the experimental findings, we first describe how to read the stress-test plots reported in Fig-ures 2-4. Each panel contains a set of curves that quantify model degradation under controlled missingness conditions for one modality at a time, either during training or testing, sep-arately. The tabular-missingness curves report performance while the clinical features are progressively masked (0%-75% in training and 0%-100% in testing), keeping the imaging modality fully available. Conversely, the imaging-missingness curves measure performance as the X-rays are increasingly re-moved while clinical data remain intact. For reference, each plot shows a black dotted line corresponding to the unimodal performance of the relevant branch, enabling a direct compari-son between multimodal fine-tuned models and their unimodal counterparts. In the missingness in training experiments, the unimodal reference curve corresponds to the unimodal model associated with the modality whose availability is progressively reduced, providing a baseline for assessing performance degra-dation as multimodal supervision becomes increasingly un-paired. In contrast, in the missingness in test experiments, the unimodal reference corresponds to the unimodal model of the modality that remains fully available throughout the exper-iment, i.e., the complementary modality with respect to the one being progressively masked. In this setting, the 100% missing-ness point represents an interesting comparison configuration, corresponding to a purely unimodal inference of the multimodal approaches. A detailed breakdown of the exact numerical val-ues underlying all stress-test plots is provided in Appendix B, which includes full performance tables across all missingness conditions, enabling precise inspection of each model’s behav-ior. 
+
+6.1. RQ1: Resilience under Missingness in Training 
+
+This section investigates how the proposed framework be-haves when trained on increasingly incomplete multimodal data, a scenario that mirrors retrospective datasets where modalities are collected asynchronously or only for selected subpopulations. 
+
+6.1.1. Comparison with Competitors 
+
+The top panels of Figure 2 report the performance ob-tained when the missing rate of one modality is progres-sively increased during training, while the test set remains fully multimodal (see also Table B.3). Across both tabular-missingness and imaging-missingness regimes, the proposed masked-attention model across all evaluated settings achieves the best performance and exhibits remarkably stable behavior, even when up to 75% of the training data are unpaired. This indicates that explicit attention-level masking, combined with modality-dropout, allows the model to learn robust multimodal representations despite severe training data sparsity. In contrast, the competing strategies display distinct undesir-able behaviors depending on which modality is removed. The zeros modality composition baseline collapses when the tabu-lar modality is progressively removed, indicating that replac-ing missing clinical features with constant values severely in-terferes with representation learning when the remaining su-pervision is dominated by high-dimensional visual inputs (Fig-ure 2, top left). Conversely, the max pooling strategy collapses when the imaging modality is increasingly removed, revealing a strong over-reliance on visual features and an inability to learn a competitive tabular representation when cross-modal supervi-sion becomes sparse (Figure 2, top right). The model-selection 8Tabular-Missingness Curves Imaging-Missingness Curves Ours Zeros Max Pooling Model Selection Unimodal 
+
+> Training Missingness Test Missingness
+> Figure 2: Stress-test curves (weighted AUC) of the proposed multimodal model and competing approaches under controlled modality missingness in training (top panels) and in test (bottom ones). The left panels report performance when the tabular modality is progressively masked, while imaging data remain fully available. On the contrary, the right panels report performance when the imaging modality is progressively masked, keeping clinical features fully available. Curves correspond to the proposed masked-attention, the zeros modality composition, the max pooling and the model-selection approaches, all implemented using the same unimodal encoders and training protocol. The dotted black lines in the training missingness scenario denote the unimodal reference performance associated with the modality whose availability is reduced during training, providing a baseline for assessing degradation as multimodal supervision becomes increasingly unpaired. Conversely, horizontal dotted lines in the missingness in test scenario indicate the performance of the corresponding unimodal encoders evaluated independently on the fully available modality.
+
+approach remains more stable than these heuristics but across all evaluated settings underperforms the proposed method, as it relies on fully paired data to train the multimodal branch and cannot exploit partially observed multimodal data during learn-ing. These results highlight that heuristic fusion or switching strategies are insu ffi cient to cope with highly unpaired training data, whereas the proposed masked-attention framework main-tains both convergence and performance across all missingness regimes. 
+
+6.1.2. Ablation Analyses Competitor-inspired Variants within Our Architecture. Fig-ure 3 (top panels) reports performance for the ablation con-figurations in which competitor strategies were integrated into our model architecture (see also Table B.5). All variants ex-hibit comparable behavior when the tabular modality is pro-gressively removed (Figure 3, top left). This limited sensitiv-ity reflects both the inherently sparse nature of the clinical fea-tures and the dominant contribution of imaging during training, which mitigates the impact of additional tabular missingness. In contrast, clear di ff erences emerge when increasing imaging missingness (Figure 3, top right). The zeros composition vari-ant shows a pronounced performance degradation, indicating that constant-value replacement disrupts representation learn-ing when high-dimensional visual information is absent. The model-selection variant, instead, is increasingly influenced by the unimodal baselines, reflecting its inability to exploit par-tially observed multimodal samples during training, as multi-modal supervision is restricted to fully paired patients only. 
+
+Alternative Fusion Strategies. We further analyze the missing-ness in training scenario by comparing the proposed interme-diate fusion transformer with its early and late fusion counter-parts (Figure 4, top panels; see also Table B.5). Consistent with previous observations, removing the tabular modality does not markedly a ff ect performance for any of the approaches (Fig-ure 4, top left). This behavior reflects the comparatively weaker 9Tabular-Missingness Curves Imaging-Missingness Curves Ours Zeros Model Selection Unimodal 
+
+> Training Missingness Test Missingness
+> Figure 3: Stress-test curves (weighted AUC) obtained by applying competitor-inspired missing-modality strategies within the proposed architecture, while intro-ducing missing modalities in training (top panels) and in test (bottom ones). The left panels report performance when the tabular modality is progressively masked, while imaging data remain fully available. On the contrary, the right panels report performance when the imaging modality is progressively masked, keeping clinical features fully available. Curves correspond to the proposed masked-attention model, the zeros modality composition variant, and the model-selection variant, all implemented using the same unimodal encoders and training protocol. The dotted black lines in the training missingness scenario denote the unimodal reference performance associated with the modality whose availability is reduced during training, providing a baseline for assessing degradation as multimodal supervision becomes increasingly unpaired. Conversely, horizontal dotted lines in the missingness in test scenario indicate the performance of the corresponding unimodal encoders evaluated independently on the fully available modality.
+
+predictive contribution of clinical variables in this setting and confirms that neither the proposed method nor its fusion vari-ants are strongly dependent on tabular supervision during train-ing. Nevertheless, subtle di ff erences emerge in terms of sta-bility. In particular, the early fusion variant exhibits slightly more unstable behavior across missingness levels, which can be attributed to the fact that unimodal encoders are kept frozen during multimodal training and therefore do not benefit from joint fine-tuning. In contrast, the late fusion strategy across all evaluated settings achieves lower performance, demonstrating its limited ability to fully exploit multimodal information when representations are combined only at the decision level. When missingness in train a ff ects the imaging modality (Fig-ure 4, top right), the di ff erences between fusion strategies be-come more pronounced. The early fusion model starts with performance close to that of the proposed intermediate fusion approach but progressively collapses toward the unimodal base-line as imaging availability is severely reduced, indicating that frozen unimodal representations are insu ffi cient to sustain ro-bust multimodal learning under sparse visual supervision. The late fusion model, instead, initially performs similarly to the unimodal baselines and only approaches the performance of the intermediate fusion strategy at higher missing rates (50–75%), when multimodal supervision is largely diminished and all methods e ff ectively operate under near-unimodal conditions. 
+
+6.2. RQ2: Resilience under Missingness in Test 
+
+This section examines how the proposed framework per-forms when deployed under partial or fully unimodal data avail-ability, reflecting clinical conditions where imaging or clinical records may be unavailable at inference time. 
+
+6.2.1. Comparison with Competitors 
+
+Across all testing conditions (Figure 2, bottom panels), our method demonstrates a consistent advantage over the baseline strategies, maintaining resilient performance across the di ff er-ent missing rates for both modalities (see also Table B.4). 10 Tabular-Missingness Curves Imaging-Missingness Curves Ours Early Late Unimodal    
+
+> Training Missingness Test Missingness
+> Figure 4: Performance curves (weighted AUC) comparing di ff erent fusion strategies under progressive modality removal in training (top panels) and in test (bottom ones). The left panels report performance when the tabular modality is progressively masked, while imaging data remain fully available. On the contrary, the right panels report performance when the imaging modality is progressively masked, keeping clinical features fully available. Curves correspond to the proposed intermediate fusion model, and its early and late fusion counterparts, all implemented using the same unimodal encoders and training protocol. The dotted black line denotes the unimodal reference performance associated with the modality whose availability is reduced during training, providing a baseline for assessing degradation as multimodal supervision becomes increasingly unpaired. Conversely, horizontal dotted lines in the missingness in test scenario indicate the performance of the corresponding unimodal encoders evaluated independently on the fully available modality.
+
+When imaging is always available, our approach maintains performance above the unimodal vision encoder for all levels of tabular missingness (Figure 2, bottom left). This indicates that multimodal fine-tuning refines the visual representations themselves, enabling the model to benefit from cross-modal in-teractions even when the auxiliary modality contributes partial information. Competitor methods fail to achieve this behavior: the zeros modality composition strategy deteriorates sharply as missingness increases, while model selection is unable to ex-ploit tabular information when it is partially observed, restrict-ing its performance to that of the vision-only model. Max pool-ing performs slightly better than all these baselines and our ap-proach, but remains unable to match the stability and perfor-mance of our masked-attention framework on the least infor-mative modality, clinical data. Indeed, in the complementary scenario where clinical fea-tures remain available while imaging is progressively re-moved (Figure 2, bottom right), performance decreases more markedly. This trend reflects the large performance gap be-tween unimodal vision and tabular branches, also visible in their reference lines, which naturally biases multimodal infer-ence toward the more informative imaging modality. As a re-sult, when images are fully removed, the model converges to the unimodal tabular performance. Nonetheless, our method across all evaluated settings outperforms competitors through-out the degradation regime. The zeros modality composition approach once again collapses as missingness increases, while the model-selection baseline is unable to exploit multimodal in-formation when only partial imaging is available, always reach-ing unimodal performance in the unimodal testing scenario. As already noted in the missingness in training scenario, max pool-ing amplifies the contribution of the most informative modality; however, by neglecting the joint optimization of the unimodal branches, it leads to a suboptimal tabular representation. Con-sequently, performance degrades rapidly as the imaging modal-ity is progressively masked, revealing an over-reliance on visual information and the absence of a balanced fusion strategy. It is worth noting that such results confirm that the proposed 11 masked-attention mechanism enables robust integration of het-erogeneous modalities while avoiding the fragile assumptions embedded in simpler fusion rules. 
+
+6.3. Ablation Analyses Competitor-inspired Variants within Our Architecture. In the missingness in test scenario (Figure 3, bottom panels; see also Table B.6), the observed trends closely mirror those reported in the baseline comparison. The zeros modality composition ab-lation exhibits a steep decline in both stress curves, confirming that constant-value modality composition is incompatible with fine-grained tabular missingness and with the structured nature of visual representations. The model-selection variant across all evaluated settings plateaus at unimodal performance whenever one modality becomes unavailable, demonstrating that dynamic switching prevents any meaningful cross-modal interaction un-der partial observability. Crucially, neither competitor-inspired variant matches the stability achieved by the proposed masked-attention design. These results indicate that robustness does not stem solely from architectural capacity or from strong unimodal encoders, but specifically from explicit attention-level masking combined with modality-dropout, which enables the fusion module to condition its inference exclusively on observed information while remaining exposed to diverse missingness patterns dur-ing training. 
+
+Alternative Fusion Strategies. Figure 4 (bottom panels) com-pares the proposed intermediate fusion transformer with its early and late fusion counterparts under missingness in test (see also Table B.6). The limitations of early and late fusion become more evident in this setting. The late fusion model exhibits pro-nounced instability when clinical data is progressively removed (Figure 4, bottom left). This behavior can be attributed to its reliance on aggregating decision-level outputs from indepen-dently trained unimodal predictors, without learning shared rep-resentations that account for heterogeneous class distributions. As tabular missingness increases, this strategy becomes par-ticularly fragile for underrepresented diagnostic classes, whose predictions rely on weak or noisy signals from a single modal-ity. Since both training and evaluation are weighted by class prevalence, small degradations in rare classes can dispropor-tionately a ff ect the weighted AUC, resulting in unstable perfor-mance trends. Conversely, when imaging is gradually removed (Figure 4, bottom right), performance degrades more smoothly but ultimately converges to the unimodal tabular baseline, high-lighting that late fusion neither enhances unimodal representa-tions nor compensates for the loss of the dominant modality. Across both missingness in test stress curves, the early fu-sion model across all evaluated settings underperforms the pro-posed approach. Since unimodal encoders remain frozen in this configuration, the model cannot adapt representations to exploit cross-modal interactions, leading to inferior performance and reduced robustness. In contrast, the proposed intermediate fu-sion design, which combines masked attention with joint fine-tuning of unimodal encoders, achieves superior performance and smoother degradation across all missingness regimes. 
+
+6.4. Discussion 
+
+To summarize the main findings and their implications, we highlight six key messages that capture the core contributions of this work. 1. Masked attention with intermediate fusion is the key driver of robustness. The results demonstrate that the combination of masked self-attention and intermediate fu-sion constitutes the central mechanism enabling resilience under modality missingness. By explicitly preventing missing tokens from contributing to both attention and gra-dient propagation, the model avoids the biases introduced by heuristic strategies and learns representations condi-tioned exclusively on observed data. This design allows eff ective cross-modal interaction while maintaining stabil-ity across all missingness regimes. 2. The framework can be reliably trained on highly un-paired multimodal data. The missingness in training experiments (RQ1) show that the model maintains stable performance even when a large fraction of training sam-ples lacks one modality. Unlike competing approaches, the proposed framework leverages both unimodal and par-tially paired data without discarding incomplete samples or relying on surrogate signals. The synergy between attention-level masking and modality-dropout enables the model to learn consistent representations without over-fitting to modality-specific shortcuts, making it particu-larly suitable for retrospective and multi-center clinical datasets. 3. The model adapts dynamically to partial information at inference time. Under missingness in test (RQ2), the model exhibits smooth and predictable performance degradation, adapting its predictions to the subset of avail-able modalities. Rather than relying on imputation or model switching, the architecture conditions its reason-ing exclusively on observed inputs, e ff ectively mimicking clinical decision-making under partial evidence. This be-havior ensures reliable inference across the full spectrum from fully multimodal to strictly unimodal scenarios. 4. Heuristic missing-modality strategies are structurally limited. Comparative and ablation analyses reveal that commonly used approaches such as constant-value impu-tation, max pooling, and model selection fail to achieve consistent robustness. These methods either introduce bi-ased representations, ignore cross-modal dependencies, or prevent the model from exploiting partially observed data. In contrast, explicit modeling of missingness at the atten-tion level proves essential to maintain both performance and stability. 5. A single model can replace multiple modality-specific systems in practice. The consistent performance ob-served across all missingness conditions indicates that the proposed framework can seamlessly operate under any modality configuration. This eliminates the need for sep-arate unimodal and multimodal models or dynamic se-lection mechanisms, simplifying deployment and reduc-ing the risk of configuration errors. In clinical settings, 12 this translates into a unified decision-support system capa-ble of handling heterogeneous and incomplete patient data without retraining. 6. Learning to condition on observed data is a principled strategy for real-world multimodal AI. The results sug-gest that robustness in multimodal learning does not pri-marily stem from increased model capacity, but from ex-plicitly constraining the learning process to rely only on available information. This principle enables the model to generalize across heterogeneous and unpredictable miss-ingness patterns, making attention-based multimodal ar-chitectures a promising direction for real-world applica-tions where data incompleteness is unavoidable. 
+
+7. Conclusion 
+
+In this work, we introduced a multimodal transformer frame-work designed to perform reliable vision-tabular learning under modality missingness. Rather than relying on explicit impu-tation or heuristic modality switching, the proposed approach conditions its training and inference exclusively on observed in-formation through a combination of masked self-attention and modality-dropout regularization. By integrating a vision en-coder, a tabular transformer, and a multimodal fusion encoder within a unified intermediate fusion architecture, the model is able to adapt seamlessly to arbitrary subsets of available modal-ities while preserving stable performance. We evaluated the proposed framework on the MIMIC-CXR dataset paired with structured clinical data from MIMIC-IV, a setting that naturally reflects real-world healthcare conditions characterized by fragmented modality availability and incom-plete labels. Through two systematic stress-test protocols, we progressively removed imaging or tabular information either in training or test phases, covering the full spectrum from com-plete multimodal input to fully unimodal scenarios. Across all missingness regimes, the proposed attention-based model out-performed representative baselines from the main families of missing-modality strategies, including modality augmentation, feature space engineering, and model selection approaches. In particular, our method demonstrated smoother degradation curves and superior resilience whenever one modality was par-tially or entirely absent, highlighting the advantage of explicit attention-level masking over other approaches. Ablation analyses further clarified the source of these gains. Employing competitor-inspired configurations within our archi-tectural backbone led to marked performance drops, confirm-ing that resilience does not arise solely from model capacity but from the explicit handling of missingness during represen-tation learning. Likewise, comparisons with early and late fu-sion variants showed that intermediate fusion with joint fine-tuning of unimodal encoders is essential for enabling meaning-ful cross-modal interactions and for improving unimodal repre-sentations themselves. Together, these results indicate that the combination of masked attention and modality-dropout consti-tutes a principled and e ff ective mechanism for learning under heterogeneous and unpredictable data availability. From a clinical perspective, these properties are particularly relevant. Crucially, the benefits of the proposed framework emerge already during model training (RQ1), where the miss-ingness in training experiments show that the model can be re-liably optimized even when a substantial fraction of the train-ing data is unpaired, with one modality absent for up to 75% of the patients, condition frequently present in retrospective and multi-center clinical dataset. Beyond learning from in-complete data, the same architectural principles translate di-rectly into robust behavior at inference time (RQ2), enabling the model to adapt seamlessly to heterogeneous modality avail-ability at deployment. Indeed, the proposed framework mirrors the way clinicians reason under partial evidence by dynamically exploiting whichever information is available, without requir-ing retraining, explicit imputation, or manual model selection. The ability to deploy a single model that operates robustly in imaging-only, tabular-only, and multimodal configurations sim-plifies integration into clinical decision-support pipelines and reduces the risk of brittle behavior caused by incomplete inputs. Despite these encouraging results, some limitations still re-main. First, the evaluation was conducted on a single large-scale dataset focused on chest radiography, and generalization to other imaging modalities, clinical tasks, or institutional set-tings remains to be validated. Second, while the proposed at-tention mechanisms explicitly prevent missing tokens from in-fluencing inference, they do not model the underlying miss-ingness process itself, which could be informative in certain clinical contexts. Third, the computational cost associated with transformer-based fusion may pose challenges in resource-constrained deployment scenarios, motivating further investiga-tion into lightweight or sparse-attention variants. Future work will explore extending the framework to addi-tional modalities, such as clinical text or longitudinal signals, as well as incorporating temporal modeling to handle irregu-larly sampled patient trajectories. Another promising direction is the integration of uncertainty estimation and causal reasoning mechanisms to better capture the clinical implications of miss-ing data. Finally, validating the approach across multiple in-stitutions and downstream clinical tasks will be essential to as-sess its robustness, fairness, and practical impact in real-world healthcare environments. 
+
+Acknowledgment 
+
+This work was partially funded by: i) Università Campus Bio-Medico di Roma under the program “University Strate-gic Projects” within the project “AI-powered Digital Twin for next-generation lung cancEr cAre (IDEA)”; ii) from PRIN 2022 MUR 20228MZFAA-AIDA (CUP C53D23003620008); iii) from PRIN PNRR 2022 MUR P2022P3CXJ-PICTURE (CUP C53D23009280001); iv) from PNRR MUR project PE0000013-FAIR; v) from PNRR-MCNT2-2023-12377755. Resources are provided by the National Academic Infras-tructure for Supercomputing in Sweden (NAISS) and the Swedish National Infrastructure for Computing (SNIC) at Alvis @ C3SE, partially funded by the Swedish Research Council through grant agreements no. 2022-06725 and no. 2018-05973. 13 Author Contributions Camillo Maria Caruso: Conceptualization, Data curation, Formal analysis, Investigation, Methodology, Software, Vali-dation, Visualization, Writing – original draft, Writing – re-view & editing; Valerio Guarrasi: Conceptualization, For-mal analysis, Funding acquisition, Investigation, Methodology, Project administration, Resources, Supervision, Validation, Vi-sualization, Writing – review & editing; Paolo Soda: Concep-tualization, Formal analysis, Funding acquisition, Investigation, Methodology, Project administration, Resources, Supervision, Validation, Visualization, Writing – review & editing. 
+
+References 
+
+[1] V. Guarrasi, F. Aksu, C. M. Caruso, F. Di Feola, A. Ro-fena, F. Ru ffi ni, and P. Soda, “A systematic review of intermediate fusion in multimodal deep learning for biomedical applications,” Image and Vision Computing ,p. 105509, 2025. [2] B. Jandoubi and M. A. Akhloufi, “Multimodal artificial intelligence in medical diagnostics,” Information , vol. 16, no. 7, p. 591, 2025. [3] T. Baltrušaitis, C. Ahuja, and L.-P. Morency, “Multi-modal machine learning: A survey and taxonomy,” IEEE transactions on pattern analysis and machine intelligence ,vol. 41, no. 2, pp. 423–443, 2018. [4] D. Schouten, G. Nicoletti, B. Dille, C. Chia, P. Vendittelli, M. Schuurmans, G. Litjens, and N. Khalili, “Navigating the landscape of multimodal AI in medicine: a scoping review on technical challenges and clinical applications,” 
+
+Medical Image Analysis , p. 103621, 2025. [5] R. Wu, H. Wang, H.-T. Chen, and G. Carneiro, “Deep multimodal learning with missing modality: A survey,” 
+
+arXiv preprint arXiv:2409.07825 , 2024. [6] S. Parthasarathy and S. Sundaram, “Training strategies to handle missing modalities for audio-visual expression recognition,” in Companion Publication of the 2020 Inter-national Conference on Multimodal Interaction , 2020, pp. 400–404. [7] T. Zhou, S. Canu, P. Vera, and S. Ruan, “Latent correla-tion representation learning for brain tumor segmentation with missing MRI modalities,” IEEE Transactions on Im-age Processing , vol. 30, pp. 4263–4274, 2021. [8] S. Qian and C. Wang, “COM: Contrastive Masked-attention model for incomplete multimodal learning,” 
+
+Neural Networks , vol. 162, pp. 443–455, 2023. [9] M. Hu, M. Maillard, Y. Zhang, T. Ciceri, G. La Bar-bera, I. Bloch, and P. Gori, “Knowledge distillation from multi-modal to mono-modal segmentation networks,” in 
+
+International Conference on Medical Image Computing and Computer-Assisted Intervention . Springer, 2020, pp. 772–781. [10] S. Du, S. Zheng, Y. Wang, W. Bai, D. P. O’Regan, and C. Qin, “TIP: Tabular-Image Pre-training for Multimodal Classification with Incomplete Data,” in Computer Vision – ECCV 2024: 18th European Conference, Milan, Italy, September 29–October 4, 2024, Proceedings, Part XV .Springer-Verlag, 2024, p. 478–496. [Online]. Available: https: // doi.org /10.1007 /978-3-031-72633-0_27 [11] J.-P. Jiang, H.-J. Ye, L. Wang, Y. Yang, Y. Jiang, and D.-C. Zhan, “Tabular insights, visual impacts: transferring expertise from tables to images,” in Proceedings of the 41st International Conference on Machine Learning , ser. ICML’24. JMLR.org, 2024. [12] A. Khaled, M. Sabir, R. Qureshi, C. M. Caruso, V. Guar-rasi, S. Xiang, and S. K. Zhou, “Leveraging mimic datasets for better digital health: A review on open prob-lems, progress highlights, and future promises,” arXiv preprint arXiv:2506.12808 , 2025. [13] A. E. Johnson, T. J. Pollard, S. J. Berkowitz, N. R. Greenbaum, M. P. Lungren, C.-y. Deng, R. G. Mark, and S. Horng, “MIMIC-CXR, a de-identified publicly avail-able database of chest radiographs with free-text reports,” 
+
+Scientific data , vol. 6, no. 1, p. 317, 2019. [14] A. E. Johnson, L. Bulgarelli, L. Shen, A. Gayles, A. Shammout, S. Horng, T. J. Pollard, S. Hao, B. Moody, B. Gow et al. , “MIMIC-IV, a freely accessible electronic health record dataset,” Scientific data , vol. 10, no. 1, p. 1, 2023. [15] K. Sechidis, G. Tsoumakas, and I. Vlahavas, “On the stratification of multi-label data,” in Joint European con-ference on machine learning and knowledge discovery in databases . Springer, 2011, pp. 145–158. [16] L. Hempel, S. Sadeghi, and T. Kirsten, “Prediction of in-tensive care unit length of stay in the MIMIC-IV dataset,” 
+
+Applied Sciences , vol. 13, no. 12, p. 6930, 2023. 14 Appendix A. Dataset Preparation Details 
+
+We use a multimodal dataset obtained by pairing chest X-Rays from the MIMIC-CXR repository with structured clinical infor-mation from MIMIC-IV. The initial imaging collection consisted of 377110 chest radiographs corresponding to 227835 studies. To ensure consistency between modalities, we remove any study associated with a subject identifier not present in MIMIC-IV, as well as duplicate studies referring to the same patient. This procedure also prevented potential data leakage across training and testing phases. After this alignment step, each radiograph could be associated with the patient’s age and sex. Temporal matching was then performed to link each imaging study to the corresponding emergency department stay. Using the study timestamp, we identified the admission interval for the same subject. Studies for which no valid association could be established were excluded. This matching enabled the extraction of vital signs recorded during triage, including temperature, heart rate, respiration rate, oxygen saturation, systolic and diastolic blood pressures, as well as a short text description of the patient’s presenting problem ( description feature in Table A.2). Because triage measurements may be temporally distant from the imaging acquisition, we introduce an additional refinement step that, for each study, searches within the stay information for vital-sign measurements closer in time to the radiograph than those obtained at triage. When such measurements were available, the corresponding values replaced the initial triage-derived ones, ensuring a more reliable temporal alignment between clinical and imaging information. A detailed inspection of the extracted measurements revealed the presence of physiologically implausible values (e.g., tempera-tures of several thousand degrees). To mitigate the e ff ect of such errors, we applied two di ff erent outlier removal strategies. First, for temperature, heart rate, respiration rate, and oxygen saturation, we exclude values falling outside admissible physiological ranges derived from the literature [16]. Second, for systolic and diastolic blood pressures, where such ranges were not readily available, we use the interquartile range (IQR) method, removing values falling outside the interval [ Q1 − 1.5 · IQR; Q3 + 1.5 · IQR], where 
+
+IQR = Q3 − Q1, Q1 and Q3 are the first and third quartiles, respectively. It is worth noting that removed values are considered as missing data in our approach. Table A.2 further describes the clinical features included in the study, reporting their missing rates and the admissible ranges used during preprocessing. The resulting multimodal dataset contains 62071 imaging-clinical pairs, consisting of 1 scan and 10 clinical features for each patient.                        
+
+> Feature Missingness Range
+> Age 0.00% -Sex 0.00% -Ethnicity 1.25% -Temperature 35.59% [86-113] ◦FHeart Rate 3.17% [25-225] bpm Respiration Rate 4.06% [7-40] brpm Oxygen Saturation 8.20% [50-120] % Systolic Blood Pressure 5.17% [69.5-185.5] mmHg Diastolic Blood Pressure 4.97% [34.5-110.5] mmHg Description 50.41% -
+> Table A.2: List of clinical features used, their missing rates and the ranges used to avoid extreme outliers that are physiologically irrelevant.
+
+Appendix B. Complete Results 
+
+This appendix reports the complete numerical results underlying the stress-test analyses presented in sections 6.1 and 6.2. Ta-bles B.3-B.6 provide a comprehensive breakdown of the weighted AUC scores obtained under controlled modality-missingness conditions, spanning both missingness in training and in test scenarios, and enabling precise inspection of model behavior beyond the aggregated performance curves. Tables B.3 and B.4 compare the proposed masked-attention multimodal framework with representative competitor strategies under increasing modality missingness, following the two experimental protocols described in section 5. Specifically, Table B.3 reports results obtained when modality missingness is introduced during training, while the test set remains fully multimodal. For each modality (imaging and tabular), the missing rate is progressively increased from 0% to 75%, and performance is evaluated on complete multimodal inputs. This setting assesses the ability of each method to learn robust multimodal representations from highly unpaired training data, where a substantial fraction of patients lacks one modality. Conversely, Table B.4 reports results obtained under modality missingness in test, where all models are trained on fully available multimodal data and missingness is introduced only at inference time. In this scenario, the missing rate spans from 0% to 100%, with the 100% condition corresponding to fully unimodal inference. This protocol evaluates deployment-time robustness and quantifies how gracefully each approach degrades as information is progressively removed. 15 Tables B.5 and B.6 focus on ablation analyses within the proposed architecture, isolating the contribution of di ff erent design choices under the same missingness regimes. In particular, Table B.5 reports the missingness in training scenario, where one modality is progressively masked during training (0%-75%), while testing is always performed on fully multimodal data. The proposed model is compared against ablation variants that incorporate competitor-inspired strategies (zeros modality composition and model-selection) or alternative fusion mechanisms (early and late fusions), allowing the assessment of how explicit attention-level masking and intermediate fusion contribute to stable learning from incomplete data. Finally, Table B.6 reports the missingness in test ablation results, where all models are trained on fully paired multimodal data and missingness is applied only at inference time (0%-100%). This table highlights how di ff erent architectural choices a ff ect resilience to missing data at deployment, and clarifies the role of masked self-attention and joint multimodal fine-tuning in enabling the model to condition its predictions exclusively on observed modalities without collapsing toward brittle unimodal baselines. For each missingness condition, the best-performing method is highlighted in bold, while the second-best performance is high-lighted in blue, with ties treated across all evaluated settings. Together, these four tables provide a complete quantitative characteri-zation of model performance across all missingness configurations considered in this work, complementing the stress-test plots and supporting the conclusions drawn in section 6 regarding resilience, stability, and e ff ective multimodal integration under pervasive modality incompleteness. Indeed, we can easily note that, across the majority of missingness configurations and experimental settings, the proposed method across all evaluated settings ranks among the top two performing approaches, highlighting its ability to maintain competitive performance and resilience even under severe and heterogeneous modality-missingness conditions. 
+
+Tabular Missingness Results Imaging Missingness Results Train Missing Rate Train Missing Rate Approach 0% 25% 50% 75% 0% 25% 50% 75% Ours 82.58 ±0.26 82.88 ±0.31 82.60 ±0.24 82.24 ±0.28 82.58 ±0.26 81.60 ±0.40 81.75 ±0.35 80.57 ±0.74 
+
+Zeros 82.00 ±0.47 81.37 ±0.93 72.46 ±5.74 67.34 ±7.11 82.00 ±0.47 78.93 ±1.18 78.84 ±1.22 75.09 ±1.60 Max Pooling 82.25 ±0.32 82.38 ±0.37 81.89 ±0.43 82.48 ±0.37 82.25 ±0.32 80.44 ±0.58 78.05 ±1.16 57.76 ±4.76 Model Selection 82.00 ±0.47 81.42 ±0.63 75.91 ±6.48 81.19 ±0.78 82.00 ±0.47 80.75 ±0.69 82.37 ±0.36 78.47 ±0.78 
+
+Unimodal 72.27 ±0.47 72.01 ±1.05 68.97 ±1.54 71.50 ±0.61 78.38 ±0.51 79.37 ±0.62 79.75 ±0.81 77.10 ±0.79                                                                    
+
+> Table B.3: Mean weighted AUC (mean ±standard error over five cross-validation folds) obtained under progressively increasing train-time modality missingness. Results are reported separately for tabular-missingness (left block), where clinical features are masked while imaging remains available, and imaging-missingness (right block), where chest radiographs are masked while tabular data remain available. The proposed model is compared against representative missing-modality strategies, including zero-imputation, max pooling, and model selection. Best results for each missingness level are shown in bold, with second-best results highlighted in blue.
+> Tabular Missingness Results Imaging Missingness Results Test Missing Rate Test Missing Rate Approach 0% 25% 50% 75% 100% 0% 25% 50% 75% 100% Ours 82.58 ±0.26 81.13 ±0.32 80.29 ±0.39 79.94 ±0.36 80.11 ±0.21 82.58 ±0.26 77.12 ±0.68 73.80 ±0.90 71.92 ±0.68 71.83 ±0.69
+> Zeros 82.00 ±0.47 77.37 ±1.42 73.82 ±2.86 70.40 ±4.48 68.25 ±6.00 82.00 ±0.47 76.36 ±1.36 72.63 ±1.77 69.83 ±1.61 68.95 ±0.91 Max Pooling 82.25 ±0.32 81.76 ±0.30 81.34 ±0.30 80.99 ±0.29 80.75 ±0.31 82.25 ±0.32 76.10 ±1.54 71.40 ±2.26 67.40 ±2.43 64.55 ±2.25 Model Selection 82.00 ±0.47 80.41 ±0.33 79.27 ±0.36 78.56 ±0.38 78.38 ±0.51 82.00 ±0.47 75.99 ±0.72 72.56 ±1.02 71.31 ±0.77 72.27 ±0.47
+> Unimodal ----78.38 ±0.51 ----72.27 ±0.47
+> Table B.4: Mean weighted AUC (mean ±standard error over five cross-validation folds) obtained under progressively increasing modality missingness in test. Results are reported separately for tabular-missingness (left block), where clinical features are masked while imaging remains available, and imaging-missingness (right block), where chest radiographs are masked while tabular data remain available. The proposed model is compared against representative missing-modality strategies, including zero-imputation, max pooling, and model selection. The unimodal reference performance is reported at 100% missingness for each modality. Best results for each missingness level are shown in bold, with second-best results highlighted in blue.
+
+16 Tabular Missingness Results Imaging Missingness Results Train Missing Rate Train Missing Rate Approach 0% 25% 50% 75% 0% 25% 50% 75% Ours 82.58 ±0.26 82.88 ±0.31 82.60 ±0.24 82.24 ±0.28 82.58 ±0.26 81.60 ±0.40 81.75 ±0.35 80.57 ±0.74 
+
+Zeros 82.30 ±0.31 82.94 ±0.14 82.42 ±0.29 82.07 ±0.40 82.30 ±0.31 81.09 ±0.39 81.17 ±0.55 79.36 ±1.82 Model Selection 82.40 ±0.27 82.90 ±0.16 82.57 ±0.35 82.24 ±0.36 82.40 ±0.27 81.41 ±0.89 82.42 ±0.42 78.44 ±0.94 Early Fusion 81.91 ±0.47 82.69 ±0.32 81.75 ±0.72 82.45 ±0.22 81.91 ±0.47 81.09 ±0.61 79.83 ±0.75 77.11 ±0.71 Late Fusion 78.98 ±0.32 79.13 ±0.30 78.43 ±0.79 78.35 ±0.42 78.98 ±0.32 80.84 ±0.98 81.71 ±0.48 80.87 ±0.52 
+
+Unimodal 72.27 ±0.47 72.01 ±1.05 68.97 ±1.54 71.50 ±0.61 78.38 ±0.51 79.37 ±0.62 79.75 ±0.81 77.10 ±0.79 
+
+Table B.5: Mean weighted AUC (mean ± standard error over five cross-validation folds) for the ablation analysis under progressively increasing train-time modality missingness. Results are reported separately for tabular-missingness (left block), where clinical features are masked while imaging remains available, and imaging-missingness (right block), where chest radiographs are masked while tabular data remain available. The proposed model is compared with competitor-inspired variants (zero-imputation and model selection) and alternative fusion strategies (early fusion and late fusion). Best results for each missingness level are shown in bold, with second-best results highlighted in blue. 
+
+Tabular Missingness Results Imaging Missingness Results Test Missing Rate Test Missing Rate Approach 0% 25% 50% 75% 100% 0% 25% 50% 75% 100% Ours 82.58 ±0.26 81.13 ±0.32 80.29 ±0.39 79.94 ±0.36 80.11 ±0.21 82.58 ±0.26 77.12 ±0.68 73.80 ±0.90 71.92 ±0.68 71.83 ±0.69 
+
+Zeros 82.30 ±0.31 74.91 ±1.80 68.13 ±3.27 61.65 ±4.87 55.80 ±6.64 82.30 ±0.31 76.24 ±1.41 72.30 ±1.74 69.87 ±1.21 69.42 ±0.75 Model Selection 82.58 ±0.26 80.41 ±0.63 78.98 ±0.73 78.37 ±0.49 78.38 ±0.51 82.58 ±0.26 77.23 ±0.72 73.95 ±0.95 72.22 ±0.75 72.27 ±0.47 
+
+Early Fusion 81.91 ±0.47 80.41 ±0.48 79.38 ±0.52 78.84 ±0.54 78.88 ±0.59 81.91 ±0.47 75.72 ±0.55 72.18 ±0.83 70.79 ±0.61 71.83 ±0.69 
+
+Late Fusion 78.98 ±0.32 74.16 ±0.75 72.15 ±0.98 73.57 ±0.84 78.38 ±0.51 78.98 ±0.32 76.16 ±0.44 74.29 ±0.42 72.90 ±0.38 72.27 ±0.47 
+
+Unimodal - - - - 78.38 ±0.51 - - - - 72.27 ±0.47 
+
+Table B.6: Mean weighted AUC (mean ± standard error over five cross-validation folds) for the ablation analysis under progressively increasing modality miss-ingness in test. Results are reported separately for tabular-missingness (left block), where clinical features are masked while imaging remains available, and imaging-missingness (right block), where chest radiographs are masked while tabular data remain available. The proposed model is compared with competitor-inspired variants (zero-imputation and model selection) and alternative fusion strategies (early fusion and late fusion). The unimodal reference performance is reported at 100% missingness for each modality. Best results for each missingness level are shown in bold, with second-best results highlighted in blue. 
+
+17
