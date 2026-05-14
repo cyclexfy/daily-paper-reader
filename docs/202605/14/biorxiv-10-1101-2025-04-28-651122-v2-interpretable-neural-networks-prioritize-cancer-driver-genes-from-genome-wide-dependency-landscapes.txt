@@ -1,0 +1,1649 @@
+Title: Interpretable neural networks prioritize cancer driver genes from genome-wide dependency landscapes
+
+URL Source: https://www.biorxiv.org/content/10.1101/2025.04.28.651122v2.full.pdf
+
+Number of Pages: 39
+
+Markdown Content:
+1
+
+1
+
+2
+
+3
+
+4
+
+# Interpretable neural networks prioritize cancer driver genes from 5
+
+# genome-wide dependency landscapes 6
+
+789
+
+Qingyang Yin 1 and Liang Chen 1, * 
+
+10 
+
+11 12  
+
+> 1
+
+Department of Quantitative and Computational Biology, University of Southern California, Los 13 
+
+Angeles, California, United States of America 14 
+
+15 16 
+
+* Corresponding author 17 
+
+Email: liang.chen@usc.edu (LC) 18 
+
+Short title: Interpretable neural networks for cancer driver genes 19 
+
+.CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint 2
+
+# Abstract 20 
+
+Identifying cancer driver genes and their therapeutic impact remains a core challenge in 21 
+
+computational cancer biology. We introduce xNNDriver and xAEDriver, two interpretable neural 22 
+
+network frameworks that connect cancer mutations with genome-wide DepMap gene 23 
+
+dependencies, pathway activity, and drug-response patterns. xNNDriver is a supervised pathway-24 
+
+guided model that evaluates whether a gene’s mutation status is encoded in the genome-wide 25 
+
+dependency landscape; we interpret model fitness as a driver potential score, which quantifies the 26 
+
+strength of this mutation-dependency signal and prioritizes genes with broad functional footprints. 27 
+
+Across 3,008 candidate genes, xNNDriver recovers major established drivers and highlights 28 
+
+literature-supported candidates, while pathway analyses reveal biologically coherent programs 29 
+
+related to metabolism, growth factor signaling, and immune regulation. To capture combinatorial 30 
+
+functional states, xAEDriver uses an unsupervised autoencoder to learn Driver Variant 31 
+
+Representations (DVRs), latent binary features guided by the frequency distribution of known 32 
+
+driver mutations. DVRs capture cell-line-specific dependency patterns and expression patterns and 33 
+
+are associated with drug sensitivity and pathway activity. Together, these interpretable deep 34 
+
+learning models demonstrate that gene dependency landscapes encode rich, interpretable signals 35 
+
+of oncogenic function and provide a hypothesis-generating framework for prioritizing drivers, 36 
+
+pathways, and therapeutic vulnerabilities for further experimental validation. 37 
+
+# Author summary 38 
+
+Cancer is often driven by genetic changes that give tumor cells a growth advantage, but finding 39 
+
+which changes matter and how they affect cell behavior remains difficult. In this study, we used 40 
+
+large-scale gene-editing data from cancer cell lines to ask whether the pattern of genes a cell 41 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+3
+
+depends on can reveal information about its cancer-driving alterations. We developed interpretable 42 
+
+neural-network models that connect mutation patterns, cell survival dependencies, and biological 43 
+
+pathways. One model prioritizes genes whose mutation status leaves a clear functional signature 44 
+
+across the cell. A second model summarizes broader, combined driver-like states in each cell line. 45 
+
+These summaries were linked to known cancer biology, tissue type, and differences in drug 46 
+
+response, suggesting that functional dependency data contain useful clues about cancer 47 
+
+mechanisms. By connecting mutation patterns with functional dependencies and pathway activity, 48 
+
+our approach helps identify candidate cancer drivers and interpretable drug-response patterns that 49 
+
+can guide future experimental studies. Making the models interpretable allows researchers to move 50 
+
+from large screening datasets toward biological explanations of cancer-driving processes. 51 
+
+# Introduction 52 
+
+One of the most critical and challenging areas in cancer biology is the identification of driver genes 53 
+
+and mutations. Cancer driver mutations fuel tumor progression, unlike neutral passenger mutations 54 
+
+(1). In recent years, machine learning and deep learning have shown great potential in 55 
+
+bioinformatics, including applications for detecting cancer driver genes and mutations (2-6). 56 
+
+However, current deep learning models predominantly utilize sequence data and three-dimensional 57 
+
+protein structures to infer driver mutations (1), while functional genomics, especially gene editing, 58 
+
+remains less explored. Additionally, the interpretability of these black-box models is often limited. 59 
+
+Conventional gene perturbation strategies, such as knockout and RNAi-mediated knockdown, 60 
+
+enable researchers to study a gene’s loss-of-function effects on tumor progression, aiding in 61 
+
+identifying cancer-driver genes and mutations (7). CRISPR-Cas9 has advanced gene perturbation 62 
+
+in terms of precision and scale (8). The Cancer Dependency Map (DepMap) at the Broad Institute 63 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+4
+
+conducted genome-wide CRISPR-Cas9 knockout screens across a wide range of cancer cell lines 64 
+
+(9, 10), providing gene dependency scores that reflect each gene’s importance for cell proliferation 65 
+
+and survival in a cell-line-specific manner. While DepMap dependency scores provide valuable 66 
+
+insights into the essentiality of genes in cancer cells, they are not sufficient on their own to 67 
+
+conclusively determine whether a gene is a driver of cancer. Accurate identification of cancer 68 
+
+driver genes requires an integrated analysis of dependency scores with other data types, such as 69 
+
+DNA mutations, pathway involvement, and gene expression. 70 
+
+We hypothesize that the mutations with driver activity can leave detectable signatures in the 71 
+
+genome-wide dependency landscape, whereas passenger mutations are less likely to produce 72 
+
+coherent dependency shifts. To test the hypothesis, we built a supervised learning model to predict 73 
+
+the mutation status (mutated or not) of each candidate gene, using the dependency scores of all 74 
+
+screened genes in a cell line. The model’s fitness, expressed as the driver potential score of this 75 
+
+candidate gene, prioritizes genes whose mutation status has a strong functional footprint in 76 
+
+dependency data. We name this model xNNDriver (e xplainable Neural Network for Driver gene 77 
+
+identification). Because the labels are derived from existing mutation annotations, xNNDriver is 78 
+
+best viewed as a functional prioritization and interpretation framework rather than an independent 79 
+
+de novo mutation-discovery tool. Our approach successfully identified both well-known driver 80 
+
+genes and novel candidates. To discern the pathways through which these drivers contribute to 81 
+
+tumorigenesis, we incorporated the Reactome pathway hierarchy (11) into the network 82 
+
+architecture, designing each neuron to represent a distinct biological pathway. 83 
+
+To simultaneously infer multi-driver functional states in a cell line, we designed an interpretable 84 
+
+autoencoder model that integrates both dependency scores and gene expression data. This 85 
+
+unsupervised model is named xAEDriver ( explainable Auto Encoder for hidden overall Driver 86 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+5
+
+status identification). The latent layer of xAEDriver, which captures the key features of the input 87 
+
+data in a compressed form, is guided by the mutation distribution of known driver SNPs. The latent 88 
+
+representations are constrained to resemble the population-level distribution of driver mutations, 89 
+
+but they are not forced to correspond to specific genes or variants. We refer to these latent 90 
+
+representations as Driver Variant Representations (DVRs). xAEDriver is also interpretable, so it 91 
+
+can reveal biological pathways that offer a deeper understanding of the driver mutation status. 92 
+
+Notably, cell lines stratified by DVRs exhibited distinct drug responses, supporting the use of 93 
+
+dependency-derived driver states to interpret treatment-relevant vulnerabilities. 94 
+
+# Results 95 
+
+## The fitness of the supervised xNNDriver quantifies cancer driver 96 
+
+## potential from dependency landscapes 97 
+
+Our supervised xNNDriver model links genome-wide gene dependency scores to the mutation 98 
+
+status of a candidate driver gene in each cancer cell line. The mutation status of a true driver gene, 99 
+
+but not passenger mutations, influences the impact of other genes’ knockout on tumor survival 100 
+
+(dependency). In other words, the distinct genome-wide dependency scores can predict the 101 
+
+mutation status of driver genes (high model fitness), but not those of passenger genes (low model 102 
+
+fitness). We define the resulting model fitness as the driver potential score, a measure of mutation-103 
+
+dependency association and functional prioritization rather than direct proof of causality. A 104 
+
+schematic overview of the workflow is shown in Fig 1A. 105 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+6
+
+106 
+
+Fig 1. Supervised xNNDriver model for prioritizing individual candidate driver genes. (A) Workflow 107 of xNNDriver. Functional SNPs are aggregated to annotate the gene-level mutation status for each 108 candidate driver gene. Individual neural network models are trained using gene dependency scores as input 109 features and candidate gene mutation status as labels. Data are split into training and test sets, and the model 110 follows the Reactome pathway hierarchy. Predictions from all layers are integrated via voting. The model 111 fitness is evaluated using the driver potential score, where a higher score indicates a stronger mutation-112 dependency association and higher priority as a candidate driver. (B) Prediction performance for the top 15 113 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+7genes with the highest driver potential scores. Point color represents the number of cell lines with functional 114 mutations in each candidate gene. A total of 1,095 cell lines (mutated and non-mutated) are considered for 115 each model. Gene names are color-coded by driver annotation from DepMap (purple: driver; black: non-116 driver). (C) Tissue-level driver potential scores. The color of each square indicates the driver potential score 117 within test cell lines from a given tissue, and the number following the tissue name denotes the count of 118 test cell lines in that tissue. 119 
+
+To construct the training data, we determined each candidate gene’s mutation status based on the 120 
+
+presence of functional SNP somatic mutations, as annotated by both the COSMIC (12) and 121 
+
+ClinVar (13) databases. The model was trained using a biologically informed feedforward neural 122 
+
+network whose architecture mirrors the pathway hierarchy acquired from the Reactome database. 123 
+
+The input layer consists of screened genes with dependency scores, and the hidden layers represent 124 
+
+pathways. The edges between the input layer and the first hidden layer capture pathway 125 
+
+membership for each gene, while the edges between pathway layers represent the hierarchical 126 
+
+relationships between pathway terms. Each pathway layer is followed by a predictive layer 127 
+
+designed to predict the mutation status of a candidate driver gene. Predictions from all hidden 128 
+
+layers are aggregated using a voting mechanism. 129 
+
+The model fitness of xNNDriver reflects the strength of association between a candidate gene’s 130 
+
+mutation status and genome-wide dependency patterns. A high driver potential score therefore 131 
+
+suggests that the gene’s mutation status is linked to a broad functional dependency signature in 132 
+
+cancer cells and prioritizes it for driver-focused interpretation. Important pathways contributing to 133 
+
+predictions are identified by contrasting the activation values of neural networks between mutated 134 
+
+and non-mutated cell lines. We iteratively apply the xNNDriver model to all candidate genes 135 
+
+(3,008 genes) to prioritize cancer driver genes and their associated important pathways. 136 
+
+## xNNDriver prioritizes established drivers and literature-supported 137 
+
+## candidate driver genes 138 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+8
+
+We applied our supervised model, xNNDriver, to the 15% most frequently mutated genes in 139 
+
+human cancers as determined by the CCLE project (14), totaling 3,008 candidate genes. Fig 1B 140 
+
+illustrates the driver potential scores of the 15 highest-scoring genes, with complete results 141 
+
+provided in S1 Table. Among the top 15 genes, ten are well-established cancer driver genes as 142 
+
+documented in DepMap, such as KRAS , NRAS , BRAF , PIK3CA, TP53 , and so on. This strong 143 
+
+concordance supports that the dependency landscape contains functional information that captures 144 
+
+core cancer driver biology. 145 
+
+The remaining genes, although not yet recognized as drivers in DepMap, have been suggested in 146 
+
+the literature to possess driver-like functions. For example, Murakami et al. and Strazisar et al. (15, 147 
+
+16) reported that LATS2 acts as a tumor suppressor essential for regulating the proliferation and/or 148 
+
+survival of malignant mesothelioma cells. EZH2 exhibits a dual role, functioning as either a tumor 149 
+
+suppressor or an oncogene depending on the cellular context (17). Additionally, Sasaki et al. (18) 150 
+
+identified KEAP1 as an inhibitor of NRF2-induced cytoprotection and proposed it as a potential 151 
+
+tumor suppressor. Collectively, these results demonstrate that xNNDriver can reprioritize known 152 
+
+drivers and nominate literature-supported candidates for further validation. 153 
+
+To test the robustness of our model, we redefined mutation status using all SNP somatic mutations 154 
+
+rather than only functional ones. The top 30 genes under this alternative annotation are shown in 155 
+
+S1 Fig, with complete results in S2 Table. The recovery of major known drivers ( KRAS , NRAS ,156 
+
+BRAF , PIK3CA , TP53 ) and consistent identification of EZH2 underscore the robustness of our 157 
+
+approach. 158 
+
+We next examined tissue-specific driver activity. For the top 15 genes (Fig 1B), we recalculated 159 
+
+driver potential scores within individual tissue types. As shown in Fig 1C, higher tissue-level 160 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+9
+
+scores indicate a gene’s stronger driver potential in that tissue. For instance, BRAF is strongly 161 
+
+associated with thyroid cancers, consistent with the BRAF V600E mutation being the most 162 
+
+common alteration in papillary thyroid carcinoma (19). Similarly, PIK3CA mutations frequently 163 
+
+drive breast cancers (20). This tissue-resolved analysis highlights the context-specific roles of 164 
+
+cancer drivers. 165 
+
+## xNNDriver reveals driver-associated pathway programs from 166 
+
+## dependency signatures 167 
+
+Using the interpretable xNNDriver model, we discovered important pathways associated with 168 
+
+high-scoring candidate driver genes. Fig 2A shows the top 20 pathways, ranked by their 169 
+
+importance measurements ( 𝐷 ! values), for the 15 genes with the highest driver potential scores. 170 
+
+The complete list of pathways passing the 𝐷 ! cutoff (default: 0.1) for these genes is provided in 171 
+
+S3 Table. Metabolic pathways ranked prominently, including “metabolism,” “metabolism of 172 
+
+proteins,” and “metabolism of lipids.” This aligns with Vander Heiden et al. (21), who 173 
+
+demonstrated that altered cellular metabolism can drive tumor progression and inform cancer 174 
+
+prognosis and therapy. 175 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+10 
+
+176 
+
+Fig 2. Analysis of important pathways from xNNDriver. (A) Top important pathways. The top 20 177 pathways are ranked by 𝐷 ! values, aggregated from models of the 15 highest-scoring driver genes. For 178 pathways identified in multiple models, the maximum 𝐷 ! value is reported. (B) Pathway proximity to driver 179 genes. Adjusted p-values are from the one-sided Wilcoxon signed-rank test comparing the shortest path 180 lengths to the corresponding driver gene between identified and random pathways at the same hierarchy 181 level. The random sampling procedures were repeated 20 times. Genes are sorted by their driver potential 182 scores. The number in brackets next to the gene name indicates the number of important pathways identified 183 from the corresponding gene model. The red dashed line marks the adjusted p-value cutoff of 0.05. (C) 184 Correlation between pathway proximity and importance. Pearson correlation coefficients between relative 185 shortest-path length differences and pathway rankings. The red dashed line marks the cutoff of 0. (D) 186 Differential pathway expression variability. Adjusted p-values from one-sided Wilcoxon signed-rank tests 187 comparing the expression CV values of all gene members of an important pathway between cell lines with 188 and without the corresponding driver gene mutation are shown. The red dashed line marks the adjusted p-189 value cutoff of 0.05. 190 
+
+Additionally, signal transduction pathways, such as “diseases of signal transduction by growth 191 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+11 
+
+factor receptors and second messengers,” were also highly ranked. This is consistent with Rho et 192 
+
+al. (22), who highlighted growth factor signaling as a central mechanism in carcinogenesis. The 193 
+
+“signaling by receptor tyrosine kinases” pathway governs essential processes in cell growth and 194 
+
+survival, with mutations in key members (e.g., EGFR , HER2 , MET ) representing major cancer 195 
+
+hallmarks (23, 24). 196 
+
+Interestingly, several immune-related pathways, such as “signaling by interleukins,” “cytokine 197 
+
+signaling in the immune system,” and “innate immune system”, were identified as important 198 
+
+pathways associated with the top 15 driver genes. These pathways are known to regulate 199 
+
+inflammation, immune signaling, and tumor-immune interactions that contribute to cancer 200 
+
+initiation and progression. Aberrant interleukin and cytokine signaling can activate oncogenic 201 
+
+pathways such as JAK/STAT3 and PI3K-AKT, while dysregulation of innate immune signaling 202 
+
+promotes chronic inflammation and immune evasion (25-27). 203 
+
+## Driver-associated pathways show Reactome proximity and 204 
+
+## independent expression variability 205 
+
+To assess the validity of the identified pathways, we measured their proximity to corresponding 206 
+
+driver genes within the Reactome hierarchy. We calculated the shortest path length between each 207 
+
+important pathway node ( 𝐷 ! ≥ 0.1) and its corresponding driver gene, comparing against random 208 
+
+pathway nodes at the same level (20 random samplings). As shown in Fig 2B, important pathway 209 
+
+nodes are significantly closer to their corresponding driver genes than random ones (Benjamini-210 
+
+Hochberg adjusted p-values < 0.05 for all comparisons, paired Wilcoxon signed-rank tests). 211 
+
+We further evaluated the relationship between pathway importance and hierarchical proximity. 212 
+
+Across nearly all drivers, the relative difference in shortest-path length between important and 213 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+12 
+
+random pathways positively correlated with pathway rank (Fig 2C). Thus, the more important a 214 
+
+pathway is, the closer it is to the driver gene compared to random pathways at the same layer. 215 
+
+Notably, genes with higher driver potential scores exhibit stronger correlations, as shown in Fig 216 
+
+2C, where genes are ordered by their scores. Together, these results support the use of 𝐷 ! for 217 
+
+interpretable pathway prioritization and reinforce the utility of the driver potential score as a 218 
+
+functional association measure. 219 
+
+To explore the underlying mechanisms by which the pathways promote tumorigenesis, we 220 
+
+examined pathway expression stochasticity. In our previous study (28), we found that pathways 221 
+
+important for cell type stratification often exhibit differential expression stochasticity, measured 222 
+
+by the coefficient of variation (CV; standard deviation over mean), rather than differences in mean 223 
+
+expression between cell type groups. Here, for each important pathway, we calculated the 224 
+
+expression CV for all genes within the pathway, comparing cell lines with the corresponding driver 225 
+
+gene mutated versus unmutated, and assessed significance using a Wilcoxon signed-rank test. As 226 
+
+shown in Fig 2D, of the 357 pathways analyzed ( 𝐷 ! ≥ 0.1 across the 15 highest-scoring gene 227 
+
+models, S3 Table), 193 display a Benjamini-Hochberg adjusted p-value below 0.05. These 228 
+
+findings emphasize that expression variability rather than mean differences may characterize 229 
+
+driver-associated pathways, which is an insight often overlooked by traditional gene set 230 
+
+enrichment analyses. Importantly, xNNDriver does not use expression data, so these stochasticity 231 
+
+patterns are independent of model training and reflect intrinsic pathway characteristics. 232 
+
+## The unsupervised xAEDriver model learns multiple-driver functional 233 
+
+## representations 234 
+
+The success of xNNDriver suggests that genome-wide dependency scores for a tumor cell line 235 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+13 
+
+contain information predictive of driver-associated functional states. Building on this, and 236 
+
+recognizing that multiple driver mechanisms collectively shape tumorigenesis, we developed the 237 
+
+unsupervised xAEDriver model to infer multiple driver variant representations (DVRs) that 238 
+
+encapsulate cell-line-specific dependency and expression profiles while being regularized toward 239 
+
+the population-level frequency distribution of known functional driver SNPs (Fig 3A). xAEDriver 240 
+
+integrates gene dependency and expression data using an autoencoder with a fully connected 241 
+
+encoder and a biologically informed decoder constrained by the Reactome pathway hierarchy. The 242 
+
+latent layer captures lower-dimensional embeddings of the data. Here, to guide xAEDriver in 243 
+
+generating hidden “driver mutation” information, we incorporated data from known functional 244 
+
+driver SNPs to steer the autoencoder's training, ensuring that the lower-dimensional embeddings 245 
+
+(referred to as DVRs) have frequency distributions similar to real driver SNPs (Materials and 246 
+
+methods). We then applied layer-wise relevance propagation (LRP) to identify important pathways 247 
+
+contributing to the reconstruction, enabling us to uncover additional biological insights related to 248 
+
+the latent functional states. 249 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+14 
+
+250 
+
+Fig 3. Unsupervised xAEDriver model to reconstruct driver variant representations (DVRs). (A) 251 
+
+Workflow of xAEDriver. Gene dependency and expression data are jointly used to train an autoencoder 252 with a fully connected encoder and a biologically constrained decoder aligned with the Reactome hierarchy. 253 The encoder produces low-dimensional embeddings (DVRs) representing cell-line-specific driver states. 254 Known driver SNPs are incorporated into training using a truncated binomial modeling approach . (B) 255 
+
+Illustration of cancer type matching ratio. As an example, among three cell lines with mutations of the DVR 256 (value = 1), two match the reported cancer type (melanoma) for the corresponding (the most similar) known 257 driver SNP, yielding a matching ratio of "
+
+> #
+
+. Similarly, for the most similar real driver SNP, the matching 258 ratio is 1 ( "
+
+> "
+
+). (C) Comparison of cancer-type matching ratios between DVRs (blue) and their most similar 259 known driver SNPs (red). The data are sorted in descending order based on the matching ratios of the DVRs. 260 
+
+## DVRs recapitulate driver-mutation frequency and represent the 261 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+15 
+
+## overall driver mutation status of a cancer cell line 262 
+
+To evaluate the effectiveness of the guided learning in xAEDriver, we compared the mutation 263 
+
+distribution of known driver SNPs with that of DVRs across all cell lines (S2 Fig). The mutation 264 
+
+distribution of DVRs closely matched that of actual driver mutations, as demonstrated by the Earth 265 
+
+Mover’s Distance (EMD) of 5.4 (on a 0-1,000 scale) between their mutation patterns. EMD, a 266 
+
+metric for assessing distribution similarity, represents the minimum effort required to transform 267 
+
+one distribution into another (29). These results underscore the effectiveness of the regularization 268 
+
+term in mimicking the distribution of real mutations, guiding xAEDriver to actually learn DVRs 269 
+
+in the hidden layer. 270 
+
+Next, we examined whether each DVR’s artificial mutation status (coded as 1 in the artificial 271 
+
+representation vector) matched the reported cancer type of its closest real SNP, determined via 272 
+
+Euclidean distance. The cancer type matching ratio was calculated as illustrated in Fig 3B. After 273 
+
+excluding 481 DVRs with non-unique matched real SNPs, 61 out of 440 DVRs achieved a 274 
+
+matching ratio ≥ 0.5 (Fig 3C), suggesting that many DVRs capture cancer-type-specific mutation 275 
+
+patterns. Among the remaining 379 DVRs with a matching ratio below 0.5, 263 (or 69%) still had 276 
+
+a matching ratio greater than or equal to that of their corresponding real SNP. This suggests that 277 
+
+the associated real mutations are often observed in a cancer type different from the one reported. 278 
+
+This could be due to several factors: the driver mutation may drive tumorigenesis in another 279 
+
+cellular context or a different cancer type, or the mutation may emerge during cancer progression 280 
+
+as a compensatory mechanism or an accelerating “second hit”. 281 
+
+## xAEDriver highlights pathways central to tumor progression 282 
+
+Using layer-wise relevance propagation (LRP) in xAEDriver, we computed pathway relevance 283 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+16 
+
+scores ( 𝑅 !,#) for each pathway 𝑝 and cell line 𝑐 , where higher values indicate greater contribution 284 
+
+to the reconstruction of the autoencoder. Averaging across all cell lines yielded overall pathway 285 
+
+importance ( 𝑅 !). Fig 4 shows the top 20 pathways ranked by 𝑅 ! values, with the complete list 286 
+
+provided in S4 Table. The top pathways, such as “complement cascade” (rank 1), “TNFR2 non-287 
+
+canonical NF-kB pathway” (rank 2), and “HuR (ELAVL1) binds and stabilizes mRNA” (rank 6), 288 
+
+have been previously linked to tumor progression. For example, Rutkowski et al. (30) highlighted 289 
+
+the role of the complement cascade in driving cancer by promoting key hallmarks of its 290 
+
+progression. Albini et al. (31) demonstrated that RAF2 inactivating mutations increase alternative 291 
+
+NF-kB pathway activation in mantle cell lymphoma, diffuse large B-cell lymphoma, and multiple 292 
+
+myeloma. Cai et al. (32) revealed that ELAVL1 is an m6A-binding protein highly expressed in 293 
+
+multiple tumors that regulates RNA stability to promote tumor progression. These results confirm 294 
+
+that xAEDriver effectively uncovers biologically meaningful pathways central to tumor biology. 295 
+
+296 
+
+Fig 4. Important pathways identified from xAEDriver. The top 20 pathways ordered by 𝑅 ! values are 297 shown. 298 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+17 
+
+## DVRs link multi-driver functional states to drug response 299 
+
+Having established that xAEDriver captures meaningful driver variant representations (DVRs), 300 
+
+we next investigated whether these DVRs are associated with functional outcomes in cancer cells, 301 
+
+specifically their ability to reflect tissue-specific drug sensitivity patterns and provide mechanistic 302 
+
+insights into differential drug responses. To address this, we constructed LASSO regression 303 
+
+models to predict drug sensitivity (AUC) for each drug using the DVR binary matrix across our 304 
+
+panel of cancer cell lines (Materials and methods). DVR-based models significantly outperformed 305 
+
+those trained on an equivalent number of random somatic mutations in the test set. Twelve DVR 306 
+
+models achieved a test-set 𝑅 $ > 0.05 , whereas none of the 50 random models met this threshold 307 
+
+(complete list in S5 Table). 308 
+
+For each of the twelve DVR-based models passing this performance threshold, we identified the 309 
+
+ten most influential DVRs based on the absolute values of their LASSO coefficients, comparing 310 
+
+them to a control set of ten randomly selected DVRs. The biological relevance of these top DVRs 311 
+
+was evaluated using a tissue concordance score (Materials and methods), which quantifies the 312 
+
+alignment between each DVR’s mutation distribution across tissues and the tissue distribution of 313 
+
+the most drug-sensitive cell lines (lowest AUC values). These top DVRs showed significantly 314 
+
+higher tissue concordance scores than random controls, indicating that they capture tissue-specific 315 
+
+drug response patterns (p = 0.0005, paired Wilcoxon signed-rank test, Fig 5A). Repeating the 316 
+
+random sampling ten times produced a consistent average p-value of 0.0015. These results 317 
+
+demonstrate that DVRs effectively prioritize biologically meaningful, tissue-specific features 318 
+
+associated with drug sensitivity. 319 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+18 
+
+320 
+
+Fig 5. DVRs from xAEDriver reveal drug-response patterns via LASSO regression and distance-321 
+
+based stratification. (A) Differential tissue concordance of DVRs. The top 10 DVRs from LASSO models 322 for twelve LASSO-explainable drugs show significantly higher tissue concordance scores than random 323 DVRs (p = 0.0005, paired Wilcoxon signed-rank test). (B-E) Differential drug sensitivity. Cell lines 324 stratified by DVR dissimilarity, DVR-divergent (high dissimilarity) and DVR-convergent (low 325 dissimilarity), exhibit distinct drug responses. The DVR-convergent group shows significantly higher 326 sensitivity (lower AUC) to drugs (B) Velban, (C) ICL1100013, (D) Mirin, and (E) Alecensa (all adjusted 327 p = 0.02, t-tests). (F) Pathway hierarchy tree for the top 10 important pathways in the DVR-divergent and 328 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+19 DVR-convergent groups. Highlighted pathways illustrate representative differences in 𝑅 ! (pathway 329 importance) between groups. Gray nodes denote parent pathways connecting these top-ranked nodes, while 330 non-relevant child and sibling nodes are omitted for clarity. 331 
+
+Next, we stratified cancer cell lines based on their DVR binary matrix using a distance-based 332 
+
+approach (Materials and methods). This analysis divided the cell lines into a DVR-divergent (high 333 
+
+dissimilarity) group (n=76) and a DVR-convergent (low dissimilarity) group (n=430). Comparison 334 
+
+of drug responses between these two groups identified seven drugs with significantly different 335 
+
+AUC values (Benjamini-Hochberg adjusted p-value < 0.05, t-test). Fig 5B-E highlight four 336 
+
+representative drugs, including Velban, ICL1100013, Mirin, and Alecensa. Interestingly, all four 337 
+
+drugs were more effective in the larger DVR-convergent group, suggesting shared vulnerabilities 338 
+
+across a broad spectrum of cancer cell lines. The remaining three drugs with significant differences 339 
+
+were SN38, MPS-1-IN-1, and Y-39983. 340 
+
+To further assess the relationship between DVR and drug response, we correlated the pairwise 341 
+
+Euclidean distances between cell lines in the DVR space with the pairwise Pearson’s correlations 342 
+
+of their drug response (AUC) profiles. This analysis revealed a significant, though modest, 343 
+
+negative correlation (PCC = −0.04, p-value = 5.5 ×10 -39 ), indicating that cell lines with greater 344 
+
+DVR dissimilarity tend to exhibit less similar drug sensitivity patterns. These results demonstrate 345 
+
+that DVR-based stratification can effectively distinguish cell lines with distinct drug response 346 
+
+profiles. 347 
+
+To explore the biological mechanisms underlying these differences, we analyzed pathway 348 
+
+relevance within each cell line group. All 680 pathways were ranked by their average relevance 349 
+
+scores across cell lines (S6 Table), revealing group-specific enrichment among the top pathways 350 
+
+(Fig 5F). For example, the “Adaptive immune system” pathway ranked 7th in the DVR-convergent 351 
+
+group but 654th in the DVR-divergent group, consistent with higher sensitivity to Velban and 352 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+20 
+
+ICL1100013 in the DVR-convergent group (Fig 5B-C). Previous findings show that local low-353 
+
+dose Velban injection enhances adaptive immunity via dendritic cell maturation (33), while 354 
+
+ICL1100013 targets NMT1 , an enzyme critical for T-cell receptor signaling and immune function 355 
+
+(34, 35). Similarly, the “Base excision repair” (BER) pathway ranked much higher in the DVR-356 
+
+convergent group (10th vs. 564th in the DVR-divergent group), consistent with increased 357 
+
+sensitivity to Mirin (an MRE11 inhibitor) and Alecensa (an ALK inhibitor) (Fig 5D-E). These 358 
+
+associations are mechanistically coherent: MRE11 plays key roles in BER and single-strand break 359 
+
+repair (36), while Alecensa resistance, characterized by low SFTPD expression, has been linked 360 
+
+to elevated BER pathway activity (37). Together, these findings suggest that enhanced immune 361 
+
+and DNA repair pathway activities underlie the heightened drug sensitivity observed in the DVR-362 
+
+convergent group. 363 
+
+Overall, these results demonstrate that DVR-based representations capture biologically and 364 
+
+therapeutically relevant signals, enabling the identification of tissue-specific patterns, drug 365 
+
+sensitivities, and underlying pathway mechanisms in cancer cell lines. 366 
+
+# Discussion 367 
+
+In this study, we introduce interpretable functional-genomics frameworks for linking cancer driver 368 
+
+alterations to genome-wide dependency landscapes, pathway programs, and drug-response 369 
+
+structure in cancer cell lines. xNNDriver prioritizes candidate driver genes by quantifying how 370 
+
+strongly their mutation status is reflected in dependency profiles, while xAEDriver learns multi-371 
+
+driver functional representations that summarize broader oncogenic states. Together, these models 372 
+
+show that DepMap dependency data encode biologically interpretable signals of driver activity 373 
+
+and treatment-relevant vulnerability. 374 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+21 
+
+xNNDriver reframes driver identification from a purely mutation-frequency paradigm to a 375 
+
+systems-level functional consequence paradigm. The fact that known drivers score highly supports 376 
+
+the biological signal embedded in dependency landscapes. Furthermore, the model is applied 377 
+
+uniformly to 3,008 candidate genes and identifies both established and literature-supported but not 378 
+
+yet DepMap-annotated candidates. Importantly, the driver potential score quantifies the functional 379 
+
+footprint of mutations rather than their recurrence alone. 380 
+
+Given that the dependency score of the candidate driver gene provides a quantifiable functional 381 
+
+signature of driver activity, it was included as an input feature and could be intrinsically selected 382 
+
+during model training. For example, loss of an oncogene often reduces cell viability (low 383 
+
+dependency score), whereas loss of a tumor suppressor enhances growth (high dependency score). 384 
+
+As shown in S3 Figure, TP53 , a tumor suppressor, exhibits the highest mean dependency score 385 
+
+(0.426), while NRAS , an oncogene, shows a low value (−0.654). However, HRAS , another 386 
+
+oncogenic driver, displays a near-neutral score (−0.107), underscoring that single-gene 387 
+
+dependency alone provides only partial information about driver status. 388 
+
+To model complex combinatorial functional states, we developed the unsupervised xAEDriver 389 
+
+model. While xNNDriver excels at evaluating individual driver genes, it is not inherently designed 390 
+
+to capture systemic, multi-driver states. In contrast, xAEDriver represents a conceptual shift from 391 
+
+single-driver evaluation to multi-driver functional state inference by encoding cell-line-specific 392 
+
+patterns that mimic the behavior of real functional driver variants through guided learning. 393 
+
+DVRs showed biologically interpretable and drug-associated patterns. Using LASSO regression, 394 
+
+we demonstrated that DVRs’ predictive of drug response also exhibited strong tissue-type 395 
+
+specificity, supporting their biological relevance. Furthermore, DVR-based stratification of cancer 396 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+22 
+
+cell lines revealed distinct groups with significantly different drug sensitivity profiles and pathway 397 
+
+activities. This stratification identified specific vulnerabilities, such as enhanced response to 398 
+
+immune-related or DNA repair-targeting drugs, highlighting the translational potential of DVRs 399 
+
+in predicting therapeutic responses and informing precision oncology strategies. 400 
+
+To enhance interpretability, both xNNDriver and xAEDriver incorporated biologically informed 401 
+
+neural network architectures guided by the Reactome pathway hierarchy. Rather than acting 402 
+
+merely as a sparsity constraint, this design embeds the hierarchy directly into the network to 403 
+
+aggregate signals across levels, enabling the mechanistic attribution of driver effects. We do not 404 
+
+view the pathway-constrained architecture alone as proof of a causal mechanism; instead, pathway 405 
+
+attributions are supported by standalone proximity analysis, expression-stochasticity analyses, and 406 
+
+consistency with external literature. In xNNDriver, the identified important pathways demonstrate 407 
+
+hierarchical coherence and expression variability patterns. In xAEDriver, a biologically 408 
+
+constrained decoder preserves pathway structure while allowing the encoder to learn flexible 409 
+
+representations, since fully constraining both sides proved too restrictive and often produced trivial 410 
+
+DVRs. Ultimately, the pathways identified by both models confirm the biological robustness of 411 
+
+our framework, providing interpretable and biologically grounded insights beyond conventional 412 
+
+pathway enrichment analyses. 413 
+
+Looking ahead, expanding the models to include larger and more diverse datasets will improve the 414 
+
+detection of both common and rare driver mutations across different cancer types. This broader 415 
+
+scope will refine our understanding of gene dependencies and mutation synergies, leading to more 416 
+
+accurate prediction of therapeutic vulnerabilities. Ultimately, the integration of dependency data 417 
+
+with mutational and pharmacological information will advance precision oncology by enabling 418 
+
+more personalized and effective cancer treatment strategies. 419 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+23 
+
+# Materials and methods 420 
+
+## Datasets 421 
+
+The DepMap database 422 
+
+We utilized data from the Cancer Dependency Map (DepMap) projects (23Q2 version). This 423 
+
+release contains data from CRISPR-Cas9 knockout screens across multiple tumor types, as part of 424 
+
+Broad’s Achilles (38) and Sanger’s SCORE projects (39). It also includes genomic and 425 
+
+transcriptomic characterizations from the CCLE project (40). 426 
+
+The primary dataset includes CRISPR-Cas9 essentiality screens for 17,931 genes across 1,095 cell 427 
+
+lines (9, 10), resulting in a cell-line-by-screened-gene matrix. Each entry represents the 428 
+
+“dependency score” of a screened gene, which was processed from the log-fold change in sgRNA 429 
+
+read counts before and after knockout. A lower dependency score indicates a stronger reduction in 430 
+
+cell viability following gene knockout, implying that the gene is essential for cell survival. Quality 431 
+
+control and normalization were performed by DepMap. 432 
+
+Somatic point mutations and indels for the DepMap cell lines were obtained from the same source 433 
+
+(41), totalling 1,408,099 mutations, including 1,290,926 single-nucleotide polymorphisms (SNPs). 434 
+
+Gene expression data (RNA-seq) were also retrieved as transcripts per million (TPM) for 19,194 435 
+
+genes across 1,450 cell lines, log-transformed with a pseudo-count of one. A total of 1,019 cell 436 
+
+lines had both dependency score and gene expression data available. 437 
+
+We also downloaded drug sensitivity data for the cell lines (42). From the raw data, fold-change 438 
+
+viability values were calculated using the R package gdscIC50 (43), and standard four-parameter 439 
+
+monotonic log-logistic dose-response curves were fitted using the R package dr4pl (44). Drug 440 
+
+sensitivity was then quantified as the area under the curve (AUC), covering 320 drugs across 962 441 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+24 
+
+cell lines. Among these, 506 cell lines also had dependency scores and gene expression data 442 
+
+available. 443 
+
+The COSMIC database 444 
+
+We obtained mutation data from the Catalogue of Somatic Mutations in Cancer (COSMIC) Cancer 445 
+
+Mutation Census (12), filtering for single-nucleotide variants (SNVs). To identify functionally 446 
+
+significant mutations, we retained those annotated as “high” or “moderate” impact based on 447 
+
+consequence predictions from the Ensembl Variation database (45). 448 
+
+The ClinVar database 449 
+
+ClinVar compiles relationships between human genetic variants and phenotypic outcomes (13). 450 
+
+Although primarily focused on germline mutations, it includes somatic variants as well. We 451 
+
+downloaded the ClinVar summary table and filtered for SNVs annotated as: pathogenic, likely 452 
+
+pathogenic, affects, drug response, or confers sensitivity. 453 
+
+We merged the filtered COSMIC and ClinVar SNVs, yielding 28,459 clinically significant 454 
+
+variants also documented in DepMap. Among these, 340 were located in known driver genes with 455 
+
+mutations observed in at least one cell line, which we designated as known driver mutations for 456 
+
+model training and validation. 457 
+
+## xNNDriver: Supervised model for identifying driver genes 458 
+
+Training and test data 459 
+
+Gene names from the considered datasets were converted to Ensemble IDs using the DAVID portal 460 
+
+(46), ensuring consistency with the Reactome database. Genes absent from the Reactome database 461 
+
+were excluded. Dependency scores were split into training (75%) and test (25%) sets, with five-462 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+25 
+
+fold cross-validation on the training set for hyperparameter tuning. Because mutation-positive 463 
+
+samples were much fewer than negatives, we balanced the classes during the training process by 464 
+
+random upsampling of positive samples to achieve a 1:1 ratio. 465 
+
+Pathway hierarchy 466 
+
+The Reactome database (11) was used to construct a hierarchical pathway tree using the NetworkX 467 
+
+Python library. Internal nodes represent pathways, and leaves correspond to genes. To simplify the 468 
+
+hierarchy and reduce redundancy, each gene was linked only to its closest pathway nodes. A 469 
+
+hyperparameter l controlled the number of pathway levels included. Genes or pathways absent 470 
+
+from the data were excluded. The resulting structure was encoded as a binary mask matrix M,471 
+
+where 𝑀 %,& = 1 denotes a valid connection. Following our previous work (28), multi-layer 472 
+
+predictive designs were employed to enhance model accuracy. 473 
+
+Neural network construction 474 
+
+We built a feedforward neural network based on the mask matrix. The input layer consists of 475 
+
+CRISPR-Cas9 screened genes, with their corresponding dependency scores as input data. The size 476 
+
+of the input layer corresponds to the number of genes allocated to the lowest level of the pathway 477 
+
+hierarchy. For each layer, the input is denoted as 𝑥 and the output as 𝑦 . The output of each layer 478 
+
+is calculated as: 𝑦 = 𝑓 [(𝑀𝑊)𝑥 + 𝑏], where 𝑓 is the activation function (tanh), 𝑀 is the mask 479 
+
+matrix, 𝑊 is the weight matrix, and 𝑏 is the bias vector. Here, 𝑀𝑊 is the element-wise 480 
+
+multiplication (Hadamard product) of 𝑀 and 𝑊 . Binary predictions were generated using a 481 
+
+sigmoid function: 𝜎 (𝑧 ) = 1
+
+> 1+𝑒 −𝑧
+
+. A cell line was classified as 1 (mutated) if 𝜎 > 0.5. Training used 482 
+
+the Adam optimizer, cross-entropy loss, and L 2 regularization. Final predictions were aggregated 483 
+
+across all predictive layers via majority voting, and model performance was quantified by the AUC 484 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+26 
+
+metric on the test set, referred to as the driver potential score. 485 
+
+Hyperparameter tuning 486 
+
+We applied stepwise hyperparameter tuning with five-fold cross-validation on the training set of 487 
+
+the model for the candidate gene KRAS to optimize hyperparameters. Hyperparameters were tuned 488 
+
+sequentially in the following order: the number of levels in the pathway hierarchy tree ( 𝑙 ), L 2489 
+
+regularization hyperparameter, learning rate, batch size, and number of epochs. The optimal 490 
+
+hyperparameter values based on the highest AUC were 𝑙 = 3, regularization = 0.0001, learning rate 491 
+
+= 0.01, batch size = 128, and epochs = 100. 492 
+
+Identification of important pathways in xNNDriver 493 
+
+Pathway importance was measured as the absolute difference in activation values between cell 494 
+
+lines with and without mutation for a given pathway 𝑝 : 𝑑 ! = |𝐴 !,* − 𝐴 !,+|. If a pathway appears 495 
+
+in the paths of multiple prediction layers (nested subnetworks), we chose the maximum value of 496 
+
+𝑑 ! across all paths as the final importance measure, denoted as 𝐷 ! . Pathways with a 𝐷 ! value 497 
+
+greater than a predefined threshold (default: 0.1) were considered important. If the pathway node 498 
+
+was an artificial node introduced to preserve the pathway tree structure, the original pathway node 499 
+
+was retrieved. 500 
+
+Proximity analysis in the Reactome hierarchy 501 
+
+For each candidate driver gene, we calculated the shortest path length between its important 502 
+
+pathways and the gene within the Reactome tree using NetworkX. Random pathways from the 503 
+
+same hierarchical level served as controls. Statistical significance was assessed using paired 504 
+
+Wilcoxon signed-rank tests. Correlations between relative path-length differences (the shortest 505 
+
+path length for an important node minus that for a random pathway node, divided by the former) 506 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+27 
+
+and 𝐷 ! ranks (sorted descendingly) were computed using Pearson correlation coefficients across 507 
+
+20 randomizations. 508 
+
+Expression stochasticity of the pathways 509 
+
+Pathway expression variability was quantified by the coefficient of variation (CV: standard 510 
+
+deviation over mean) of member genes across cell lines with or without the candidate gene 511 
+
+mutation. Differences in CV distributions were tested using the Wilcoxon signed-rank test. 512 
+
+## xAEDriver: Unsupervised model for multi-driver representation 513 
+
+## learning 514 
+
+Training data preparation 515 
+
+The model xAEDriver utilized both gene dependency score and gene expression data as input 516 
+
+features. Cell lines present in only one of the two data sources were excluded. For each gene 𝑗 in 517 
+
+cell line 𝑖 , each feature was normalized within genes: 𝑛𝑜𝑟𝑚 %,& = ,#,%-./01 (,·,%) 
+
+> .0, 4, ·,%5- .%1(, ·,%)
+
+. After 518 
+
+normalization, the gene dependency and expression data were merged into a unified matrix by 519 
+
+aligning cell lines. 520 
+
+Guided learning using known driver SNPs 521 
+
+Known driver SNP mutation frequencies across cell lines were modeled using a truncated binomial 522 
+
+distribution to exclude both endpoints. Let 𝑋 represent the number of cell lines in which a known 523 
+
+driver SNP is present as the mutated allele. The truncated binomial distribution for 𝑋 is: 524 
+
+𝑃 (𝑋 $ = 𝑘) = + ,%
+
+> &
+
+-𝑝 &(1 − 𝑝) &
+
+1 − (1 − 𝑝) % − 𝑝 % , 𝑘 = 1,2, … , 𝑛 − 1 0, 𝑘 = 0 𝑜𝑟 𝑛 ,525 
+
+where 𝑛 (=1,019) is the number of cell lines, and 𝑝 is the unknown probability of SNP mutation 526 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+28 
+
+being present in the population. Note that for all known driver SNPs, 𝑘 is neither 0 nor 𝑛 .527 
+
+Parameter 𝑝 was estimated via maximum likelihood from the 340 known driver SNPs. 528 
+
+Autoencoder construction 529 
+
+The autoencoder consists of a fully connected encoder and a biologically informed decoder. The 530 
+
+encoder and decoder share a symmetric structure in terms of node numbers at each layer, and both 531 
+
+use the tanh activation function. However, in the decoder, certain neuron connections are masked 532 
+
+according to the pathway-gene mask matrix, while the encoder remains fully connected. 533 
+
+The pathway-gene mask matrix was constructed following the approach outlined in the description 534 
+
+for xNNDriver. The key distinction was in how we handled genes that appeared in both the 535 
+
+dependency score and expression datasets. For such genes, the pathway was linked to both the 536 
+
+“dependency” node and the “expression” node, and both entries in the mask matrix were set to 537 
+
+one. For genes present in only one dataset, connections were handled as described before. 538 
+
+The lower-dimensional representation, referred to as driver variant representations (DVRs), is 539 
+
+produced in the latent layer, which consists of 1024 neurons. Each DVR is represented by a neuron 540 
+
+in the latent layer with values constrained to 0 or 1, indicating the mutation presence or absence of 541 
+
+the DVR. The sigmoid activation function is used in the latent layer, ensuring the binary nature of 542 
+
+the DVRs (rounded to 0 or 1). The autoencoder was trained by the Adam optimizer, and the cost 543 
+
+function includes both reconstruction loss (measured as the mean squared error between the output 544 
+
+layer and the input layer) and regularization terms, which include an L 2 regularization term and a 545 
+
+binomial distribution penalty. 546 
+
+Specifically, the binomial distribution penalty term encourages the DVRs to resemble real driver 547 
+
+SNPs. In each epoch, after obtaining the lower-dimensional representations, we computed the sum 548 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+29 
+
+for each DVR neuron across all cell lines and denoted it as 𝑥 %. The binomial distribution penalty 549 
+
+term is defined as the negative logarithmic likelihood across all DVRs (q=1,024), calculated as: 550 
+
+𝑏𝑖𝑛𝑜𝑚𝑖𝑎 𝑙 _ 𝑝𝑒𝑛𝑎𝑙𝑡𝑦 = − 1
+
+𝑞 M 𝑙𝑜𝑔 
+
+> 8
+> %9+
+
+𝑃(𝑋 = 𝑥 %). 551 
+
+If 𝑃 (𝑋 = 𝑥 %) is equal to 0, the training process will be terminated, and the rounded DVRs from 552 
+
+the previous epoch will be used as the final output. 553 
+
+Hyperparameter tuning 554 
+
+Grid search was used to tune the model’s hyperparameters. For each hyperparameter combination, 555 
+
+we recorded the average loss over five repeats and selected the combination yielding the lowest 556 
+
+loss as the default. The default values for the L 2 regularization hyperparameter and binomial 557 
+
+distribution penalty hyperparameters were set to 0.1 and 0.001, respectively. The default learning 558 
+
+rate was 0.01. The default number of epochs was 1,000. The batch size was fixed at 1,019, 559 
+
+corresponding to the total number of cell lines, as it is required to remain constant to compute the 560 
+
+binomial distribution penalty. 561 
+
+Measuring pathway importance by layer-wise relevance propagation 562 
+
+To assess the contribution of pathways in generating DVRs, we employed layer-wise relevance 563 
+
+propagation (LRP) with the epsilon rule (47). LRP decomposes the prediction by propagating 564 
+
+relevance scores backward through the autoencoder’s layers. For a given cell line c, the relevance 565 
+
+score 𝑟 &,# for neuron j is calculated as: 566 
+
+𝑟 &,# = M 𝑎 &,#𝑤 &,:
+
+𝜀 + ∑ 𝑎 %,#𝑤 %,:%
+
+> :
+
+𝑟 :,#,567 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+30 
+
+where k denotes a neuron in the subsequent layer (closer to the output), and i iterates over all 568 
+
+neurons in the same layer as j that connect to k. Given the pathway-constrained hierarchy of our 569 
+
+architecture, these connections are sparse, meaning 𝑤 %,: is non-zero only for biologically 570 
+
+established links. Here, 𝑎 &,# and 𝑎 %,# represent the forward-pass activation values, 𝑤 &,: and 𝑤 %,: are 571 
+
+the corresponding connection weights, and 𝜀 is a small positive constant. The relevance scores are 572 
+
+propagated from the output layer to the input layer. We compute normalized relevance scores for 573 
+
+each layer using z-scores, and the pathway importance is quantified by examining the decoder 574 
+
+layer. The final normalized relevance score for pathway 𝑗 and cell line 𝑐 is denoted as 𝑅 &,#.575 
+
+LASSO regression model for DVR-drug association 576 
+
+For each drug, a LASSO regression model was built with DVRs as predictors and drug AUC values 577 
+
+as responses. Data were split into training (80%) and test (20%) sets. Models were trained using a 578 
+
+LASSO regularization parameter (α) of 0.001 and a maximum of 2,000 iterations. Predictive 579 
+
+models ( R² > 0.05) were analyzed for their top 10 DVRs based on coefficient magnitude. LASSO 580 
+
+models were also built on 50 sets of random mutation controls for comparison. 581 
+
+To evaluate the biological relevance of the top DVRs, we calculated a tissue concordance score 582 
+
+for each DVR. For a given drug, we defined two groups of cell lines: (1) the DVR-positive group, 583 
+
+consisting of all cell lines in which the DVR was present (value = 1), and (2) the drug-sensitive 584 
+
+group, consisting of an equal number of cell lines showing the strongest response to the drug (i.e., 585 
+
+the lowest AUC values). The tissue concordance score was defined as the degree of overlap in 586 
+
+tissue-type composition between these two groups, normalized by group size. This score reflects 587 
+
+the degree of tissue-specific association between DVR presence and drug response. 588 
+
+As a control, for each drug, we randomly selected ten DVRs that were not among the top ten and 589 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+31 
+
+repeated the concordance analysis. We then compared the tissue concordance scores between the 590 
+
+top DVRs and the random controls using a paired Wilcoxon signed-rank test to assess statistical 591 
+
+significance. 592 
+
+Distance-based DVR stratification for drug sensitivity patterns 593 
+
+We calculated the total Euclidean distance of each cell line to all others in DVR space and stratified 594 
+
+lines into DVR-divergent (large total distance) and DVR-convergent (small total distance) groups 595 
+
+using the 85th percentile cutoff. Drug sensitivity (AUC) differences were assessed with Welch’s 596 
+
+t-test, omitting cell lines lacking drug data. 597 
+
+# Supporting information 598 
+
+S1 Fig. Prediction performance of xNNDriver for the top 30 genes with the highest driver 599 
+
+potential scores using all SNPs. All somatic SNP mutations, no matter whether annotated as 600 
+
+functional or not, are used. Data point color indicates the number of cell lines with mutations in 601 
+
+that gene. Gene name color distinguishes whether a gene is a known driver or not (purple: driver, 602 
+
+black: non-driver), as documented by DepMap. 603 
+
+S2 Fig. Comparison of mutation frequency distributions between DVRs from xAEDriver 604 
+
+and known functional driver SNPs . The histograms display the frequency of mutation 605 
+
+occurrences across cell lines for ( A) DVRs and ( B) known driver SNPs. 606 
+
+S3 Fig. Distribution of mean dependency scores of all genes. The histogram illustrates the 607 
+
+distribution of mean dependency scores across all cell lines for all genes in the DepMap gene 608 
+
+dependency dataset. 609 
+
+S1 Table. Comprehensive results of all xNNDriver models using functional SNPs. Each model 610 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+32 
+
+corresponds to a frequently mutated candidate gene (3,008 in total). Information includes the 611 
+
+following metrics: driver potential score, the number of cell lines with mutation presence, the 612 
+
+number of cell lines without mutation presence, and whether the gene is annotated as a driver based 613 
+
+on DepMap. 614 
+
+S2 Table. Comprehensive results of all xNNDriver models using all SNPs. Each model 615 
+
+corresponds to a frequently mutated candidate gene (3,008 in total). Information includes the 616 
+
+following metrics: driver potential score, the number of cell lines with mutation presence, the 617 
+
+number of cell lines without mutation presence, and whether the gene is a driver based on DepMap. 618 
+
+S3 Table. Important pathways identified from xNNDriver for candidate driver genes. This 619 
+
+table includes a comprehensive summary combining results for all 15 genes, as well as 15 620 
+
+individual sheets detailing results for each gene. The overall table also provides the adjusted p-621 
+
+values from the Wilcoxon tests on the comparison of coefficients of variation of pathway 622 
+
+expression between cell lines with and without mutations. 623 
+
+S4 Table. Pathway importance from xAEDriver. This table includes the average 𝑹 𝒑 values 624 
+
+across all cell lines. Pathways marked with “_copy1” indicate artificial nodes created to preserve 625 
+
+the pathway tree structure. 626 
+
+S5 Table. Test set 𝑹 𝟐 values of LASSO regression models based on DVRs and random 627 
+
+somatic mutations. Random control results are averaged over 50 runs. 628 
+
+S6 Table. Average pathway importance ( 𝑹 𝒑 values) and rankings for the DVR-divergent and 629 
+
+DVR-convergent groups. Reported metrics include average 𝑹 𝒑 and rank for each group. 630 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+33 
+
+# Acknowledgments 631 
+
+We thank Dr. Sika Zheng at the University of California, Riverside, Yingtong Liu, and all 632 
+
+members of the Chen lab for their discussions and suggestions throughout this study. 633 
+
+# Author contributions 634 
+
+Conceptualization: Qingyang Yin, Liang Chen. Data curation: Qingyang Yin. Formal analysis: 635 
+
+Qingyang Yin. Funding acquisition: Liang Chen. Investigation: Qingyang Yin, Liang Chen. 636 
+
+Methodology: Qingyang Yin, Liang Chen. Project administration: Liang Chen. Resources: 637 
+
+Qingyang Yin, Liang Chen. Software: Qingyang Yin. Supervision: Liang Chen. Validation: 638 
+
+Qingyang Yin. Visualization: Qingyang Yin. Writing – original draft: Qingyang Yin. Writing – 639 
+
+review & editing: Liang Chen. 640 
+
+# Data availability statement 641 
+
+The codes are available at https://github.com/qyyin0516/xNNDriver-and-xAEDriver. All data 642 
+
+from the DepMap database were downloaded from https://depmap.org/portal/download/all/ 643 
+
+(version: 23Q2). The COSMIC database can be downloaded at 644 
+
+https://cancer.sanger.ac.uk/cosmic/download/cosmic/ (version: v102), and categories of clinical 645 
+
+significance for SNVs can be found at 646 
+
+https://useast.ensembl.org/info/genome/variation/prediction/predicted_data.html#consequences/. 647 
+
+The ClinVar database can be downloaded at https://www.ncbi.nlm.nih.gov/clinvar/, and categories 648 
+
+of clinical significance for SNVs can be found at 649 
+
+https://www.ncbi.nlm.nih.gov/clinvar/docs/clinsig/. Reactome pathway annotations and hierarchy 650 
+
+can be downloaded at https://reactome.org/download-data. The list of 3,008 frequently mutated 651 
+
+candidate genes can be found at https://github.com/idekerlab/DrugCell. 652 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+34 
+
+# Funding 653 
+
+This work was supported by the National Institutes of Health (R01NS139485 to L.C.). The funders 654 
+
+had no role in study design, data collection and analysis, decision to publish, or preparation of the 655 
+
+manuscript. 656 
+
+# Competing interests 657 
+
+The authors declare no competing interests. 658 
+
+# References 659 
+
+1. Porta-Pardo E, Valencia A, Godzik A. Understanding oncogenicity of cancer driver genes 660 
+
+and mutations in the cancer genomics era. FEBS Lett. 2020;594(24):4233-46. 661 
+
+2. Song Q, Li M, Li Q, Lu X, Song K, Zhang Z, et al. DeepAlloDriver: a deep learning-based 662 
+
+strategy to predict cancer driver mutations. Nucleic Acids Res. 2023;51(W1):W129-W33. 663 
+
+3. Zeng Z, Mao C, Vo A, Li X, Nugent JO, Khan SA, et al. Deep learning for cancer type 664 
+
+classification and driver gene identification. BMC Bioinformatics. 2021;22(Suppl 4):491. 665 
+
+4. Peng W, Tang Q, Dai W, Chen T. Improving cancer driver gene identification using multi-666 
+
+task learning on graph convolutional network. Brief Bioinform. 2022;23(1). 667 
+
+5. Liu Y, Baugh AG, Roussos Torres ET, MacLean AL. Inference of marker genes of subtle 668 
+
+cell state changes via iLR: iterative logistic regression. Bioinformatics. 2026;42(2). 669 
+
+6. Yin Q, Wang Y, Guan J, Ji G. scIAE: an integrative autoencoder-based ensemble 670 
+
+classification framework for single-cell RNA-seq data. Brief Bioinform. 2022;23(1). 671 
+
+7. van der Weyden L, Jonkers J, Adams DJ. The use of CRISPR/Cas9-based gene editing 672 
+
+strategies to explore cancer gene function in mice. Curr Opin Genet Dev. 2021;66:57-62. 673 
+
+8. Chiu YC, Zheng S, Wang LJ, Iskra BS, Rao MK, Houghton PJ, et al. Predicting and 674 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+35 
+
+characterizing a cancer dependency map of tumors with deep learning. Sci Adv. 2021;7(34). 675 
+
+9. Dempster JM, Rossen J, Kazachkova M, Pan J, Kugener G, Root DE, et al. Extracting 676 
+
+biological insights from the project achilles genome-scale CRISPR screens in cancer cell lines. 677 
+
+BioRxiv. 2019:720243. 678 
+
+10. Meyers RM, Bryan JG, McFarland JM, Weir BA, Sizemore AE, Xu H, et al. Computational 679 
+
+correction of copy number effect improves specificity of CRISPR-Cas9 essentiality screens in 680 
+
+cancer cells. Nat Genet. 2017;49(12):1779-84. 681 
+
+11. Joshi-Tope G, Gillespie M, Vastrik I, D'Eustachio P, Schmidt E, de Bono B, et al. 682 
+
+Reactome: a knowledgebase of biological pathways. Nucleic Acids Res. 2005;33(Database 683 
+
+issue):D428-32. 684 
+
+12. Forbes SA, Bindal N, Bamford S, Cole C, Kok CY, Beare D, et al. COSMIC: mining 685 
+
+complete cancer genomes in the Catalogue of Somatic Mutations in Cancer. Nucleic Acids Res. 686 
+
+2011;39(Database issue):D945-50. 687 
+
+13. Landrum MJ, Lee JM, Riley GR, Jang W, Rubinstein WS, Church DM, et al. ClinVar: 688 
+
+public archive of relationships among sequence variation and human phenotype. Nucleic Acids 689 
+
+Res. 2014;42(Database issue):D980-5. 690 
+
+14. Kuenzi BM, Park J, Fong SH, Sanchez KS, Lee J, Kreisberg JF, et al. Predicting Drug 691 
+
+Response and Synergy Using a Deep Learning Model of Human Cancer Cells. Cancer Cell. 692 
+
+2020;38(5):672-84.e6. 693 
+
+15. Murakami H, Mizuno T, Taniguchi T, Fujii M, Ishiguro F, Fukui T, et al. LATS2 is a tumor 694 
+
+suppressor gene of malignant mesothelioma. Cancer Res. 2011;71(3):873-83. 695 
+
+16. Strazisar M, Mlakar V, Glavac D. LATS2 tumour specific mutations and down-regulation 696 
+
+of the gene in non-small cell carcinoma. Lung Cancer. 2009;64(3):257-62. 697 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+36 
+
+17. Zimmerman SM, Lin PN, Souroullas GP. Non-canonical functions of EZH2 in cancer. 698 
+
+Front Oncol. 2023;13:1233953. 699 
+
+18. Sasaki H, Suzuki A, Shitara M, Okuda K, Hikosaka Y, Moriyama S, et al. Keap1 mutations 700 
+
+in lung cancer patients. Oncol Lett. 2013;6(3):719-21. 701 
+
+19. Al-Masri M, Al-Shobaki T, Al-Najjar H, Iskanderian R, Younis E, Abdallah N, et al. BRAF 702 
+
+V600E mutation in papillary thyroid carcinoma: it's relation to clinical features and oncologic 703 
+
+outcomes in a single cancer centre experience. Endocr Connect. 2021;10(12):1531-7. 704 
+
+20. Lee K-H, Hwang H-J, Noh HJ, Shin T-J, Cho J-Y. Somatic mutation of PIK3CA (H1047R) 705 
+
+is a common driver mutation hotspot in canine mammary tumors as well as human breast cancers. 706 
+
+Cancers. 2019;11(12):2006. 707 
+
+21. Vander Heiden MG, DeBerardinis RJ. Understanding the Intersections between 708 
+
+Metabolism and Cancer Biology. Cell. 2017;168(4):657-69. 709 
+
+22. Rho O, Kim DJ, Kiguchi K, Digiovanni J. Growth factor signaling pathways as targets for 710 
+
+prevention of epithelial carcinogenesis. Mol Carcinog. 2011;50(4):264-79. 711 
+
+23. Lemmon MA, Schlessinger J. Cell signaling by receptor tyrosine kinases. Cell. 712 
+
+2010;141(7):1117-34. 713 
+
+24. Yarden Y, Pines G. The ERBB network: at last, cancer therapy meets systems biology. Nat 714 
+
+Rev Cancer. 2012;12(8):553-63. 715 
+
+25. Grivennikov SI, Greten FR, Karin M. Immunity, inflammation, and cancer. Cell. 716 
+
+2010;140(6):883-99. 717 
+
+26. Mantovani A, Allavena P, Sica A, Balkwill F. Cancer-related inflammation. Nature. 718 
+
+2008;454(7203):436-44. 719 
+
+27. Kumari N, Dwarakanath BS, Das A, Bhatt AN. Role of interleukin-6 in cancer progression 720 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+37 
+
+and therapeutic resistance. Tumour Biol. 2016;37(9):11553-72. 721 
+
+28. Yin Q, Chen L. CellTICS: an explainable neural network for cell-type identification and 722 
+
+interpretation based on single-cell RNA-seq data. Brief Bioinform. 2023;25(1). 723 
+
+29. Rubner Y, Tomasi C, Guibas LJ, editors. A metric for distributions with applications to 724 
+
+image databases. Sixth international conference on computer vision (IEEE Cat No 98CH36271); 725 
+
+1998: IEEE. 726 
+
+30. Rutkowski MJ, Sughrue ME, Kane AJ, Mills SA, Parsa AT. Cancer and the complement 727 
+
+cascade. Mol Cancer Res. 2010;8(11):1453-65. 728 
+
+31. Albini A, Di Paola L, Mei G, Baci D, Fusco N, Corso G, et al. Inflammation and cancer 729 
+
+cell survival: TRAF2 as a key player. Cell Death Dis. 2025;16(1):292. 730 
+
+32. Cai Z, Zhai X, Xu J, Hong T, Yang K, Min S, et al. ELAVL1 regulates PD-L1 mRNA 731 
+
+stability to disrupt the infiltration of CD4-positive T cells in prostate cancer. Neoplasia. 732 
+
+2024;57:101049. 733 
+
+33. Tanaka H, Matsushima H, Nishibu A, Clausen BE, Takashima A. Dual therapeutic efficacy 734 
+
+of vinblastine as a unique chemotherapeutic agent capable of inducing dendritic cell maturation. 735 
+
+Cancer Res. 2009;69(17):6987-94. 736 
+
+34. Li Y, Umbach DM, Krahn JM, Shats I, Li X, Li L. Predicting tumor response to drugs 737 
+
+based on gene-expression biomarkers of sensitivity learned from cancer cell lines. BMC 738 
+
+Genomics. 2021;22(1):272. 739 
+
+35. Rampoldi F, Bonrouhi M, Boehm ME, Lehmann WD, Popovic ZV, Kaden S, et al. 740 
+
+Immunosuppression and Aberrant T Cell Development in the Absence of N-Myristoylation. J 741 
+
+Immunol. 2015;195(9):4228-43. 742 
+
+36. Alblihy A, Ali R, Algethami M, Shoqafi A, Toss MS, Brownlie J, et al. Targeting Mre11 743 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+38 
+
+overcomes platinum resistance and induces synthetic lethality in XRCC1 deficient epithelial 744 
+
+ovarian cancers. NPJ Precis Oncol. 2022;6(1):51. 745 
+
+37. Li Z, Fan Y, Ma Y, Meng N, Li D, Wang D, et al. Identification of Crucial Genes and 746 
+
+Signaling Pathways in Alectinib-Resistant Lung Adenocarcinoma Using Bioinformatic Analysis. 747 
+
+Mol Biotechnol. 2024;66(12):3655-73. 748 
+
+38. Tsherniak A, Vazquez F, Montgomery PG, Weir BA, Kryukov G, Cowley GS, et al. 749 
+
+Defining a Cancer Dependency Map. Cell. 2017;170(3):564-76 e16. 750 
+
+39. Behan FM, Iorio F, Picco G, Goncalves E, Beaver CM, Migliardi G, et al. Prioritization of 751 
+
+cancer therapeutic targets using CRISPR-Cas9 screens. Nature. 2019;568(7753):511-6. 752 
+
+40. Barretina J, Caponigro G, Stransky N, Venkatesan K, Margolin AA, Kim S, et al. The 753 
+
+Cancer Cell Line Encyclopedia enables predictive modelling of anticancer drug sensitivity. Nature. 754 
+
+2012;483(7391):603-7. 755 
+
+41. Ghandi M, Huang FW, Jane-Valbuena J, Kryukov GV, Lo CC, McDonald ER, 3rd, et al. 756 
+
+Next-generation characterization of the Cancer Cell Line Encyclopedia. Nature. 757 
+
+2019;569(7757):503-8. 758 
+
+42. Iorio F, Knijnenburg TA, Vis DJ, Bignell GR, Menden MP, Schubert M, et al. A Landscape 759 
+
+of Pharmacogenomic Interactions in Cancer. Cell. 2016;166(3):740-54. 760 
+
+43. Vis DJ, Bombardelli L, Lightfoot H, Iorio F, Garnett MJ, Wessels LF. Multilevel models 761 
+
+improve precision and speed of IC50 estimates. Pharmacogenomics. 2016;17(7):691-700. 762 
+
+44. Ritz C, Baty F, Streibig JC, Gerhard D. Dose-Response Analysis Using R. PLoS One. 763 
+
+2015;10(12):e0146021. 764 
+
+45. Harrison PW, Amode MR, Austine-Orimoloye O, Azov AG, Barba M, Barnes I, et al. 765 
+
+Ensembl 2024. Nucleic Acids Res. 2024;52(D1):D891-D9. 766 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted May 10, 2026. ;https://doi.org/10.1101/2025.04.28.651122 doi: bioRxiv preprint
+
+39 
+
+46. Dennis G, Jr., Sherman BT, Hosack DA, Yang J, Gao W, Lane HC, et al. DAVID: Database 767 
+
+for Annotation, Visualization, and Integrated Discovery. Genome Biol. 2003;4(5):P3. 768 
+
+47. Binder A, Montavon G, Lapuschkin S, Müller K-R, Samek W, editors. Layer-wise 769 
+
+relevance propagation for neural networks with local renormalization layers. International 770 
+
+conference on artificial neural networks; 2016: Springer. 771 
+
+772
