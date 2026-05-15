@@ -1,0 +1,218 @@
+Title: Counterfactual Stress Testing for Image Classification Models
+
+URL Source: https://arxiv.org/pdf/2605.10894v1
+
+Published Time: Tue, 12 May 2026 03:16:48 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Counterfactual Stress Testing for Image Classification Models 
+
+Moritz Stammel, Fabio De Sousa Ribeiro, Raghav Mehta, Mélanie Roschewitz, and Ben Glocker 
+
+Department of Computing, Imperial College London, UK 
+
+b.glocker@imperial.ac.uk 
+
+Abstract. Deep learning models in medical imaging often fail when de-ployed in new clinical environments due to distribution shifts in demo-graphics, scanner hardware, or acquisition protocols. A central challenge is underspecification, where models with similar validation performance exhibit divergent real-world failure modes. Although stress testing has emerged as a tool to assess this, current methods typically rely on simple, uninformed perturbations (e.g., brightness or contrast changes), which fail to capture clinically realistic variation and can overestimate robust-ness. In this work, we introduce a counterfactual stress testing frame-work based on causal generative models that create realistic “what if” images by intervening on attributes such as scanner type and patient sex while preserving anatomical identity, enabling controlled and seman-tically meaningful evaluation under targeted distribution shifts. Across two imaging modalities (chest X-ray and mammography), three model architectures, and multiple shift scenarios, we show that counterfactual stress tests provide a substantially more accurate proxy for real out-of-distribution performance than classical perturbations, capturing the direction and relative magnitude of performance changes as well as model ranking. These results suggest that causal generative models can serve as practical simulators for robustness assessment, offering a more reliable basis for evaluating medical AI systems prior to deployment. 
+
+Keywords: generative models · causal inference · distribution shift ·
+
+counterfactual reasoning · stress testing 
+
+1 Introduction 
+
+Medical image classification models that perform well on in-distribution vali-dation sets often fail on new scanners or different demographic groups, raising serious robustness and fairness concerns [2,8,15]. It has been found that strong performance on in-distribution data can obscure significant disparities in specific subgroups [24,3], yet reliable methods to anticipate these failure modes prior to deployment are lacking. Before clinical adoption can be considered, several criti-cal questions must be addressed. For instance, will a model trained on data from scanner A maintain its performance on scanner B? Furthermore, will it remain reliable under varying image quality and acquisition protocols?  
+
+> arXiv:2605.10894v1 [cs.CV] 11 May 2026 2M. Stammel et al.
+
+Fig. 1: Proposed counterfactual stress testing framework . Unlike classical stress testing, which is limited to simple perturbations (e.g., contrast adjustment, rotation), counterfactual stress testing uses a causal generative model to simulate targeted attribute-level changes (e.g., scanner-induced appearance shifts) while preserving anatomical identity of the original patient. A key challenge is underspecification , where a model can learn multiple solu-tions that perform identically on in-distribution data but exhibit vastly different failure modes on unseen data [4]. While stress testing has emerged as a tool to assess this [8], current approaches typically rely on simple, uninformed per-turbations (e.g., changes in brightness, contrast, flips, and rotations) [11,25,13], which fail to capture realistic clinical distribution shifts [23,18]. Since many per-turbations mirror training augmentations, this approach can overestimate ro-bustness. Recent work has used generative models to simulate clinical variation. Pérez-García et al. [22] introduced RadEdit, a diffusion-based method apply-ing text-guided, localized edits for stress testing, but it does not generate full counterfactual twins via causal interventions. Ktena et al. [17] used a diffusion model to synthesize matched images for data augmentation to improve model robustness, but not for evaluation under controlled shifts. To bridge this gap, we propose a counterfactual stress testing framework (see Fig. 1). Our goal is to create a high-fidelity synthetic environment that simulates specific, realistic clinical distribution shifts, allowing us to probe model robust-ness and fairness. We use Deep Structural Causal Models (DSCMs) [21,20,6,5], to generate realistic, anatomically consistent counterfactual images, by interven-ing on causal parent variables (e.g., scanner type, patient sex) while preserving anatomical identity, allowing us to systematically assess model robustness and performance drift under these targeted shifts. We validate our framework across two imaging modalities (chest X-ray and mammography) and multiple model architectures (CNNs and ViT) under two Counterfactual Stress Testing for Image Classification Models 3Male, Philips      
+
+> Original Scanner Swap Sex Swap Composite Swap
+> Female, Philips Male, IDC Female, IDC
+> S. Dimensions S. 2000D Lorad S.
+> Observation 1
+> Clearview
+> Observation 2  Observation 3  Observation 4
+
+Fig. 2: Examples of original images and generated counterfactuals for PadChest (left) and EMBED (right) using our DSCM. different distribution shifts (scanner and sex). We compare counterfactual stress testing against classical perturbation based approaches and evaluate their ability to anticipate performance degradation under real out-of-distribution conditions. We show that performance under counterfactual stress tests corresponds more closely to real out-of-distribution degradation and model ranking than classical perturbation-based stress tests. 
+
+2 Methods 
+
+2.1 Datasets PadChest. We utilize the PadChest dataset [1], a large public collection of over 160,000 chest X-rays (CXR). We focus on adult posteroanterior (PA) images for the binary classification of pneumonia. The dataset is partitioned by patient ID into training (80%), validation (10%), and test (10%) subsets. 
+
+EMBED. To demonstrate that our approach generalizes across imaging modal-ities, we also employ 2D mammography images from the EMBED dataset [14]. The dataset contains over 290,000 images and is split by patient ID into training (75%), validation (5%), and test (20%) subsets. 
+
+2.2 Counterfactual Generation Model 
+
+To generate images for our stress tests, we train a Deep Structural Causal Model (DSCM) [6], implemented as a hierarchical β-Variational AutoEncoder (HVAE). 4 M. Stammel et al. 
+
+The model is trained to learn a disentangled latent representation by maximizing the Evidence Lower Bound, composed of a reconstruction loss and a weighted KL-divergence regularizer. To encourage robust disentanglement of the parent attributes (scanner and sex), we use a linear warmup schedule for the KL weight, 
+
+β. Training stability for this large generative model is maintained through gra-dient clipping and accumulation, and we use an Exponential Moving Average of the model weights to produce the final, high-fidelity counterfactual images. In a benchmark study [19], HVAE-based counterfactual generation was found to out-perform other counterfactual generation methods based on axiomatic soundness tests [20]. For the PadChest dataset, the model is conditioned on both biological sex and 
+
+scanner type , while for the EMBED dataset, it is conditioned solely on scanner type . This conditioning enables the generation of counterfactual “twin” images ˆx
+
+of a given source image x, differing only in the specified parent attribute while preserving underlying anatomy. Sample generated counterfactuals for the CXR (PadChest) and mammography (EMBED) datasets are shown in Fig. 2. 
+
+2.3 Classifiers 
+
+To evaluate the robustness of standard medical image classifiers under covari-ate shift, we assess three widely used architectures: ResNet-50 [10], DenseNet-121 [12], and Vision Transformer (ViT-B/16) [7]. On PadChest, models are trained for pneumonia detection, while on EMBED, the task is to predict breast density across four BI-RADS categories. Training uses the Adam optimizer [16] with a learning rate of 1 × 10 −4, early stopping based on validation loss, and commonly used data augmentations including geometric transformations, color jitter, blurring, normalization, and random erasing. 
+
+2.4 Experimental Design 
+
+For each dataset, we construct controlled training and evaluation splits to enable targeted assessment under distribution shifts. On PadChest, models are trained on subsets corresponding to a single condition, such as one scanner manufacturer (e.g., Philips) or one patient sex (e.g., Male). Evaluation is then performed on held-out subsets representing the opposite condition (e.g., IDC or Female) to simulate a real out-of-distribution (OOD) shift. On EMBED, models are trained exclusively on images acquired with the Selenia Dimensions scanner and evalu-ated on images from the Senograph 2000D , Lorad Selenia , and Clearview CSm 
+
+scanners. The out of distribution tests sets are age and prevalence matched to isolate the effect of counterfactual interventions. We then assess the relationship between model performance on synthetic counterfactual images and real OOD data by comparing their respective per-formance gaps. As a baseline, we perform classical stress testing by applying standard perturbations to the IID test set, including gamma correction (GC, 
+
+γ = 1 .7), contrast change (CC, contrast factor = 1 .7), brightness change (BC, brightness factor = 1 .5), sharpness change (SC, sharpness factor = 2 .5), and Counterfactual Stress Testing for Image Classification Models 5-0.08                 
+
+> -0.06
+> -0.04
+> -0.02
+> 0.00
+> Tested on Philips
+> GC CC BC SC GB CF OOD
+> -0.08
+> -0.05
+> -0.02
+> 0.00
+> 0.02
+> 0.05
+> 0.08
+> Tested on IDC
+> AP vs IID
+> DenseNet-121 ResNet-50 ViT-B/16 -0.08
+> -0.06
+> -0.04
+> -0.02
+> 0.00
+> 0.02
+> Tested on Female
+> GC CC BC SC GB CF OOD
+> -0.04
+> -0.02
+> 0.00
+> 0.02
+> Tested on Male
+> AP vs IID
+> DenseNet-121 ResNet-50 ViT-B/16
+
+Fig. 3: Model performance shifts ( ∆AP vs IID) for PadChest classifiers under distribution shifts. Panels compare classical stress tests, as well as counterfactual stress testing (CF) and real out-of-distribution (OOD) evaluation across scanner domains (left) and biological sex (right) subsets. Gaussian blur (GB, kernel size = 7 , σ = 1 .5). These perturbations lie within the range of parameters used in classical stress testing and exceed those typi-cally used in data augmentation, ensuring a sufficiently strong covariate shift for evaluation. Next, we conduct counterfactual stress testing , in which the trained DSCM intervenes on a single causal attribute (scanner type or biological sex) to generate counterfactual test sets that simulate targeted distribution shifts. Fi-nally, we validate on real OOD test sets matched in label distribution to isolate covariate effects and measure performance degradation on both counterfactual and real shifted data. Correlations are computed across all trained models, ran-dom seeds, and shift settings for the respective experiment (architectures × seeds 
+
+× domains), yielding N = 18 paired observations per analysis. 
+
+3 Counterfactual Stress Testing 
+
+3.1 Chest X-Ray Scanner Shift. Our models were trained on one scanner subset and evaluated on the other, with performance measured as ∆AP (Average Precision) relative to the IID test set. As shown in Fig. 3 (left), counterfactual stress testing closely matches real OOD behavior across both scanner domains. On Philips , it cap-tures the substantial performance degradation and approximates its magnitude, whereas classical perturbations consistently underestimate the drop. On IDC ,where OOD performance improves relative to IID, counterfactual stress testing correctly reflects this sign change, while classical methods fail to do so. As sum-marized in Tab. 1, counterfactual stress testing achieves the lowest prediction error on Philips and remains competitive on IDC , indicating a more accurate and stable estimate of OOD performance under scanner-induced distribution shifts. This is further supported by correlation analysis across the two scenarios, where 6 M. Stammel et al. 
+
+Table 1: We report mean absolute error (MAE) between predicted performance shifts under stress testing and the corresponding real OOD performance shifts. Reported as mean ±std . The lowest value per column is highlighted in bold . For PadChest, ∆AP (Average Precision) is reported. For EMBED, ∆AUC (one vs rest macro ROC-AUC) is reported. 
+
+> Methods
+
+PadChest (Single) PadChest (Composite) EMBED Sex Scanner Philips IDC Scanner Male Female IDC Philips Male Female Male Female 2000D Lorad Clearview GC .021 ±.011 .017 ±.014 .043 ±.020 .042 ±.016 .023 ±.009 .013 ±.010 .044 ±.016 .084 ±.049 .033 ±.007 .006 ±.007 .013 ±.006 
+
+CC .022 ±.010 .027 ±.020 .046 ±.019 .042 ±.010 .018 ±.008 .012 ±.007 .028 ±.010 .097 ±.050 .040 ±.007 .004 ±.003 .019 ±.006 
+
+BC .018 ±.017 .037 ±.021 .086 ±.029 .045 ±.023 .021 ±.008 .011 ±.010 .013 ±.008 .118 ±.056 .037 ±.006 .005 ±.004 .016 ±.007 
+
+SC .023 ±.014 .027 ±.015 .041 ±.021 .041 ±.007 .021 ±.010 .014 ±.014 .041 ±.015 .083 ±.055 .038 ±.006 .004 ±.004 .017 ±.007 
+
+GB .027 ±.013 .025 ±.019 .031 ±.020 .045 ±.029 .016 ±.015 .018 ±.014 .017 ±.011 .122 ±.050 .039 ±.006 .004 ±.004 .018 ±.007 
+
+CF .013 ±.008 .011 ±.006 .032 ±.019 .017 ±.011 .003 ±.002 .008 ±.004 .009 ±.008 .032 ±.022 .031 ±.009 .007 ±.004 .003 ±.002 -0.05                 
+
+> -0.04
+> -0.03
+> -0.02
+> -0.01
+> 0.00
+> Tested on Philips
+> GC CC BC SC GB CF OOD
+> -0.10
+> -0.08
+> -0.06
+> -0.04
+> -0.02
+> 0.00
+> Tested on IDC
+> AP vs IID
+> Tested on Female
+> DenseNet-121 ResNet-50 ViT-B/16 -0.06
+> -0.04
+> -0.02
+> 0.00
+> 0.02
+> Tested on Philips
+> GC CC BC SC GB CF OOD
+> -0.05
+> 0.00
+> 0.05
+> 0.10
+> 0.15
+> Tested on IDC
+> AP vs IID
+> Tested on Male
+> DenseNet-121 ResNet-50 ViT-B/16
+
+Fig. 4: Model performance shifts ( ∆AP vs IID) under composite distribution shifts. Bars compare classical stress tests, counterfactual stress testing (CF), and real out-of-distribution (OOD) evaluation. counterfactual stress testing achieves a Pearson correlation of 0.93 ( p < 10 −6)and a Kendall’s τ of 0.49 ( p < 0.01 ) with real OOD performance, while the strongest classical baseline, Sharpness Change (SC), reaches only r = 0 .30 and 
+
+τ = 0 .13 , and other perturbations show weak or even negative correlations. 
+
+Demographic Shift. Our models were trained on one sex and evaluated on the other. As shown in Fig. 3 (right), demographic shifts induce smaller and more variable performance changes than scanner shifts, making them harder to predict. When evaluated on Female patients, all stress testing methods show inconsistent alignment with real OOD behavior. When evaluated on Male pa-tients, performance degrades relative to IID, a trend that is not reliably captured by classical perturbations but is better reflected by counterfactual stress test-ing. Overall, counterfactual stress testing more consistently captures both the direction and relative magnitude of demographic shifts. This is supported by Counterfactual Stress Testing for Image Classification Models 7GC CC BC SC GB CF 
+
+> S. 2000D
+> OOD
+> S. 2000D
+> CF
+> Lorad S.
+> OOD
+> Lorad S.
+> CF
+> Clearview
+> OOD
+> Clearview
+> -0.05
+> -0.04
+> -0.03
+> -0.02
+> -0.01
+> 0.00
+> 0.01
+> AUC vs IID
+> DenseNet-121
+> ResNet-50
+> ViT-B/16
+
+Fig. 5: Model performance shifts ( ∆AUC relative to IID) for EMBED-trained classifiers. Performance is reported as macro-averaged one-vs-rest AUC across the four BI-RADS breast density categories. We compare classical stress tests, counterfactual stress testing, and real OOD evaluation across scanner domains. Error bars indicate ± standard deviation across random seeds. correlation analysis, where counterfactual stress testing achieves a Pearson cor-relation of 0.85 ( p < 0.001 ) and a Kendall’s τ of 0.70 ( p < 0.001 ), while the strongest classical methods (Gamma Correction and Brightness Change) reach only r ≈ 0.47 and τ ≤ 0.36 , and others show near-zero or negative correlations. 
+
+Composite Shift. We extend our framework to simulate composite distribu-tion shifts by jointly intervening on scanner and sex, training on one subgroup (e.g., Male, Philips ) and evaluating on its complement (e.g., Female, IDC ). As shown in Fig. 4, counterfactual stress testing closely aligns with real OOD per-formance across all composite scenarios, capturing both direction and magnitude of performance changes, while classical perturbations remain inconsistent. This is reflected in Tab. 1, where counterfactual stress testing achieves the lowest pre-diction error in all cases. Correlation analysis shows strong agreement with real OOD performance (Pearson r = 0 .95 , p < 10 −12 ; Kendall’s τ = 0 .83 , p < 10 −11 ), substantially outperforming the best baseline, Sharpness Change (SC)( r = 0 .44 ,
+
+τ = 0 .43 ), demonstrating that counterfactual stress testing provides a reliable proxy under combined, clinically realistic shifts. 
+
+3.2 Mammography 
+
+We evaluate our framework on the EMBED dataset to assess generalization across imaging modalities, measuring performance as ∆AUC (Area Under Curve - ROC) relative to IID. As shown in Fig. 5, classical stress tests consistently un-derestimate the impact of scanner shifts, suggesting minimal degradation, while real OOD evaluation reveals substantial performance drops that vary across scan-ners. Counterfactual stress testing more closely aligns with real OOD behavior, correctly capturing the direction of performance changes across all scanners, al-though it underestimates their magnitude, particularly for Selenia 2000D . This is supported by correlation analysis, where counterfactual stress testing achieves a Pearson correlation of 0.69 ( p < 0.001 ) and a Kendall’s τ of 0.53 ( p < 0.001 ), sub-stantially outperforming classical methods, whose correlations remain weak and 8 M. Stammel et al. 
+
+statistically insignificant. These results demonstrate that counterfactual stress testing generalizes across modalities and provides a more reliable proxy for model robustness under scanner-induced distribution shifts. 
+
+4 Discussion & Conclusion 
+
+Interpretation of results. Counterfactual stress testing reveals failure modes that are often missed by classical perturbations such as brightness or contrast adjustments. By intervening on causal factors (scanner type and patient sex) while holding anatomical identity fixed, the DSCM generates semantically tar-geted shifts that better reflect clinically plausible variation. We use real OOD evaluation as an external reference, but the objective is not to exactly pre-dict deployment performance; rather, it is to provide a controlled proxy for ro-bustness under meaningful, attribute-specific distribution shifts. The consistent agreement in direction and relative magnitude between counterfactual and real performance shifts suggests that causally structured generative models can serve as practical simulators for pre-deployment robustness assessment. 
+
+Clinical and methodological relevance. Unlike conventional perturbation-based tests, counterfactual stress testing operates on the manifold of plausible clinical variation. Generated images maintain anatomical identity, enabling ex-pert verification of plausibility and interpretation of model responses. Given our results, the approach shows strong potential for integration into robustness assessment pipelines prior to clinical deployment. It could also support scenario-based auditing and ongoing post-deployment monitoring, similar to stress testing in other safety-critical domains. By combining causal interpretability with quan-titative performance evaluation, the method aligns with emerging requirements for transparency, fairness, and auditability in medical AI regulation. 
+
+Limitations and future work. Our framework presumes knowledge of the causal graph and identifiability of counterfactuals from observed data. These assumptions may not hold in practice, affecting the causal validity of estimated counterfactuals. Recent advances in deep causal inference, such as DECI [9], suggest promising directions for relaxing these requirements through data-driven structure learning. In future work, we plan to explore structure-learning DSCMs that can automatically infer causal dependencies, develop quantitative metrics for counterfactual realism, and incorporate human-in-the-loop evaluation by ra-diologists. Extending the framework to three-dimensional imaging and multi-attribute interventions would further enhance its applicability. 
+
+Conclusion. We presented a causally grounded framework for evaluating model robustness in medical imaging. Using counterfactual image synthesis, we showed that model performance under controlled interventions aligns with behaviour under real distribution shifts. This framework provides a principled way to assess robustness under clinically relevant variations, supporting safe deployment. Counterfactual Stress Testing for Image Classification Models 9
+
+Acknowledgments. This work was supported by the Centre of Excellence for Regula-tory Science & Innovation in AI & Digital Health Project Support Fund [ref PSF04], the Royal Academy of Engineering (Kheiron/RAEng Research Chair), the UKRI/EPSRC Causality in Healthcare AI Hub [ref EP/Y028856/1], and the European Union’s Hori-zon Europe research and innovation programme under grant agreement 101080302. Views and opinions expressed are however those of the author(s) only and do not nec-essarily reflect those of the European Union or HaDEA. Neither the European Union nor the granting authority can be held responsible for them. 
+
+References 
+
+1. Bustos, A., Pertusa, A., Salinas, J., de la Iglesia-Vayá, M.: Padchest: A large chest x-ray image dataset with multi-label annotated reports (2020) 2. Castro, D.C., Walker, I., Glocker, B.: Causality matters in medical imaging. Nature Communications 11 (1), 3673 (2020) 3. Celi, L.A., Cellini, J., Charpignon, M.L., Dee, E.C., et al.: Sources of bias in ar-tificial intelligence that perpetuate healthcare disparities—a global review. PLOS Digital Health 1(3), e0000022 (2022) 4. D’Amour, A., et al.: Underspecification presents challenges for credibility in mod-ern machine learning. JMLR 23 (226), 1–61 (2022) 5. De Sousa Ribeiro, F., Santhirasekaram, A., Glocker, B.: Counterfactual identifia-bility via dynamic optimal transport. NeurIPS (2025), to appear 6. De Sousa Ribeiro, F., Xia, T., Monteiro, M., Pawlowski, N., Glocker, B.: High fidelity image counterfactuals with probabilistic causal models. In: ICML (2023) 7. Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., et al.: An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929 (2020) 8. Eche, T., Schwartz, L.H., Mokrane, F.Z., Dercle, L.: Toward generalizability in the deployment of artificial intelligence in radiology: role of computation stress test-ing to overcome underspecification. Radiology: Artificial Intelligence 3(6), e210097 (2021) 9. Geffner, T., et al.: Deep end-to-end causal inference. Transactions on Machine Learning Research 1(1), 1–34 (2024) 10. He, K., Zhang, X., Ren, S., Sun, J.: Deep residual learning for image recognition. In: Proceedings of the IEEE conference on computer vision and pattern recognition. pp. 770–778 (2016) 11. Hendrycks, D., Dietterich, T.: Benchmarking neural network robustness to common corruptions and perturbations. In: ICLR (2019) 12. Huang, G., Liu, Z., Van Der Maaten, L., Weinberger, K.Q.: Densely connected convolutional networks. In: Proceedings of the IEEE conference on computer vision and pattern recognition. pp. 4700–4708 (2017) 13. Islam, M., Li, Z., Glocker, B.: Robustness stress testing in medical image classifi-cation. In: UNSURE-MICCAI. pp. 167–176. Springer Nature Switzerland, Cham (2023) 14. Jeong, J.J., Vey, B.L., Bhimireddy, A., Kim, T., et al.: The emory breast imaging dataset (embed): A racially diverse, granular dataset of 3.4 million screening and diagnostic mammographic images. Radiology: Artificial Intelligence 5(1), e220047 (2023). https://doi.org/10.1148/ryai.220047 10 M. Stammel et al. 15. Jones, C., De Sousa Ribeiro, F., Roschewitz, M., Castro, D.C., Glocker, B.: Re-thinking fair representation learning for performance-sensitive tasks. In: ICLR (2025) 16. Kingma, D.P., Ba, J.: Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 (2014) 17. Ktena, I., et al.: Generative models improve fairness of medical classifiers under distribution shifts. Nature Medicine (2024). https://doi.org/10.1038/ s41591-024-02838-6 
+
+18. Mehta, R., Ribeiro, F.D.S., Xia, T., Roschewitz, M., Santhirasekaram, A., Mar-shall, D.C., Glocker, B.: CF-Seg: Counterfactuals meet segmentation. In: MICCAI. pp. 117–127. Springer (2025) 19. Melistas, T., Spyrou, N., Gkouti, N., Sanchez, P., Vlontzos, A., Panagakis, Y., Papanastasiou, G., Tsaftaris, S.A.: Benchmarking counterfactual image generation. Advances in Neural Information Processing Systems 37 , 133207–133230 (2024) 20. Monteiro, M., De Sousa Ribeiro, F., Pawlowski, N., Castro, D.C., Glocker, B.: Measuring axiomatic soundness of counterfactual image models. In: ICLR (2023) 21. Pawlowski, N., Coelho de Castro, D., Glocker, B.: Deep structural causal models for tractable counterfactual inference. NeurIPS 33 , 857–869 (2020) 22. Pérez-García, F., et al.: RadEdit: Stress-Testing Biomedical Vision Models via Diffusion Image Editing (2024). https://doi.org/10.1007/978-3-031-73254-6_ 21 
+
+23. Roschewitz, M., De Sousa Ribeiro, F., Xia, T., Khara, G., Glocker, B.: Robust im-age representations with counterfactual contrastive learning. Medical Image Anal-ysis p. 103668 (2025) 24. Saab, K., Hooper, S., Chen, M., Zhang, M., Rubin, D., Ré, C.: Reducing reliance on spurious features in medical image classification with spatial specificity. In: ML4H. pp. 760–784. PMLR (2022) 25. Young, A., et al.: Stress testing reveals gaps in clinic readiness of image-based diagnostic artificial intelligence models. npj Digital Medicine 4(1), 10 (Jan 2021)
