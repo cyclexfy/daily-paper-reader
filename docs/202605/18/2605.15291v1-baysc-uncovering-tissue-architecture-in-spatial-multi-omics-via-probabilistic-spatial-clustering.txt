@@ -1,0 +1,738 @@
+Title: BaySC: Uncovering Tissue Architecture in Spatial Multi-Omics via Probabilistic Spatial Clustering
+
+URL Source: https://arxiv.org/pdf/2605.15291v1
+
+Published Time: Mon, 18 May 2026 00:06:20 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# BAY SC: U NCOVERING TISSUE ARCHITECTURE IN SPATIAL 
+
+# MULTI -O MICS VIA PROBABILISTIC SPATIAL CLUSTERING 
+
+A P REPRINT 
+
+Xin Li 1 Xiaofei Dong 1 Zhenke Duan 1 Lulu Shang 3 Xiao Wang 4 Xinyuan Song 5
+
+Hanwen Ning 1,2,† Guanyu Hu 6,†
+
+> 1
+
+School of Statistics and Mathematics, Zhongnan University of Economics and Law, Wuhan 430073, China 
+
+> 2
+
+Innovation and Talent Base for Digital Technology and Finance, Zhongnan University of Economics and Law 
+
+> 3
+
+Department of Biostatistics, The University of Texas MD Anderson Cancer Center, Texas 77030, USA 
+
+> 4
+
+Department of Statistics, Purdue University, Indiana 47907, USA 
+
+> 5
+
+Department of Statistics, The Chinese University of Hong Kong, Hong Kong, China 
+
+> 6
+
+Department of Statistics and Probability, Michigan State University, MI 48824, USA 
+
+ninghanwen@gmail.com huguanyu@msu.edu 
+
+> †
+
+Corresponding authors May 18, 2026 
+
+## ABSTRACT 
+
+Motivation: Spatial domain identification requires jointly modeling molecular signatures and physical coordinates, yet current tools frequently over-smooth biological boundaries, require user-specified cluster numbers, and lack principled multimodal integration. 
+
+Results: We introduce BaySC, an integrative Bayesian spatial clustering framework for spatial domain identification. BaySC inherently learns the true number of spatial domains from the data by employing a Mixture of Finite Mixtures (MFM) prior. Tissue topology is modeled via a Markov Random Field (MRF) applied to discrete cellular assignments, a strategy that enforces local spatial coherence without distorting the underlying gene expression features. This enables BaySC to accurately map contiguous tissue layers as well as geographically scattered, transcriptionally identical cell populations. Furthermore, BaySC handles spatial multi-omics data through a weighted log-likelihood fusion mechanism executed via Gibbs sampling. This approach assigns interpretable weights to each modality, allowing users to quantify the biological relevance of different data layers to the final tissue map. Validated across ten single-modal spatial transcriptomics and two spatial multi-omics datasets, BaySC yields highly interpretable probabilistic outputs. It demonstrates competitive accuracy on standard clustering metrics and consistently outperforms existing tools in preserving spatial topography, as measured by spatially-aware Adjusted Rand Index (spARI). 
+
+Availability and implementation: The code is available at https://github.com/lixin0304/ BaySC 
+
+Keywords Bayesian Spatial Domain Detection · Markov Random Field · Mixture of Finite Mixtures · Spatial Omics 
+
+## 1 Introduction 
+
+The emergence of spatial transcriptomics (ST) has enabled the systematic, transcriptome-scale measurement of gene expression while precisely preserving the in situ spatial microenvironment of tissues [Moses and Pachter, 2022, Rao et al., 2021]. This technological advance has fundamentally expanded our ability to interrogate complex living systems across diverse biological contexts [Chen et al., 2023, Jorstad et al., 2023, Hunter et al., 2021]. Against this backdrop, 
+
+> arXiv:2605.15291v1 [stat.AP] 14 May 2026
+
+BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT 
+
+spatial domain identification, which delineates functional tissue regions exhibiting both transcriptomic coherence and spatial continuity by jointly integrating molecular expression profiles with physical location information, has emerged as a central pillar of ST data analysis [Hu et al., 2021, Dong and Zhang, 2022, Long et al., 2023, Singhal et al., 2024]. The outputs of spatial domain identification directly support various downstream bioinformatic tasks [Gulati et al., 2024, Dries et al., 2021, Tian et al., 2024]. Despite substantial progress, spatial domain identification continues to face several profound analytical challenges. First, ST measurements are typically compromised by limited sequencing depth and stochastic dropout, rendering the resulting count matrices intrinsically high dimensional, sparse and noisy. Stable statistical modeling of such data requires highly effective representation and denoising strategies [Wang et al., 2022, Tian et al., 2024]. Second, from the perspective of heterogeneous data integration, gene expression profiles are high-dimensional sparse vectors, whereas physical spatial coordinates are low-dimensional continuous variables. Coupling these intrinsically different data structures within a unified probabilistic framework remains a nontrivial statistical hurdle [Chen et al., 2025, Li et al., 2025]. Third, driven by the rapid evolution of spatial multi-omics technologies, platforms such as MISAR-seq and Spatial-CITE-seq now permit the simultaneous capture of multiple molecular modalities within the same tissue section, including transcriptomics, chromatin accessibility (ATAC), and protein abundance (ADT) [Jiang et al., 2023, Liu et al., 2023]. However, the relative contributions of these modalities to defining tissue architecture are often spatially heterogeneous. This shifting modality importance imposes substantial demands on model design, requiring adaptive integration mechanisms [Liu et al., 2025, Long et al., 2024]. Finally, the true number of spatial domains in real biological tissues is generally unknown and highly data-dependent. Pre-specifying the number of clusters, which is required by most current methods, remains biologically unjustified and frequently introduces systematic bias into downstream inferential analyses [Zhao et al., 2021, Miller and Harrison, 2018]. Existing methods for spatial domain identification have largely evolved along a few representative technical trajectories, each carrying distinct methodological limitations. Graph neural network (GNN)-based approaches, exemplified by SpaGCN [Hu et al., 2021], STAGATE [Dong and Zhang, 2022], GraphST [Long et al., 2023], and Giotto [Dries et al., 2021], typically construct a spatial adjacency graph and aggregate neighborhood expression information using graph convolution or graph attention, followed by standard clustering algorithms (e.g., K-means, mclust, or Louvain). BANKSY [Singhal et al., 2024] concatenates intrinsic cellular expression features with neighborhood-averaged features to capture the local microenvironment [Li et al., 2025, Tian et al., 2024]. A fundamental limitation of these approaches is that their spatial integration mechanism performs spatial smoothing directly on continuous expression features. Consequently, when the data are highly noisy or true biological boundaries are sharp, this feature-level smoothing inevitably leads to “over-smoothing”, blurring transcriptionally distinct boundaries and producing spurious intermediate states that do not correspond to true biological structures. BayesSpace [Zhao et al., 2021] offers a fully Bayesian framework that models spatial continuity via a Markov random field (MRF) prior on discrete cluster labels [Singhal et al., 2024, Miller and Harrison, 2018]. However, BayesSpace is structurally restricted to single-modality RNA data, which limits its performance. For multimodal integration, SpatialGlue [Long et al., 2024], SpaMI [Gao et al., 2025], soFusion [Yu et al., 2025], INSTINCT [Liu et al., 2025], and SMOPCA [Chen et al., 2025] rely on deep attention mechanisms, contrastive learning, or representation fusion. While offering immense flexibility, these deep learning frameworks share several critical limitations: they treat the number of clusters as a rigid, user-provided input rather than an inferential target and lack principled mechanisms for quantifying cell-level clustering uncertainty [Tian et al., 2024, Dong et al., 2025]. Achieving a principled equilibrium between statistical rigor, flexible multimodal integration, adaptive cluster-number inference, and controllable spatial regularization remains a highly pressing unmet need. To resolve these limitations, we propose Bayesian Spatial Clustering (BaySC), a unified Bayesian spatial clustering framework tailored for spatial transcriptomics and multi-omics data. BaySC computes pairwise cosine similarities from low-dimensional embeddings of each modality [Moses and Pachter, 2022, Cusanovich et al., 2018, Liu et al., 2023], and employs the Fisher Z-transformation to map these similarities onto the real line. This design performs robust, modality-agnostic statistical standardization prior to inference, effectively normalizing depth-related scale differences [Wang et al., 2022, Chen et al., 2025, Long et al., 2024]. At its core, BaySC replaces the classical Chinese restaurant process with a Mixture of Finite Mixtures (MFM) prior [Miller and Harrison, 2018], which leverages marginal likelihood ratio mechanisms to dynamically suppress redundant domains, enabling statistically consistent, data-driven inference of the true number of clusters. Furthermore, BaySC introduces an MRF constraint [Zhao et al., 2021, Singhal et al., 2024] that strictly modulates the discrete label allocation probabilities during Gibbs sampling, fundamentally bypassing the feature-blurring artifacts of GNNs. Multimodal evidence is seamlessly integrated via a weighted linear summation of log-likelihoods [Chen et al., 2025], and the optimal spatial smoothing parameters are automatically calibrated using the modified deviance information criterion (mDIC) [Spiegelhalter et al., 2002]. BaySC contributes significant advancements to both statistical methodology and biological practice: 2BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT �2�1                                                      
+
+> X（1）
+> Embedding
+> E（1）
+> X（n)
+> Input&Embedding Similarity
+> Spatial Neighborhood
+> Aij
+> -1
+> 1
+> 01
+> ���∈−1,1
+> Fisher-Z
+> Wij=1si−sj2≤�
+> Probabilistic Model & Inference
+> 푙표   ��=�| ∙ )=푻풆   �+푻풆   �+푻풆   �
+> Posterior E stimation
+> Membership matrices
+> A（1）
+> A（2）B1B�∗BM
+> ……
+> min mDIC
+> �
+> Dahl
+> Average
+> �
+> �
+> �
+> ���
+> �
+> �
+> �
+> W
+> distance matrix
+> dij
+> Gibbs
+> m�mℓm)i,c)�
+> j∈�i)
+> 1zj=c
+> Likelihood
+> Fusion
+> MRF Spatial MFM Prior
+> 푙표  ��
+> −�)+�
+> A（�）
+> …
+> …
+> E（2）
+> E（�）
+> Embedding
+> Embedding
+> …
+> Select
+> �∈1，2，. . . �
+> M=1
+> M=2
+> M= n
+> …
+> Over-clustering
+> suppression
+> VnK∗+1)/VnK∗) < 1
+> Gibbs sampling outputs M samples of z
+> Wij=0
+> Wij=1
+> Wii=0
+
+Figure 1: Overall framework of BaySC. (Left) Raw count matrices from each molecular modality are embedded into low-dimensional representations, from which pairwise similarity matrices are derived via Fisher-Z transformation. A binary spatial neighborhood matrix W is simultaneously constructed from physical spot coordinates. (Middle) Acollapsed Gibbs sampler updates cluster assignments by jointly balancing multimodal data likelihood, MRF spatial coherence, and the MFM clustering prior. The spatial smoothing parameter λ is automatically calibrated by minimizing mDIC. (Right) Posterior co-membership matrices collected across Gibbs iterations are averaged and the representative sample is selected via Dahl’s method as the final domain assignment. • Statistical Innovations: We establish a principled generative model that simultaneously infers the optimal number of spatial clusters via an MFM prior and calibrates spatial regularization via mDIC, removing arbitrary manual tuning. Furthermore, by placing the MRF constraint strictly on the allocation of discrete latent labels rather than on continuous observation features, BaySC encourages spatial contiguity among neighboring cells while fully preserving the capacity to cluster geographically disjoint but transcriptionally homogeneous structures without distorting the underlying data geometry. • Biological Insights: The Bayesian formulation provides a level of interpretability unavailable in deep learning frameworks. The modality-specific likelihood weights offer a quantifiable metric to determine which molecular layer (e.g., epigenomic versus transcriptomic) derives the organization of specific tissue regions. Crucially, by extracting point estimates via the Dahl method [Dahl, 2006, 2020], BaySC yields exact posterior co-membership probabilities for every cell [Tian et al., 2024]. This provides critical biological uncertainty quantification, enabling researchers to confidently identify transitional cellular subpopulations, map continuous developmental gradients, and dissect ambiguous domain boundaries within complex tissues. Through comprehensive benchmarking across three single-modality datasets and two multimodal datasets, BaySC achieves clustering performance that is highly competitive with the strongest neural baselines on standard external metrics (ARI, AMI, NMI) [Gulati et al., 2024]. Most importantly, BaySC consistently outperforms all competing approaches on the spatially aware metric spARI, definitively demonstrating its superiority in preserving spatial consistency and true domain boundaries. BaySC also establishes an extensible probabilistic foundation for future studies into temporally dynamic tissues and uncertainty-aware experimental designs. 
+
+## 2 Materials and Methods 
+
+2.1 The Framework of BaySC 
+
+We propose BaySC, a fully Bayesian integrative framework designed for robust spatial domain identification across spatial multi-omics datasets. By synergistically leveraging multiple molecular modalities, BaySC preserves tissue-level spatial architecture while automatically inferring the number of distinct spatial domains. The workflow encompasses four sequential stages, as illustrated in Figure 1. 
+
+Step 1: Data Preprocessing and Graph Construction. Raw count matrices from each molecular modality are projected into low-dimensional latent embeddings, from which cell–cell similarity matrices are computed via cosine 3BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT 
+
+similarity and stabilized by Fisher-Z transformation. Physical tissue coordinates are independently used to construct a binary spatial neighborhood matrix. Together, these two matrix types constitute all inputs to the generative model. 
+
+Step 2: Bayesian Hierarchical Modeling. BaySC formulates a Bayesian hierarchical model over the similarity matrices. The observation layer employs a Gaussian Stochastic Block Model (SBM) with Normal-Gamma conjugate priors to capture intra- and inter-domain molecular relationships. The clustering layer is governed by a joint prior combining an MFM—for data-driven inference of the domain number—and an MRF—for penalizing spatially isolated assignments to enforce structural contiguity. 
+
+Step 3: Posterior Inference via Collapsed Gibbs Sampling. Inference is executed via a collapsed Gibbs sampler that analytically marginalizes out all continuous block parameters under Normal-Gamma conjugacy, restricting sampling to discrete domain labels. Multimodal evidence is fused through a weighted log-likelihood during label updates, while a specialized marginal likelihood governs new-domain proposals. The Dahl method resolves label switching and extracts a posterior point estimate, and the resulting co-membership matrix provides cell-level assignment uncertainty. 
+
+Step 4: Data-Driven Hyperparameter Calibration. The spatial penalty ( λ) and neighborhood threshold ( δ) are jointly selected via mDIC over a predefined grid. The mDIC applies a BIC-consistent complexity penalty to guard against over-clustering. The grid explicitly includes a λ = 0 baseline, allowing the model to deactivate spatial regularization when the data do not support it. The complete BaySC procedure is also presented by Algorithm 1 in Supplementary Note 1. 
+
+2.2 Data Representation and Similarity Construction 
+
+Consider a tissue section containing n cells with spatial coordinates si ∈ R2, i = 1 , . . . , n . Each cell is associated with molecular measurements from one or more modalities, including RNA transcriptomics, ATAC chromatin accessibility, and protein abundance (ADT), in any combination. Step 1 transforms the heterogeneous raw multi-omics data into numerical inputs amenable to the probabilistic model. This process comprises three components: modality-specific embedding, cell–cell similarity matrix construction, and spatial neighborhood matrix construction. 
+
+Modality-specific embedding. For each modality m, the raw count matrix (cells × features) is compressed through a standard preprocessing pipeline into a low-dimensional embedding matrix E(m) ∈ Rn×dm , where dm is the retained embedding dimensionality. Specifically, the RNA modality undergoes library-size normalization, log(1 + x)
+
+transformation, highly variable gene selection, and gene-wise z-score standardization, followed by PCA; the ATAC modality undergoes binarization and TF-IDF transformation, followed by truncated SVD with removal of the first component that predominantly captures sequencing depth; the protein/ADT modality undergoes centered log-ratio (CLR) transformation followed by PCA. Finally, cell-wise z-score standardization ( ddof = 1 ) is applied uniformly across all modalities to eliminate differences in numerical scale. 
+
+Cell–cell similarity matrix. Given the standardized embedding matrix E(m), the cosine similarity between cells i and 
+
+j is defined as: 
+
+R(m) 
+
+> ij
+
+= 1
+
+dm
+
+ E(m) 
+
+> i
+
+·  E(m)⊤ 
+
+> j
+
+. (1) To map the bounded similarity values onto the entire real line with approximately homogeneous variance [Hu, 2021], the Fisher-Z transformation is applied: 
+
+A(m) 
+
+> ij
+
+= arctanh  R(m)
+
+> ij
+
+ = 12 log 1 + R(m)
+
+> ij
+
+1 − R(m)
+
+> ij
+
+. (2) Before transformation, R(m) 
+
+> ij
+
+is clipped to (−0.9999 , 0.9999) to prevent numerical overflow. The diagonal entries A(m)
+
+> ii
+
+are retained for use in the new-domain proposal (see details of Step 3). 
+
+Spatial neighborhood matrix. Based on the coordinates si, a binary spatial neighborhood matrix W ∈ { 0, 1}n×n is defined as: 
+
+Wij = 1 ∥si − sj ∥2 ≤ δ, i ̸ = j, (3) where δ > 0 is the neighborhood distance threshold. The matrix W is symmetric with Wii = 0 . The spatial neighborhood of cell i is denoted by ∂(i) = {j : Wij = 1 }, which serves as the graph structure used to impose the MRF constraint in Step 2. 
+
+2.3 Spatially-Informed Bayesian Hierarchical Model 
+
+Given {A(m)} and W from Step 1, we formulate the following Bayesian hierarchical model comprising a Gaussian SBM likelihood, Normal-Gamma conjugate priors, and a spatially-aware partition prior. 4BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT 
+
+Generative Model for Cell Similarities. We assign a latent state variable zi ∈ { 1, . . . , k } to represent the spatial domain membership of the i-th cell, with the total number of domains k treated as an unknown quantity to be learned from the data. We assume the upper-triangular elements (including the diagonal) of each similarity matrix follow a Gaussian distribution. For any pair of cells 1 ≤ i ≤ j ≤ n, the likelihood is given by: 
+
+A(m) 
+
+> ij
+
+| zi, z j , U(m), T(m), k ind 
+
+∼ N μ(m) 
+
+> zizj
+
+, (τ (m) 
+
+> zizj
+
+)−1. (4) Here, the parameter matrices U(m) ∈ Rk×k and T(m) ∈ Rk×k 
+
+> +
+
+dictate the block-specific expectations ( μ(m) 
+
+> rs
+
+) and precisions ( τ (m) 
+
+> rs
+
+) for the m-th modality, while maintaining symmetry. Assuming conditional independence of the edges given the domain partition [Holland et al., 1983], the full likelihood factorizes across the block structure: 
+
+P A(m) | z, U(m), T(m), k  = Y
+
+> 1≤r≤s≤k
+
+P A(m)[rs ] | z, U(m), T(m), (5) where A(m)[rs ] represents the submatrix collecting the similarities between cells situated in domain r and domain s.
+
+Conjugate Parameter Priors. We impose a Normal-Gamma conjugate prior on the mean-precision pairs: 
+
+T (m)
+
+> rs
+> ind
+
+∼ Gamma( α, β ), (6) 
+
+U (m) 
+
+> rs
+
+| T (m)
+
+> rs
+> ind
+
+∼ N  μ0, k −10 (T (m) 
+
+> rs
+
+)−1, r ≤ s. (7) We employ a data-driven empirical approach to specify the hyperparameter μ0 [Hu et al., 2023]: for within-domain connections ( r = s), μ0 is derived from the average of the diagonal entries of A(m), whereas for between-domain interactions ( r̸ = s), it takes the average of the off-diagonal entries. The remaining hyperparameters are deterministically set to k0 = 10 and α = β = 1 .
+
+Mixture of Finite Mixtures Prior. Traditional nonparametric priors, such as the Dirichlet process mixture (conceptual-ized via the Chinese restaurant process), are known to yield inconsistent estimates of the number of components as the sample size approaches infinity, typically by generating spurious, negligible clusters [Miller and Harrison, 2018]. To circumvent this limitation, BaySC adopts an MFM prior to govern the distribution of k:
+
+k ∼ p(·), (π1, . . . , π k) | k ∼ Dirichlet( γ, . . . , γ ),zi | k, π ∼
+
+> k
+
+X
+
+> h=1
+
+πh δh, i = 1 , . . . , n. (8) We specify p(·) as a zero-truncated Poisson(1) distribution, with γ serving as the symmetric Dirichlet concentration parameter. Marginalizing out the mixing weights π yields a modified Pólya urn scheme for the conditional prior of the domain assignments [Miller and Harrison, 2018]: 
+
+P (zi = c | z−i) ∝
+
+
+
+n(−i) 
+
+> c
+
++ γ, if c ∈ { Ex },Vn(w + 1) 
+
+Vn(w) γ, if c ∈ { N ew },
+
+(9) where n(−i) 
+
+> c
+
+signifies the cardinality of domain c excluding the i-th cell, w denotes the number of instantiated domains, 
+
+{Ex } = {1, . . . , w } denotes the set of existing domains, and {N ew } = {w + 1 } denotes a new domain. Because the ratio Vn(w + 1) /V n(w) < 1, the MFM mechanism inherently penalizes the instantiation of new clusters, guaranteeing an asymptotically consistent estimation of the true domain count. 
+
+Spatial Regularization via Markov Random Fields. Standard MFM formulations implicitly assume exchangeability among cells, failing to account for the spatial autocorrelation fundamental to spatial transcriptomics data. To explic-itly capture this geographical dependency, we integrate an MRF [Orbanz and Buhmann, 2008]. Given the spatial neighborhood graph W from Step 1, we define the energy potential as: 
+
+H(zi | z−i) := −λ X
+
+> j∈∂(i)
+
+1(zj = zi), λ ∈ R+, (10) imparting an energy reward of λ for each spatial neighbor sharing the same domain label as cell i.
+
+Unified MRFC-MFM Prior Formulation. We synthesize the MFM base measure and the MRF structural penalty into a joint prior: Π( z) ∝ P (z) M (z). Following Hu et al. [2023], we adapt their theoretical results to our SBM framework, yielding the following label-update probabilities. 5BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT 
+
+Proposition 1 (Adapted MRFC-MFM Label Update Probabilities, [Hu et al., 2023]) . Let n(−i) 
+
+> c
+
+designate the population of domain c excluding cell i, and let K∗ denote the total number of active domains after the removal of cell i. The full conditional probability of assigning cell i to domain c within the Gibbs sampler is: 
+
+P (zi = c | z−i) ∝
+
+ n(−i) 
+
+> c
+
++ γ exp 
+
+
+
+λ X
+
+> j∈∂(i)
+
+1(zj = c)
+
+
+
+, if c ∈ { Ex },Vn(K∗ + 1) 
+
+Vn(K∗) γ, if c ∈ { N ew },
+
+(11) 
+
+where the topological reinforcement term exp( ·) is neutralized when proposing a completely new domain, immunizing novel clusters from the MRF structural penalty. The proof of Proposition 1 is provided in Supplementary Note 2. 
+
+When evaluating an existing domain c, the assignment probability combines two forces: a “rich-get-richer” dynamic driven by the cluster mass n(−i) 
+
+> c
+
++ γ, and a topological reinforcement term reflecting the number of spatial neighbors already assigned to c. Proposing a new domain confers no spatial energy reward and incurs the MFM deflation penalty 
+
+Vn(K∗ + 1) /V n(K∗). This balance suppresses artifactual isolated domains driven by transcriptomic noise while preserving genuine biological boundaries. Crucially, the effectiveness of this spatial regularizer hinges on the magnitude of λ. If λ is too small, spatial smoothing is negligible; if excessively large, it forces rigid spatial blocks that override the data likelihood. Drawing on the statistical mechanics of the ferromagnetic Potts model [Wu, 1982], we establish a heuristic scaling boundary to guide the hyperparameter search space. 
+
+Heuristic Scaling of the Spatial Penalty. Let W define a spatial neighborhood graph with average degree c, and let k
+
+be the current number of active spatial domains. Under a mean-field approximation, the critical threshold scales as 
+
+λc ≈ kc , delineating two behavioral regimes: 1. Disordered Regime ( λ ≪ λc): Domain allocations are primarily governed by the data likelihood and the MFM deflation penalty, potentially leading to fragmented spatial structures. 2. Ordered Regime ( λ ≥ λc): The MRF induces spontaneous symmetry breaking, heavily biasing the system toward artificially large, homogeneous spatial blocks, overriding the SBM likelihood. 
+
+2.4 Multimodal Fusion and Posterior Inference 
+
+Conditioned on a specified spatial smoothing penalty λ and neighborhood distance threshold δ, Step 3 executes the Bayesian hierarchical model formulated in Step 2. This inference stage comprises four components: multimodal weighted log-likelihood fusion, a new-domain proposal mechanism, a collapsed Gibbs sampling algorithm, and posterior point estimation with cell-level uncertainty quantification. 
+
+Multimodal Weighted Log-Likelihood. All modalities share a unified domain label vector z while maintaining modality-specific block parameter sets {U(m), T(m)}. Building on Proposition 1, the log-probability of assigning cell i
+
+to an existing domain c is: 
+
+log P (zi = c | · ) = X
+
+> m
+
+αm · ℓ(m)(i, c )+λ X
+
+> j∈∂(i)
+
+1(zj = c) + log  n(−i) 
+
+> c
+
++ γ, (12) balancing three terms: the weighted multimodal data likelihood, the MRF spatial coherence reward, and the MFM “rich-get-richer” effect. The conditional log-likelihood of modality m for domain c is: 
+
+ℓ(m)(i, c ) = X 
+
+> j̸=i
+
+h 12 log τ (m) 
+
+> c,z j
+
+− τ (m)
+
+> c,z j
+> 2
+
+ A(m) 
+
+> ij
+
+− μ(m)
+
+> c,z j
+
+2i
+
+, (13) where when zj = c the within-domain parameters (μ(m) 
+
+> cc
+
+, τ (m) 
+
+> cc
+
+) apply, and when zj = s̸ = c the cross-domain parameters (μ(m) 
+
+> cs
+
+, τ (m) 
+
+> cs
+
+) apply. The weights αm ≥ 0 govern the relative contribution of each modality. For single-modality data, the framework reduces to M = 1 and α1 = 1 .6BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT 
+
+New-Domain Proposal Mechanism. When cell i is proposed to instantiate a novel domain c = K∗ + 1 , no existing members are available, rendering the standard block likelihoods undefined. In this case, the algorithm defaults to the Normal-Gamma marginal likelihood, using the cell’s self-similarity diagonal entry A(m) 
+
+> ii
+
+as the sole observation: 
+
+log P (zi = K∗ + 1 | · ) = X
+
+> m
+
+αm · log m(m) A(m)
+
+> ii
+
+ + log γ
+
++ log Vn(K∗ + 1) − log Vn(K∗), (14) where the analytical marginal likelihood is: 
+
+log m(m)(A(m) 
+
+> ii
+
+) = log Γ( αn) − log Γ( α)+α log β − αn log βn + 12 log k0 
+
+> kn
+
+, (15) with updated hyperparameters kn = k0 + 1 , αn = α + 12 , and βn = β + k0
+
+2kn
+
+ A(m) 
+
+> ii
+
+− μdiag 0
+
+2. Because diagonal entries A(m) 
+
+> ii
+
+deviate substantially from the off-diagonal range after Fisher-Z transformation, this marginal likelihood is inherently low, providing a data-driven penalty against unnecessary domain creation that compounds the MFM deflation term Vn(K∗ + 1) /V n(K∗).
+
+Collapsed Gibbs Sampling. Exploiting Normal-Gamma conjugacy, all continuous block parameters {U(m), T(m)}
+
+are analytically marginalized out, restricting the MCMC sampling space to the discrete labels z and circumventing the mixing issues associated with reversible-jump MCMC in trans-dimensional spaces [Hu et al., 2023]. Each iteration alternates between two updates: First, for each cell i, a new label is sampled from K∗ + 1 candidates via Eq. (12) for existing domains and Eq. (14) for a new domain. Empty domains are immediately purged and labels renumbered. Second, block parameters are resampled. Let D(m) 
+
+> rs
+
+= {A(m) 
+
+> ij
+
+: zi = r, z j = s, i ≤ j} with cardinality nrs , sample mean ¯A(m) 
+
+> rs
+
+, and residual sum of squares SSE (m) 
+
+> rs
+
+= P
+
+> A∈D (m)
+> rs
+
+(A − ¯A(m) 
+
+> rs
+
+)2. The posterior hyperparameters update as: 
+
+kn = k0 + nrs , μn = k0 μ0 + nrs ¯A(m)
+
+> rs
+
+kn
+
+, αn = α + nrs 
+
+2 ,βn = β + 12
+
+
+
+SSE (m) 
+
+> rs
+
++ nrs k0
+
+kn
+
+  ¯A(m) 
+
+> rs
+
+− μ0
+
+2
+
+
+
+, (16) and fresh block parameters are drawn via: 
+
+τ (m) 
+
+> rs
+
+∼ Gamma( αn, β n), μ(m) 
+
+> rs
+
+| τ (m) 
+
+> rs
+
+∼ N  μn, (kn τ (m) 
+
+> rs
+
+)−1. (17) 
+
+Posterior Point Estimation and Uncertainty Quantification. Following burn-in, M posterior samples are collected. To resolve label switching, we apply the approach of Dahl [2006]. At iteration t, define the binary co-membership matrix B(t) with entries B(t) 
+
+> ij
+
+= 1(z(t) 
+
+> i
+
+= z(t) 
+
+> j
+
+), and compute the posterior mean adjacency matrix ¯B = 1
+
+> M
+
+PMt=1 B(t).The representative sample is selected as: 
+
+t∗ = arg min  
+
+> t∈{ 1,...,M }
+
+X
+
+> i,j
+
+ B(t) 
+
+> ij
+
+− ¯Bij 
+
+2. (18) The optimal domain number K and all parameter estimates are extracted from the t∗-th sample. The matrix ¯B also provides cell-level uncertainty: ¯Bij ≈ 1 indicates near-certain co-assignment, ¯Bij ≈ 0 indicates clear separation, and intermediate values mark ambiguous boundaries. To quantify uncertainty at the single-cell level, let Cc = {j : ˆ zj = c}
+
+be the set of cells assigned to domain c under the point estimate ˆz. The mean posterior co-membership affinity of cell i
+
+to its assigned domain is: 
+
+¯pi,c = 1
+
+|C c \ { i}| 
+
+X 
+
+> j∈C c, j ̸=i
+
+¯Bij , (19) and the cell-level uncertainty score is: 
+
+ui = 1 − max  
+
+> c
+
+¯pi,c ∈ [0 , 1] , (20) where ui ≈ 0 denotes confident domain membership and ui ≈ 1 identifies putative boundary cells, transitional progenitors, or noisy captures. 7BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT 
+
+2.5 Data-Driven Hyperparameter Selection via mDIC 
+
+The performance of Step 3 relies on two hyperparameters: the neighborhood distance threshold δ, which defines the physical radius of cell–cell interactions and determines the density of W, and the spatial penalty λ, which controls the rigidity of domain boundaries. Since tissue architectures vary across biological samples, from stratified cortical layers to disorganized tumor microenvironments, default parameters are sub-optimal. Step 4 therefore employs the mDIC to jointly select the optimal pair (λ∗, δ ∗) via a data-driven grid search. 
+
+Theoretical Search Space and Candidate Grid. We construct the candidate grid G using the theoretical bounds from Step 2. Because the Markov chain risks collapsing into an artifactually frozen state when λ ≥ λc, we restrict λ to 
+
+[0 , λ max ], where λmax < λ c = k/c . For each configuration (λ, δ ) ∈ G , the complete MCMC inference pipeline is executed independently, and the optimal parameters are selected by: 
+
+(λ∗, δ ∗) = arg min  
+
+> (λ,δ )∈G
+
+mDIC( λ, δ ). (21) 
+
+The mDIC Formulation. The standard DIC [Spiegelhalter et al., 2002] calibrates its penalty on an AIC-like scale, which under-penalizes complexity in large-scale spatial transcriptomics data, leading to the proliferation of biologically meaningless micro-domains. We instead employ the mDIC, which adjusts the penalty to a BIC-consistent scale [Schwarz, 1978]: 
+
+mDIC = D(θ) + log 
+
+ n(n + 1) 2
+
+
+
+pD , (22) where the posterior mean deviance is approximated from the M post-burn-in Gibbs samples: 
+
+D(θ) = −2 Epost 
+
+h
+
+log P {A(m)} | θi
+
+, (23) and the effective complexity is: 
+
+pD = D(θ) − D(ˆθ), (24) with D(ˆθ) the deviance at the Dahl posterior point estimate (Eq. (18) ). In practice, pD measures posterior dispersion: unstable MCMC chains yield inflated pD values. The penalty multiplier log   n(n+1) 2
+
+ reflects the effective sample size of the Gaussian SBM—the number of upper-triangular elements in A(m)—scaling the penalty conservatively with the 
+
+O(n2) observation space to guard against overfitting. 
+
+The Non-Spatial Safeguard. The candidate grid includes a λ = 0 baseline. If a tissue sample lacks genuine spatial autocorrelation, the mDIC will select λ∗ = 0 , reducing the model to a standard unstructured MFM. This ensures spatial contiguity is enforced only when empirically supported by the data, avoiding the over-smoothing artifacts common in GNN-based methods. 
+
+## 3 Results 
+
+3.1 Experimental Setup Datasets. We evaluated BaySC on twelve spatial transcriptomics datasets spanning both single-modality and multi-modality settings; detailed dataset statistics are provided in Supplementary Note 3. Single-modality experiments used three benchmark sources: Human Breast Cancer (HBC) , a 10x Visium dataset of human breast cancer tissue annotated with 20 spatial domains based on H&E morphology and pathological features ( n = 3 ,798 spots); STARmap ,a spatial transcriptomics dataset of the mouse visual cortex comprising 7 spatial domains ( n = 1 ,207 cells); and 
+
+HER2-positive Breast Cancer , comprising eight tissue sections (A1–H1) with 3–6 annotated domains and 167–659 spots per section. Multi-modality experiments used two paired spatial multi-omics datasets. Human Lymph Node A1 ,a 10x Visium dataset jointly profiling RNA and protein (ADT) modalities ( n = 3 ,484 spots). The original H&E-based manual annotation defines 10 anatomical compartments, further merged into 6 broader classes for clustering evaluation, following the comparison setting adopted in prior analyses of this dataset. MISAR-seq Mouse E15.5 Brain , jointly profiling spatial mRNA and ATAC-seq ( n = 1 ,949 spots, K = 7 ). 
+
+Data Preprocessing. Raw count matrices for each modality were preprocessed through standard pipelines to obtain low-dimensional embeddings. RNA profiles were normalized, log-transformed, and reduced to 50 principal components via PCA; ATAC profiles were binarized, TF-IDF transformed, and reduced to 50 components via LSI with the first component discarded; protein/ADT profiles were CLR-normalized and reduced to 30 principal components via PCA. All embeddings were subsequently standardized per cell ( z-score, ddof = 1 ) before input into BaySC. 8BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT a
+
+# b
+
+> Ground Truth
+> Ground Truth
+
+Figure 2: Single-modality spatial clustering results on the Human Breast Cancer 10x Visium dataset and the STARmap Mouse Visual Cortex dataset. (a) Human Breast Cancer ( n = 3 ,798 spots, K = 20 domains). From left to right: ground-truth domain annotations comprising 20 regions (DCIS/LCIS, IDC, tumour edge, and healthy tissue); predicted spatial domains by BaySC; and spatial domain maps produced by seven competing methods (BayesSpace, DeepST, GraphST, STAGATE, SpaGCN, Seurat, spaMMCL). Bar charts below compare ARI, AMI, NMI, Homogeneity, and Moran’s I across all methods, with BaySC shown in red. (b) STARmap Mouse Visual Cortex ( n = 1 ,207 cells, K = 7 
+
+domains). From left to right: ground-truth cortical layer annotations (CC, HPC, L1–L6); predicted spatial domains by BaySC; and spatial domain maps produced by seven competing methods. Bar charts below compare all six evaluation metrics across methods, with BaySC shown in red. 
+
+Evaluation Metrics. We evaluate spatial clustering performance using six complementary metrics, whose formal definitions are given in Supplementary Note 4. Specifically, we report four standard clustering metrics (ARI, AMI, NMI, and Homogeneity), as well as two spatially aware metrics (Moran’s I and spARI [Yan et al., 2025]) to quantify spatial coherence. Notably, spARI assigns asymmetric penalties to misclassified cell pairs according to their Euclidean distances in tissue space, making it particularly well aligned with the biological assumption of spatial continuity in tissue domains. We therefore regard spARI as the primary metric. 
+
+3.2 Single-Modality Spatial Domain Identification Human Breast Cancer. We evaluated BaySC on the HBC dataset ( n = 3798 spots, K = 20 ). As shown in Fig. 2a, BaySC ranked first in spARI with a score of 0.6643, exceeding the second-best method by 0.101. BaySC also attained ARI, AMI, NMI, and Homogeneity scores of 0.5541, 0.6663, 0.6722, and 0.6928, respectively, all of which are 9BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT 
+
+comparable to those of the baseline methods. The superior spARI performance indicates that the label-layer MRF constraint in BaySC effectively preserves the spatial continuity of predicted domains within the tumor microenvironment, while leaving the probabilistic modeling of expression features largely unaffected. Notably, BaySC automatically inferred the number of domains as K = 20 without any manual specification. 
+
+STARmap Mouse Visual Cortex. On the STARmap dataset ( n = 1 ,207 cells, K = 7 ), BaySC ranked first in AMI (0.6772), NMI (0.6799), and Homogeneity (0.6555), second in ARI (0.5291; spaMMCL achieved 0.5545), and first in spARI with a score of 0.6708, outperforming the second-best method, spaMMCL (0.5879). BaySC also achieved the highest Moran’s I value among all methods (0.9182; Fig. 2b). The mouse visual cortex exhibits a clear laminar organization (CC, HPC, and L1–L6), characterized by strong spatial continuity across layers and distinct transcriptomic profiles between them. The high Moran’s I value indicates that the domain boundaries predicted by BaySC are highly spatially coherent, while the strong AMI and NMI scores show that the transcriptomic specificity of individual cortical layers is also well distinguished. This balanced performance directly reflects the design of BaySC, in which the label-layer MRF constraint and the SBM likelihood are specified independently. 
+
+HER2-positive Breast Cancer. To examine the robustness of BaySC across tissue slices of varying complexity, we evaluated it on eight HER2-positive breast cancer sections (A1–H1, K = 3 –6, n = 167 –659 ). As shown in Fig. 3b, BaySC achieved the highest median spARI with the smallest cross-slice variation. Its median ARI, AMI, and NMI scores also ranked among the best across the methods. The advantage was particularly significant on more challenging slices with weaker signals. On slice E1, BaySC achieved an spARI of 0.4674, whereas all baseline methods scored below 0.15. On slice F1, BaySC reached 0.4215, while the second-best method, STAGATE, achieved only 0.1394. On slice A1, BaySC reached 0.4871, compared with only 0.1956 for the second-best method, Seurat. These results suggest that the systematic penalty imposed by the MFM prior on the introduction of new domains enables BaySC to maintain robust spatial domain identification even under sparse data and weak signal conditions. Detailed results are presented in Supplementary Note 5. 
+
+3.3 Multi-Modal Spatial Domain Identification Human Lymph Node A1. We evaluated BaySC on the Human Lymph Node A1 dataset ( n = 3484 spots, K = 6 ;bimodal RNA + protein ADT data). As shown in Fig. 4a, BaySC achieved the highest ARI (0.3354), while its AMI (0.3902) and NMI (0.3927) were comparable to those of the strongest baseline methods. BaySC further attained an spARI of 0.5221, exceeding the second-best method by 0.209, which is the largest margin observed between BaySC and the runner-up across all datasets considered in this study. The resulting clustering map accurately delineates the major structural compartments of the lymph node and shows high agreement with the reference annotation. The posterior uncertainty map visualizes spot-wise assignment uncertainty using the log 10 (ui) color scale. Spots located in the subcapsular sinus and trabeculae exhibit markedly elevated uncertainty scores ui (Eq. (20) ), consistent with the intrinsically ambiguous transition boundaries of these structures in histology. By contrast, spots in regions with well-defined transcriptomic signatures, such as the cortex and follicle, show near-zero uncertainty and correspondingly high assignment confidence. This spot-level uncertainty pattern is biologically coherent and offers a practical basis for downstream analysis: high-confidence spots may be prioritized for mechanistic investigation, while additional biological validation can be focused on high-uncertainty boundary regions. We further conducted a sensitivity analysis on the ratio αRNA :αProtein (right panel of Fig. 4a). Both ARI and spARI peaked when the RNA modality was assigned a slightly higher weight than the protein modality (spARI = 0.3635, ARI = 0.3411), and both metrics declined as the weight ratio became increasingly skewed. The performance of either single modality alone was substantially inferior to that of bimodal integration, indicating that both modalities are indispensable for resolving lymph node tissue architecture. 
+
+MISAR-seq Mouse E15.5 Brain. We evaluated BaySC on the MISAR-seq Mouse E15.5 Brain dataset ( n = 1 ,949 
+
+spots, K = 7 ; bimodal RNA + ATAC data). As shown in Fig. 4b, BaySC ranked first in ARI (0.3305), AMI (0.4391), NMI (0.4423), Moran’s I (0.7455), and spARI (0.5091). Notably, the spARI values of all other multimodal methods remained below 0.23 (SpatialGlue: 0.1998; SMOPCA: 0.2258), placing them more than 0.25 behind BaySC. Comparison with unimodal baselines further highlights the necessity of multimodal integration. The RNA-only baseline (ARI 0.2462, spARI 0.4488) recovered the overall outlines of the major brain regions, but several boundaries remained indistinct. In contrast, the ATAC-only baseline (ARI 0.1074, spARI 0.3206) produced substantial misclassification in the Cartilage and Skull regions, indicating that chromatin accessibility information alone is insufficient to distinguish these structures. By jointly integrating both modalities, BaySC outperformed both unimodal baselines in terms of ARI and spARI, and accurately resolved all seven anatomical regions (Fig. 4b). 10 BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT A1 
+
+a
+
+> G2 F1 E1
+> D1 C1 B1
+> H1
+
+b
+
+Figure 3: Spatial clustering results on the HER2-positive Breast Cancer dataset across eight tissue sections (A1–H1). 
+
+(a) Predicted spatial domains by BaySC for each of the eight sections, with annotated domain counts K = 3 –6 and spot counts n = 167 –659 . (b) Box plot comparison of ARI, AMI, NMI, spARI, Homogeneity, and Moran’s I across all eight sections, with BaySC shown in the first position. Per-section numerical results and clustering maps are provided in Supplementary Note 5. The posterior uncertainty map (Fig. 4b) further shows that spots near the boundaries between the forebrain, midbrain, and hindbrain exhibit markedly elevated ui values. This pattern is highly consistent with the developmental transition gradients characteristic of these regions at embryonic day E15.5: progenitor cells near fate-decision boundaries have not yet fully differentiated at the transcriptomic level and therefore exhibit inherent ambiguity in clustering. These results suggest that the uncertainty quantification provided by BaySC can capture cell subpopulations with genuine developmental significance, thereby offering a computational basis for prioritizing targeted experimental validation. Sensitivity analysis of the ratio αRNA :αATAC showed a similar pattern: performance peaked when the RNA modality was assigned a slightly larger weight (1.5:1; spARI = 0.5572, ARI = 0.3885), and declined when either modality was overly emphasized. Taken together with the results from both multimodal datasets, these findings indicate that RNA plays a relatively dominant role in spatial domain identification, while the complementary information provided by the other modality remains essential. Unlike deep learning methods where modality weights are typically learned implicitly by the network, the explicit parameter αm offers a transparent and quantifiable tool for analyzing modality contributions and for conducting evidence-based weight tuning across different tissue contexts. 
+
+## 4 Discussion and Future Work 
+
+In this study, we introduced BaySC, a fully Bayesian integrative framework for spatial domain identification in spatial transcriptomics and multi-omics data. By combining an MFM prior with an MRF constraint applied to discrete latent label assignments, BaySC decouples data-driven inference of the cluster number from the enforcement of spatial contiguity. This design prevents the feature-blurring artifacts of GNN-based approaches, enabling precise delineation of 11 BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT Groundtruth 
+
+> Groundtruth
+
+# a
+
+# b
+
+Figure 4: Multi-modal spatial clustering results on the Human Lymph Node A1 and MISAR-seq Mouse E15.5 Brain datasets. (a) Human Lymph Node A1 ( n = 3 ,484 spots, K = 6 domains, RNA + Protein modalities). From left to right: ground-truth annotations (ten structural compartments merged into six classes); predicted spatial domains by BaySC; posterior uncertainty map ( log 10 scale); bar charts comparing six metrics across ten methods; and sensitivity analysis of the αRNA :αProtein weight ratio (peak: spARI = 0.3635, ARI = 0.3411). (b) MISAR-seq Mouse E15.5 Brain ( n = 1 ,949 
+
+spots, K = 7 domains, RNA + ATAC modalities). From left to right: ground-truth annotations; predicted domains by BaySC (joint RNA + ATAC), RNA-only baseline, and ATAC-only baseline; posterior uncertainty map; bar charts comparing all six metrics; and sensitivity analysis of the αRNA :αATAC weight ratio (peak near 1.5:1; spARI = 0.5572, ARI = 0.3885). biological boundaries without distorting the underlying expression geometry. Coupled with data-driven hyperparameter calibration via mDIC and a weighted log-likelihood formulation for multimodal fusion, BaySC provides a principled, end-to-end generative model. Benchmarking confirmed competitive performance on standard clustering metrics and consistent superiority on the spatially aware spARI metric. Beyond its algorithmic contributions, BaySC offers direct utility for biological interpretation through uncertainty quantification. Unlike deterministic deep learning methods that produce rigid boundaries and opaque representations, BaySC leverages the Dahl method to extract a posterior co-membership matrix, allowing researchers to explicitly quantify clustering confidence at the single-cell or spot level. This enables systematic identification of ambiguous spatial boundaries, including developmental gradients in embryogenesis and invasive margins in tumor microenvironments, that conventional algorithms force into artificial discrete categories. The modality-specific weights further inform researchers about which molecular layers, such as epigenomic accessibility versus protein abundance, drive local tissue organization, yielding biological insights into spatially heterogeneous multi-omics data. 12 BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT 
+
+Despite its theoretical rigor and empirical success, BaySC has several methodological limitations. First, while analytical marginalization streamlines the collapsed Gibbs sampler, MCMC inference on atlas-scale datasets remains computationally intensive relative to optimized neural network forward passes. Second, the static, distance-based neighborhood graph defined by δ may under-connect sparse regions or over-connect dense structures in tissues with highly variable cellular densities. Finally, the Fisher-Z transformation implicitly assumes approximately linear pairwise relationships in the latent space, and may not fully capture highly non-linear transcriptomic manifolds without additional pre-conditioning. These limitations suggest clear directions for future work. To address computational bottlenecks at whole-organ scale, we plan to explore variational inference approximations or split-merge MCMC strategies that retain the theoretical guarantees of the MFM prior while accelerating convergence. As spatial technologies advance from 2D sections to 3D volumes and spatio-temporal tracking, the MRF component can be naturally extended to multi-slice or temporal spatial graphs, enabling 3D/4D spatial domain identification. Finally, adaptive graph construction with edge weights learned from local tissue morphology or cellular density could further enhance BaySC’s resolution of single-cell spatial omics data. 
+
+## Conflicts of Interest 
+
+The authors declare that they have no competing interests. 
+
+## Funding 
+
+This work is supported in part by funds from the National Science Foundation (NSF: # 1636933 and # 1920920) and RGF grant (No. 14300425) from the Research Grant Council of Hong Kong. 
+
+## Data Availability 
+
+All spatial transcriptomics and spatial multi-omics datasets used in this study are publicly available, as summarized in Supplementary Note 3. 
+
+## Author Contributions 
+
+H.N. and G.H. conceived the initial idea, supervised this study, and acquired the funding. X.L. developed the methodology, designed the model framework, implemented the software, performed all experiments, and wrote the original draft. X.D. reproduced the baseline methods and assisted with the experiments. Z.D. designed and produced the visualizations. L.S. and X.W. contributed to the methodological design. L.S., X.W., X.S., H.N., and G.H. reviewed and revised the manuscript. All authors have read and approved the final manuscript. 
+
+## Acknowledgments 
+
+The authors thank the anonymous reviewers for their valuable suggestions. AI-assisted language editing was performed using Claude (Anthropic). 
+
+## References 
+
+Lambda Moses and Lior Pachter. Museum of spatial transcriptomics. Nature Methods , 19:534–546, 2022. Anjali Rao, Dalia Barkley, Gustavo S. França, and Itai Yanai. Exploring tissue architecture using spatial transcriptomics. 
+
+Nature , 596:211–220, 2021. Ao Chen, Sha Sun, Longqi Liu, et al. Spatiotemporal transcriptomic maps of whole mouse embryos at the onset of organogenesis. Nature Genetics , 55:1176–1185, 2023. Nikolas L. Jorstad, Jennie Close, Nelson Johansen, et al. Transcriptomic cytoarchitecture reveals principles of human neocortex organization. Science , 382(6667):eadf6812, 2023. Miranda V. Hunter, Reuben Moncada, Joshua M. Weiss, et al. Spatially resolved transcriptomics reveals the architecture of the tumor-microenvironment interface. Nature Communications , 12:6498, 2021. 13 BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT 
+
+Jian Hu, Xiangjie Li, Kyle Coleman, et al. Spagcn: Integrating gene expression, spatial location and histology to identify spatial domains and spatially variable genes by graph convolutional network. Nature Methods , 18(11): 1342–1351, 2021. Kangning Dong and Shihua Zhang. Deciphering spatial domains from spatially resolved transcriptomics with an adaptive graph attention auto-encoder. Nature Communications , 13(1):1739, 2022. Yahui Long, Kok Siong Ang, Mengwei Li, et al. Spatially informed clustering, integration, and deconvolution of spatial transcriptomics with GraphST. Nature Communications , 14:1155, 2023. Vipul Singhal, Nigel Chou, Joseph Lee, et al. Banksy unifies cell typing and tissue domain segmentation for scalable spatial omics data analysis. Nature Genetics , 56(3):431–441, 2024. Gunsagar S. Gulati, Jordan P. D’Silva, Yunhe Liu, et al. Profiling cell identity and tissue architecture with single-cell and spatial transcriptomics. Nature Reviews Molecular Cell Biology , 2024. Ruben Dries, Qian Zhu, Rui Dong, et al. Giotto: a toolbox for integrative analysis and visualization of spatial expression data. Genome Biology , 22:78, 2021. Tian Tian, Jie Zhang, Xiang Lin, et al. Dependency-aware deep generative models for multitasking analysis of spatial omics data. Nature Methods , 21:1501–1513, 2024. Yunguan Wang, Bing Song, Shidan Wang, et al. Sprod for de-noising spatially resolved transcriptomics data based on position and image information. Nature Methods , 19:950–958, 2022. Mo Chen, Ruihua Cheng, Jianuo He, et al. Smopca: spatially aware dimension reduction integrating multi-omics improves the efficiency of spatial domain detection. Genome Biology , 26(1):135, 2025. Longyi Li, Liyan Dong, Hao Zhang, et al. spallm: enhancing spatial domain analysis in multi-omics data through large language model integration. Briefings in Bioinformatics , 26(4):bbaf304, 2025. Fuqing Jiang, Xin Zhou, Yingying Qian, Miao Zhu, Li Wang, Zhuxia Li, Qingmei Shen, Minhan Wang, Fangfang Qu, Guizhong Cui, et al. Simultaneous profiling of spatial gene expression and chromatin accessibility during mouse brain development. Nature Methods , 20(7):1048–1057, 2023. Yang Liu, Marcello DiStasio, Graham Su, et al. High-plex protein and whole transcriptome co-mapping at cellular resolution with spatial CITE-seq. Nature Biotechnology , 41:1405–1409, 2023. Yuyao Liu, Zhen Li, Xiaoyang Chen, et al. Instinct: Multi-sample integration of spatial chromatin accessibility sequencing data via stochastic domain translation. Nature Communications , 16(1):1247, 2025. Yahui Long, Kok Siong Ang, Raman Sethi, et al. Deciphering spatial domains from spatial multi-omics with spatialglue. 
+
+Nature Methods , 21(9):1658–1667, 2024. Edward Zhao, Matthew R Stone, Xing Ren, et al. Spatial transcriptomics at subspot resolution with BayesSpace. Nature Biotechnology , 39(11):1375–1384, 2021. Jeffrey W. Miller and Matthew T. Harrison. Mixture models with a prior on the number of components. Journal of the American Statistical Association , 113(521):340–356, 2018. Congqiang Gao, Chenghui Yang, and Lihua Zhang. A graph neural network-based spatial multi-omics data integration method for deciphering spatial domains. PLOS Computational Biology , 21(9):e1013546, 2025. Na Yu, Wenrui Li, Xue Sun, et al. sofusion: facilitating tissue structure identification via spatial multi-omics data fusion. 
+
+Briefings in Bioinformatics , 26(5):bbaf513, 2025. Hongyu Dong, Sheng Mao, Yukuan Liu, et al. Spatranslator: A deep generative framework for universal spatial multi-omics cross-modality translation. bioRxiv , pages 2025–11, 2025. Darren A. Cusanovich, Andrew J. Hill, Delasa Aghamirzaie, et al. A single-cell atlas of in vivo mammalian chromatin accessibility. Cell , 174(5):1309–1324, 2018. David J. Spiegelhalter, Nicola G. Best, Bradley P. Carlin, et al. Bayesian measures of model complexity and fit. Journal of the Royal Statistical Society: Series B (Statistical Methodology) , 64(4):583–639, 2002. David B Dahl. Model-based clustering for expression data via a dirichlet process mixture model. Bayesian inference for gene expression and proteomics , 4:201–218, 2006. DB Dahl. salso: Sequentially-allocated latent structure optimization. R package version 0.1 , 16:31, 2020. Guanyu Hu. Spatially varying sparsity in dynamic regression models. Econometrics and Statistics , 17:23–34, 2021. Paul W Holland, Kathryn Blackmond Laskey, and Samuel Leinhardt. Stochastic blockmodels: First steps. Social Networks , 5(2):109–137, 1983. 14 BaySC: Probabilistic Spatial Clustering for Spatial Multi-Omics A P REPRINT 
+
+Guanyu Hu, Junxian Geng, Yishu Xue, et al. Bayesian spatial homogeneity pursuit of functional data: an application to the us income distribution. Bayesian Analysis , 18(2):579–605, 2023. Peter Orbanz and Joachim M Buhmann. Nonparametric bayesian image segmentation. International Journal of Computer Vision , 77(1):25–45, 2008. Fa-Yueh Wu. The potts model. Reviews of Modern Physics , 54(1):235, 1982. Gideon Schwarz. Estimating the dimension of a model. The Annals of Statistics , pages 461–464, 1978. Yinqiao Yan et al. spari: a spatially aware adjusted rand index for spatial transcriptomics clustering evaluation. 
+
+Biometrics , 2025. 15
