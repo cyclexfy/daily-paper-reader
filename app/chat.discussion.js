@@ -73,22 +73,28 @@ window.PrivateDiscussionChat = (function () {
     ) {
       return 'deepseek';
     }
-    if (/bltcy\.ai|gptbest\.vip/i.test(normalizedBaseUrl)) {
-      return 'plato';
-    }
-    return 'generic-openai';
+    return 'unsupported';
   };
-  const buildStreamingChatPayload = (baseUrl, model, messages) => {
-    const utils = window.DPRLLMConfigUtils || {};
-    if (typeof utils.buildStreamingChatPayload === 'function') {
-      return utils.buildStreamingChatPayload({ baseUrl, model, messages });
-    }
-    return {
-      model,
-      messages,
-      stream: true,
-    };
-  };
+	  const buildStreamingChatPayload = (baseUrl, model, messages) => {
+	    const utils = window.DPRLLMConfigUtils || {};
+	    if (typeof utils.buildStreamingChatPayload === 'function') {
+	      return utils.buildStreamingChatPayload({ baseUrl, model, messages });
+	    }
+	    const payload = {
+	      model,
+	      messages,
+	      stream: true,
+	    };
+	    const normalizedModel = String(model || '').trim().toLowerCase();
+	    const normalizedBaseUrl = String(baseUrl || '').trim().toLowerCase();
+	    if (
+	      (normalizedModel === 'deepseek-v4-flash' || normalizedModel === 'deepseek-v4-pro')
+	      && /(^|\/\/)(api\.)?deepseek\.com(?:$|\/)/i.test(normalizedBaseUrl)
+	    ) {
+	      payload.max_tokens = 393216;
+	    }
+	    return payload;
+	  };
 
   let chatDbPromise = null;
 
@@ -1164,13 +1170,15 @@ window.PrivateDiscussionChat = (function () {
       let resp = null;
 
       const baseUrl = (modelEntry && modelEntry.baseUrl ? modelEntry.baseUrl : '').trim();
-      const chatProfile = inferChatApiProfile(baseUrl, model);
-      const primaryPayload = buildStreamingChatPayload(baseUrl, model, messages);
-      const fallbackPayload = {
-        model,
-        messages,
-        stream: true,
-      };
+	      const primaryPayload = buildStreamingChatPayload(baseUrl, model, messages);
+	      const fallbackPayload = {
+	        model,
+	        messages,
+	        stream: true,
+	      };
+	      if (primaryPayload && primaryPayload.max_tokens) {
+	        fallbackPayload.max_tokens = primaryPayload.max_tokens;
+	      }
 
       const doChatFetch = async (payload) => fetch(endpoint, {
           method: 'POST',

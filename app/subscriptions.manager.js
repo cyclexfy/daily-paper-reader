@@ -17,11 +17,16 @@ window.SubscriptionsManager = (function () {
   let quickRun30dStandardBtn = null;
   let quickRunOpenWorkflowPanelBtn = null;
   let quickRunConferenceBtn = null;
-  let quickRunYearSelect = null;
-  let quickRunConferenceSelect = null;
   let quickRunMsgEl = null;
+  let selectedConference = 'ICML';
+  let selectedConferenceYears = [];
   let resetContentBtn = null;
   let resetContentMsgEl = null;
+  let adminDailyTabBtn = null;
+  let adminConferenceTabBtn = null;
+  let adminDailyPanel = null;
+  let adminConferencePanel = null;
+  let activeAdminPanelTab = 'daily';
 
   let draftConfig = null;
   let hasUnsavedChanges = false;
@@ -57,32 +62,77 @@ window.SubscriptionsManager = (function () {
     '}',
     'Requirements:',
     '1) keywords: output 5-12 objects; each item must include keyword and query, keyword_cn optional.',
-    '2) keywords are used for recall and should be atomic phrases (prefer 1-3 core words).',
-    '3) Avoid coupling core terms (e.g., "symbolic regression", "reinforcement learning", "genetic programming", "Transformer") with extra qualifiers into one keyword. Keep core terms atomic in keyword and use query for full intent.',
-    '4) Suggested example:',
+    '2) keyword and query MUST be English retrieval text only. Do not put Chinese in keyword or query.',
+    '3) keyword_cn and query_cn MUST be Chinese translations/explanations when present.',
+    '4) keywords are used for recall and should be atomic phrases (prefer 1-3 core words).',
+    '5) Avoid coupling core terms (e.g., "symbolic regression", "reinforcement learning", "genetic programming", "Transformer") with extra qualifiers into one keyword. Keep core terms atomic in keyword and use query for full intent.',
+    '6) Suggested example:',
     '   {"keyword":"symbolic regression","query":"deep symbolic regression methods","keyword_cn":"符号回归","query_cn":"符号回归深度方法"},',
     '   {"keyword":"reinforcement learning","query":"policy gradient symbolic regression","keyword_cn":"强化学习","query_cn":"策略梯度在符号回归中的应用"},',
     '   {"keyword":"MCTS","query":"MCTS for symbolic regression"}',
-    '5) intent_queries: output 1-4 actionable intent queries. Each item should include query and optional query_cn.',
-    '6) Do not output extra fields like must_have / optional / exclude / rewrite_for_embedding / must_have.',
-    '7) Return pure JSON only, no explanations.',
-    '8) Tag suggestion should be concise, preferably under 6 characters.',
+    '7) intent_queries: output 1-4 actionable intent queries. The query field MUST be English only; query_cn should be Chinese.',
+    '8) Do not output extra fields like must_have / optional / exclude / rewrite_for_embedding / must_have.',
+    '9) Return pure JSON only, no explanations.',
+    '10) Tag suggestion should be concise and descriptive. No fixed length limit.',
+    '11) Tag suggestion must be English words or an English acronym only. Never output Chinese in tag.',
+    '12) Tag suggestion must use hyphen-separated words when multiple words are needed, for example "reinforcement-learning". Do not use spaces or underscores in tag.',
   ].join('\n');
 
   const QUICK_RUN_CONFERENCES = [
-    'ACL',
-    'AAAI',
-    'COLING',
-    'EMNLP',
-    'ICCV',
-    'ICLR',
+    'NIPS',
     'ICML',
-    'IJCAI',
-    'NeurIPS',
-    'SIGIR',
   ];
+  const CONFERENCES_WITH_PENDING_CURRENT_YEAR = new Set([
+    'NIPS',
+    'ICML',
+  ]);
 
   const normalizeText = (v) => String(v || '').trim();
+  const sanitizeProfileTag = (value) => {
+    const base = normalizeText(value);
+    if (!base) return '';
+    const tag = base
+      .replace(/\((?:19|20)\d{2}(?:年)?\)/g, '')
+      .replace(/（(?:19|20)\d{2}(?:年)?）/g, '')
+      .replace(/([\u4e00-\u9fffA-Za-z]+)\s*(?:19|20)\d{2}(?!\d)/g, '$1')
+      .replace(/(?:19|20)\d{2}(?!\d)([\u4e00-\u9fffA-Za-z]+)/g, '$1')
+      .replace(/[\s_-]*(?:19|20)\d{2}(?:年)?[\s_-]*/g, '')
+      .replace(/\+/g, '-')
+      .replace(/[\s_]+/g, '-')
+      .replace(/[^A-Za-z0-9-]+/g, '')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .trim();
+    if (!/[A-Za-z]/.test(tag)) return '';
+    return tag;
+  };
+  const deriveProfileTag = (profile, fallback) => {
+    const values = [profile && profile.tag];
+    (Array.isArray(profile && profile.keywords) ? profile.keywords : []).forEach((item) => {
+      if (typeof item === 'string') {
+        values.push(item);
+        return;
+      }
+      if (item && typeof item === 'object') {
+        values.push(item.keyword, item.query);
+      }
+    });
+    (Array.isArray(profile && profile.intent_queries) ? profile.intent_queries : []).forEach((item) => {
+      if (typeof item === 'string') {
+        values.push(item);
+        return;
+      }
+      if (item && typeof item === 'object') {
+        values.push(item.query);
+      }
+    });
+    values.push(fallback);
+    for (let idx = 0; idx < values.length; idx += 1) {
+      const tag = sanitizeProfileTag(values[idx]);
+      if (tag) return tag;
+    }
+    return '';
+  };
   const normalizeSourceKey = (v) => normalizeText(v).toLowerCase();
   const toStableId = (value) => {
     const text = normalizeText(value).toLowerCase();
@@ -365,42 +415,108 @@ window.SubscriptionsManager = (function () {
     return out;
   };
 
-  const fillQuickRunOptions = (yearSelectEl, confSelectEl) => {
-    if (yearSelectEl && !yearSelectEl._dprQuickRunOptionsFilled) {
-      yearSelectEl._dprQuickRunOptionsFilled = true;
-      const currentYear = new Date().getFullYear();
-      for (let y = currentYear; y >= currentYear - 8; y -= 1) {
-        const opt = document.createElement('option');
-        opt.value = String(y);
-        opt.textContent = String(y);
-        yearSelectEl.appendChild(opt);
-      }
+  const initializeConferenceChoices = () => {
+    if (!selectedConferenceYears.length) {
+      selectedConferenceYears = normalizeConferenceYearsForSelection([String(new Date().getFullYear())]);
     }
+  };
 
-    if (confSelectEl && !confSelectEl._dprQuickRunOptionsFilled) {
-      confSelectEl._dprQuickRunOptionsFilled = true;
-      QUICK_RUN_CONFERENCES.forEach((name) => {
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = name;
-        confSelectEl.appendChild(opt);
-      });
+  const getConferenceYearOptions = () => {
+    const currentYear = new Date().getFullYear();
+    return [currentYear, currentYear - 1, currentYear - 2].map((year) => String(year));
+  };
+
+  const isConferenceYearSelectable = (conference, year) => {
+    const conf = normalizeText(conference).toUpperCase();
+    const yearText = normalizeText(year);
+    if (
+      CONFERENCES_WITH_PENDING_CURRENT_YEAR.has(conf)
+      && yearText === String(new Date().getFullYear())
+    ) {
+      return false;
+    }
+    return true;
+  };
+
+  const normalizeConferenceYearsForSelection = (years, conference = selectedConference) => {
+    const allowed = getConferenceYearOptions().filter((year) =>
+      isConferenceYearSelectable(conference, year),
+    );
+    const selected = new Set((Array.isArray(years) ? years : []).map((year) => normalizeText(year)));
+    const out = allowed.filter((year) => selected.has(year));
+    return out;
+  };
+
+  const renderConferenceChoiceButtons = () => {
+    const conferenceWrap = document.getElementById('arxiv-admin-conference-choice-group');
+    const yearWrap = document.getElementById('arxiv-admin-conference-year-group');
+    selectedConferenceYears = normalizeConferenceYearsForSelection(selectedConferenceYears);
+    if (conferenceWrap) {
+      conferenceWrap.innerHTML = QUICK_RUN_CONFERENCES
+        .map((name) => {
+          const active = name === selectedConference;
+          return `<button
+            class="dpr-choice-pill${active ? ' is-active' : ''}"
+            type="button"
+            data-conference-choice="${name}"
+            aria-pressed="${active ? 'true' : 'false'}"
+          >${name}</button>`;
+        })
+        .join('');
+    }
+    if (yearWrap) {
+      const selectedYears = new Set(selectedConferenceYears);
+      yearWrap.innerHTML = getConferenceYearOptions()
+        .map((year) => {
+          const active = selectedYears.has(year);
+          const disabled = !isConferenceYearSelectable(selectedConference, year);
+          return `<button
+            class="dpr-choice-pill${active ? ' is-active' : ''}${disabled ? ' is-disabled' : ''}"
+            type="button"
+            data-conference-year="${year}"
+            aria-pressed="${active ? 'true' : 'false'}"
+            ${disabled ? `disabled title="${year} 暂未接入，暂不可选择"` : ''}
+          >${year}</button>`;
+        })
+        .join('');
     }
   };
 
   const refreshQuickRunButtons = () => {
     const blocked = hasUnsavedChanges;
-    [quickRun10dBtn, quickRun30dBtn, quickRun30dStandardBtn].forEach((btn) => {
+    [quickRun10dBtn, quickRun30dBtn, quickRun30dStandardBtn, quickRunConferenceBtn].forEach((btn) => {
       if (!btn) return;
       btn.disabled = blocked;
       btn.classList.toggle('chat-quick-run-item--disabled', blocked);
       btn.title = blocked
-        ? '请先点击“保存”后再发起快速抓取。'
+        ? (btn === quickRunConferenceBtn ? '请先点击“保存”后再发起会议论文检索。' : '请先点击“保存”后再发起快速抓取。')
         : (btn.getAttribute('data-default-title') || btn.textContent || '');
     });
     if (blocked && quickRunMsgEl) {
       quickRunMsgEl.textContent = '检测到未保存修改，请先保存后再发起快速抓取。';
       quickRunMsgEl.style.color = '#c00';
+    }
+    const conferenceMsgEl = document && typeof document.getElementById === 'function'
+      ? document.getElementById('arxiv-admin-conference-run-msg')
+      : null;
+    if (blocked && conferenceMsgEl) {
+      conferenceMsgEl.textContent = '检测到未保存修改，请先保存后再发起会议论文检索。';
+      conferenceMsgEl.style.color = '#c00';
+    }
+  };
+
+  const clearQuickRunUnsavedMessage = () => {
+    if (!quickRunMsgEl) return;
+    if (/未保存修改|先保存|先点击/.test(quickRunMsgEl.textContent || '')) {
+      quickRunMsgEl.textContent = '配置已保存，可以发起快速抓取。';
+      quickRunMsgEl.style.color = '#080';
+    }
+    const conferenceMsgEl = document && typeof document.getElementById === 'function'
+      ? document.getElementById('arxiv-admin-conference-run-msg')
+      : null;
+    if (conferenceMsgEl && /未保存修改|先保存|先点击/.test(conferenceMsgEl.textContent || '')) {
+      conferenceMsgEl.textContent = '配置已保存，可以发起会议论文检索。';
+      conferenceMsgEl.style.color = '#080';
     }
   };
 
@@ -413,6 +529,38 @@ window.SubscriptionsManager = (function () {
       msgEl.textContent = text || '';
       msgEl.style.color = color || '#666';
     }
+  };
+
+  const syncAdminPanelTabs = () => {
+    const active = activeAdminPanelTab === 'conference' ? 'conference' : 'daily';
+    [
+      [adminDailyTabBtn, active === 'daily'],
+      [adminConferenceTabBtn, active === 'conference'],
+    ].forEach(([btn, isActive]) => {
+      if (!btn) return;
+      btn.classList.toggle('is-active', !!isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    if (adminDailyPanel) {
+      adminDailyPanel.hidden = active !== 'daily';
+    }
+    if (adminConferencePanel) {
+      adminConferencePanel.hidden = active !== 'conference';
+    }
+    if (panel) {
+      panel.classList.toggle('is-conference-tab', active === 'conference');
+    }
+  };
+
+  const switchAdminPanelTab = (tab) => {
+    const nextTab = tab === 'conference' ? 'conference' : 'daily';
+    if (activeAdminPanelTab === nextTab) {
+      syncAdminPanelTabs();
+      return;
+    }
+    activeAdminPanelTab = nextTab;
+    syncAdminPanelTabs();
   };
 
   const runQuickFetch = (days, msgEl, tipText, runOptions) => {
@@ -465,20 +613,39 @@ window.SubscriptionsManager = (function () {
     return runQuickFetch(days, quickRunMsgEl || msgEl, tip, options);
   };
 
-  const runQuickConferencePlaceholder = (yearSelectEl, confSelectEl, msgEl) => {
-    const year = (yearSelectEl && yearSelectEl.value) || '';
-    const conf = String((confSelectEl && confSelectEl.value) || '').trim();
-    if (!year || !conf) {
+  const runQuickConferenceRetrieval = (msgEl) => {
+    if (hasUnsavedChanges) {
+      const text = '检测到未保存修改，请先点击“保存”后再发起会议论文检索。';
       if (msgEl) {
-        msgEl.textContent = '请先选择年份和会议名。';
+        msgEl.textContent = text;
         msgEl.style.color = '#c00';
       }
-      return;
+      setQuickRunMessage(text, '#c00');
+      refreshQuickRunButtons();
+      return false;
     }
+    const years = selectedConferenceYears.slice();
+    const conf = String(selectedConference || '').trim();
+    if (!years.length || !conf) {
+      if (msgEl) {
+        msgEl.textContent = '请先选择会议和年份。';
+        msgEl.style.color = '#c00';
+      }
+      return false;
+    }
+    if (!window.DPRWorkflowRunner || typeof window.DPRWorkflowRunner.runConferenceRetrieval !== 'function') {
+      if (msgEl) {
+        msgEl.textContent = '工作流触发器未加载到当前页面。';
+        msgEl.style.color = '#c00';
+      }
+      return false;
+    }
+    window.DPRWorkflowRunner.runConferenceRetrieval(conf, years);
     if (msgEl) {
-      msgEl.textContent = `${year} ${conf} 的会议论文抓取功能暂未接入。`;
-      msgEl.style.color = '#c90';
+      msgEl.textContent = `已发起 ${conf} ${years.join(', ')} 会议论文检索任务。`;
+      msgEl.style.color = '#080';
     }
+    return true;
   };
 
   const runResetContent = (msgEl) => {
@@ -521,7 +688,7 @@ window.SubscriptionsManager = (function () {
     return profiles
       .map((p, idx) => {
         if (!p || typeof p !== 'object') return null;
-        const tag = normalizeText(p.tag) || toStableId(p.description || `profile-${idx + 1}`);
+        const tag = deriveProfileTag(p, `profile-${idx + 1}`) || `profile-${idx + 1}`;
         const description = normalizeText(p.description || '');
         const enabled = p.enabled !== false;
         const fallbackToArxiv = !Object.prototype.hasOwnProperty.call(p, 'paper_sources');
@@ -558,7 +725,7 @@ window.SubscriptionsManager = (function () {
     for (let idx = 0; idx < profiles.length; idx += 1) {
       const profile = profiles[idx];
       if (!profile || typeof profile !== 'object') continue;
-      const tag = normalizeText(profile.tag) || `词条${idx + 1}`;
+      const tag = deriveProfileTag(profile, `profile-${idx + 1}`) || `profile-${idx + 1}`;
       const fallbackToArxiv = !Object.prototype.hasOwnProperty.call(profile, 'paper_sources');
       const paperSources = normalizePaperSources(profile.paper_sources, { fallbackToArxiv });
       const keywords = dedupeKeywords(
@@ -689,7 +856,31 @@ window.SubscriptionsManager = (function () {
     overlay.innerHTML = `
       <div id="arxiv-search-panel">
         <div id="arxiv-search-panel-header">
-          <div style="font-weight:600;">后台管理</div>
+          <div class="dpr-admin-header-left">
+            <div style="font-weight:600;">后台管理</div>
+            <div class="dpr-admin-tabs" role="tablist" aria-label="后台管理面板切换">
+              <button
+                id="dpr-admin-tab-daily"
+                class="dpr-admin-tab is-active"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                aria-controls="arxiv-search-quick-run-side"
+              >
+                日常管理
+              </button>
+              <button
+                id="dpr-admin-tab-conference"
+                class="dpr-admin-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="arxiv-conference-control-side"
+              >
+                会议论文
+              </button>
+            </div>
+          </div>
           <div style="display:flex; gap:8px; align-items:center;">
             <button id="arxiv-config-save-btn" class="arxiv-tool-btn" style="padding:2px 10px; background:#2e7d32; color:white;">保存</button>
             <button id="arxiv-open-secret-setup-btn" class="arxiv-tool-btn" style="padding:2px 10px;">密钥配置</button>
@@ -697,7 +888,7 @@ window.SubscriptionsManager = (function () {
           </div>
         </div>
 
-        <div id="arxiv-search-panel-body">
+        <div id="arxiv-search-panel-body" class="dpr-admin-panel-body">
           <div id="arxiv-search-panel-main">
             <div id="dpr-smart-query-section" class="arxiv-pane dpr-smart-pane">
               <div class="dpr-display-card">
@@ -716,7 +907,12 @@ window.SubscriptionsManager = (function () {
 
           <div id="arxiv-search-quick-run-divider" aria-hidden="true"></div>
 
-          <div id="arxiv-search-quick-run-side">
+          <div
+            id="arxiv-search-quick-run-side"
+            class="dpr-admin-task-panel"
+            role="tabpanel"
+            aria-labelledby="dpr-admin-tab-daily"
+          >
             <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;">
               <div class="chat-quick-run-title" style="margin:0;">快速抓取</div>
               <button id="arxiv-admin-open-workflow-panel-btn" class="arxiv-tool-btn" type="button" style="padding:2px 8px;">打开工作流面板</button>
@@ -724,28 +920,6 @@ window.SubscriptionsManager = (function () {
             <button id="arxiv-admin-quick-run-10d-btn" class="chat-quick-run-item" type="button">立即搜寻十天内论文</button>
             <button id="arxiv-admin-quick-run-30d-btn" class="chat-quick-run-item" type="button">立即搜寻三十天内论文（全速览，约 0.76）</button>
             <button id="arxiv-admin-quick-run-30d-standard-btn" class="chat-quick-run-item" type="button">立即搜寻三十天内论文（全标准 / 精读，约 1.22）</button>
-            <div class="chat-quick-run-divider" aria-hidden="true"></div>
-            <div class="chat-quick-run-title">会议论文（暂未接入）</div>
-            <div class="chat-quick-run-row">
-              <label for="arxiv-admin-quick-run-year-select">年份</label>
-              <select id="arxiv-admin-quick-run-year-select" disabled>
-                <option value="">选择年份</option>
-              </select>
-            </div>
-            <div class="chat-quick-run-row">
-              <label for="arxiv-admin-quick-run-conference-select">会议名</label>
-              <select id="arxiv-admin-quick-run-conference-select" disabled>
-                <option value="">选择会议名</option>
-              </select>
-            </div>
-            <button
-              id="arxiv-admin-quick-run-conference-run-btn"
-              class="chat-quick-run-run-btn chat-quick-run-item--disabled"
-              type="button"
-              disabled
-            >
-              运行
-            </button>
             <div id="arxiv-admin-quick-run-msg" class="chat-quick-run-msg"></div>
 
             <div class="chat-quick-run-divider" aria-hidden="true"></div>
@@ -760,6 +934,42 @@ window.SubscriptionsManager = (function () {
             </button>
             <div id="arxiv-admin-reset-content-msg" class="chat-quick-run-msg"></div>
           </div>
+
+          <div
+            id="arxiv-conference-control-side"
+            class="dpr-admin-task-panel"
+            role="tabpanel"
+            aria-labelledby="dpr-admin-tab-conference"
+            hidden
+          >
+            <div class="dpr-conference-pane">
+              <div class="dpr-conference-title">会议论文检索</div>
+              <div class="dpr-conference-subtitle">按会议和年份从 Supabase 召回候选，不参与每日论文抓取。</div>
+
+              <div class="dpr-conference-note">
+                会议论文任务不会写入 config；这里只触发一次性 BM25 / Embedding 候选检索。
+              </div>
+
+              <div class="dpr-choice-field">
+                <div class="chat-quick-run-title">会议</div>
+                <div id="arxiv-admin-conference-choice-group" class="dpr-choice-row"></div>
+              </div>
+              <div class="dpr-choice-field">
+                <div class="chat-quick-run-title">年份</div>
+                <div id="arxiv-admin-conference-year-group" class="dpr-choice-row"></div>
+              </div>
+              <button
+                id="arxiv-admin-quick-run-conference-run-btn"
+                class="chat-quick-run-run-btn"
+                type="button"
+              >
+                开始检索
+              </button>
+              <div id="arxiv-admin-conference-run-msg" class="chat-quick-run-msg">
+                选择会议和年份后，会一次性触发 Supabase 会议论文检索。
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -770,6 +980,10 @@ window.SubscriptionsManager = (function () {
     saveBtn = document.getElementById('arxiv-config-save-btn');
     closeBtn = document.getElementById('arxiv-search-close-btn');
     msgEl = document.getElementById('dpr-smart-msg');
+    adminDailyTabBtn = document.getElementById('dpr-admin-tab-daily');
+    adminConferenceTabBtn = document.getElementById('dpr-admin-tab-conference');
+    adminDailyPanel = document.getElementById('arxiv-search-quick-run-side');
+    adminConferencePanel = document.getElementById('arxiv-conference-control-side');
 
     const reloadAll = () => {
       renderFromDraft();
@@ -785,6 +999,7 @@ window.SubscriptionsManager = (function () {
     }
 
     bindBaseEvents();
+    syncAdminPanelTabs();
   };
 
   const renderFromDraft = () => {
@@ -851,6 +1066,7 @@ window.SubscriptionsManager = (function () {
       draftConfig = toSave;
       hasUnsavedChanges = false;
       refreshQuickRunButtons();
+      clearQuickRunUnsavedMessage();
       if (window.SubscriptionsSmartQuery && window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds) {
         window.SubscriptionsSmartQuery.clearPendingDeletedProfileIds();
       }
@@ -940,6 +1156,20 @@ window.SubscriptionsManager = (function () {
       });
     }
 
+    if (adminDailyTabBtn && !adminDailyTabBtn._bound) {
+      adminDailyTabBtn._bound = true;
+      adminDailyTabBtn.addEventListener('click', () => {
+        switchAdminPanelTab('daily');
+      });
+    }
+
+    if (adminConferenceTabBtn && !adminConferenceTabBtn._bound) {
+      adminConferenceTabBtn._bound = true;
+      adminConferenceTabBtn.addEventListener('click', () => {
+        switchAdminPanelTab('conference');
+      });
+    }
+
     quickRun10dBtn = document.getElementById('arxiv-admin-quick-run-10d-btn');
     quickRun30dBtn = document.getElementById('arxiv-admin-quick-run-30d-btn');
     quickRun30dStandardBtn = document.getElementById('arxiv-admin-quick-run-30d-standard-btn');
@@ -947,25 +1177,15 @@ window.SubscriptionsManager = (function () {
     quickRunConferenceBtn = document.getElementById(
       'arxiv-admin-quick-run-conference-run-btn',
     );
-    quickRunYearSelect = document.getElementById('arxiv-admin-quick-run-year-select');
-    quickRunConferenceSelect = document.getElementById(
-      'arxiv-admin-quick-run-conference-select',
-    );
     quickRunMsgEl = document.getElementById('arxiv-admin-quick-run-msg');
     resetContentBtn = document.getElementById('arxiv-admin-reset-content-btn');
     resetContentMsgEl = document.getElementById('arxiv-admin-reset-content-msg');
-    if (quickRunYearSelect) {
-      quickRunYearSelect.disabled = true;
-    }
-    if (quickRunConferenceSelect) {
-      quickRunConferenceSelect.disabled = true;
-    }
     if (quickRunConferenceBtn) {
-      quickRunConferenceBtn.disabled = true;
-      quickRunConferenceBtn.classList.add('chat-quick-run-item--disabled');
-      quickRunConferenceBtn.title = '会议论文抓取功能暂未接入';
+      quickRunConferenceBtn.setAttribute('data-default-title', '一次性触发会议论文拉取任务');
+      quickRunConferenceBtn.title = '一次性触发会议论文拉取任务';
     }
-    fillQuickRunOptions(quickRunYearSelect, quickRunConferenceSelect);
+    initializeConferenceChoices();
+    renderConferenceChoiceButtons();
     [quickRun10dBtn, quickRun30dBtn, quickRun30dStandardBtn].forEach((btn) => {
       if (!btn) return;
       if (!btn.dataset.defaultTitle) {
@@ -1026,11 +1246,46 @@ window.SubscriptionsManager = (function () {
     if (quickRunConferenceBtn && !quickRunConferenceBtn._bound) {
       quickRunConferenceBtn._bound = true;
       quickRunConferenceBtn.addEventListener('click', () => {
-        runQuickConferencePlaceholder(
-          quickRunYearSelect,
-          quickRunConferenceSelect,
-          quickRunMsgEl,
-        );
+        const conferenceMsgEl = document.getElementById('arxiv-admin-conference-run-msg');
+        runQuickConferenceRetrieval(conferenceMsgEl || quickRunMsgEl);
+      });
+    }
+
+    const conferenceChoiceGroup = document.getElementById('arxiv-admin-conference-choice-group');
+    if (conferenceChoiceGroup && !conferenceChoiceGroup._bound) {
+      conferenceChoiceGroup._bound = true;
+      conferenceChoiceGroup.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest
+          ? e.target.closest('[data-conference-choice]')
+          : null;
+        if (!btn) return;
+        const nextConference = normalizeText(btn.getAttribute('data-conference-choice') || '');
+        if (!nextConference) return;
+        selectedConference = nextConference;
+        selectedConferenceYears = normalizeConferenceYearsForSelection(selectedConferenceYears, selectedConference);
+        renderConferenceChoiceButtons();
+      });
+    }
+
+    const conferenceYearGroup = document.getElementById('arxiv-admin-conference-year-group');
+    if (conferenceYearGroup && !conferenceYearGroup._bound) {
+      conferenceYearGroup._bound = true;
+      conferenceYearGroup.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest
+          ? e.target.closest('[data-conference-year]')
+          : null;
+        if (!btn) return;
+        const year = normalizeText(btn.getAttribute('data-conference-year') || '');
+        if (!year) return;
+        if (!isConferenceYearSelectable(selectedConference, year)) return;
+        const current = new Set(selectedConferenceYears);
+        if (current.has(year)) {
+          current.delete(year);
+        } else {
+          current.add(year);
+        }
+        selectedConferenceYears = getConferenceYearOptions().filter((item) => current.has(item));
+        renderConferenceChoiceButtons();
       });
     }
 
@@ -1090,6 +1345,18 @@ window.SubscriptionsManager = (function () {
       ensureSourceBackendsForProfiles: (config) => ensureSourceBackendsForProfiles(cloneDeep(config || {})),
       buildDefaultSourceBackend: (sourceKey, config) => buildDefaultSourceBackend(sourceKey, cloneDeep(config || {})),
       normalizePaperSources: (values, options) => normalizePaperSources(values, options),
+      isConferenceYearSelectable: (conference, year) => isConferenceYearSelectable(conference, year),
+      __setQuickRunMsgEl: (el) => {
+        quickRunMsgEl = el || null;
+      },
+      __setQuickRunConferenceBtn: (el) => {
+        quickRunConferenceBtn = el || null;
+      },
+      __setUnsavedChanges: (value) => {
+        hasUnsavedChanges = !!value;
+      },
+      refreshQuickRunButtons,
+      clearQuickRunUnsavedMessage,
     },
   };
 })();
