@@ -1,0 +1,967 @@
+Title: ProtoPathway: Biologically Structured Prototype-Pathway Fusion for Multimodal Cancer Survival Prediction
+
+URL Source: https://arxiv.org/pdf/2605.21454v1
+
+Published Time: Thu, 21 May 2026 01:33:39 GMT
+
+Number of Pages: 41
+
+Markdown Content:
+## ProtoPathway: Biologically Structured Prototype-Pathway Fusion for Multimodal Cancer Survival Prediction 
+
+Amaya Gallagher-Syed 1,2,⋆ , Costantino Pitzalis 1, Myles J. Lewis 1, Michael R. Barnes 1,and Gregory Slabaugh 1 
+
+> 1
+
+Queen Mary University of London  
+
+> 2
+
+Imperial College London 
+
+{a.r.syed, c.pitzalis, myles.lewis, m.r.barnes, g.slabaugh}@qmul.ac.uk a.gallaghersyed@imperial.ac.uk 
+
+Abstract. We introduce ProtoPathway, an interpretable-by-design multimodal frame-work for cancer survival prediction that unifies whole slide imaging and transcrip-tomics through encoders producing biologically grounded representations on both sides of the fusion. On the histopathology side, K learnable morphological prototypes, trained end-to-end with the survival objective, serve as the slide representation itself: patches flow into prototype tokens via soft assignment, compressing variable-length patch sets into fixed task-adaptive tokens. On the genomic side, a bipartite graph neu-ral network encodes gene expression within the Reactome pathway hierarchy, produc-ing pathway embeddings that reflect both constituent genes and their broader biologi-cal context through bidirectional message passing over a shared gene–pathway graph. Cross-modal attention then operates over a compact prototype × pathway matrix in which prototypes query pathways, modeling the biological direction in which molec-ular programs give rise to tissue morphology. Because both axes carry stable task-learned identity, the attention matrix is itself an interpretability output, yielding na-tive inference-time attribution across the full biological hierarchy, from genes through pathways and prototypes to spatial tissue maps. We evaluate on five TCGA can-cer cohorts, demonstrating competitive or superior survival prediction with substan-tially improved biological interpretability and reduced computational cost, with inter-pretability claims validated through fold-stratified rank-based population-level analy-sis. Our source code, model weights, and Reactome pathways, together with a unified codebase reimplementing all multimodal survival baselines under identical preprocess-ing and evaluation, are available at: https://github.com/AmayaGS/ProtoPathway .
+
+Keywords: Multimodal Survival Prediction · Digital Pathology · Interpretable AI 
+
+## 1 Introduction 
+
+Whole slide images (WSIs) and bulk transcriptomic profiles offer complementary views of tumor biology: gene expression captures the active biological programs governing disease progression, while histopathological images capture the spatial organization and cellular morphology resulting from those programs [27, 43]. Their integration for survival prediction has attracted sustained attention, motivated by the prospect of more accurate prognosis and deeper insight into how molecular states manifest as observable tissue phenotypes [6]. Yet for  
+
+> ⋆
+
+Corresponding author. Under review.  
+
+> arXiv:2605.21454v1 [cs.CV] 20 May 2026 2Gallagher-Syed et al.
+
+clinical adoption, prediction accuracy alone is insufficient. Clinicians require models whose reasoning can be validated against established biology, particularly when predictions inform treatment decisions with direct consequences for patient outcomes [35]. This has motivated substantial work on post-hoc explainability methods such as SHAP [30] and LIME [34], which treat trained models as black boxes and approximate their behavior through external perturbation or decomposition. However, such methods offer no guarantees that explana-tions reflect actual model behavior [3, 38], and in multimodal settings typically explain each modality in isolation, without revealing the cross-modal relationships that are often most scientifically valuable. These limitations motivate designing architectures that are interpretable by design, where predictions flow through representations with inherent semantic meaning rather than being explained retrospectively. Here, a model’s reasoning is transparent not because an external method has approximated it, but because the representations themselves carry domain-grounded identity and interpretability is a structural property of the computation [21,24,48]. For multimodal survival prediction, this places a specific requirement on cross-modal fusion: the representations being fused must carry stable, semantically grounded identity on both sides. Hence, the encoders on both sides need to align with biologically grounded meaning. 
+
+1.1 Related Work 
+
+The encoders used in multimodal survival prediction are drawn from established unimodal traditions. We therefore briefly review encoders for each modality, before turning to multi-modal fusion methods in survival prediction. 
+
+WSI Encoders. On the WSI side, multiple instance learning (MIL) over patch features is the dominant paradigm. Attention-based MIL methods such as ABMIL [15], Trans-MIL [37], and DSMIL [25] aggregate patches into a slide representation via learned attention weights, with no explicit notion of morphological pattern beyond per-patch attention scores. Prototype-based MIL methods take a different approach, introducing prototype vectors that capture recurring morphological patterns. How these prototypes are obtained and used varies considerably. ProtoMIL [36], inheriting from ProtoPNet [4], scores patches against learned prototypes and treats the resulting similarity vectors as classifier inputs. TPMIL [47] adds prototypes as auxiliary refiners alongside an ABMIL classifier that performs the prediction. PANTHER [39] fits prototypes via Gaussian mixture models (GMMs) and freezes them as a fixed lookup table. Slot-MIL [20] adapts slot attention [29] to MIL, where a fixed num-ber of slots compete via iterative cross-attention to claim patches. The competition runs over slots, so each patient produces its own slot identities with no guarantee of consistency across patients. Across these methods, prototypes function as similarity references, refin-ers, fixed unsupervised summaries, or per-sample attention outputs rather than as a slide representation with stable identity across patients. 
+
+Transcriptomic Encoders. On the genomic side, the dominant unimodal encoder is the self-normalizing network (SNN) [23], an MLP variant operating on the full gene expression vector without explicit biological structure. Methods that introduce biological structure take several forms. P-NET [9] encodes gene expression through a sparse hierarchical MLP where layer connectivity encodes the biological programs (or pathways) defined in the Reactome database [33], with no graph structure between pathway nodes. GraphPath [31] applies multi-head self-attention over a pathway-pathway interaction network, with no gene-level nodes in the graph. Pathformer [28] combines a pathway-based sparse neural network with ProtoPathway 3
+
+a transformer whose attention bias is computed from a pathway-pathway crosstalk network, modeling pathway interactions through attention rather than graph topology. Across these approaches, the biological topology connecting genes and pathways is encoded as architec-tural sparsity, pathway-level adjacency, or attention bias, but genes and pathways are never modeled as nodes in a shared graph. 
+
+Multimodal Fusion. Multimodal fusion methods inherit from both traditions but face an additional constraint: the encoders on each side determine what semantic identity is available to the cross-modal fusion. PORPOISE [8] established the paradigm by pairing an ABMIL [15] WSI encoder with a single SNN over the full gene expression vector, fused through Kronecker product interactions. This bilinear late fusion discards biological orga-nization on the transcriptomic side and fails to provide cross-modal attention weights for interpretation. MCAT [7] and MOTCAT [46] introduced cross-modal reasoning by parti-tioning genes into six coarse functional families, each embedded through a separate SNN, and computing co-attention (MCAT) or optimal transport matching (MOTCAT) between family tokens and individual patch tokens. This enabled richer interaction than late fusion, but the coarse genomic grouping limits biological resolution and the attention matrices lack stable semantic identity on the WSI side, where individual patches do not carry consistent meaning across patients. SurvPath [17] substantially increased biological resolution by embedding genes at the level of individual curated pathways, each through an independent SNN, with masked self-attention over the concatenated multimodal token sequence. PIBD [51] adopted a similar pathway vocabulary and introduced prototypical information bottleneck selection to identify discrim-inative instances, but the prototypes serve as selection filters rather than as semantically grounded representations. Both methods improved genomic granularity while retaining inde-pendent per-pathway encoding and token-level fusion that scales with retained patch count. MMP [40] introduces stable identity on the WSI side by compressing patches through PAN-THER’s [39] GMM prototypes and applying cross-attention between these summaries and pathway tokens. However, the GMM prototypes are fit once in preprocessing and frozen, cap-turing statistically dominant morphological variation with no guarantee of alignment with prognostically relevant features. On the genomic side, MMP retains independent pathway SNNs over a restricted pathway vocabulary. Across this progression, no existing multimodal survival prediction method places stable task-learned semantic identity on both axes of the cross-modal attention matrix. On the mor-phological side, methods either attend over individual patches that lack consistent meaning across patients, or treat prototypes as auxiliary structures rather than as the slide represen-tation itself. In no case do learned task-adaptive tokens serve as both the slide representation and as queries in cross-modal attention. On the genomic side, pathway-level encoding is uni-formly implemented through independent SNNs per pathway, so a gene appearing in multi-ple pathways receives separate representations with no parameter sharing or cross-pathway communication. The biological topology connecting genes to pathways partitions the input, rather than being encoded within the computational graph. 
+
+1.2 Contributions 
+
+We introduce ProtoPathway, an interpretable-by-design multimodal architecture that com-presses tissue morphology into learnable prototypes and encodes pathway topology via bi-partite graph neural networks (GNN), enabling cross-modal fusion where every intermedi-4 Gallagher-Syed et al. 
+
+ate representation has stable semantic, biologically grounded identity. ProtoPathway makes three contributions: 1. Learned morphological prototypes as slide representation. K learnable proto-type vectors, trained end-to-end with the survival objective, serve as the slide represen-tation itself rather than as reference points against which patches are scored. Patches flow into prototype tokens via soft assignment, and these tokens feed every downstream operation, enabling their dual role as morphological aggregators and as queries into the pathway space. 2. Topology-aware transcriptomic encoding via bidirectional message passing. Abipartite GNN encodes gene expression within the Reactome pathway hierarchy, where genes and pathways form two node types connected by bidirectional membership edges. Message passing over this topology enables parameter sharing and implicit cross-pathway communication through genes participating in multiple processes, replacing the indepen-dent per-pathway SNNs used by existing methods. 3. Semantically grounded asymmetric cross-modal fusion. Cross-attention operates over a compact prototype × pathway matrix in which prototypes query pathways, con-sistent with biology’s causal direction from molecular programs to morphological man-ifestation. Because both axes carry stable task-learned identity, the attention matrix is an interpretability output rather than an internal computation, yielding a traceable link from genes through pathways and prototypes to spatial tissue maps. ProtoPathway achieves these properties while maintaining computational efficiency: atten-tion over K prototypes and P pathways replaces token-level attention over thousands of individual patches required by other methods. We evaluate on five TCGA cancer cohorts, demonstrating competitive survival prediction with substantially improved biological inter-pretability and reduced computational cost. 
+
+## 2 Methods 
+
+2.1 Architecture Overview 
+
+ProtoPathway consists of three components (Fig. 1). A learnable prototype module com-presses variable-length WSI patch sets into a fixed set of morphological token embeddings (Section 2.2). A bipartite GNN encodes gene expression within the Reactome pathway hierar-chy, producing pathway embeddings and patient-level genomic representations (Section 2.3). Cross-modal attention fuses the two by letting prototype tokens query pathway embeddings, producing an interpretable association matrix alongside the final patient-level survival rep-resentation (Section 2.4). The interpretability signals emerging from each component are summarized in Section 2.5. 
+
+2.2 Prototype Encoding 
+
+Tissue regions in gigapixel WSIs are divided into non-overlapping patches and encoded by a frozen pathology foundation model, yielding a bag of patch-level feature vectors Hi =
+
+{h1, . . . , hNi }, hn ∈ RD , for each patient. Although this representation is variable-length and high-dimensional, the underlying morphological landscape is far more structured: tissue ProtoPathway 5III. CROSS-MODAL FUSION IV. INTERPRETABILITY SIGNALS          
+
+> Gene Expression Reactome Pathways
+> Pathways Genes
+> II. PATHWAY ENCODING Bipartite Graph
+> bidirectional
+> ↕
+> GraphSAGE  L-2
+> LayerNorm
+> GATv2  LGene Importance Pathway Embeddings
+> Pathway Gate
+> Aggregated Pathways GNN L
+> ...
+> . . . . . .
+> Cosine Similarity Patch Embeddings Learnable Prototypes
+> Shared Projection
+> Prototype Tokens
+> Prototype Gate Aggregated Prototypes
+> →Keys, Values →Queries Multi-Head Cross-Attention Fusion Gate
+> || ||
+> Survival Prediction
+> Prototype-pathway attention Similarity
+> I. PROTOTYPE ENCODING
+> Morphological Genomic Cross-modal Similarity Prototype Gate Gene Importance Pathway Gate Prototype-pathway attention Fusion Gate
+
+Fig. 1: ProtoPathway architecture. I. Prototype Encoding : WSI patches are compressed into K learnable prototype tokens T. II. Pathway Encoding : Gene expression is encoded via a bipartite GNN over the Reactome gene–pathway hierarchy, producing pathway embeddings Z. III. Cross-Modal Fusion : Prototypes query pathway embeddings via cross-modal attention, yield-ing an interpretable K × P association matrix A. The final representation concatenates genomic, morphological, and cross-modal streams. IV. Interpretability Signals : The pipeline is designed to output interpretability signals directly from inference without post-hoc methods, from genes through pathways and prototypes, to spatial tissue maps. 
+
+organizes into recurring patterns that appear across patients in different spatial configura-tions. We exploit this by learning K morphological prototypes that decompose the patch distribution into interpretable token embeddings, each capturing a coherent tissue pattern relevant to prognosis. 
+
+Prototype Definition and Projection. We define K learnable prototype vectors {ck}Kk=1 
+
+in the input feature space RD , initialized from k-means centroids ( cf. Supplementary Ma-terials (SM) A). Both patch embeddings and prototype vectors are projected to a shared 
+
+d-dimensional space through a linear transformation f : RD → Rd, aligning morphological and pathway representations for cross-modal attention. 
+
+Soft Prototype Assignment. Assignment probabilities are computed via temperature scaled cosine similarity between projected patches and prototypes: 
+
+αnk = softmax k
+
+ 1
+
+τ · cos  f (hn), f (ck)
+
+(1) where cos( ·, ·) denotes cosine similarity and τ controls assignment sharpness. Cosine simi-larity is robust to staining intensity variation across slides, and soft assignment ( PKk=1 αnk =6 Gallagher-Syed et al. 
+
+1) captures the continuous morphological variation characteristic of biological tissues while maintaining differentiability. 
+
+Prototype Tokens and Gating. Each prototype aggregates its assigned patches into token embeddings tk, and a learnable gating network wk computes prototype-specific importance scores. The patient-level WSI embedding is the importance-weighted aggregation ¯zwsi :
+
+tk =
+
+PNn=1 αnk f (hn)
+
+PNn=1 αnk 
+
+, wk = softmax k
+
+ ψ(tk), ¯zwsi =
+
+> K
+
+X
+
+> k=1
+
+wk tk (2) The resulting tokens {tk}Kk=1 ∈ RK×d compress the variable-length patch bag into a fixed set of morphological embeddings. Because prototypes and the survival objective are trained end-to-end, the decomposition captures prognostically relevant variation rather than statistically dominant but potentially uninformative structure. Both the token embeddings {tk}Kk=1 and the aggregated ¯zwsi are passed forward: the former participate in cross-modal attention (Section 2.4), the latter contributes to the final fused representation. 
+
+Spatial Interpretability. Since each patch has known tissue coordinates, the assign-ment matrix maps learned prototypes to spatial slide locations. Hard assignment k∗ 
+
+> n
+
+=argmax k αnk produces per-patch prototype labels that can be projected as spatial over-lays, revealing where each morphological pattern is localized. Combined with cross-modal attention (Section 2.4), this enables traceability from molecular programs to specific tissue regions. Details are in SM C.2. 
+
+2.3 Pathway Encoding 
+
+Gene expression is naturally organized by biological pathways: coordinated gene sets exe-cuting specific cellular processes. The Reactome database [33] captures this organization as a directed acyclic hierarchy from high-level cellular functions to specific molecular interac-tions. Encoding expression within this structure grounds predictions in established biology, mitigates gene measurement noise through within-pathway aggregation, and reduces dimen-sionality to a scale suitable for small clinical cohorts. We curate a vocabulary from Reactome by filtering hierarchy depth, excluding categories unlikely to carry prognostic signal, enforcing pathway size constraints, and supplementing with MSigDB Hallmark gene sets [26] to cover processes under represented in the filtered set. Redundant pathways with high gene overlap are removed via Jaccard similarity thresh-olding, yielding 662 pathways covering 4574 genes. Full details on our fully automated and reproducible curation pipeline are in SM B. 
+
+Graph Construction. The curated gene–pathway membership structure is represented as a bipartite graph G = ( VG ∪V P , EGP ) with gene nodes VG and pathway nodes VP connected by bidirectional membership edges EGP . Gene nodes are initialized with their scalar expression values xg ∈ R1; pathway nodes begin as zero vectors, ensuring their representations emerge entirely from constituent gene aggregation. 
+
+Bipartite Message Passing. Information propagates through L−2 GraphSAGE [11] layers with mean aggregation, each followed by LeakyReLU activation and dropout. The first layer lifts scalar gene features to the shared embedding dimension d; subsequent layers operate in 
+
+Rd:
+
+x(l+1) = GraphSAGE  x(l), EGP 
+
+, l = 0 , . . . , L −2 (3) ProtoPathway 7
+
+We use non-attentive mean aggregation in these layers: coherent expression shifts across functionally related genes provide more robust signal than individual gene magnitudes, and equal-weight aggregation captures this collective activity without introducing learned atten-tion over insufficiently contextualized inputs. Because edges are bidirectional, each round simultaneously updates gene and pathway representations, and a gene participating in mul-tiple pathways implicitly carries information between them, providing cross-pathway com-munication impossible under independent per-pathway encoding. 
+
+Interpretable Gene–Pathway Attention. After layer normalization, a final GATv2 [2, 41] attention layer computes gene importance weights: 
+
+x(L) = GATv2  LayerNorm( x(L−1) ), EGP 
+
+ (4) Reserving learned attention for this final layer ensures the GATv2 mechanism operates on enriched GraphSAGE representations rather than raw scalar values, enabling it to assess gene relevance in the context of overall pathway activity rather than from expression magnitude alone. The dynamic coefficients αg→p provide per-pathway gene-level interpretability directly from the architecture. Pathway embeddings {zp}Pp=1 ∈ RP ×d are extracted from this final layer. 
+
+Pathway Importance Gating. A learnable gating network ϕ : Rd → R maps each pathway embedding to a scalar score, and softmax normalization across pathways yields importance weights wp. The patient-level genomic embedding is the importance-weighted aggregation 
+
+¯zpathway :
+
+wp = softmax p
+
+ ϕ(zp), ¯zpathway =
+
+> P
+
+X
+
+> p=1
+
+wp zp (5) The gate weights {wp}Pp=1 provide a built-in measure of pathway importance for each patient, directly interpretable without post-hoc attribution. Both individual pathway embeddings 
+
+{zp}Pp=1 and the aggregated ¯zpathway are passed forward: the former participate in cross-modal attention (Section 2.4), the latter contributes to the final fused representation. 
+
+2.4 Cross-Modal Fusion 
+
+Tissue morphology is a consequence of underlying molecular programs: gene expression drives cellular differentiation, proliferation, and microenvironment remodeling, which collec-tively manifest as observed histological patterns. Our fusion mechanism reflects this asymme-try through cross-attention in which morphological prototypes query pathway embeddings, modeling the directional relationship from molecular context to morphological manifesta-tion. 
+
+Cross-Modal Attention. Prototype tokens query pathway embeddings via multi-head scaled dot-product attention: 
+
+A = softmax 
+
+ TW Q(ZW K )⊤
+
+√d
+
+
+
+, ˜T = A ZW V (6) where T ∈ RK×d are prototype tokens, Z ∈ RP ×d are pathway embeddings, and WQ, WK , WV ∈
+
+Rd×d are learned projections. The attention matrix A ∈ RK×P is the central interpretable output: each entry akp quantifies the association between image prototype k and biological pathway p for a given patient. 8 Gallagher-Syed et al. 
+
+Table 1: Interpretability signals produced during standard inference.                              
+
+> Signal Source Interpretation
+> Morphological
+> iαnk Soft assignment Patch-to-prototype mapping
+> ii wkPrototype gate Morphological importance (pre-fusion)
+> Genomic
+> iii αg→pGATv2 final layer Gene importance per pathway
+> iv wpPathway gate Pathway prognostic relevance
+> vf(αg→p, w p)GATv2 derived Overall gene importance
+> Cross-modal
+> vi A∈RK×PCross-attention Prototype–pathway associations
+> vii Ak, :Rows of APer-prototype pathway ranking
+> viii wf
+> kFusion gate Morphological importance (post-fusion)
+
+Post-Attention Gating and Combination. A learned gating network computes impor-tance weights over the attended prototype representations: 
+
+wf 
+
+> k
+
+= softmax k
+
+ ψf (˜ tk), ¯zcross =
+
+> K
+
+X
+
+> k=1
+
+wf 
+
+> k
+
+˜tk (7) These fusion gate weights wf 
+
+> k
+
+are distinct from the WSI gate weights wk: the latter assess morphological importance in isolation, the former after pathway context has been incorpo-rated. Comparing the two shows how cross-modal context reshapes the model’s morpholog-ical priorities. The final patient-level representation concatenates three layer-normalized (LN) streams: 
+
+zfused = MLP 
+
+ LN(¯ zpathway ) ∥ LN(¯ zcross ) ∥ LN(¯ zwsi )
+
+(8) where ∥ denotes concatenation and the MLP is a bottleneck projection with ReLU and dropout. The three streams carry complementary signals: ¯zpathway captures molecular infor-mation that may not manifest morphologically, ¯zwsi captures morphological patterns that may not be pathway-driven, and ¯zcross captures their associations. A linear classifier maps the fused representation to discrete survival bin logits. 
+
+2.5 Interpretability Signals 
+
+Because every prediction flows through semantically grounded representations, the architec-ture produces a complete attribution chain linking molecular programs to tissue morphology without post-hoc methods. Table 1 summarizes the interpretability signals emerging directly from inference; we describe how they compose below. 
+
+Morphological attribution. Prototype gate weights wk assess morphological importance from tissue patterns alone, while fusion gate weights wf 
+
+> k
+
+assess importance after pathway context is incorporated. Comparing the two shows whether a prototype’s prognostic rele-vance is intrinsically morphological or emerges through association with specific molecular programs. ProtoPathway 9
+
+Genomic attribution. GATv2 attention coefficients αg→p quantify each gene’s impor-tance within each of its pathways, while pathway gate weights wp identify which biological programs the model considers most prognostically relevant. Together they yield complete genomic attribution from individual genes through to pathway-level programs. 
+
+Spatial overlays. Patch-prototype assignments combined with the cross-modal attention matrix enable spatial overlays at multiple levels of granularity: prototype segmentation maps, pathway-colored tissue maps, and continuous single-pathway or single-gene heatmaps. All derive from inference-time signals; construction details are in SM C. 
+
+Population-level analysis. To identify signals systematically associated with outcomes, we employ rank-based statistical testing with appropriate handling of cross-validation structure. For pathways and genes, whose identities are consistent across folds, Mann-Whitney U tests are conducted within each fold and combined via Stouffer’s weighted Z method with FDR correction. For prototypes rank analysis is performed at the individual fold level. Full details are in SM D. 
+
+2.6 Training and Evaluation Survival objective. We adopt the discrete-time survival framework of Zadeh and Schmidt [49], partitioning continuous survival times into B = 4 quantile-based intervals. The model out-puts logits h ∈ RB , from which the discrete survival function is: 
+
+S(b) = 
+
+> b
+
+Y
+
+> j=1
+
+ 1 − σ(hj ) (9) Training minimizes negative log-likelihood over observed and censored patients. Patient-level risk scores are computed as r = − PBb=1 S(b), where the negation ensures higher scores correspond to worse prognosis. 
+
+Evaluation protocol. We follow the 5-fold cross-validation splits from SurvPath [17], with model selection by validation C-index per fold. Patch features are pre-extracted using UNI-2h [5] at D = 1536 dimensions. All baselines were reimplemented within a unified codebase sharing identical preprocessing, survival discretization, pathway vocabulary, and evaluation procedure, ensuring comparisons reflect purely architectural differences. Hyperparameters in SM E. 
+
+Datasets and baselines. We evaluate on five TCGA cohorts (BRCA, BLCA, COAD-READ, HNSC, STAD; statistics in SM F). Multimodal baselines include PORPOISE [8], MCAT [7], MOTCAT [46], SurvPath [17], PIBD [51], and MMP [40]; unimodal baselines and ProtoPathway’s own unimodal ablations are reported in Table 2. To validate the fusion design, we compare cross-attention against concatenation, bilinear, and gated alternatives within the same architecture in SM G. We showcase ProtoPathway’s computational effi-ciency in SM H. 
+
+## 3 Experimental Results 
+
+3.1 Quantitative Performance 
+
+Table 2 reports C-index results across all cohorts. ProtoPathway achieves the highest overall C-index (0.670), outperforming MCAT (0.662) and MMP (0.659), and ranks first on four 10 Gallagher-Syed et al. 
+
+of five cohorts; COADREAD is the sole exception, where SurvPath leads (0.755 vs. 0.740). On HNSC, ProtoPathway (0.642) is the only multimodal method to clearly surpass the gene-only SNN baseline (0.635), suggesting effective cross-modal integration on a cohort where prior multimodal approaches have struggled. Kaplan-Meier analysis (Fig. 2) confirms significant risk stratification across all five cohorts ( p < 0.005 ), with BLCA and HNSC showing particularly clean separation. 
+
+Table 2: ProtoPathway performance on TCGA multimodal survival prediction bench-marks. Concordance index (C-index) results across five TCGA cancer cohorts comparing Pro-toPathway against established multimodal survival methods. Standard error shown across cross-validation folds. Best score in bold , second best underlined. 
+
+BRCA ↑ BLCA ↑ COADREAD ↑ HNSC ↑ STAD ↑ Overall ↑    
+
+> (N=714) (N=359) (N=227) (N=392) (N=318)
+
+WSI Modality 
+
+ABMIL [15] 0.602 ±0.075 0.593 ±0.029 0.691 ±0.172 0.544 ±0.057 0.608 ±0.018 0.608 TransMIL [37] 0.575 ±0.125 0.596 ±0.057 0.717 ±0.095 0.546 ±0.063 0.631 ±0.106 0.613 DSMIL [25] 0.627 ±0.062 0.641 ±0.071 0.660 ±0.148 0.604 ±0.028 0.627 ±0.049 0.632 PROTOPATH wsi 0.582 ±0.052 0.633 ±0.062 0.702 ±0.140 0.541 ±0.068 0.614 ±0.059 0.614 
+
+Gene Modality 
+
+MLP 0.606 ±0.093 0.638 ±0.067 0.656 ±0.157 0.623 ±0.057 0.626 ±0.079 0.630 SNN [23] 0.592 ±0.033 0.645 ±0.067 0.652 ±0.093 0.635 ±0.026 0.623 ±0.036 0.629 PROTOPATH gene 0.582 ±0.052 0.604 ±0.031 0.629 ±0.115 0.557 ±0.088 0.614 ±0.078 0.597 
+
+Multimodal 
+
+PIBD [51] 0.621 ±0.066 0.571 ±0.039 0.680 ±0.149 0.541 ±0.049 0.612 ±0.090 0.610 MOTCat [46] 0.581 ±0.028 0.642 ±0.057 0.659 ±0.168 0.587 ±0.037 0.660 ±0.061 0.626 PORPOISE [8] 0.621 ±0.072 0.642 ±0.036 0.702 ±0.113 0.617 ±0.057 0.669 ±0.046 0.650 MMP [40] 0.637 ±0.064 0.645 ±0.045 0.732 ±0.085 0.610 ±0.026 0.673 ±0.072 0.659 SURVPATH [17] 0.641 ±0.046 0.642 ±0.021 0.755 ±0.112 0.604 ±0.062 0.658 ±0.075 0.660 MCAT [7] 0.646 ±0.076 0.643 ±0.052 0.726 ±0.113 0.621 ±0.040 0.672 ±0.058 0.662 PROTOPATH (ours) 0.649 ±0.050 0.646 ±0.075 0.740 ±0.132 0.642 ±0.047 0.674 ±0.069 0.670 
+
+Fig. 2: Kaplan-Meier survival curves for ProtoPathway across five TCGA cohorts. Patients stratified into high-risk (red) and low-risk (green) groups by median predicted risk score. All separations significant at p < 0.005 (log-rank test). 
+
+The unimodal ablations shows an instructive asymmetry: ProtoPath gene (0.597) falls be-low both MLP (0.630) and SNN (0.629), yet the full model recovers to the best overall score ProtoPathway 11 
+
+(0.670). The bipartite graph topology acts as a strong structural regularizer, constraining each pathway embedding to aggregate only its constituent genes via fixed Reactome edges. Unimodal training collapses these into a single pooled vector, discarding the very structure that distinguishes them; cross-modal attention, by contrast, queries each pathway embed-ding individually, turning those same constraints into an asset by providing decomposed, semantically localized tokens the fusion module can selectively attend to. A parallel pattern holds on the WSI side: ProtoPath wsi (0.614) outperforms ABMIL (0.608) and TransMIL (0.613) at a fraction of DSMIL’s cost (0.632; 5 × parameters, 7.5 × FLOPs; cf . Tab. S6), again favoring structured representations over raw unimodal capacity. We further speculate that multimodal training amplifies this effect, as gradients flowing back through cross-attention implicitly encourage pathway representations that complement morphological features. Overall, this performance comes at substantially lower computational cost: 480K param-eters, 3.9G FLOPs, 325 MB VRAM, and 13.6 ms per patient, a 28–50 × training speedup over MCAT (677K params, 5.6G FLOPs, 289 MB, 380 ms), SurvPath (474K params, 29.2G FLOPs, 818 MB, 476 ms), and MMP (427K params, 1,817 MB, 432 ms), stemming directly from prototype-based compression over K ≪ N tokens (see SM H for a detailed look at comparative efficiency). 
+
+3.2 Biological Interpretability 
+
+We assess whether ProtoPathway’s learned representations capture biologically meaningful structure, using BLCA as a case study where the tumor immune microenvironment is well-characterized and clinically actionable. 
+
+Morphological prototypes. The K = 16 learned prototypes decompose the WSI into interpretable tissue categories without tissue-type supervision. The top exemplar patches per prototype reveal coherent morphological groupings (see SM I and Fig. S8 for descriptions of the prototypes, with exemplar patches): tumor and tumor-associated stroma (Proto 0, 8, 9, 10, 12), muscle and connective tissue (Proto 5, 11), adipose tissue (Proto 7, 13), and immune-infiltrated or necrotic regions (Proto 2, 3, 6). In bladder cancer, these distinctions are clinically significant: invasion depth into the muscularis propria defines the boundary between non-muscle-invasive and muscle-invasive disease [1]. 
+
+Gating shift. Comparing prototype importance before (WSI gate wk) and after (fusion gate wf
+
+> k
+
+) cross-modal attention reveals how pathway context reshapes morphological pri-orities (Fig. 3). Connective, adipose and smooth muscle prototypes gain importance after fusion, while tumor and immune-infiltrated prototypes lose rank. This suggests that once molecular context is accounted for, the structural microenvironment surrounding the tumor, particularly the muscularis propria invasion front and perivesical connective tissue, carries more survival-relevant information than morphologically dominant tumor and immune re-gions alone. The three-gate design makes this reweighting explicit and quantifiable. 
+
+Spatial heatmaps. ProtoPathway provides attribution across the full biological hierarchy, from genes through pathways to spatial tissue locations. We illustrate this on our model determined highest-risk BLCA case (TCGA-4Z-AA84, Fig. 4), with prototype, pathway and gene overlays. 
+
+Prototype overlay. Each patch is assigned to its nearest prototype, producing a spatial map of tissue composition (Fig. 4A). The prototypes partition the slide into histologically 12 Gallagher-Syed et al.  
+
+> Fig. 3: Prototype analysis in BLCA. Gating shift analysis reveals which morphological proto-types the model attends to before (WSI gate, left) and after (fusion gate, right) molecular pathway context is incorporated, with the rank shift between the two (center). Muscle and connective tissue prototypes (Proto 5, 11) gain importance after fusion (green), while tumor prototypes (Proto 2, 8) lose rank (grey), indicating that pathway context shifts attention toward the tumor microenviron-ment and away from morphologically prominent tumor regions. This aligns with established BLCA prognostics, where muscle invasion defines staging (T1 vs T2+) and stromal-immune composition carries independent prognostic value beyond tumor morphology.
+
+coherent regions: P0 (red/pink) covers the bulk invasive tumor and associated desmopla-sia/necrosis, P2 (blue) captures dense lymphoid infiltrate and immune-rich margin in the upper-left, and P7 (magenta) isolates perivesical adipose tissue in the lower-left. P6 (cyan) and P8 (yellow-green) mark transitional zones at compartment boundaries and tissue edges, while the remaining prototypes capture smaller peripheral and artefactual regions. 
+
+Pathway overlay. Each prototype inherits its top, population level ( cf. SM D, risk-relevant pathway from the cross-modal attention, projecting molecular program identity onto the tis-sue map (Fig. 4B). Different compartments receive distinct pathway associations: the tumor bulk maps to cholesterol metabolism (NR1H2/NR1H3 regulation of cholesterol uptake), the immune-rich periphery to cytokine signaling (STAT5 activation, with gene drilldown confirming core JAK-STAT components: GRB2, PTPN11, STAT5A, FLT3LG), and sparse necrotic foci to interleukin-1 processing via the NLRP3 inflammasome. At the tissue mar-gins, a second NR1H2/NR1H3 program appears, this time linked to triglyceride lipolysis in adipose tissue, consistent with the perivesical fat expected at the boundary of a bladder resection specimen. 
+
+Single-pathway and single-gene overlays. To move beyond discrete prototype-level as-signments, we visualize continuous, rank-transformed attention for a single pathway (FGFR2b ligand binding; Fig. 4C) and a single gene (IL7R; Fig. 4D). These two overlays exhibit com-plementary spatial patterns. FGFR2b attention concentrates in the tumor bulk and is low at the immune-rich periphery; IL7R attention shows the inverse, highest at the periphery and lowest in the tumor core. This complementarity is biologically grounded. FGFR2b acts as a tumor suppressor in urothelial carcinoma, where its loss marks aggressive disease [32]: the model identifies the tumor compartment as the region where this pathway’s status is most prognostically relevant. IL7R maintains T-cell survival and homeostasis: its attention localizes to the compartment where immune cells concentrate. The model thus resolves two distinct prognostic programs within a single slide: tumor-intrinsic growth factor signaling and microenvironment immune activity. 
+
+Pathway-level analysis. Using fold-stratified population analysis, we compare pathway at-tention distributions between model-predicted high-risk and low-risk groups. Fig. 5A shows ProtoPathway 13    
+
+> Fig. 4: Spatial attribution for a high-risk BLCA case (TCGA-4Z-AA84). Top row: (left) H&E image, (center) prototype segmentation showing spatially coherent tissue compartments, and (right) gene-level drilldown for the dominant pathway at the immune-rich periphery (STAT5 activa-tion)). Bottom row: (left) pathway overlay assigning each prototype its top risk-relevant pathway, and (center) rank-transformed single-pathway (FGFR2b), (right) and single-gene (IL7R) heatmaps.
+
+the top-ranked pathways by risk direction. The model assigns highest risk to pathways involved in innate immune signalling (CLEC7A/NFAT activation [19]), oxidative stress response (NFE2L2 /NRF2 [13]), immunosuppressive adenosine signalling [42], and lipid metabolism reprogramming [53]. These are established markers of aggressive, treatment-resistant bladder cancer. Conversely, the top low-risk pathways center on adaptive immune activation: FLT3 signaling (whose ligand FLT3LG promotes CD8+ T-cell activation in BLCA [50], interferon-γ signaling [10], and apoptotic programme engagement, consistent with the role of apoptosis in cancer progression [12]. Without any explicit immune labels, the model recovers a known prognostic distinction: tumours dominated by immunosuppressive innate signalling carry worse prognosis than those with active adaptive immunity [18, 45]. 
+
+Pathway genes drill-down. The bipartite GNN’s gene-to-pathway attention enables in-spection of individual genes within each pathway (Fig. 5B). Within the top high-risk path-way (CLEC7A/NFAT), the model assigns highest importance to PPP3R1 and CALM1: the regulatory subunit and upstream activator of calcineurin through which the entire cascade converges [14]. Within the top low-risk pathway (FLT3/SRC), the highest-ranked genes are LCK and FYN, the proximal T-cell receptor kinases whose expression marks cytotoxic T-cell infiltration associated with favorable prognosis in BLCA [52]. In both cases, attention concentrates on mechanistic bottlenecks rather than peripheral pathway members. 
+
+Limitations The bipartite encoder’s strong structural priors introduce additional opti-mization complexity relative to unconstrained encoders. This is an inherent trade-off: the same constraints that complicate optimization are what yield the framework’s efficiency, 14 Gallagher-Syed et al. A1 A2 
+
+A    
+
+> Fig. 5: Pathway and gene-level attribution in BLCA. (A) Pathway gate importance: rank difference between high-risk (red) and low-risk (blue) groups. High risk pathways - R-HSA-5607763: CLEC7A/NFAT activation, R-HSA-9818025: NFE2L2/NRF2, R-HSA-417973: adenosine signaling, R-HSA-9613354/R-HSA-9029558: lipid metabolism reprogramming. Low risk pathways - R-HSA-9706374: FLT3/SRC signalling, R-HSA-9732724: interferon-γsignaling, R-HSA-4419969: apop-totic program engagement. (A1, A2) Gene-level analysis within the top low-risk pathway (A1: FLT3/SRC signaling) and top high-risk pathway (A2: CLEC7A/NFAT activation).
+
+semantically grounded tokens, and gene-level importance. Beyond architectural considera-tions, the input modalities themselves impose interpretive limits. The framework operates on bulk transcriptomic profiles, which average over cell populations. The spatial overlays linking pathways to tissue regions should therefore be interpreted as inferred cross-modal associations projected onto prototype locations, not as direct measurements of localized gene expression, and spatial transcriptomic data would be needed for direct validation. A related caveat concerns the interpretation of attention itself. The framework identifies which genes and pathways the model attends to within risk groups, but attention magnitude does not encode the direction of expression change. Resolving this requires separate differential expression analysis. 
+
+## 4 Conclusion 
+
+ProtoPathway provides a complete interpretability chain from individual genes, through biological pathways, to specific tissue regions, while matching or exceeding existing meth-ods on survival prediction across five cancer cohorts. This is enabled by bipartite message passing over gene-pathway relationships, learnable prototype-based morphological compres-sion, and asymmetric cross-modal fusion in which prototypes query pathways, reflecting the biological direction from molecular programs to tissue morphology. The learned representa-tions recover known prognostic signatures without explicit supervision and resolve distinct molecular programs across tissue compartments: cross-modal fusion redirects attention from morphologically dominant tumor and immune regions toward staging-relevant microenviron-ment structures, while continuous pathway and gene overlays reveal complementary prog-nostic programs localized to their expected tissue compartments. Spatial transcriptomics of-fers a natural extension: spatially resolved molecular profiles could validate the cross-modal associations that ProtoPathway currently learns without spatial supervision, and enable finer-grained fusion at the level of tissue neighborhoods rather than whole-slide summaries. ProtoPathway 15 
+
+## Acknowledgments 
+
+We wish to thank Dr. Omnia Alwazzan for the many discussions on multimodal fusion mod-els, which paved the way for this work. During this work A.G.S. received funding from the Wellcome Trust [218584/Z/19/Z]. This work acknowledges the support of the National Insti-tute for Health and Care Research Barts Biomedical Research Centre (NIHR203330), a deliv-ery partnership of Barts Health NHS Trust, Queen Mary University of London, St George’s University Hospitals NHS Foundation Trust and St George’s University of London. This work was also supported by the Engineering and Physical Sciences Research Council [grant num-ber EP/Y009800/1], through funding from Responsible Ai UK (KP0016). This paper utilized Queen Mary’s Andrena HPC facility [22]. The results shown here are in whole or part based upon data generated by the TCGA Research Network: https://www.cancer.gov/tcga .
+
+## References 
+
+1. Babjuk, M., Burger, M., Capoun, O., Cohen, D., Compérat, E.M., Escrig, J.L.D., Gontero, P., Liedberg, F., Masson-Lecomte, A., Mostafid, A.H., et al.: European association of urology guidelines on non–muscle-invasive bladder cancer (ta, t1, and carcinoma in situ). European urology 81 (1), 75–94 (2022) 11, 21 2. Brody, S., Alon, U., Yahav, E.: How attentive are graph attention networks? International Conference on Learning Representations (2022) 7 3. Chattopadhyay, A., Slocum, S., Haeffele, B.D., Vidal, R., Geman, D.: Interpretable by Design: Learning Predictors by Composing Interpretable Queries . IEEE Transactions on Pattern Anal-ysis & Machine Intelligence 45 (06), 7430–7443 (Jun 2023). https://doi.org/10.1109/TPAMI. 2022.3225162 , https://doi.ieeecomputersociety.org/10.1109/TPAMI.2022.3225162 24. Chen, C., Li, O., Tao, D., Barnett, A., Rudin, C., Su, J.K.: This looks like that: deep learning for interpretable image recognition. Advances in neural information processing systems 32 (2019) 25. Chen, R.J., Ding, T., Lu, M.Y., Williamson, D.F., Jaume, G., Chen, B., Zhang, A., Shao, D., Song, A.H., Shaban, M., et al.: Towards a general-purpose foundation model for computational pathology. Nature Medicine (2024) 9 6. Chen, R.J., Lu, M.Y., Wang, J., Williamson, D.F.K., Rodig, S.J., Lindeman, N.I., Mahmood, F.: Pathomic fusion: An integrated framework for fusing histopathology and genomic features for cancer diagnosis and prognosis. IEEE Transactions on Medical Imaging 41 (4), 757–770 (2022). https://doi.org/10.1109/TMI.2020.3021387 17. Chen, R.J., Lu, M.Y., Weng, W.H., Chen, T.Y., Williamson, D.F., Manz, T., Shady, M., Mahmood, F.: Multimodal co-attention transformer for survival prediction in gigapixel whole slide images. In: Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV). pp. 4015–4025 (October 2021) 3, 9, 10 8. Chen, R.J., Lu, M.Y., Williamson, D.F., Chen, T.Y., Lipkova, J., Noor, Z., Shaban, M., Shady, M., Williams, M., Joo, B., et al.: Pan-cancer integrative histology-genomic analysis via multi-modal deep learning. Cancer cell 40 (8), 865–878 (2022) 3, 9, 10 9. Elmarakeby, H.A., Hwang, J., Arafeh, R., Crowdis, J., Gang, S., Liu, D., AlDubayan, S.H., Salari, K., Kregel, S., Richter, C., et al.: Biologically informed deep neural network for prostate cancer discovery. Nature 598 (7880), 348–352 (2021) 2 10. Gillezeau, C., Movva, N., van Gerwen, M., Rabon-Stith, K., Shire, N., Brohawn, P.Z., Taioli, E., Fryzek, J.: Interferon gamma expression and mortality in unselected cohorts of urothelial bladder cancer patients. PLoS One 17 (8), e0271339 (2022) 13 11. Hamilton, W., Ying, Z., Leskovec, J.: Inductive representation learning on large graphs. Ad-vances in neural information processing systems 30 (2017) 6 16 Gallagher-Syed et al. 12. Hanahan, D., Weinberg, R.A.: Hallmarks of cancer: the next generation. cell 144 (5), 646–674 (2011) 13 13. Hayden, A., Douglas, J., Sommerlad, M., Andrews, L., Gould, K., Hussain, S., Thomas, G.J., Packham, G., Crabb, S.J.: The nrf2 transcription factor contributes to resistance to cisplatin in bladder cancer. In: Urologic Oncology: Seminars and Original Investigations. vol. 32, pp. 806–814. Elsevier (2014) 13 14. Hogan, P.G., Chen, L., Nardone, J., Rao, A.: Transcriptional regulation by calcium, calcineurin, and nfat. Genes & development 17 (18), 2205–2232 (2003) 13 15. Ilse, M., Tomczak, J., Welling, M.: Attention-based deep multiple instance learning. In: Inter-national conference on machine learning. pp. 2127–2136. PMLR (2018) 2, 3, 10 16. Jain, S., Wallace, B.C.: Attention is not explanation. In: Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Lan-guage Technologies, Volume 1 (Long and Short Papers). pp. 3543–3556 (2019) 13 17. Jaume, G., Vaidya, A., Chen, R., Williamson, D., Liang, P., Mahmood, F.: Modeling dense multimodal interactions between biological pathways and histology for survival prediction. Pro-ceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) (2024) 3, 9, 10, 6, 16, 17 18. Kamoun, A., de Reynies, A., Allory, Y., Sjödahl, G., Robertson, A.G., Seiler, R., Hoadley, K.A., Groeneveld, C.S., Al-Ahmadie, H., Choi, W., et al.: A consensus molecular classification of muscle-invasive bladder cancer. European urology 77 (4), 420–433 (2020) 13 19. Kawahara, T., Kashiwagi, E., Ide, H., Li, Y., Zheng, Y., Miyamoto, Y., Netto, G.J., Ishiguro, H., Miyamoto, H.: Cyclosporine a and tacrolimus inhibit bladder cancer growth through down-regulation of nfatc1. Oncotarget 6(3), 1582 (2015) 13 20. Keum, S., Kim, S., Lee, S., Lee, J.: Slot-mixup with subsampling: a simple regularization for wsi classification. arXiv preprint arXiv:2311.17466 (2023) 2 21. Kim, B., Wattenberg, M., Gilmer, J., Cai, C.J., Wexler, J., Viégas, F.B., Sayres, R.: Interpretability beyond feature attribution: Quantitative testing with concept activation vectors (tcav). In: International Conference on Machine Learning (2017), https://api. semanticscholar.org/CorpusID:51737170 222. King, T., Butcher, S., Zalewski, L.: Apocrita - High Performance Computing Cluster for Queen Mary University of London (Mar 2017). https://doi.org/10.5281/zenodo.438045 , https: //doi.org/10.5281/zenodo.438045 15 23. Klambauer, G., Unterthiner, T., Mayr, A., Hochreiter, S.: Self-normalizing neural networks. Advances in neural information processing systems 30 (2017) 2, 10 24. Koh, P.W., Nguyen, T., Tang, Y.S., Mussmann, S., Pierson, E., Kim, B., Liang, P.: Concept bottleneck models. In: Proceedings of the 37th International Conference on Machine Learning. ICML’20, JMLR.org (2020) 2 25. Li, B., Li, Y., Eliceiri, K.W.: Dual-stream multiple instance learning network for whole slide image classification with self-supervised contrastive learning. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 14318–14328 (2021) 2, 10 26. Liberzon, A., Birger, C., Thorvaldsdóttir, H., Ghandi, M., Mesirov, J.P., Tamayo, P.: The molecular signatures database hallmark gene set collection. Cell systems 1(6), 417–425 (2015) 6, 4 27. Lipkova, J., Chen, R.J., Chen, B., Lu, M.Y., Barbieri, M., Shao, D., Vaidya, A.J., Chen, C., Zhuang, L., Williamson, D.F.K., Shaban, M., Chen, T.Y., Mahmood, F.: Artificial Intelligence for Multimodal Data Integration in Oncology. Cancer cell 40 (10), 1095–1110 (Oct 2022). https: //doi.org/10.1016/j.ccell.2022.09.012 , https://www.ncbi.nlm.nih.gov/pmc/articles/ PMC10655164/ 128. Liu, X., Tao, Y., Cai, Z., Bao, P., Ma, H., Li, K., Li, M., Zhu, Y., Lu, Z.J.: Pathformer: a biological pathway informed transformer for disease diagnosis and prognosis using multi-omics data. Bioinformatics 40 (5), btae316 (2024) 2 ProtoPathway 17 29. Locatello, F., Weissenborn, D., Unterthiner, T., Mahendran, A., Heigold, G., Uszkoreit, J., Dosovitskiy, A., Kipf, T.: Object-centric learning with slot attention. Advances in neural infor-mation processing systems 33 , 11525–11538 (2020) 2 30. Lundberg, S.M., Lee, S.I.: A unified approach to interpreting model predictions. Advances in Neural Information Processing Systems 30 (2017), http://papers.nips.cc/paper/7062-a-unified-approach-to-interpreting-model-predictions.pdf 231. Ma, T., Wang, J.: Graphpath: a graph attention model for molecular stratification with inter-pretability based on the pathway–pathway interaction network. Bioinformatics 40 (4), btae165 (2024) 2 32. Diez de Medina, S.G., Chopin, D., Marjou, A.E., Delouvée, A., LaRochelle, W.J., Hoznek, A., Abbou, C., Aaronson, S.A., Thiery, J.P., Radvanyi, F.: Decreased expression of keratinocyte growth factor receptor in a subset of human transitional cell bladder carcinomas. Oncogene 
+
+14 (3), 323–330 (1997) 12 33. Milacic, M., Beavers, D., Conley, P., Gong, C., Gillespie, M., Griss, J., Haw, R., Jassal, B., Matthews, L., May, B., et al.: The reactome pathway knowledgebase 2024. Nucleic acids research 
+
+52 (D1), D672–D678 (2024) 2, 6 34. Ribeiro, M.T., Singh, S., Guestrin, C.: "why should i trust you?": Explaining the predic-tions of any classifier. In: Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining. p. 1135–1144. KDD ’16, Association for Comput-ing Machinery, New York, NY, USA (2016). https://doi.org/10.1145/2939672.2939778 ,
+
+https://doi.org/10.1145/2939672.2939778 235. Rudin, C.: Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead. Nature Machine Intelligence 1(5), 206–215 (May 2019). https: //doi.org/10.1038/s42256-019-0048-x , https://www.nature.com/articles/s42256-019-0048-x 236. Rymarczyk, D., Pardyl, A., Kraus, J., Kaczyńska, A., Skomorowski, M., Zieliński, B.: Protomil: Multiple instance learning with prototypical parts for whole-slide image classification. In: Joint European conference on machine learning and knowledge discovery in databases. pp. 421–436. Springer (2022) 2 37. Shao, Z., Bian, H., Chen, Y., Wang, Y., Zhang, J., Ji, X., et al.: Transmil: Transformer based correlated multiple instance learning for whole slide image classification. Advances in Neural Information Processing Systems 34 , 2136–2147 (2021) 2, 10 38. Slack, D., Hilgard, S., Jia, E., Singh, S., Lakkaraju, H.: Fooling lime and shap: Adversarial attacks on post hoc explanation methods. In: Proceedings of the AAAI/ACM Conference on AI, Ethics, and Society. p. 180–186. AIES ’20, Association for Computing Machinery, New York, NY, USA (2020). https://doi.org/10.1145/3375627.3375830 , https://doi.org/10.1145/ 3375627.3375830 239. Song, A.H., Chen, R.J., Ding, T., Williamson, D.F., Jaume, G., Mahmood, F.: Morphologi-cal prototyping for unsupervised slide representation learning in computational pathology. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 11566–11578 (2024) 2, 3 40. Song, A.H., Chen, R.J., Jaume, G., Vaidya, A.J., Baras, A., Mahmood, F.: Multimodal proto-typing for cancer survival prediction. In: Salakhutdinov, R., Kolter, Z., Heller, K., Weller, A., Oliver, N., Scarlett, J., Berkenkamp, F. (eds.) Proceedings of the 41st International Conference on Machine Learning. Proceedings of Machine Learning Research, vol. 235, pp. 46050–46073. PMLR (21–27 Jul 2024), https://proceedings.mlr.press/v235/song24b.html 3, 9, 10 41. Veličković, P., Cucurull, G., Casanova, A., Romero, A., Lio, P., Bengio, Y.: Graph attention networks. International Conference on Learning Representations (2018) 7 42. Vijayan, D., Young, A., Teng, M.W., Smyth, M.J.: Targeting immunosuppressive adenosine in cancer. Nature Reviews Cancer 17 (12), 709–724 (2017) 13 43. Wang, Y., Kartasalo, K., Weitz, P., Acs, B., Valkonen, M., Larsson, C., Ruusuvuori, P., Hart-man, J., Rantalainen, M.: Predicting molecular phenotypes from histopathology images: a 18 Gallagher-Syed et al. transcriptome-wide expression–morphology analysis in breast cancer. Cancer research 81 (19), 5115–5126 (2021) 1 44. Weinstein, J.N., Collisson, E.A., Mills, G.B., Shaw, K.R., Ozenberger, B.A., Ellrott, K., Shmule-vich, I., Sander, C., Stuart, J.M.: The cancer genome atlas pan-cancer analysis project. Nature genetics 45 (10), 1113–1120 (2013) 16 45. Wu, Z., Zhu, K., Liu, Q., Liu, Y., Chen, L., Cui, J., Guo, H., Zhou, N., Zhu, Y., Li, Y., et al.: Profiles of immune infiltration in bladder cancer and its clinical significance: an integrative genomic analysis. International Journal of Medical Sciences 17 (6), 762 (2020) 13 46. Xu, Y., Chen, H.: Multimodal optimal transport-based co-attention transformer with global structure consistency for survival prediction. 2023 IEEE/CVF International Conference on Computer Vision (ICCV) pp. 21184–21194 (2023), https://api.semanticscholar.org/ CorpusID:259164622 3, 9, 10 47. Yang, L., Mehta, D., Liu, S., Mahapatra, D., Di Ieva, A., Ge, Z.: Tpmil: Trainable prototype enhanced multiple instance learning for whole slide image classification. Medical Imaging with Deep Learning (2023) 2 48. Yeh, C.K., Kim, B., Arik, S.O., Li, C.L., Pfister, T., Ravikumar, P.: On completeness-aware concept-based explanations in deep neural networks. In: Proceedings of the 34th International Conference on Neural Information Processing Systems. NIPS ’20, Curran Associates Inc., Red Hook, NY, USA (2020) 2 49. Zadeh, S.G., Schmid, M.: Bias in cross-entropy-based training of deep survival networks. IEEE transactions on pattern analysis and machine intelligence 43 (9), 3126–3137 (2020) 9, 17 50. Zhang, W., Yu, L., Chang, Z., Xiong, H.: Bcg immunotherapy promotes tumor-derived t-cell activation through the flt3/flt3lg pathway in bladder cancer. Journal of Cancer 15 (3), 623 (2024) 13 51. Zhang, Y., Xu, Y., Chen, J., Xie, F., Chen, H.: Prototypical information bottlenecking and dis-entangling for multimodal cancer survival prediction. In: International Conference on Learning Representations (2024), https://openreview.net/forum?id=otHZ8JAIgh 3, 9, 10 52. Zheng, X., Liao, X., Nie, L., Lin, T., Xu, H., Yang, L., Shen, B., Qiu, S., Ai, J., Wei, Q.: Lck and cd3e orchestrate the tumor microenvironment and promote immunotherapy response and survival of muscle-invasive bladder cancer patients. Frontiers in cell and developmental biology 
+
+9, 748280 (2021) 13 53. Zhu, K., Xiaoqiang, L., Deng, W., Wang, G., Fu, B.: Development and validation of a novel lipid metabolism-related gene prognostic signature and candidate drugs for patients with bladder cancer. Lipids in health and disease 20 (1), 146 (2021) 13 ProtoPathway 1
+
+## Supplementary Material 
+
+This supplement provides full details on all components of ProtoPathway. SM A describes the k-means prototype initialization procedure. SM B details the two-stage pathway and gene curation pipeline. SM C defines the eight interpretability signals extracted during in-ference and explains how they compose into spatial overlays. SM D presents the rank-based statistical framework used for population-level analysis, including fold-stratified testing and Stouffer’s meta-analytic combination. SM E lists all hyperparameters. SM F describes the five TCGA cohorts. SM G reports ablation studies on modality branches, fusion mechanism, and prototype count. SM H compares computational cost across all methods. SM I provides per-prototype morphological descriptions with exemplar patches. 
+
+## A Prototype Initialization 
+
+The learnable prototypes {ck}Kk=1 described in Section 2.2 are initialized from k-means centroids computed on training data. Because prototype assignment (Eq. 1) operates through cosine similarity in the projected space, initialization via cosine-distance clustering in the input space RD provides a starting decomposition aligned with the similarity metric the model will refine during training. 
+
+Training data sampling. For each cross-validation fold, up to 10 5 patch embeddings are sampled without replacement from training slides only, proportional to each slide’s patch count to ensure broad representation while preventing validation data leakage. Proportional counts are computed as ni = max(1 , ⌊Ni · 10 5/N total ⌋), where Ni is the patch count of slide 
+
+i and Ntotal the total across all training slides. The max(1 , ·) floor guarantees every training slide contributes at least one patch to the clustering sample. 
+
+ℓ2 normalization and clustering. All sampled embeddings are ℓ2-normalized to unit norm ( ∥h∥2 = 1 ) before clustering. For unit vectors u and v, squared Euclidean distance reduces to cosine distance: 
+
+∥u − v∥2 = 2  1 − ⟨ u, v⟩ (S1) This equivalence allows standard k-means, which minimizes squared Euclidean distance, to operate as cosine-distance clustering without algorithmic modification. Cosine distance is more appropriate than Euclidean distance for high-dimensional pathology features, where angular relationships encode morphological similarity while magnitude can vary with stain-ing intensity or tissue density. Clustering uses MiniBatchKMeans with batch size 1024 and 10 k-means++ restarts. 
+
+Centroid post-processing. Converged centroids are re-normalized to unit norm. During k-means, centroids are computed as arithmetic means of their assigned vectors, which produces vectors with magnitude less than one because averaging partially cancels components that point in different directions. Re-normalization restores the unit-length constraint so that subsequent cosine comparisons depend purely on angular differences. The K centroids are stored as 32-bit floating-point tensors and cached per fold for reproducibility across training runs, ensuring that restarted or resumed experiments use identical initialization. 2 Gallagher-Syed et al. 
+
+Initialization in the model. The cached centroids are passed to the PrototypeMIL mod-ule as init_centroids ∈ RK×D , where they initialize the learnable prototype parameter 
+
+{ck}Kk=1 . From this point, the prototypes are trainable parameters updated end-to-end by the survival objective, free to diverge from their initial positions to capture prognostically relevant morphological variation that purely unsupervised clustering may not prioritize. 
+
+Cross-fold prototype identity. Because centroids are computed independently per fold from different training subsets, and because end-to-end optimization permits prototypes to diverge from their initialization, the learned prototypes are not directly comparable across folds. This fold specificity is not inherently undesirable: it allows the model to adapt its morphological vocabulary to the particular tissue distribution in each training split. How-ever, it precludes population-level statistical analysis of prototype importance across folds, in contrast to pathways and genes whose identities are fixed by the Reactome vocabulary. Prototype-level interpretability analysis is therefore conducted within individual folds. En-forcing cross-fold consistency during training, for example through diversity regularization encouraging prototypes to occupy distinct and reproducible regions of the feature space, anchor-based penalties biasing prototypes toward a shared reference vocabulary, or limited concept supervision over tissue-type annotations, remains an open direction for future work. 
+
+## B Pathway and Gene Curation 
+
+The biological pathway vocabulary used by ProtoPathway is constructed through a fully automated, reproducible two-stage pipeline. Stage 1 builds a dataset-agnostic base pathway set from Reactome and MSigDB Hallmark gene sets. Stage 2 adapts this base set to each TCGA cohort by intersecting with the available gene expression data and constructing the bipartite graph consumed by the model. All parameters are specified in YAML configuration files and encoded in output filenames for full traceability. The pipeline is invoked via the unified Command Line Interface (CLI): python main.py preprocess reactome (Stage 1) and python main.py preprocess genes (Stage 2). 
+
+B.1 Stage 1: Base Pathway Construction Reactome Pathway Loading. Reactome pathways (Version 83; 2,769 Homo sapiens path-ways) [33] are loaded from the standard GMT file, which encodes each pathway as a gene set. The Reactome hierarchy is reconstructed as a directed acyclic graph (DAG) from the official 
+
+ReactomePathwaysRelation.txt file, filtering for human pathways (prefix R-HSA ). Path-way depths are computed as shortest-path distances from the root nodes of the DAG. Each pathway is additionally mapped to its top-level ancestor category (e.g., “Immune System”, “Signal Transduction”) via graph traversal. 
+
+Hierarchy-Based Depth Selection. Pathways are selected at a target depth of 5 in the Reactome hierarchy, which balances biological specificity with sufficient gene membership for meaningful aggregation. For branches that do not extend to depth 5, the deepest avail-able leaf node is retained, ensuring that shallower but terminally specific processes are not discarded. Pathways at depths greater than 5 are excluded as overly granular, whilst non-leaf pathways at depths less than 5 are excluded because their more specific children provide better resolution. We show the depth distribution of different Reactome branches in Fig. S1. ProtoPathway 30 2 4 6 8 10 
+
+> Pathway Depth
+> 0
+> 200
+> 400
+> 600
+> 800
+> Number of Pathways
+> Distribution of Reactome Pathway Depths
+> Max depth threshold (5)
+
+Fig. S1: Reactome pathway hierarchy depth distribution and selection strategy. The histogram displays the distribution of pathway depths within the Reactome hierarchical structure, with the vertical red line indicating the target depth of 5 selected for analysis. This depth repre-sents an optimal balance between biological specificity and interpretable scope: shallower pathways (depths 1-3) encompass overly broad cellular processes that provide limited mechanistic insight, whilst deeper pathways (depths 6-8) represent highly specific molecular interactions that may not capture the systems-level perturbations observed of cancer. 
+
+Category Exclusion. Entire top-level Reactome categories are removed when their con-stituent pathways are unlikely to carry prognostic signal for cancer survival, would introduce circularity, or represent housekeeping processes whose variation across patients is primarily technical rather than biological. The excluded categories are: 
+
+• Pharmacology: Drug ADME (drug absorption, distribution, metabolism, excretion; not endogenous biology). 
+
+• Disease-specific: Disease (risk of circular reasoning, as these pathways are defined by the conditions we aim to predict, and include irrelevant non-cancer diseases). 
+
+• Housekeeping / basic cellular machinery: Metabolism of proteins, Gene expression (Transcription), Organelle biogenesis and maintenance, Protein localization, Transport of small molecules, Vesicle-mediated transport, DNA Replication. 
+
+• Low cancer relevance: Neuronal System, Sensory Perception, Muscle contraction, Digestion and absorption, Reproduction, Circadian clock. 
+
+• Broad mixed categories: Metabolism, Developmental Biology (excluded in full, with targeted Hallmark gap-filling for cancer-relevant metabolic processes; see below). This category-level filtering reduces the number of pathways from 2769 to 666 in a single principled step, substantially reducing the vocabulary before finer-grained size and redun-dancy filters are applied. In Figure S2, we show the category distribution of the remaining pathways. 
+
+Size Filtering. Pathways with fewer than 3 genes or more than 200 genes are excluded. The lower bound ensures sufficient context for message passing within the bipartite graph, as pathways with only 1–2 genes provide negligible aggregation benefit. The upper bound removes excessively broad pathway complexes that would dilute gene-specific signal during 4 Gallagher-Syed et al. 0 50 100 150 200 250 
+
+> Number of Pathways
+> Signal Transduction
+> Immune System
+> Cell Cycle
+> Cellular responses to stimuli
+> DNA Repair
+> Metabolism of RNA
+> Hemostasis
+> Programmed Cell Death
+> Extracellular matrix organization
+> Chromatin organization
+> Cell-Cell communication
+> Autophagy
+> 275
+> 128
+> 63
+> 38
+> 36
+> 35
+> 26
+> 26
+> 13
+> 10
+> 9
+> 7
+> Pathways per Category (after filtering)
+
+Fig. S2: Distribution of Reactome pathways across top-level categories after category exclusion. The 666 retained pathways after category exclusion span 12 functional categories, domi-nated by Signal Transduction (275) and Immune System (128), with additional representation from Cell Cycle, Cellular responses to stimuli, DNA Repair, and Metabolism of RNA. 
+
+neighborhood aggregation. This step reduces the number of pathways to 634. We show the distribution of the number of genes per pathway in Figure S3. 
+
+Hallmark Supplementation. Excluding entire Reactome categories risks removing cancer-relevant biological processes. Metabolism and Developmental Biology, for instance, con-tain pathways central to tumor progression (the Warburg effect, metabolic reprogramming, epithelial-mesenchymal transition) that would be lost under blanket category exclusion. To ensure comprehensive coverage of cancer-relevant biology, all 50 MSigDB Hallmark gene sets [26] are integrated into the pathway vocabulary. The Hallmark collection provides broadly curated, non-redundant gene sets that span key oncogenic processes including pro-liferative signaling, inflammatory response, hypoxia, apoptosis, angiogenesis, and metabolic reprogramming, complementing the more granular Reactome pathways with process-level summaries. When a Hallmark gene set is integrated, any remaining Reactome pathway with Jaccard similarity J = 1 .0 to that Hallmark set is removed to avoid exact duplication, though in practice the category exclusion step has already removed most overlapping Re-actome pathways. This steps results in a pathway vocabulary of 684 pathway, with ≈ 93% 
+
+being Reactome and 7% Hallamrk. 
+
+Redundancy Removal. Pairwise Jaccard similarity J(A, B ) = |A∩B|/|A∪B| is computed between all pathway gene sets. Pathway pairs with perfect overlap ( J = 1 .0) are consolidated. When selecting which pathway to retain from a redundant group, a hierarchy-aware priority ordering is applied: (1) leaf nodes in the Reactome DAG are preferred over internal nodes, as they represent the most specific available characterisation; (2) deeper pathways are preferred over shallower ones; (3) larger gene sets are preferred; (4) alphabetical ordering serves as a final tie-breaker. This ensures that the retained representative is maximally specific and informative. ProtoPathway 50 25 50 75 100 125 150 175 200 
+
+> Number of Genes per Pathway
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Number of Pathways
+> Distribution of Pathway Sizes (final)
+> Min (3)
+> Max (200)
+
+Fig. S3: Distribution of curated pathway sizes after filtering. Histogram showing the number of genes per pathway for the 634 remaining Reactome pathways following hierarchy-based selection, category exclusion, size filtering (3-200 genes). The distribution exhibits a right-skewed pattern with most pathways containing fewer than 50 genes, while maintaining representation of larger pathway complexes up to the 200-gene threshold. 
+
+Base Pathway Statistics. The Stage 1 pipeline produces a base set of curated path-ways with associated gene memberships, saved with a parameter-encoded filename (e.g., 
+
+pathways_base_d5_g3-200_j100.pkl ) for reproducibility, as well as a pathway redundancy report. We show summary statistics of the curated pathways in Table S1. 
+
+Table S1: Base pathway vocabulary statistics (Stage 1). Summary of the curated pathway set after hierarchy selection, category exclusion, size filtering, Hallmark supplementation, and re-dundancy removal. This base set is subsequently adapted per cohort in Stage 2, yielding the final 662 pathways reported in the main paper. 
+
+Statistic Value 
+
+Total pathways 684 Reactome 634 Hallmark 50 Total unique genes 7,160 Mean genes per pathway 35.7 Median genes per pathway 19.0 Mean pathways per gene 3.41 Genes in single pathway 3,048 Genes in 10+ pathways 409 6 Gallagher-Syed et al. 
+
+B.2 Stage 2: Per-Dataset Adaptation. 
+
+Stage 2 adapts the base pathway set to each TCGA cohort individually, accounting for differences in gene coverage across datasets. 
+
+Gene Expression Data. For all five TCGA cohorts, gene expression data is obtained directly from the SurvPath repository [17], ensuring identical input data across all methods in our benchmark. The SurvPath expression files provide a common set of 4,999 genes across all cohorts. Because the SurvPath data has already been preprocessed and normalized, the optional expression filtering steps in our pipeline (CPM thresholding, log 2 transformation, mean-centering, variance selection) are bypassed, avoiding any additional preprocessing vari-ation that could confound comparisons. 
+
+Gene Coverage Filtering. Each base pathway is intersected with the genes available in the cohort’s expression matrix (Fig. S4). Pathways retaining fewer than 2 genes after intersection are removed, as they provide insufficient context for bipartite message passing. Because all five TCGA cohorts share the same 4,999 gene features from the SurvPath repository, this step is identical across cohorts: 22 of the 684 base pathways (all Reactome) have fewer than 2 genes represented among the SurvPath features and are excluded, yielding the final vocabulary of 662 pathways (612 Reactome, 50 Hallmark) covering 4,574 unique genes. 20 40 60 80 100         
+
+> Gene Coverage (%)
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> 120
+> Number of Pathways
+> Pathway Gene Coverage in Expression Data
+> Median: 72.7%
+> 025 50 75 100 125 150 175 200
+> Genes Present
+> 0
+> 50
+> 100
+> 150
+> 200
+> Number of Pathways
+> Number of Pathway Genes in Expression Data
+> Median: 13
+
+Fig. S4: Pathway gene coverage in the SurvPath expression data. Left: percentage of each pathway’s original gene set represented among the 4,999 SurvPath features (median 72.7%). Right: absolute number of genes present per pathway (median 13). Pathways retaining fewer than 2 genes are excluded in the gene coverage filtering step. The distributions are identical across all five TCGA cohorts, as they share the same gene expression features. 
+
+Pathway Variance Filtering (Optional). An optional variance-based filter can remove pathways whose constituent genes show minimal expression variation across patients, as such pathways are unlikely to contribute discriminative signal. Pathway activity is computed as the mean expression of constituent genes per patient, and the variance of this activity score ProtoPathway 7
+
+across the cohort determines pathway informativeness. In the experiments reported in the main paper, this filter retains 100% of pathways (i.e., it is effectively disabled), as the preceding curation steps already produce a sufficiently focused vocabulary. Hypergraph: 60 Pathways, 526 Genes 
+
+Fig. S5: Hypergraph representation of gene-pathway relationships. A subset of 60 path-ways and 526 genes displayed as a hypergraph, where each colored ellipse represents a pathway hyperedge enclosing its member genes (small dots). Central diamond nodes denote pathway iden-tities. Overlapping ellipses indicate genes shared between pathways, reflecting the many-to-many biological relationships that the bipartite graph formulation preserves. The bipartite graph (Fig. S6) provides an equivalent representation with explicit pathway nodes, which is the form directly con-sumed by the GNN. 
+
+Bipartite Graph Construction. The final gene and pathway sets are assembled into the bipartite graph G = ( VG ∪ V P , EGP ) consumed by the model (Fig. S6). Gene nodes VG
+
+correspond to genes present in both the expression data and at least one retained pathway. Pathway nodes VP correspond to the retained pathways. Bidirectional edges EGP connect each gene to every pathway it belongs to, enabling the simultaneous gene-to-pathway and pathway-to-gene message passing described in Section 2.3 of the main paper. The graph is stored as a PyTorch edge index tensor alongside mappings from node indices to gene and pathway identifiers. Figure S5 provides an alternative view of the same structure as a hyper-graph, where each pathway defines a hyperedge enclosing its constituent genes, illustrating the overlapping many-to-many relationships that the bipartite formulation preserves. 8 Gallagher-Syed et al. R-HSA-418592 
+
+> R-HSA-392170
+> R-HSA-198323
+> R-HSA-198693
+> R-HSA-176409
+> R-HSA-174178
+> R-HSA-5649702
+> R-HSA-380994
+> R-HSA-381183
+> R-HSA-8874177
+> R-HSA-450408
+> R-HSA-8854518
+> R-HSA-2122948
+> R-HSA-9032845
+> R-HSA-9028731
+> R-HSA-9028335
+> R-HSA-9026527
+> R-HSA-9026519
+> R-HSA-9603381
+> R-HSA-9034793
+> R-HSA-9034864
+> R-HSA-5625886
+> R-HSA-176187
+> R-HSA-111447
+> R-HSA-111446
+> R-HSA-139910
+> R-HSA-174577
+> R-HSA-1592389
+> R-HSA-1169091
+> R-HSA-2980767
+> Bipartite Graph: 30 Pathways × 191 Genes
+> Genes (n=191)
+> Reactome Pathways
+> Hallmark Gene Sets
+
+Fig. S6: Bipartite graph structure. A subset of 30 pathways and their 191 constituent genes, visualized as a bipartite graph. Gene nodes (gray circles, left) connect via bidirectional edges to pathway nodes (green diamonds, right). Genes appearing in multiple pathways have edges to each, providing the cross-pathway communication channels exploited by message passing. The full graph comprises 662 pathways, 4,574 genes, and 17,275 bidirectional edges. 
+
+Final Vocabulary. Across the five TCGA cohorts used in this work, the pipeline yields 662 pathways covering 4,574 unique genes. The pathway size distribution is right-skewed, with most pathways containing fewer than 50 genes and a tail extending to the 200-gene upper bound, reflecting the natural hierarchy from specific molecular interactions to broader cellu-lar programs. The vocabulary comprises predominantly Reactome pathways supplemented by the 50 MSigDB Hallmark gene sets described above. Because all cohorts share the same SurvPath gene features, the resulting bipartite graph topology is identical across datasets; only cohort size varies. Table S2 summarizes the shared graph structure. 
+
+Table S2: Bipartite graph statistics. All five TCGA cohorts share the same 4,999 gene expres-sion features, yielding an identical pathway vocabulary and graph topology. 
+
+Statistic Value 
+
+Input genes (SurvPath) 4,999 Genes in pathways 4,574 Total pathways 662 Reactome 612 Hallmark 50 Bidirectional edges 17,275 Mean genes per pathway 12.8 Mean pathways per gene 1.6 ProtoPathway 9
+
+Reproducibility. The entire curation pipeline is deterministic and parameterized through configuration files. Stage 1 parameters (target depth, size bounds, excluded categories, Hall-mark additions, Jaccard threshold) are encoded in the output filename, enabling unambigu-ous provenance tracking. Stage 2 records a complete preprocessing manifest including the base pathway file used, expression filtering settings, and resulting graph statistics, saved as a JSON file alongside each cohort’s outputs. The pipeline can be re-executed end-to-end via two CLI commands with no manual intervention. 
+
+## C Interpretability Signals 
+
+ProtoPathway produces a complete set of interpretability signals during standard inference, requiring no post-hoc attribution methods. Table 1 summarizes the eight signals, here we describe their extraction in detail and explain how they compose to construct the spatial overlays shown in Fig. 4. 
+
+C.1 Signal Extraction 
+
+All signals are extracted from a single forward pass with attention logging enabled. We describe each signal below: 
+
+Morphological signals (prototype encoding). The prototype encoder (Section 2.2) produces two interpretability signals per patient, along with auxiliary quantities used in spatial overlay construction. 
+
+(i) Soft assignment matrix α ∈ RN ×K . For each patch n and prototype k, the assignment probability is computed as in Eq. 1, where the shared linear projection f :
+
+RD → Rd maps both patch embeddings hn and learnable prototype vectors ck into a common d-dimensional space. Both projected vectors are L2-normalized before computing cosine similarity, and the temperature parameter τ = 0 .1 controls assignment sharpness. The softmax is taken over the prototype dimension so that PKk=1 αnk = 1 for every patch. From the soft assignments, two auxiliary quantities are derived: hard assignments k∗ 
+
+> n
+
+=argmax k αnk (the discrete prototype label per patch, used for all spatial overlays), and pre-softmax cosine similarities S ∈ RN ×K (the raw scores before temperature scaling and softmax, used for prototype exemplar extraction in Section C.3). 
+
+(ii) Prototype gate weights wk = softmax k
+
+ ψ(tk), where ψ : Rd → R is a learned linear layer that maps each prototype token tk to a scalar score, and softmax is applied across all K prototypes. These weights quantify each prototype’s contribution to the patient-level WSI embedding ¯zwsi = P 
+
+> k
+
+wktk, reflecting morphological importance before any cross-modal context is incorporated. 
+
+Genomic signals (pathway encoding). The bipartite GNN encoder (Section 2.3) pro-duces three signals: 
+
+(iii) Gene-pathway attention coefficients αg→p ∈ RG×P . These are the dynamic attention coefficients from the final GATv2 layer (Eq. 4), which operates on enriched repre-sentations produced by the preceding GraphSAGE layers and LayerNorm. For multi-head 10 Gallagher-Syed et al. 
+
+attention, the per-edge coefficients are averaged across heads and reorganized from the sparse edge-indexed format into a dense G × P matrix. Because the softmax normalization is taken over each pathway’s gene neighborhood independently, coefficients within a pathway sum to one: P  
+
+> g∈N (p)
+
+αg→p = 1 . This means they quantify relative gene importance within each pathway, not absolute importance across pathways. 
+
+(iv) Pathway gate weights wp = softmax p
+
+ ϕ(zp) (Eq. 5), where ϕ : Rd → R is a learned linear layer. These provide a direct measure of each pathway’s prognostic contribu-tion for the given patient. 
+
+(v) Overall gene importance ig = P 
+
+> p
+
+αg→p · wp, a derived signal that weights each gene’s per-pathway attention coefficient by the corresponding pathway’s importance. This provides a single scalar per gene summarizing its overall contribution to the genomic rep-resentation, accounting for both within-pathway relevance and the pathway’s prognostic weight. 
+
+Cross-modal signals (fusion). The cross-attention fusion module (Section 2.4) produces three signals: 
+
+(vi) Cross-modal attention matrix A ∈ RK×P (Eq. 6). Prototype tokens serve as queries and pathway embeddings serve as keys and values in multi-head scaled dot-product attention. Each entry akp quantifies the association between morphological prototype k and biological pathway p for the given patient, with softmax normalization over pathways for each prototype: P 
+
+> p
+
+akp = 1 .
+
+(vii) Per-prototype pathway profile Ak, : ∈ RP : each row of A provides a distribution over pathways for a single prototype, enabling pathway ranking per morphological pattern. This is a direct read-out from A rather than a separately computed quantity. 
+
+(viii) Fusion gate weights wf 
+
+> k
+
+= softmax k
+
+ ψf (˜ tk) (Eq. 7), where ˜tk are the cross-attended prototype representations and ψf is a separate learned linear layer from the one used for Signal (ii). These weights assess prototype importance after molecular context has been integrated. Comparing wk and wf 
+
+> k
+
+across the same patient reveals whether a prototype’s prognostic relevance is intrinsically morphological or emerges through its association with specific molecular programs. 
+
+C.2 Spatial Overlay Construction 
+
+Since each patch has known tissue coordinates from the WSI preprocessing step, the per-patient signals described above can be projected back onto the slide to produce spatial visualizations. All overlays are rendered on a tissue canvas constructed from the original WSI file, at a configurable downsample factor. We generate four types of spatial overlay, each composing a different subset of the signals in Table 1. 
+
+Prototype Assignment Map Each patch n is colored by its hard-assigned prototype 
+
+k∗ 
+
+> n
+
+= argmax k αnk , using a perceptually distinct K-color palette. This produces a spatial segmentation of the slide into morphological compartments learned entirely from the survival objective, without any tissue-type supervision. Figure 4A illustrates this overlay on a BLCA case. ProtoPathway 11 
+
+Construction is straightforward: for each patch, its tissue coordinates (xn, y n) are mapped to canvas coordinates (xn/s, y n/s ) where s is the downsample factor, and the tile at that position is filled with the color assigned to prototype k∗
+
+> n
+
+. The assignment map provides the spatial scaffold on which all subsequent overlays are built. Because every downstream signal (pathway associations, gene importance, fusion gating) is indexed by prototype, the assignment map defines which tissue regions each signal refers to. 
+
+Pathway Overlay Each patch inherits a single pathway label from its assigned prototype, producing a categorical spatial map of molecular program identity over the tissue (Fig. 4B). To ensure the overlay highlights prognostically relevant associations, we use a risk-aware pathway selection procedure: For each prototype k, we consult the per-fold population-level rank analysis of the cross-modal attention rows Ak, : (described in SM D). This analysis identifies, for each prototype, which pathways have the largest rank difference between model-predicted high-risk and low-risk groups. For a high-risk patient, prototype k receives its top high-risk-associated pathway (largest positive rank difference); for a low-risk patient, it receives its top low-risk-associated pathway (largest negative rank difference). Each unique pathway in the resulting map is assigned a distinct color, and every patch is filled with the color of its prototype’s selected pathway. This design means the pathway overlay adapts to the patient’s risk direction: for the same slide, a high-risk patient’s overlay highlights the molecular programs the model associates with poor prognosis, while a low-risk patient’s overlay highlights those associated with favorable prognosis. 
+
+Single-Pathway Heatmap For a selected pathway p, a continuous heatmap visualizes the spatial distribution of the model’s attention to that pathway across the tissue (Fig. 4C). The per-patch value is: 
+
+v(p) 
+
+> n
+
+= ak∗
+
+> n, p
+
+, (S2) where k∗ 
+
+> n
+
+is the patch’s hard prototype assignment and ak,p is the (k, p ) entry of the cross-modal attention matrix A. Each patch thus receives the attention its prototype allocates to the selected pathway. The values are rendered using the inferno colormap. Because cross-modal attention values are softmax-normalized over P = 662 pathways, raw magnitudes concentrate in a narrow range. To spread the colormap across the full dynamic range, we apply a rank transformation: per-patch values are replaced with their within-slide percentile ranks (scaled to [0 , 1] ). This produces overlays where color intensity reflects relative spatial variation in attention for the selected pathway, independent of its absolute magnitude. The rank transformation is applied as ˜v(p) 
+
+> n
+
+= (rank( v(p) 
+
+> n
+
+) − 1) / (N − 1) , where rank( ·) uses average-rank tie breaking. 
+
+Single-Gene Heatmap For a selected gene g, a continuous heatmap visualizes where the gene’s signal is spatially concentrated across the tissue (Fig. 4D). This overlay composes the gene-pathway attention from the GATv2 layer with the cross-modal prototype-pathway attention, yielding a per-patch score: 
+
+v(g) 
+
+> n
+
+=
+
+> P
+
+X
+
+> p=1
+
+ak∗ 
+
+> n, p
+
+· αg→p, (S3) 12 Gallagher-Syed et al. 
+
+where ak∗ 
+
+> n,p
+
+is the cross-modal attention from the patch’s prototype to pathway p, and αg→p
+
+is the GATv2 attention coefficient of gene g within pathway p. The dot product measures how much of the gene’s genomic signal flows through the morphological region occupied by each patch: it is high when the patch’s prototype strongly attends to pathways in which the gene is important, and low otherwise. As with the single-pathway heatmap, a rank transformation maps the values to within-slide percentile ranks before colormap application. This is the default for publication figures and is what is shown in Fig. 4D. 
+
+C.3 Prototype Exemplar Extraction 
+
+To aid morphological interpretation of the learned prototypes, we extract the most represen-tative patches for each prototype. Patches are ranked by their pre-softmax cosine similarity to the prototype in the projected d-dimensional space (the auxiliary similarity scores derived from Signal i), and the top-M patches (default M = 8 ) are selected. We use the pre-softmax similarity rather than the post-softmax assignment probabilities because the latter are nor-malized across prototypes and therefore less discriminative for within-prototype ranking: a patch may have high assignment probability to a prototype simply because it has low similarity to all others, rather than because it is a strong exemplar. Exemplar patches are cropped from the original WSI, when selecting which prototypes to display, we rank proto-types by their gate weight and show exemplars for the top-K′ prototypes. Figure S8 shows per-prototype exemplar grids for BLCA. 
+
+C.4 Complete Attribution Chain 
+
+The individual signals described above compose into a multi-level attribution chain link-ing molecular programs to spatial tissue locations, entirely from the architecture’s inherent computation. 
+
+• At the lowest level, GATv2 attention αg→p (Signal iii ) quantifies each gene’s contribution within its pathway(s). Because the bipartite graph connects genes to all pathways they belong to, a single gene can have different attention coefficients in different pathways, reflecting context-dependent importance. One level up, pathway gate weights wp (Sig-nal iv ) quantify each pathway’s contribution to the patient-level genomic embedding; together with Signal iii , this yields overall gene importance (Signal v ). 
+
+• On the cross-modal side, the attention matrix A (Signal vi ) links each pathway to the morphological patterns it is associated with. Finally, patch-prototype assignments (Signals i and ii ) map each prototype to specific tissue coordinates, completing the chain from genes through pathways and prototypes to spatial locations. 
+
+• The spatial overlays described in Sections C.2 instantiate specific traversals of this chain. The prototype assignment map uses the final link alone. The pathway overlay composes the cross-modal attention (Signal vi ) with the assignment map. The single-pathway heatmap isolates one column of A and projects it through the assignment map. The single-gene heatmap composes the gene-pathway attention (Signal iii ), the cross-modal attention (Signal vi ), and the assignment map, traversing the full chain from a single gene to every patch on the slide. ProtoPathway 13 
+
+## D Statistical Analysis 
+
+The interpretability signals described in SM H characterize individual patients. To iden-tify signals systematically associated with survival outcomes across the cohort, we employ population-level statistical analysis. This section describes the rank-based testing frame-work, the meta-analytic combination across cross-validation folds, and the specific analyses applied to each signal type. 
+
+D.1 Motivation: Rank-Based Analysis 
+
+Raw attention magnitudes from softmax-normalized mechanisms are difficult to compare across patients and across signals. Different patients have different numbers of patches, different expression profiles, and different overall attention scales, so a pathway gate weight of 0.003 in one patient is not directly comparable to 0.003 in another. More fundamentally, softmax normalization couples the magnitudes of all entries: an increase in one pathway’s weight necessarily decreases others, making absolute values sensitive to the composition of the full set rather than reflecting independent importance. We therefore adopt a rank-based approach. For each patient, raw importance scores are converted to within-patient ranks, eliminating inter-patient variation in overall mag-nitude and focusing the analysis on relative prioritization: which pathways (or genes, or prototypes) does the model rank highest for this patient? The subsequent statistical tests compare the distributions of these ranks between risk groups. This approach is robust to monotone transformations of the importance scores and makes no distributional assump-tions, which is appropriate for the small, heterogeneous cohorts typical of clinical survival studies. This population-level approach is also immune to the Jain and Wallace [16] cri-tique of individual-level attention faithfulness, because it treats attention as a distributional property of the model’s behavior across a patient population rather than requiring that any single patient’s attention weights faithfully represent the model’s internal reasoning for that patient. 
+
+D.2 Within-Patient Ranking 
+
+For each patient i, the raw importance vector wi ∈ RE (where E is the number of entities, e.g., P pathways or K prototypes) is converted to a rank vector ri ∈ RE using average-rank tie breaking. That is, entity j receives rank rij = rank( wij ) among {wi1, . . . , w iE },with ties assigned the mean of the ranks they would occupy. Higher ranks correspond to higher importance. This transformation is applied independently to each patient before any between-group comparisons. 
+
+D.3 Fold-Stratified Testing 
+
+Different cross-validation fold models learn different attention patterns because they are trained on different data subsets with different initializations. Pooling patients across folds and comparing high-risk versus low-risk groups would conflate genuine risk-associated signal with inter-model variance, potentially drowning out true effects or producing false positives driven by a single fold’s idiosyncrasies. We therefore conduct all statistical tests indepen-dently within each fold. 14 Gallagher-Syed et al. 
+
+Within each fold k, patients are split into high-risk and low-risk groups by median pre-dicted risk score. For each entity j, a two-sided Mann-Whitney U test compares the within-patient rank distributions {rij : i ∈ low-risk } versus {rij : i ∈ high-risk }. This tests whether the entity tends to be ranked differently (higher or lower relative to the other entities) in high-risk versus low-risk patients. The test requires at least two patients per group within the fold; folds not meeting this criterion are excluded. 
+
+Effect size. The rank-biserial correlation provides a standardized effect size on [−1, 1] :
+
+r = 1 − 2Unlow · nhigh 
+
+, (S4) where U is the Mann-Whitney U statistic and nlow , nhigh are the group sizes. Positive values indicate higher ranks in the high-risk group (the entity is more important for high-risk predictions), and negative values indicate higher ranks in the low-risk group. 
+
+Rank difference. For interpretive display (e.g., bar charts in Figs. 3 and 5), we also report the mean rank difference ¯rhigh − ¯rlow for each entity. This is on the scale of rank positions and provides an intuitive measure of how many positions higher or lower the entity is ranked in high-risk versus low-risk patients. 
+
+D.4 Meta-Analysis Across Folds 
+
+Per-fold p-values and effect sizes are combined across the F cross-validation folds using Stouffer’s weighted Z method. For each entity j:1. Each per-fold p-value pjk is converted to a directional Z-score: zjk = Φ−1(1 − pjk /2) ·
+
+sign( rjk ), where Φ−1 is the standard normal quantile function and rjk is the rank-biserial correlation for entity j in fold k. The sign ensures that consistent directional effects across folds reinforce each other, while inconsistent directions cancel. The p-value is clamped to [10 −15 , 1 − 10 −15 ] before inversion for numerical stability. 2. Fold weights are set proportional to the square root of the fold’s total patient count: 
+
+wk = √nk, giving more influence to larger folds. 3. The combined Z-score is: 
+
+Zj =
+
+PFk=1 wk zjk 
+
+qPFk=1 w2
+
+> k
+
+, (S5) and the combined p-value is pj = 2 (1 − Φ(|Zj |)) .4. The combined effect size is the weighted mean: ¯rj = P 
+
+> k
+
+wk rjk / P 
+
+> k
+
+wk.An entity requires results from at least two folds for meaningful combination. Multiple testing across all entities is corrected via the Benjamini-Hochberg procedure at α = 0 .05 .
+
+D.5 Application to Specific Signals 
+
+The fold-stratified analysis pipeline is applied to the following interpretability signals: ProtoPathway 15 
+
+• Pathway gate importance (Signal iv ). The entity vector for each patient is {wp}Pp=1 ,the pathway gate weights from the genomic encoder. This analysis identifies pathways systematically prioritized by the model in high-risk versus low-risk predictions. Pathway identities are consistent across folds (all folds share the same Reactome vocabulary), so Stouffer’s combination applies directly. Results are shown in Fig. 5A. 
+
+• Gene importance (Signal v ). The entity vector for each patient is the overall gene importance {ig }Gg=1 , computed as the pathway-weighted sum of GATv2 attention co-efficients. We compute two variants: the sum ig = P 
+
+> p
+
+αg→p · wp and the average 
+
+ig = ( P 
+
+> p
+
+αg→p) / |{ p : αg→p > 0}| , the latter normalizing for the number of pathways a gene participates in. Both are combined across folds via Stouffer’s method. 
+
+• Within-pathway gene attention (Signal iii ). For selected pathways of interest (typ-ically the top pathways from the pathway gate analysis), the entity vector is restricted to genes belonging to that pathway: {αg→p}g∈N (p). This identifies which genes drive a specific pathway’s importance. Gene identities are consistent across folds, so Stouffer’s combination applies. Results for the top high-risk and low-risk pathways are shown in Fig. 5 (A1 and A2). 
+
+• Prototype gate importance (Signals ii and viii ). The entity vectors are the WSI gate weights {wk}Kk=1 and fusion gate weights {wf
+
+> k
+
+}Kk=1 , respectively. Because proto-types are re-initialized from k-means centroids per fold, prototype identities are not directly comparable across folds: “Prototype 0” in fold 0 may correspond to a different morphological concept than “Prototype 0” in fold 1. The rank analysis for these signals is therefore performed at the individual fold level rather than combined via Stouffer’s method, and results (Fig. 3) are reported per fold. 
+
+Cross-modal attention per prototype (Signal vii ). For each prototype k, the entity vector is the row Ak, : ∈ RP of the cross-modal attention matrix. This identifies which pathways each morphological pattern is most strongly associated with in each risk direction. As with prototype gate importance, this analysis is performed per fold due to prototype re-initialization across folds. The per-prototype pathway rankings are used by the pathway overlay construction (SM C) and by the cross-modal heatmap summaries. 
+
+D.6 Gating Shift Analysis 
+
+To quantify how cross-modal context reshapes morphological priorities, we compare pro-totype importance before fusion (WSI gate wk, Signal ii) and after fusion (fusion gate 
+
+wf
+
+> k
+
+, Signal viii) across the patient population. For each patient, both weight vectors are independently converted to within-patient ranks over the K prototypes. The rank shift for prototype k is defined as the change in rank position from pre-fusion to post-fusion: 
+
+∆k = rank( wf
+
+> k
+
+) − rank( wk). A positive shift indicates that the prototype gained importance after pathway context was incorporated; a negative shift indicates it lost importance. Be-cause both gate vectors are observed for the same patient, this is a within-patient paired comparison that does not require cross-fold combination. The population-level shift is computed as the mean ∆k across all patients within a fold. To assess whether the shifts differ by risk group, we compare the distributions of ∆k between high-risk and low-risk patients for each prototype. Results are visualized as a three-panel figure (Fig. 3): pre-fusion importance by risk group (left), the mean rank shift between gates (center), and post-fusion importance by risk group (right). 16 Gallagher-Syed et al. 
+
+## E Hyperparameters 
+
+Table S3 summarizes the hyperparameters used for ProtoPathway. The majority of architec-tural and optimization settings are shared across all five cohorts: both encoders project to a common dimensionality of d=128 , the gene encoder uses three GNN layers, the WSI encoder uses K=16 prototypes with softmax temperature τ =0 .1, and all models are trained with AdamW at a weight decay of 10 −5 for up to 100 epochs with early stopping on validation concordance index. A small number of hyperparameters are tuned per cohort via validation performance within the five-fold cross-validation protocol. These are limited to regularization strength (dropout in the gene encoder and fusion module), the number of attention heads in the gene encoder and fusion module, and the encoder learning rate. In practice, the per-cohort settings fall into two configurations: BLCA and STAD use dropout 0.5 with four attention heads in both the gene encoder and fusion module, while BRCA, COADREAD, and HNSC use dropout 0.25 with two fusion attention heads. Encoder learning rates range from 1×10 −4
+
+to 2 × 10 −4. All methods in the comparison use the same predefined folds and evaluation procedure. 
+
+Table S3: ProtoPathway hyperparameters. Top: shared across all cohorts. Bottom: per-cohort settings. All models are trained with AdamW, batch size 1, and no learning rate scheduler.                
+
+> Component Hyperparameter Value
+> Gene encoder Hidden dim ( d)128 Num. GNN layers 3WSI encoder Hidden dim ( d)128 Num. prototypes ( K)16 Temperature ( τ)0.1 Fusion Hidden dim 128 Training Weight decay (L2) 10 −5
+> Max epochs 100 Survival bins 4Seed 42
+
+Component Hyperparameter BRCA BLCA COADREAD HNSC STAD 
+
+Gene encoder Dropout 0.25 0.5 0.25 0.25 0.5 Attention heads 2 4 4 4 4Encoder Learning rate 2 × 10 −4 1 × 10 −4 1 × 10 −4 1 × 10 −4 2 × 10 −4
+
+Fusion Attention heads 2 4 2 2 4Dropout 0.25 0.5 0.25 0.25 0.5 
+
+## F Datasets 
+
+We evaluate ProtoPathway on five cancer cohorts from The Cancer Genome Atlas (TCGA) [44], summarized in Table S4. Cohort selection follows SurvPath [17] to enable direct comparison with prior multimodal survival methods. ProtoPathway 17                            
+
+> Table S4: Dataset statistics for the five TCGA cohorts used in this study. Ndenotes the number of patients with both WSI and gene expression data available in the predefined splits. Event rate is the proportion of uncensored (deceased) patients.
+> Cohort Cancer Type NEvent Rate Folds
+> TCGA-BRCA Breast Invasive Carcinoma 714 12.5% 5TCGA-BLCA Bladder Urothelial Carcinoma 359 43.5% 5TCGA-COADREAD Colorectal Adenocarcinoma 227 21.1% 5TCGA-HNSC Head & Neck Squamous Cell Carcinoma 392 44.9% 5TCGA-STAD Stomach Adenocarcinoma 318 37.7% 5
+> Total 2,010
+
+Cohort descriptions. 
+
+•• TCGA-BRCA (Breast Invasive Carcinoma) is the largest cohort, comprising predomi-nantly early-stage breast cancers with a correspondingly low event rate. The high cen-soring fraction reflects the generally favorable prognosis of breast cancer relative to the other cohorts included here. 
+
+• TCGA-BLCA (Bladder Urothelial Carcinoma) consists of muscle-invasive bladder can-cers. 
+
+• TCGA-COADREAD combines colon adenocarcinoma (COAD) and rectum adenocarci-noma (READ) into a single colorectal cohort, following standard practice in multimodal survival benchmarking [17]. 
+
+• TCGA-HNSC (Head and Neck Squamous Cell Carcinoma) includes cancers of the oral cavity, oropharynx, larynx, and hypopharynx, representing a heterogeneous anatomical distribution. 
+
+• TCGA-STAD (Stomach Adenocarcinoma) captures gastric cancers with diverse molec-ular subtypes. 
+
+Survival endpoint. We use overall survival (OS) as the clinical endpoint, defined as the time from diagnosis to death by any cause. Censored patients (those alive at last follow-up or lost to follow-up) are right-censored. Continuous survival times are discretized into B = 4 
+
+quantile-based bins computed from uncensored patients, following Zadeh and Schmid [49]. The event rate (proportion of uncensored patients) varies substantially across cohorts, as shown in Table S4 from approximately 15% in BRCA to approximately 50% in BLCA and STAD, reflecting the differing natural histories of these cancers. 
+
+## G Ablation Studies 
+
+We ablate three architectural choices: modality branches (Section G.1), fusion mechanism (Section G.2), and prototype count (Section G.3). In each case, the design was motivated by interpretability: the ablations verify that these choices do not sacrifice predictive perfor-mance. 18 Gallagher-Syed et al. 
+
+G.1 Unimodal Ablation 
+
+The unimodal variants reported in Table 2 ( ProtoPath wsi and ProtoPath gene ) are trained from scratch with one branch architecturally removed, not post-hoc evaluations of the mul-timodal model. When a branch is disabled via configuration ( model.branches.gene or 
+
+model.branches.wsi ), the corresponding encoder is not instantiated, the fusion module is removed, and the classifier is replaced with a fresh linear layer mapping from d directly to the B survival bin logits. Training follows the same folds, survival objective, early stopping criterion, and hyperparameters as the multimodal setting. Prototype centroids follow the same k-means initialization described in SM A. 
+
+G.2 Fusion Ablation 
+
+Table S5 compares ProtoPathway’s cross-attention fusion against three alternatives within the same architecture, with all other hyperparameters held fixed. ProtoPathway achieves the highest concordance index on every cohort and the highest overall C-index (0.670), out-performing concatenation (0.614), bilinear (0.630), and gated fusion (0.630). The advantage is largest on HNSC (+0.060 over gated, the next best on that cohort), where cross-modal integration appears most critical to surpassing gene-only baselines. Concatenation performs worst overall, consistent with its inability to model interactions between modality streams: it simply stacks the two pooled embeddings and relies on the downstream MLP to discover any cross-modal structure. Bilinear and gated fusion offer modest improvements by introducing multiplicative interactions, but neither matches cross-attention, which explicitly queries each pathway embedding from each prototype token.                               
+
+> Table S5: Fusion ablation study. Concordance index across five TCGA cohorts for each fusion variant, with all other hyperparameters held fixed. Best performance in bold .
+> Fusion BRCA BLCA COADREAD HNSC STAD Overall
+> Concatenation 0.586 ±0.036 0.627 ±0.050 0.689 ±0.144 0.549 ±0.068 0.617 ±0.051 0.614 Bilinear 0.584 ±0.047 0.635 ±0.055 0.719 ±0.131 0.547 ±0.053 0.664 ±0.055 0.630 Gated 0.589 ±0.047 0.636 ±0.048 0.701 ±0.132 0.582 ±0.078 0.627 ±0.066 0.630 ProtoPathway 0.649 ±0.050 0.646 ±0.075 0.740 ±0.132 0.642 ±0.047 0.674 ±0.069 0.670
+
+Beyond predictive performance, the cross-attention formulation is the only variant that produces interpretable cross-modal associations: the K × P attention matrix A provides a per-patient mapping from morphological prototypes to biological pathways, enabling the spatial overlays and population-level analyses described in SM C and SM D. The alterna-tive fusion mechanisms aggregate the two modalities into a single vector without exposing which pathways each prototype attends to, precluding the complete attribution chain that is central to ProtoPathway’s design. The ablation therefore confirms that the interpretability-motivated choice of cross-attention does not come at the cost of predictive performance, it is also the strongest fusion strategy on this benchmark. ProtoPathway 19 
+
+G.3 Prototype Count ( K)
+
+The number of prototypes K controls the granularity of the morphological decomposition: too few prototypes may conflate distinct tissue compartments, while too many may frag-ment coherent patterns into redundant or noisy clusters. We evaluate K ∈ { 4, 8, 16 , 32 , 64 }
+
+on BLCA, with all other hyperparameters are held fixed at the values in Table S3, and prototypes are re-initialized via k-means for each K following the procedure in SM A. 4 8 16 32 64      
+
+> Number of Prototypes ( K)
+> 0.50
+> 0.55
+> 0.60
+> 0.65
+> 0.70
+> 0.75
+> Concordance Index
+> Fig. S7: Sensitivity of ProtoPathway to the number of WSI prototypes Kon TCGA-BLCA. Error bars denote standard error across five cross-validation folds. Performance is stable across the tested range, with K=16 achieving the highest concordance index.
+
+Figure S7 reports the results. Performance is broadly stable across the tested range, with all configurations falling within overlapping standard error intervals, indicating that the model is not highly sensitive to this hyperparameter. K=16 achieves the highest C-index (0.646), while both smaller and larger values show modest decreases. At K=4 , the model remains competitive (0.635) but compresses BLCA’s diverse tissue landscape into too few compartments to support fine-grained spatial interpretation. At K=64 , performance drops to 0.619, suggesting that an excess of prototypes fragments coherent tissue compartments into redundant clusters, diluting the gating signal without adding discriminative capacity. The choice of K=16 balances predictive performance with interpretive resolution. At this granularity, the learned prototypes recover clinically meaningful tissue compartments (SM I) without excessive fragmentation: each prototype aggregates a sufficient number of patches to produce a stable token embedding, and the 16 ×662 cross-modal attention matrix remains compact enough for direct inspection. Smaller values risk merging tissue types that carry distinct prognostic signals (e.g., collapsing muscle and connective tissue into a single prototype), while larger values split coherent compartments and produce prototypes that are difficult to interpret morphologically. 20 Gallagher-Syed et al. 
+
+## H Model Efficiency 
+
+Table S6 compares the computational cost of ProtoPathway against all baselines, profiled on 30 randomly selected patients from TCGA-STAD. Among multimodal methods, ProtoPath-way achieves the fastest training time at 13.6 ms per patient, a 28–50 × speedup over the cross-attention and masked self-attention baselines (MCAT at 380 ms, MOTCAT at 534 ms, SurvPath at 476 ms, PIBD at 685 ms, MMP at 432 ms). The only multimodal method with comparable speed is PORPOISE (11.7 ms), which employs a simpler Kronecker product fusion without cross-modal attention. Inference times follow the same pattern, with Pro-toPathway at 4.7 ms compared to 189–377 ms for the attention-based multimodal baselines. Critically, this efficiency does not come at the cost of predictive performance. As shown in Table 2, ProtoPathway achieves the highest overall concordance index (0.670) across the five TCGA cohorts, ranking first on four of five datasets and second on the remaining one. The methods closest in overall performance, MCAT (0.662) and SurvPath (0.660), require 28 × and 35 × longer to train per patient respectively, and consume comparable or greater VRAM (289 MB and 818 MB vs. 325 MB). PORPOISE, the only multimodal method faster than ProtoPathway, achieves a substantially lower overall concordance index (0.650) with a 3× larger parameter count (1.51M vs. 480K). The efficiency advantage stems from the prototype bottleneck in the WSI encoder. Stan-dard cross-attention between gene tokens and the full patch set scales quadratically with the number of patches, which for typical whole slide images ranges into the thousands. ProtoPathway instead compresses the variable-length patch set into K=16 fixed prototype tokens via soft assignment before any cross-modal interaction occurs. The cross-attention in the fusion module therefore operates over 16 tokens rather than the full patch sequence, reducing both FLOPs and memory. This is reflected in the VRAM footprint: ProtoPathway requires 325 MB compared to 818 MB for SurvPath, 948 MB for PIBD, and 1817 MB for MMP. The parameter count of ProtoPathway (480K) is comparable to the most compact multimodal baselines (MMP at 427K, SurvPath at 474K) and substantially smaller than PORPOISE (1.51M) or PIBD (1.25M). The FLOPs (3.86G) are moderate, falling below PORPOISE (11.21G) and SurvPath (29.19G), though above MMP (780M). MMP achieves lower FLOPs through GMM-based prototype assignment but at considerably higher VRAM (1817 MB) and wall-clock time (432 ms), suggesting memory-intensive operations not cap-tured by forward-pass FLOPs alone. This dissociation underscores that FLOPs are an incom-plete proxy for practical efficiency in multimodal survival models, and that ProtoPathway’s prototype bottleneck provides a more favorable trade-off across all four efficiency dimensions: parameters, FLOPs, VRAM, and wall-clock time. 
+
+## I Prototype Morphology 
+
+Figure S8 presents the eight nearest-neighbor exemplar patches for each of the 16 learned prototypes in the BLCA cohort, ordered by descending gate importance. Without explicit tissue-type supervision, the learned prototypes recover a morphological vocabulary that partitions the tissue landscape into coherent compartments: multiple tumor phenotypes (solid, nested, glandular, and immune-infiltrated); two muscle states (intact bundles versus loosely arranged fibers); two adipose variants (densely and loosely packed perivesical fat); graded connective tissue responses from loose, vascularized stroma to dense fibrosis; and ProtoPathway 21        
+
+> Table S6: Computational efficiency comparison across models, run on 30 randomly selected pa-tients from TCGA-STAD (validation fold 0). Params =trainable parameters. FLOPs estimated per patient (single forward pass). VRAM =peak GPU memory during training. Train/Infer =time per patient, excluding data loading.
+
+Model Modality Params FLOPs VRAM (MB) Train (ms) Infer (ms) MLP Gene 783.4K 1.6M 68 3.0 0.5 SNN Gene 782.3K 85.3M 68 2.7 0.5 ABMIL WSI 399.7K 4.82G 70 2.7 0.7 DSMIL WSI 2.37M 28.95G 170 7.5 2.7 TransMIL WSI 2.94M 77.27G 865 43.5 13.0 PORPOISE MM 1.51M 11.21G 164 11.7 1.6 MOTCAT MM 611.0K 4.18G 287 533.6 306.5 MCAT MM 677.0K 5.59G 289 380.4 188.5 SurvPath MM 473.6K 29.19G 818 475.7 262.3 PIBD MM 1.25M −1 948 684.7 377.4 MMP MM 427.0K 779.7M 1817 431.5 208.6 
+
+ProtoPathway MM 479.7K 3.86G 325 13.6 4.7  
+
+> 1
+
+we were unable to compute FLOPs for PIBD due to auxiliary loss compu-tation involving stochastic sampling and information bottleneck operations that break PyTorch’s tracing 
+
+necrotic debris. This decomposition aligns with clinically meaningful staging boundaries in bladder cancer: connective tissue invasion defines pT1 disease, muscle involvement defines 
+
+≥pT2, and fat invasion defines ≥pT3a. The model also separates tumor prototypes by immune infiltration density, a feature increasingly relevant to treatment selection [1]. Below, we describe each prototype in detail: 
+
+• Proto 8 - Dense tumor cells. Tightly packed, darkly stained cancer cells filling the field of view with minimal surrounding tissue. Cells are large and irregular, arranged in confluent sheets without clear structure. 
+
+• Proto 7 - Fat tissue (perivesical). Large, round, empty-appearing cells characteristic of adipose (fat) tissue. Consistently pure across all exemplars. Cancer presence in this layer indicates advanced ( ≥pT3a) disease. 
+
+• Proto 12 - Tumor nests in surrounding stroma. Discrete clusters of cancer cells embedded in reactive connective tissue. Unlike Proto 8, cells form distinct islands rather than confluent sheets, indicating a more structured growth pattern. 
+
+• Proto 14 - Background / catch-all prototype. Predominantly empty patches with minimal tissue content, including slide background and tissue preparation artefacts. 
+
+• Proto 3 - Dead tissue and inflammatory debris. Dark, fragmented tissue with cellular debris and dense immune cell infiltration. Several exemplars show regions of cell death with faint outlines of former cells, a hallmark of aggressive tumor behavior. 
+
+• Proto 11 - Intact muscle bundles. Thick, elongated pink fibers arranged in tight parallel bundles. The well-preserved, orderly architecture and bundle thickness indicate 22 Gallagher-Syed et al. 
+
+muscularis propria (the bladder’s main muscle wall) rather than thinner superficial mus-cle layers. 
+
+• Proto 4 - Sparse, fibrosed connective tissue. Pale, sparsely cellular tissue with thin strands of collagen and scattered blood vessels. Consistent with the lamina propria layer in a fibrosed or swollen state—the tissue layer relevant to early-stage (pT1) invasion. 
+
+• Proto 0 - Tumor invasion front. Irregular cancer cell clusters infiltrating into dense, reactive connective tissue. The interface between tumor and surrounding stroma is clearly visible, with some exemplars showing isolated cells or small groups at the leading edge of invasion. 
+
+• Proto 5 - Loosely arranged smooth muscle. Elongated spindle-shaped nuclei within thick pink fibers, less tightly bundled than Proto 11, consistent with muscularis propria sectioned obliquely or with reactive stromal changes. 
+
+• Proto 6 - Tumor with gland-like structures. Irregular cancer cell clusters with attempted tube or cavity formation, mixed with immune and connective tissue cells. This architectural variation from the solid pattern of Proto 8 is clinically significant, as non-standard growth patterns carry independent prognostic value in bladder cancer. 
+
+• Proto 1 - Loose, vessel-rich connective tissue. Pale, loosely organized connective tissue with visible thin-walled blood vessels and scattered immune cells. Less fibrosed than Proto 4, representing a more viable variant of the submucosal connective tissue layer. 
+
+• Proto 13 - Loosely packed adipose tissue. Large, well-separated adipocytes with thin intervening septa. Distinguished from Proto 7 by larger cell size and sparser packing, consistent with the outermost perivesical fat layer where adipocytes are less compressed by surrounding structures. 
+
+• Proto 2 - Tumor with lymphocytic infiltration. Dense clusters of large, irregular tumor cells intermixed with prominent populations of small, dark lymphocytes. Distin-guished from the solid tumor of Proto 8 by the conspicuous immune cell component, and from Proto 15 by a higher tumor-to-lymphocyte ratio. The degree of immune infil-tration within the tumor compartment is increasingly recognized as prognostically and therapeutically relevant in bladder cancer. 
+
+• Proto 15 - Immune-cell-rich tumor. Cancer cells intermixed with dense populations of small, dark immune cells (tumor-infiltrating lymphocytes). The prominent immune presence distinguishes this from the solid (Proto 8) and nested (Proto 12) tumor proto-types, and is relevant to predicting response to immunotherapy. 
+
+• Proto 9 - High-grade, disorganized tumor. Dense sheets of highly irregular cells with chaotic architecture. More disorganized than Proto 8, with less cell-to-cell cohesion and features suggestive of non-standard differentiation patterns. 
+
+• Proto 10 - Tumor nests in reactive stroma. Irregular clusters of tumor cells em-bedded in cellular, reactive connective tissue. Similar to Proto 12 but with smaller, less well-defined nests and a more disorganized tumor–stroma interface, suggesting a less structured invasive growth pattern. ProtoPathway 23 
+
+Fig. S8: Prototype exemplar patches for BLCA (Fold 1). For each of the K=16 learned prototypes, the eight patches with highest cosine similarity to the prototype centroid in the projected space are shown. Prototypes are ordered by descending gate weight wk (shown in parentheses). No tissue-type labels are used during training; the morphological groupings emerge entirely from the survival objective.

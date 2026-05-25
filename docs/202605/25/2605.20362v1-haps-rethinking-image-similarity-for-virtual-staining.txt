@@ -1,0 +1,312 @@
+Title: HAPS: Rethinking Image Similarity for Virtual Staining
+
+URL Source: https://arxiv.org/pdf/2605.20362v1
+
+Published Time: Thu, 21 May 2026 00:11:02 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+# HAPS: Rethinking Image Similarity for Virtual Staining 
+
+## Fedor Gubanov 1,2* , Svetlana Illarionova 1,2 , Vlad Kozlovskiy 1,Mikhail Romanov 1, Yersultan Akhmetov 1, Aida Akaeva 1,2,3 ,Vyacheslav Grinevich 3, Rifat Hamoudi 2, Maxim Sharaev 1,2 
+
+> 1*
+
+Skolkovo Institute of Science and Technology, Moscow, 121205, Russia. 
+
+> 2
+
+BIMAI-Lab, Biomedically Informed Artificial Intelligence Laboratory, University of Sharjah, Sharjah, United Arab Emirates. 
+
+> 3
+
+National Medical Research Radiological Centre of the Ministry of Health of the Russian Federation, Moscow, Russia. *Corresponding author(s). E-mail(s): f.gubanov@applied-ai.ru; Contributing authors: S.Illarionova@applied-ai.ru; kozlovskijv417@gmail.com; m.romanov@innopolis.university; yersultanakhmetov@outlook.com; aida.akaeva89@gmail.com; grinevich.vn@mail.ru; rhamoudi@sharjah.ac.ae; m.sharaev@applied-ai.ru; 
+
+Abstract 
+
+Virtual staining of histopathology images (e.g., H&E →IHC) is an emerging tool in digital pathology, enabling faster and cheaper workflows by synthesizing target stains from routinely acquired slides. Yet, the quality of virtual staining mod-els is still predominantly assessed with generic metrics such as SSIM, PSNR, and LPIPS. Originally developed for natural images, these metrics are inherently misaligned with the domain-specific characteristics of histological data, failing to capture tissue morphology preservation and biomarker expression patterns. Con-sequently, a robust, domain-specific standard for quantifying similarity across diverse histological modalities remains a critical gap in the field. In this work, we formalize histology image similarity as a standalone problem and systemati-cally evaluate a broad set of full-reference metrics against a dataset of H&E–IHC patch pairs annotated with expert similarity scores. We further analyze met-rics’ sensitivity to controlled geometric distortions (shifts, rotations and non-rigid deformations) that mimic realistic registration errors between serial sections. 
+
+1 
+
+> arXiv:2605.20362v1 [cs.CV] 19 May 2026 Guided by these observations, we propose the Histology-Aware Perceptual Simi-larity (HAPS) metric. HAPS computes distances in the feature space of a frozen encoder pretrained on histopathology data, adding a linear head to aggregate feature-level differences into a final score that aligns with expert assessments. Finally, we demonstrate the practical value of HAPS for quality control of train-ing data. By quantifying the similarity of training pairs in the MIST dataset and filtering low-scoring samples, we create a cleaner training set. Virtual stain-ing models trained on this refined data outperform those trained on the original, unfiltered dataset.
+> Keywords: Virtual staining, Digital pathology, Perceptual similarity, Cross-domain evaluation
+
+# 1 Introduction 
+
+Deep learning continues to revolutionize medical image analysis across diverse modali-ties, driving advancements from explainable radiological diagnostics [1] to hierarchical tissue segmentation in computational pathology [2]. Within this evolving landscape, immunohistochemistry (IHC) remains essential for clinical decision-making, treatment selection, and prognosis. However, conventional IHC protocols are often hindered by high costs, tissue consumption, and long turnaround times. Virtual staining (VS) technologies, powered by generative models, offer a promising alternative by synthesiz-ing digital IHC images from routinely acquired hematoxylin and eosin (H&E) slides, thereby optimizing the diagnostic workflow. A fundamental challenge in developing VS models lies in the nature of histologi-cal data. Unlike standard image-to-image translation, paired H&E–IHC datasets are typically derived from adjacent tissue sections. These sections undergo independent physical deformations, causing inherent non-linear misalignments even after compu-tational registration. At the patch level, such structural discrepancies can mislead generative models during training. Consequently, robust image similarity assessment is critical for two distinct purposes: (i) automated data curation to filter out misaligned training pairs, and (ii) evaluating the structural fidelity of synthesized images relative to both the target IHC and the original H&E reference. Histological images possess a hierarchical architecture, ranging from fine cellular details to large-scale tissue morphology. Pathologists assess similarity by prioritizing these structural patterns while tolerating minor, non-biological local shifts. Conversely, standard full-reference (FR) metrics remain domain-agnostic. Classical metrics (SSIM, PSNR) often over-penalize sub-pixel misalignments, while perceptual metrics (LPIPS, DISTS) rely on natural-image feature extractors. Consequently, this ”evaluation gap” leaves existing metrics insensitive to critical morphological features, necessitating a specialized metric aligned with expert perceptual judgment in cross-stain scenarios. Virtual staining methods are primarily evaluated using classical full-reference met-rics, such as PSNR and SSIM [3, 4] or perceptual metrics [5, 6]. Recent works also incorporate distribution-level measures like FID and KID [7–10]. Some studies [11– 14] introduce task- or pathology-specific metrics, such as PHV, Dice, histogram error, 2and semantic overlap measures. A few approaches [15–17] rely on expert assessment or downstream clinical tasks to measure staining quality. Despite these advances, pixel-and distribution-based metrics remain dominant, while morphology-aware evaluation is still limited [18]. Despite recent efforts to develop pathology-aware evaluation tools [19], a widely adopted standard for H&E–IHC similarity is lacking. Crucially, there is no systematic validation comparing these existing metrics against the ”gold standard” of expert pathologist assessments on cross-domain pairs. In this work, we formalize histology image similarity as a standalone problem and propose a novel framework for its assessment. Our contributions are fourfold: 1. A systematic benchmark of existing FR metrics against a novel expert-annotated dataset of cross-domain H&E–IHC pairs. 2. A geometric sensitivity analysis of these metrics against controlled distortions (shifts, rotations, elastic deformations) that mimic realistic registration errors. 3. Histology-Aware Perceptual Similarity (HAPS) , a metric leveraging a frozen histology-pretrained encoder and an expert-calibrated linear head. 4. Demonstration of HAPS’s practical utility for automated data curation on the MIST dataset, improving downstream VS performance.      
+
+> Fig. 1 Conceptual comparison of similarity assessment behavior across different FR metrics. The heatmap visualizes metric responses to three typical H&E–IHC alignment scenarios: Complete Mis-match ,Perfect Match , and Partial Match (e.g., minor shifts and artifacts). Scores are color-coded from red (low similarity) to green (high similarity). Standard pixel-wise metrics over-penalize both minor shifts and domain differences, while perceptual metrics fail to confidently recognize true struc-tural matches. In contrast, the proposed HAPS metric closely aligns with human expert judgment, demonstrating robustness to minor registration shifts.
+
+32 Methods 
+
+Our methodology follows a three-stage approach: (i) systematic optimization and benchmarking of domain-agnostic metrics through an extensive preprocessing search; (ii) a geometric stress-test to evaluate metric stability against registration errors; and (iii) the development of the Histology-Aware Perceptual Similarity (HAPS) metric. 
+
+## 2.1 Baseline Full-Reference Metrics and Preprocessing 
+
+Metric Selection. We evaluate a diverse set of full-reference (FR) metrics, catego-rized into: 1. Statistical : PSNR, NCC, and Mutual Information (MI). 2. Structural : SSIM (kernels 7 and 31), MS-SSIM, and FSIM. 3. Deep Perceptual : LPIPS (AlexNet, VGG, SqueezeNet) and DISTS. For LPIPS, we compare layer averaging against weights calibrated on natural images. 
+
+Preprocessing Search Space. To account for the domain gap between H&E and IHC, we define a combinatorial preprocessing pipeline applied as follows: 
+
+• Normalization : Channel-wise Min-Max scaling to [0, 1]. 
+
+• Channel Mode : Conversion to RGB, Grayscale, or Hematoxylin (via deconvolution). 
+
+• Intensity Adjustment : Optional intensity inversion and histogram matching to the reference H&E image. 
+
+• Enhancement : Contrast Limited Adaptive Histogram Equalization (CLAHE). 
+
+• Denoising : Median kernel smoothing. Varying the inclusion of these steps allows us to evaluate each metric under its optimal domain adaptation configuration. 
+
+Optimization Protocol. To ensure an unbiased comparison and prevent overfit-ting, we adopt a multi-stage validation strategy. 
+
+Stage 0. We first exclude configurations that yield poor initial performance (AU CROC bin < 0.60) on the training set to focus on the most promising candidates. 
+
+Stage 1. Then, the optimal preprocessing setting for each metric is selected using Group K-Fold cross-validation (grouped by WSI). We maximize the Spearman rank correlation ρ between metric outputs and expert scores, subject to a constraint that the binary AUROC remains above a predefined threshold. This ensures the chosen configuration captures both the ranking and the categorical quality of the images. 
+
+Stage 2. Final performance is reported on the independent test set. To assess statistical reliability, we perform WSI-bootstrapping to estimate the mean, standard deviation of Spearman correlation, binary/multi-class AUROC. 
+
+## 2.2 Geometric Robustness Protocol 
+
+To assess metric stability against clinically relevant registration errors (sub-pixel shifts, rotations, non-rigid deformations), we formulate a controlled stress-test using a representative subset of H&E patches. 
+
+Experimental Design. We select a representative subset of H&E patches {I0}
+
+from the testing set. For each patch, we establish a baseline score V0 = metric (I0, I 0). 4We apply controlled transformations to generate distorted versions Ik of a baseline patch I0:
+
+• Linear : ShiftScaleRotate with shifts {0.005 , 0.01 , 0.02 , 0.04 } (1.3 - 10.2 pixels) and rotations {2◦, 4◦, 8◦, 12 ◦}.
+
+• Non-rigid : GridElasticDeform with a 5 × 5 grid and magnitudes of {1, 3, 6, 9, 12 }.Transformations use bilinear interpolation and padding, followed by a crop to eliminate boundary artifacts. 
+
+Quantitative Robustness Indices. For each distortion level k, we track the median score Mk and IQR of each metric (I0, I k). Sensitivity is characterized by: 1. Early Saturation (ES) : Measures the fraction of the dynamic range exhausted by early-stage distortions ( k = 1 , 2): 
+
+ES k = |Mk − M0||Mmax − M0| (1) A high ES k at low distortion levels (e.g., k = 1 , 2) indicates that the metric ”panics” on minor misalignments. 2. Late Sensitivity Ratio (LSR) : Compares local slope over the final levels ( m = 1 , 2) to its global average slope to detect saturation: 
+
+Slope (m) 
+
+> last
+
+= |Mmax − Mmax −m|
+
+δmax − δmax −m
+
+, LSR m = Slope (m) 
+
+> last
+
+· δmax 
+
+|Mmax − M0| (2) where δ is the distortion magnitude. LSR 1,2 ≈ 1 suggests a linear response with sustained discriminative power, while LSR 1,2 → 0 indicates premature saturation (blindness to severe errors). 
+
+## 2.3 Proposed Histology-Aware Similarity Metric 
+
+To bridge the evaluation gap, we propose HAPS metric, which leverages features specifically tuned for the histopathology domain. 
+
+Feature Extraction via RetCCL. We utilize the ResNet50 backbone from RetCCL framework [20], pretrained on 22,000 WSIs via contrastive learning. This backbone captures both local textures and global tissue patterns, offering superior transferability compared to ImageNet features. 
+
+Metric Architecture. HAPS compares feature maps f 1 
+
+> l
+
+, f 2 
+
+> l
+
+∈ RC×H×W of input images I1 and I2 at four residual stages l of the ResNet50 backbone. For each channel 
+
+c ∈ { 1, . . . , C }, we compute the spatial Pearson correlation ρl,c and define the layer distance dl.
+
+ρl,c = cov( f 1
+
+> l,c
+
+, f 2
+
+> l,c
+
+)
+
+σ(f 1
+
+> l,c
+
+)σ(f 2
+
+> l,c
+
+) + ϵ , dl = 1 − 1
+
+C
+
+> C
+
+X
+
+> c=1
+
+ρl,c (3) 5Fig. 2 Overview of the proposed Histology-Aware Perceptual Similarity (HAPS) Metric. An input image pair (H&E and IHC) is processed through a frozen backbone pretrained on a large corpus of histological data. Distances are computed across multiple structural levels and an expert-calibrated linear head aggregates these distances into a final score. The resulting metric effectively bridges the evaluation gap, achieving high correlation with expert pathologist scores. 
+
+This channel-wise correlation ensures robustness to global intensity variations (between H&E and IHC) while focusing on structural alignment. 
+
+Expert-Driven Calibration. The final score is a weighted aggregation: 
+
+HAP S (I1, I 2) = 
+
+> 4
+
+X
+
+> l=1
+
+wldl + b (4) While the backbone is kept frozen the weights wl are derived from the logits of a logistic regression trained on our expert-labeled dataset. This formulation aligns the metric with the decision boundary between high- and low-quality pairs, providing a scalar measure of structural fidelity. 
+
+# 3 Results 
+
+## 3.1 Datasets and Experimental Setup 
+
+Expert-Labeled Benchmark. We curated a dataset of 522 H&E →HER2 patch pairs (256 × 256) derived from 31 breast cancer WSIs. Patches with artifacts or < 50% tissue were excluded. A senior pathologist assigned similarity scores y ∈ { 1, . . . , 5}
+
+based on structural and nuclear preservation, convergence at the optical level H&E versus IHC images. To address class imbalance of the raw 5-point distribution, we aggregated scores into three balanced classes: Bad for scores 1–2, Borderline for score 3, and Good for scores 4–5. To prevent data leakage and ensure independent validation, the dataset was split at the WSI level in a 4:1 ratio, resulting in a training set of 24 WSIs and a test set of 7 WSIs with consistent class distributions. 
+
+MIST Benchmark for Virtual Staining. For downstream validation, we uti-lized the Multi-IHC Stain Translation (MIST) dataset [21], a public benchmark for virtual IHC synthesis. We focused on the H&E–HER2 subset, comprising 4,642 train-ing and 1,000 testing pairs of 1024 × 1024 pixels at 20 × magnification. While widely 6used, a portion of this dataset is affected by residual misalignments inherent to serial section registration. We use this dataset to demonstrate the practical utility of our metric in automated data curation. 
+
+Evaluation Metrics. We formalize image similarity as the task of approximating the expert scoring function y. Let P = ( IHE , I IHC ) be a patch pair and M (P ) be the evaluated metric. To assess the continuous ranking capability, we report the Spearman rank correlation coefficient ( ρ) between M (P ) and y. For practical applications such as data filtering, we treat the task as a classification problem, reporting the Area Under the ROC Curve (AUROC) for the the 3-class setup. Furthermore, this is simplified into a binary classification problem ( Bad vs. Borderline/Good ). This binary formulation directly simulates a real-world filtering threshold, using AUROC as a robust measure of a metric’s ability to separate ”suboptimal” from ”acceptable” training pairs. Statistical reliability is estimated via WSI-level bootstrapping (1,000 iterations). For the VS downstream task, we employ FID and KID to assess distribution-level realism. 
+
+Implementation Details All models were implemented in PyTorch and trained on NVIDIA A100 GPUs. HAPS calibration used a standart solver (l-bfgs) on the training split. MIST experiments followed the official training protocols for BCI [3] and PSPStain [14]. 
+
+## 3.2 Evaluation on Expert-Labeled Dataset 
+
+The Role of Preprocessing and Color Spaces. Our extensive configuration search highlights that in cross-stain (H&E ↔ IHC) evaluation (Table 1), color variations often act as domain noise. For mathematical metrics (e.g., NCC, SSIM, PSNR), which were evaluated exclusively in single-channel spaces, conversion to Grayscale generally outperformed the extraction of the Hematoxylin (HED) channel. Furthermore, for perceptual metrics (LPIPS, DISTS, FSIM), where all color modes were evaluated, retaining the original RGB space systematically degraded the correlation with expert scores. For instance, transitioning from Grayscale to RGB in LPIPS (SqueezeNet) reduced the Spearman correlation ( ρ) from 0.485 to 0.407. These findings empirically demonstrate that in cross-stain scenarios, color variations act as domain noise, and metrics must isolate the underlying structural signal. Notably, optimal configurations for the top-four mathematical metrics incorporated spatial smoothing while disabling contrast enhancement (CLAHE), suggesting that mitigating high-frequency scanning artifacts is crucial for robust similarity assessment. 
+
+Virtual Staining Standards. When examining the de facto standard metrics used in virtual staining literature, the results reveal a significant evaluation gap. SSIM, even with an optimized window size of 31, demonstrated weak agreement with pathol-ogist assessments ( ρ = 0 .347, bootstrapped ρ = 0 .315). While PSNR and MS-SSIM performed marginally better ( ρ ≈ 0.41–0 .42), they still significantly lagged behind the leading methods. This confirms that metrics requiring rigid pixel-to-pixel corre-spondence over-penalize clinically insignificant tissue micro-shifts inherent to serial sections. The sole exception among classical baselines was NCC, which achieved the second-highest overall correlation ( ρ = 0 .452). The relative success of NCC can be attributed to its mathematical invariance to global intensity and contrast scaling, making it naturally more robust for comparing distinct histological stains. 7Table 1 Comparative performance of HAPS and baseline metrics on the expert-labeled test set, sorted by Spearman correlation ( sp ). Bootstrapped ( bs ) results indicate mean ±std). The preprocess column encodes the optimal configuration: [Normalization | Channel Mode | Intensity Inversion | Hist. Matching |
+
+CLAHE | Smoothing]. Bold denotes the top-performing method. HAPS achieves the highest alignment with expert judgment across all metrics. 
+
+metric preprocess auc bin auc multi sp auc bs bin auc bs mutli sp bs 
+
+HAPS 0|gray |0|1|1|0 0.775 0.743 0.540 0.782 ±0.079 0.751 ±0.063 0.538 ±0.115 HAPS 1|rgb |0|1|0|0 0.754 0.732 0.522 0.754 ±0.045 0.733 ±0.041 0.516 ±0.079 
+
+lpips (squeeze )avg 1|gray |1|1|1|0 0.717 0.717 0.485 0.710 ±0.075 0.709 ±0.049 0.458 ±0.116 
+
+lpips (vgg )lin 1|gray |1|1|1|0 0.698 0.708 0.466 0.686 ±0.083 0.698 ±0.057 0.429 ±0.137 
+
+ncc 0|hed |0|0|0|1 0.763 0.694 0.452 0.757 ±0.078 0.686 ±0.061 0.424 ±0.116 
+
+lpips (alex )avg 1|gray |1|1|1|0 0.675 0.698 0.453 0.666 ±0.087 0.688 ±0.059 0.422 ±0.154 
+
+lpips (vgg )avg 0|gray |1|1|1|0 0.684 0.684 0.432 0.674 ±0.103 0.672 ±0.063 0.394 ±0.152 
+
+ms-ssim 1|gray |1|1|0|1 0.727 0.683 0.423 0.719 ±0.079 0.670 ±0.057 0.389 ±0.122 
+
+psnr 1|gray |0|1|1|1 0.749 0.689 0.409 0.743 ±0.078 0.677 ±0.061 0.370 ±0.108 
+
+lpips (squeeze )rgb avg 1|rgb |1|1|0|0 0.682 0.691 0.407 0.678 ±0.090 0.684 ±0.062 0.387 ±0.129 
+
+lpips (vgg )rgb lin 1|rgb |1|1|0|0 0.666 0.690 0.396 0.659 ±0.099 0.683 ±0.072 0.369 ±0.152 
+
+lpips (squeeze )rgb lin 0|rgb |0|1|0|0 0.666 0.674 0.368 0.658 ±0.068 0.665 ±0.050 0.345 ±0.108 
+
+lpips (vgg )rgb avg 1|rgb |1|1|0|0 0.647 0.667 0.367 0.639 ±0.100 0.657 ±0.073 0.339 ±0.153 
+
+ssim w31 1|gray |1|1|0|1 0.675 0.644 0.347 0.667 ±0.083 0.635 ±0.053 0.315 ±0.123 
+
+lpips (alex )rgb avg 0|rgb |0|1|0|0 0.627 0.653 0.330 0.614 ±0.092 0.641 ±0.071 0.305 ±0.158 
+
+dists 1|gray |1|1|0|0 0.647 0.643 0.297 0.641 ±0.096 0.637 ±0.070 0.282 ±0.141 
+
+lpips (squeeze )lin 1|gray |1|0|1|0 0.620 0.631 0.296 0.609 ±0.073 0.620 ±0.050 0.270 ±0.116 
+
+fsim 1|gray |0|1|0|1 0.638 0.638 0.291 0.632 ±0.086 0.630 ±0.050 0.259 ±0.112 
+
+dists rgb 0|rgb |0|1|0|0 0.625 0.630 0.280 0.614 ±0.094 0.618 ±0.063 0.255 ±0.130 
+
+fsimc 1|rgb |0|1|0|1 0.642 0.636 0.281 0.633 ±0.088 0.626 ±0.051 0.248 ±0.117 
+
+mi 0|hed |0|0|0|1 0.619 0.604 0.261 0.612 ±0.071 0.596 ±0.051 0.240 ±0.108 
+
+ssim w7 1|gray |1|1|0|1 0.630 0.605 0.250 0.623 ±0.092 0.592 ±0.064 0.228 ±0.118 
+
+lpips (alex )rgb lin 0|rgb |0|1|0|0 0.574 0.611 0.224 0.564 ±0.091 0.605 ±0.067 0.229 ±0.129 
+
+lpips (alex )lin 0|gray |0|1|0|0 0.578 0.608 0.219 0.570 ±0.089 0.608 ±0.065 0.228 ±0.124 
+
+Deep Features. Among all evaluated baselines, the deep perceptual features of LPIPS equipped with a SqueezeNet backbone achieved the highest agreement with experts ( ρ = 0 .485, 3-class AUROC = 0.717). This underlines the superior abil-ity of deep convolutional networks to capture the morphological hierarchy of tissues compared to localized mathematical filters. However, our analysis exposes a criti-cal limitation regarding the default linear weights ( lin ) typically used in LPIPS. We observed that this natural-image calibration is highly unstable when applied to histopathology: while it performed adequately with the VGG backbone, applying the default lin weights to SqueezeNet drastically collapsed the correlation from 0.485 (using simple spatial layer averaging, avg ) down to 0.296. Consequently, there is a clear necessity for a metric that is both driven by histology-specific features and calibrated directly on medical expert annotations. 
+
+Proposed HAPS Metric. Overcoming the limitations of domain-agnostic approaches, our proposed Histology-Aware Perceptual Similarity (HAPS) metric establishes a new benchmark for cross-stain evaluation. By combining the RetCCL foundation model with an expert-calibrated linear head, HAPS achieved a Spearman 8correlation of 0.540 and a 3-class AUROC of 0.743. This represents a substan-tial improvement over the best-performing baseline, LPIPS SqueezeNet ( ρ = 0 .485, AUROC = 0.717). Consistent with our findings on the baselines, the Grayscale con-figuration of HAPS ( ρ = 0 .540) outperformed its RGB counterpart ( ρ = 0 .522). The success of the linear calibration underscores the importance of a multi-scale approach: while deep layers capture broad semantic tissue architecture, earlier layers provide necessary textural grounding. The calibrated logistic regression head effectively aggre-gates these hierarchical features into a singular score that mirrors human diagnostic logic. Crucially for downstream applications, HAPS demonstrated exceptional dis-criminative power in the binary classification scenario (separating ”Good” pairs from suboptimal ones), achieving an AUROC of 0.775. This high binary separability vali-dates HAPS not only as a reliable continuous ranking metric but also as an effective, automated filter for data curation in generative modeling pipelines. 
+
+## 3.3 Backbone and Layer Contribution Analysis 
+
+To dissect the sources of HAPS’s superior performance, we analyzed the impact of the feature extractor’s inductive bias and layer aggregation strategy. 
+
+Feature Extractor Candidates. We evaluate four distinct paradigms of visual representations: 1. Natural Images (LPIPS): Standard generic encoders (e.g., SqueezeNet, VGG) pretrained on ImageNet for object classification. 2. Nuclei-Specific (Cellpose): Models optimized strictly for dense cellular instance segmentation. We test both the classical convolutional U-Net backbone ( Cellpose Conv ) and the modern SAM-inspired promptable variant ( Cellpose SAM ) [22, 23]. 3. Pathology Transformers (TransPath): A Vision Transformer foundation model pre-trained via self-supervised learning (SSL) to capture global tissue organization [24]. 4. Histology Retrieval (RetCCL): A convolutional encoder contrastively pretrained specifically for the downstream task of whole-slide image retrieval, yielding features optimized for matching morphologically similar patches [20]. 
+
+Backbone analysis. Table 2 demonstrates that the choice of pretraining objec-tive profoundly impacts the metric’s alignment with pathologist judgment. Crucially, attempting to ”fix” a domain-agnostic backbone by calibrating it on our expert dataset fails: applying the logreg head to LPIPS (SqueezeNet) actually degrades its correlation from 0.485 (naive averaging) to 0.427. This confirms that without inher-ently medically relevant features, supervised linear probing cannot synthesize missing biological semantics. Among domain-specific models, the classical Cellpose CNN backbone achieves a surprisingly strong baseline ( ρ = 0 .476 on Layer 3), indicating that local nuclear mor-phology is a vital component of expert evaluation. Interestingly, its SAM-based variant performs worse ( ρ = 0 .364), likely because SAM’s features are highly optimized for mask generation rather than general morphological representation. However, models restricted solely to nuclei evaluation fall short of the holistic tissue assessment required in virtual staining. 9Table 2 The Backbone Battle: Comparison of feature extractors under uncalibrated (layer best /avg ) and expert-calibrated ( logreg ) configurations. bold – best, underline – second best.                                                                                                                                                    
+
+> metric auc bin auc multi sp auc bs bin auc bs mutli sp bs
+> RetCCL retccl[logreg] 0.775 0.743 0.540 0.782 ±0.079 0.751 ±0.063 0.538 ±0.115
+> retccl layer4 0.749 0.704 0.473 0.752 ±0.073 0.704 ±0.054 0.464 ±0.082
+> retccl layer3 0.718 0.684 0.441 0.718 ±0.098 0.683 ±0.063 0.424 ±0.129
+> retccl layer2 0.671 0.641 0.348 0.668 ±0.083 0.638 ±0.051 0.327 ±0.108
+> retccl layer1 0.592 0.593 0.225 0.586 ±0.085 0.589 ±0.053 0.211 ±0.113
+> retccl avg 0.680 0.655 0.377 0.680 ±0.085 0.654 ±0.056 0.361 ±0.116
+> TransPath transpath[logreg] 0.755 0.733 0.490 0.755 ±0.049 0.733 ±0.040 0.487 ±0.082
+> transpath layer0 0.696 0.672 0.368 0.693 ±0.054 0.671 ±0.041 0.362 ±0.086
+> Cellpose Conv cellpose conv layer3 0.764 0.727 0.476 0.761 ±0.050 0.725 ±0.040 0.468 ±0.082
+> cellpose conv[logreg] 0.739 0.701 0.421 0.737 ±0.052 0.699 ±0.043 0.414 ±0.089
+> CellPose SAM cellpose sam [logreg] 0.716 0.674 0.364 0.715 ±0.050 0.674 ±0.042 0.362 ±0.088
+> cellpose sam layer2 0.673 0.623 0.261 0.670 ±0.054 0.622 ±0.043 0.257 ±0.092
+> LPIPS lpips (squeeze )avg 0.717 0.717 0.485 0.710 ±0.075 0.709 ±0.049 0.458 ±0.116
+> lpips(squeeze)[logreg] 0.716 0.700 0.427 0.717 ±0.051 0.700 ±0.038 0.425 ±0.081
+
+The foundation model TransPath captures broader global context, yielding an improved calibrated correlation of 0.490. Ultimately, the RetCCL backbone outper-forms all candidates, culminating in the HAPS metric ( ρ = 0 .540). This superiority is directly attributable to its contrastive pretraining objective: because RetCCL is specifically trained to retrieve morphologically similar WSI patches, its feature space inherently aligns with the goal of cross-stain perceptual similarity evaluation. 
+
+Layer-wise similarity analysis. We analyze RetCCL’s internal representation hierarchy to identify abstraction levels aligning with expert perception (first block of Table 2). Early representations (Layer 1, ρ = 0 .225) capture low-level morphological details, edges, and color gradients. However, in cross-stain scenarios (H&E ↔ IHC), these early features are highly susceptible to domain noise and clinically irrelevant registration artifacts, resulting in poor correlation with experts. Conversely, deeper representations (Layer 4, ρ = 0 .473) encode semantic abstractions, overarching tissue architecture, and spatial cellular arrangements. The strong correlation at Layer 4 indicates that diagnostically meaningful similarity is primarily driven by global structural fidelity rather than exact pixel-to-pixel or edge-to-edge matching. Consequently, naive averaging ( retccl avg ) significantly degrades performance (ρ = 0 .377), as the robust semantic signal from deeper layers becomes diluted by the uninformative registration noise captured in the early stages. In contrast, our pro-posed supervised calibration via logistic regression acts as an optimal feature selector. By learning weights directly from pathologist annotations, the linear head naturally prioritizes the semantic richness of deeper layers while selectively incorporating only 10 Fig. 3 Sensitivity profiles (median ± IQR) across spatial distortions for Similarity and Distance metrics. Baselines exhibit premature saturation (concave), while HAPS remains robust to minor misalignments (convex). Metrics are normalized for comparability. 
+
+the relevant textural grounding from earlier stages. This synergistic aggregation yields the final HAPS metric, maximizing both ranking capability ( ρ = 0 .540) and binary discriminative power (AUC bin = 0 .775), effectively translating deep histopathology features into a robust, human-aligned evaluation tool. 
+
+## 3.4 Geometric Robustness Analysis 
+
+To evaluate how metrics respond to varying degrees of registration noise, we ana-lyzed their sensitivity profiles across controlled spatial distortions (shift, rotation, and elastic deformation). Figure 3 visualizes the median metric responses ( Mk) and their interquartile ranges (IQR). For visual comparability, distance metrics were normal-ized based on their 99th percentile, and the proposed HAPS distance was inverted (HAPS sim ) to mirror similarity metrics. 
+
+Visual Sensitivity Profiles. Visual profiles reveal a fundamental flaw in base-line metrics: they exhibit a highly concave degradation curve. For similarity metrics like SSIM, the scores plummet immediately at the slightest distortion. For instance, a negligible shift of 0.005 limits forces SSIM w31 to drop by more than a third its dynamic range, while FSIM degrades sharply before plateauing. Similarly, domain-agnostic distance metrics (LPIPS, DISTS) increase dramatically at initial distortion levels. In stark contrast, HAPS demonstrates a convex, biologically plausible profile: 11 it remains relatively stable during minor, clinically insignificant misalignments (toler-ating sub-pixel shifts and small rotations) and accelerates its penalization only as the distortions become severe enough to disrupt tissue architecture. While elastic deforma-tions generally provoke a smoother response across all metrics, HAPS still maintains a stable initial plateau. 
+
+Quantitative Analysis. To quantitatively substantiate these visual observations, Table 3 reports the Early Saturation ( ES ) and Late Sensitivity Ratios ( LSR ). The 
+
+ES 1 and ES 2 indices confirm that baseline metrics prematurely exhaust their dynamic range. Under rotation, metrics like MI, FSIM, and SSIM w31 expend 60% to 80% of their total score drop ( ES 2) by the second, relatively minor, distortion level. Con-versely, HAPS yields an ES 2 of only 0.329 for rotation and 0.126 for shift. This low early saturation quantitatively proves that HAPS avoids the ”premature panic” characteristic of pixel-wise and generic perceptual metrics, correctly treating minor registration artifacts as acceptable variance. The consequence of early saturation is a loss of discriminative power at higher distortion levels, captured by the LSR index. As distortions become critical (e.g., shifts increase from 0 .02 → 0.04, rotations 8 ◦ → 12 ◦), a robust metric should continue to penalize the degrading image. However, most baseline metrics hit a hard plateau, reflected by LSR 1,2 < 0.5 (and frequently approaching zero for MI and SSIM w7). This indicates total blindness to escalating severe errors. HAPS, on the other hand, consistently maintains LSR values near or slightly above 1 .0. This sustained linear response confirms that HAPS effectively distinguishes between different magnitudes of severe registration failures, making it an exceptionally reliable tool for evaluating true structural fidelity. 
+
+## 3.5 Impact on Virtual Staining 
+
+To validate HAPS as an automated data curation tool, we trained two representative architectures, BCI [3] and PSPStain [14] on MIST training set under two conditions: (1) Baseline (all data) and (2) HAPS-filtered (removing 25% of pairs with the lowest HAPS scores). Performance was evaluated on the full test set ( N = 1000). Given the unreliability of pixel-wise metrics for misaligned data, we prioritize FID and KID as primary indicators of distributional realism. (Table 4). 
+
+Enhancing Baseline Models. As shown in Table 4, data curation significantly benefits the BCI model, which lacks inherent robustness to noise. Filtering misaligned training pairs improves FID by 3.5 points. Secondary metrics (PSNR/SSIM) also show consistent gains, confirming that removing HAPS-identified outliers effectively sanitizes the training signal. In contrast, PSPStain demonstrates a much stronger baseline performance (FID 46.93 vs. 100.03 for BCI). While strong architectures are inherently more robust to moderate training noise, HAPS filtering remains safe and mildly beneficial: KID improves from 0.012 to 0.009, while FID slightly improves. In the PSPStain fil-tered scenario, we observe a slight degradation in traditional pixel-level metrics (e.g., SSIM drops from 0.198 to 0.176), despite the improvement in distribution realism (KID). This divergence illustrates the ”evaluation gap”: domain-agnostic metrics over-penalize the structural variations of a model trained on cleaner data, while distribution 12 Table 3  Sensitivity indices for geometric robustness. ES measures drop at initial steps; LSR measures terminal discriminative power (ideal 
+
+> ≈ 1). HAPS avoids premature saturation and maintains sensitivity at high distortion levels.  bold : best per column.
+> ES 1 ↓ ES 2 ↓ LSR 1 ↑ LSR 2 ↑
+> Metric  elastic  rotate  shift  elastic  rotate  shift  elastic  rotate  shift  elastic  rotate  shift HAPS  0.285  0.165  0.114  0.339  0.329  0.126  1.219  0.716  1.140  1.104  1.006  1.166 dists  0.427  0.636  0.321  0.556  0.771  0.509  0.554  0.261  0.371  0.565  0.343  0.654
+> lpips (squeeze )avg  0.259  0.492  0.372  0.472  0.643  0.536  0.653  0.495  0.500  0.651  0.535  0.618
+> fsim  0.323  0.748  0.557  0.650  0.896  0.780  0.216  0.081  0.116  0.297  0.156  0.294
+> lpips (vgg )lin  0.239  0.531  0.302  0.466  0.723  0.520  0.515  0.305  0.347  0.601  0.415  0.640
+> mi  0.667  0.921  0.830  0.862  0.966  0.930  0.061  0.023  0.038  0.097  0.052  0.093
+> ms-ssim  0.080  0.407  0.170  0.320  0.722  0.462  0.551  0.205  0.249  0.698  0.417  0.717
+> ncc  0.115  0.486  0.267  0.384  0.719  0.538  0.488  0.295  0.254  0.626  0.421  0.616
+> psnr  0.505  0.837  0.705  0.787  0.921  0.862  0.112  0.094  0.078  0.163  0.118  0.184
+> ssim w31  0.130  0.590  0.304  0.418  0.824  0.596  0.415  0.143  0.156  0.561  0.264  0.538
+> ssim w7  0.190  0.784  0.470  0.542  0.945  0.822  0.221  0.036  0.006  0.353  0.083  0.238
+
+13 Table 4 Impact of HAPS-based data filtration on virtual staining performance. bold : best FID/KID.                     
+
+> Model Scenario PSNR ↑SSIM ↑FID ↓KID ↓
+> BCI (Baseline) 14.72 0.190 100.03 0.072 BCI (Filtered 25%) 14.78 0.195 96.52 0.067
+> PSPStain (Baseline) 14.32 0.198 46.93 0.012 PSPStain (Filtered 25%) 13.82 0.176 45.69 0.009
+
+metrics confirm enhanced biological realism. Ultimately, these results validate HAPS as an actionable, automated quality-control filter for histological pipelines. 
+
+# 4 Conclusion 
+
+Our analysis confirms that standard full-reference metrics are fundamentally mis-aligned with pathologist judgment in cross-stain tasks. As quantified by our Early Saturation indices (Table 3), these metrics over-penalize clinically negligible misregis-trations inherent to serial sections. In contrast, HAPS bridges this evaluation gap. By leveraging the inductive bias of the RetCCL backbone and expert-driven calibration, HAPS ignores domain noise while capturing the morphological hierarchy essential for diagnosis, outperforming both mathematical and perceptual baselines (Table 1). Beyond benchmarking, HAPS also serves as an effective automated curator for noisy clinical datasets. Filtering the MIST training data based on HAPS scores improved the distributional realism of downstream virtual staining models (Table 4). This facilitates the utilization of large-scale, imperfectly registered archives, reducing the reliance on manually curated data for training generative models—a critical step for deploying AI in clinical workflows. Our study has limitations. The expert validation was restricted to Breast Cancer (H&E–HER2) samples from a single center; generalization to other tissue types and stains requires further verification. Additionally, the supervised calibration relies on expert annotations, which are resource-intensive to acquire. Future work will extend HAPS to multi-center cohorts and broader stains, and explore its differentiability as a perceptual loss function. Furthermore, leveraging HAPS as a regularizer in weakly supervised fine-tuning approaches – a paradigm that has shown significant promise in broader medical imaging tasks [25] – or investigating its synergy with topological data analysis [26] could yield deeper insights into structural preservation and generative robustness. In conclusion, HAPS establishes a new standard for assessing histological similarity, shifting evaluation from pixel-matching toward biological fidelity. 
+
+Acknowledgements. This work was supported by the Russian Science Foundation grant No.25-71-10088. 
+
+# References 
+
+[1] Asif, D., Illarionova, S., Hamoudi, R., Bernstein, A.V., Sharaev, M.: Optimized 14 explainable deep learning model for lung cancer diagnosis from computed tomog-raphy images. In: Eighteenth International Conference on Machine Vision (ICMV 2025), vol. 14114, pp. 767–775 (2026). SPIE [2] Illarionova, S., Hamoudi, R., Zapevalina, M., Fedin, I., Alsahanova, N., Bernstein, A., Burnaev, E., Alferova, V., Khrameeva, E., Shadrin, D., et al. : A hierar-chical algorithm with randomized learning for robust tissue segmentation and classification in digital pathology. Information Sciences 686 , 121358 (2025) [3] Liu, S., Zhu, C., Xu, F., Jia, X., Shi, Z., Jin, M.: Bci: Breast cancer immuno-histochemical image generation through pyramid pix2pix. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition, pp. 1815–1824 (2022) [4] Bhagat, A., Jain, M., Subramanyam, A.V.: Conditional Consistency Guided Image Translation and Enhancement (2025) [5] Zhang, W., Hui, T.H., Tse, P.Y., Hill, F., Lau, C., Li, X.: High-resolution medical image translation via patch alignment-based bidirectional contrastive learning. In: International Conference on Medical Image Computing and Computer-Assisted Intervention, pp. 178–188 (2024). Springer [6] Peng, Q., Lin, W., Hu, Y., Bao, A., Lian, C., Wei, W., Yue, M., Liu, J., Yu, L., Wang, L.: Advancing h&e-to-ihc virtual staining with task-specific domain knowledge for her2 scoring. In: MICCAI (2024). https://doi.org/10.1007/ 978-3-031-72083-3 1 [7] Li, F., Hu, Z., Chen, W., Kak, A.: Adaptive Supervised PatchNCE Loss for Learning H&E-to-IHC Stain Translation (2023) [8] Li, Y., Guan, X., Wang, Y., Zhang, Y.: Exploiting supervision information in weakly paired images for ihc virtual staining (2024) https://doi.org/10.1007/ 978-3-031-72083-3 11 [9] Qiu, F., Zhang, Y., Guo, X., Wang, Z.: Weakly supervised virtual immunohis-tochemistry staining via schr¨ odinger bridge method. In: BIBM (2024). https: //doi.org/10.1109/BIBM62325.2024.10822509 [10] Kataria, T., Knudsen, B., Elhabian, S.Y.: StainDiffuser: MultiTask Dual Diffusion Model for Virtual Staining (2025) [11] Liu, S., Zhang, B., Liu, Y., Han, A., Shi, H., Guan, T., He, Y.: Unpaired stain transfer using pathology-consistent constrained generative adversarial networks. IEEE Transactions on Medical Imaging 40 (8) (2021) https://doi.org/10.1109/ TMI.2021.3069874 [12] Zhang, R., Cao, Y., Li, Y., Liu, Z., Wang, J., He, J., Zhang, C., Sui, X., Zhang, P., 15 Cui, L., Li, S.: Mvfstain: Multiple virtual functional stain histopathology images generation. Medical Image Analysis 80 (2022) https://doi.org/10.1016/j.media. 2022.102520 [13] Dubey, S., Kataria, T., Knudsen, B., Elhabian, S.Y.: Structural Cycle GAN for Virtual Immunohistochemistry Staining of Gland Markers (2023) [14] Chen, F., Zhang, R., Zheng, B., Sun, Y., He, J., Qin, W.: Pathological semantics-preserving learning for h&e-to-ihc virtual staining. In: International Conference on Medical Image Computing and Computer-Assisted Intervention, pp. 384–394 (2024). Springer [15] Xu, Z., Huang, X., Moro, C.F., Boz´ oky, B., Zhang, Q.: Gan-based virtual re-staining: a promising solution for whole slide image analysis. arXiv preprint arXiv:1901.04059 (2019) [16] De Haan, K., Zhang, Y., Zuckerman, J.E., Liu, T., Sisk, A.E., Diaz, M.F., Jen, K.-Y., Nobori, A., Liou, S., Zhang, S., et al. : Deep learning-based transformation of h&e stained tissues into special stains. Nature communications 12 (1), 4884 (2021) [17] Pati, P., Karkampouna, S., Bonollo, F., Comp´ erat, E., Radi´ c, M., Spahn, M., Martinelli, A., Wartenberg, M., Kruithof-de Julio, M., Rapsomaniki, M.: Accel-erating histopathology workflows with generative ai-based virtually multiplexed tumour profiling. Nature Machine Intelligence 6 (2024) https://doi.org/10.1038/ s42256-024-00889-5 [18] Breger, A., Biguri, A., Landman, M.S., Selby, I., Amberg, N., Brunner, E., Gr¨ ohl, J., Hatamikia, S., Karner, C., Ning, L., et al. : A study of why we need to reassess full reference image quality assessment with medical images. Journal of Imaging Informatics in Medicine 38 (6), 3444–3469 (2025) [19] Wang, Q., Tweel, J.E., Reza, P.H., Layton, A.: Pathology-guided virtual staining metric for evaluation and training. arXiv preprint arXiv:2507.12624 (2025) [20] Wang, X., Du, Y., Yang, S., Zhang, J., Wang, M., Zhang, J., Yang, W., Huang, J., Han, X.: Retccl: Clustering-guided contrastive learning for whole-slide image retrieval. Medical image analysis 83 , 102645 (2023) [21] Li, F., Hu, Z., Chen, W., Kak, A.: Adaptive supervised patchnce loss for learn-ing h&e-to-ihc stain translation with inconsistent groundtruth image pairs. In: International Conference on Medical Image Computing and Computer-Assisted Intervention, pp. 632–641 (2023). Springer [22] Pachitariu, M., Stringer, C.: Cellpose 2.0: how to train your own model. Nature methods 19 (12), 1634–1641 (2022) 16 [23] Stringer, C., Pachitariu, M.: Cellpose3: one-click image restoration for improved cellular segmentation. Nature methods 22 (3), 592–599 (2025) [24] Wang, X., Yang, S., Zhang, J., Wang, M., Zhang, J., Yang, W., Huang, J., Han, X.: Transformer-based unsupervised contrastive learning for histopathological image classification. Medical image analysis 81 , 102559 (2022) [25] Pavlov, S., Artemov, A., Sharaev, M., Bernstein, A., Burnaev, E.: Weakly super-vised fine tuning approach for brain tumor segmentation problem. In: 2019 18th IEEE International Conference On Machine Learning And Applications (ICMLA), pp. 1600–1605 (2019). IEEE [26] Bernstein, A., Burnaev, E., Sharaev, M., Kondrateva, E., Kachan, O.: Topological data analysis in computer vision. In: Twelfth International Conference on Machine Vision (ICMV 2019), vol. 11433, pp. 673–679 (2020). SPIE 17
