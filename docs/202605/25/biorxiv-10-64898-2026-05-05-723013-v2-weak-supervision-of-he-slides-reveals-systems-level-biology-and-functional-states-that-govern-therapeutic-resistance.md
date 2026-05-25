@@ -21,6 +21,15 @@ conclusion: 该策略能从常规病理提取空间分辨的TME生物学，适�
 
 重要声明：多组学对于日常临床使用而言资源消耗过大。利用切片级标签，弱监督深度学习直接从H&E切片中推断出定量且空间分辨的TME表型。通过突出显示驱动治疗效果的肿瘤组织的高注意力区域，该策略可作为发现引擎，识别耐药性的形态-分子介质。
 
+## 速览
+**TLDR**：该研究利用弱监督深度学习模型，从常规H&E染色切片中推断肿瘤微环境（TME）的功能状态，涵盖免疫、代谢和肿瘤细胞内在程序，以解决精准肿瘤学中缺乏可扩展工具评估治疗耐药性的问题。模型在3111例乳腺癌切片上训练，准确推断生物状态（AUROC>0.80；PCC>0.64），并通过多重免疫荧光、盲法评估和多机构患者队列验证，发现模型能识别驱动临床表型或治疗反应的局部肿瘤区域，从而从常规病理中提取空间分辨的TME生物学，为大规模生物库中的耐药性发现提供新策略。 \
+**Motivation**：精准肿瘤学缺乏可扩展的工具来评估患者层面肿瘤微环境（TME）程序驱动的治疗耐药性。 \
+**Method**：使用弱监督深度学习模型，以常规H&E切片为输入，预测治疗相关的TME表型（免疫、代谢、肿瘤细胞内在）的定量活性。 \
+**Result**：模型在3111例乳腺癌切片上实现AUROC>0.80、PCC>0.64；通过多重免疫荧光、盲法评估和临床响应分层验证了准确性。 \
+**Conclusion**：该策略能从常规病理中提取空间分辨的TME生物学，作为发现引擎识别真实世界患者群体中耐药性的形态-分子介质。
+
+---
+
 ## Abstract
 Precision oncology lacks scalable tools to assess, at the patient level, systems-level tumor microenvironment (TME) programs driving therapeutic resistance. To address this gap, we trained a weakly-supervised deep learning model, using routine H&E slides as input, to derive quantitative activity for therapeutically-relevant TME phenotypes, spanning immune, metabolic, and tumor cell-intrinsic programs. Using 3111 breast cancer H&E WSIs with matched bulk transcriptomics, our model accurately infers these biological states (AUROC>0.80; PCC>0.64). Validation spanned three levels: (i) tissue-matched multiplexed immunofluorescence, showing concordance between inferred functional states and immune cell fractions (p=0.006-0.106), (ii) blinded reader assessments, confirming localization of phenotype-specific morphology (p<3x10-5), and (iii) multi-institutional patient cohorts, where model-derived phenotypes stratified for clinical response (p<0.045). Despite relying on slide-level labels for training, our models attention mechanism identifies focal regions of tumor tissue that drive the overarching clinical phenotype or treatment response. By extracting spatially resolved TME biology from routine histology, this strategy can be applied to massive legacy biobanks to enable discovery of new morpho-molecular mediators of resistance across real-world patient populations.
 

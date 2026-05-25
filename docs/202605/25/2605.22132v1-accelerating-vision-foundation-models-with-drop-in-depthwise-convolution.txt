@@ -1,0 +1,435 @@
+Title: Accelerating Vision Foundation Models with Drop-in Depthwise Convolution
+
+URL Source: https://arxiv.org/pdf/2605.22132v1
+
+Published Time: Fri, 22 May 2026 00:46:18 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# Accelerating Vision Foundation Models with Drop-in Depthwise Convolution 
+
+Carmelo Scribano 1⋆
+
+, Mohammad Mahdi 2, Nedyalko Prisadnikov 2 , Yuqian Fu 2 , Giorgia Franchini 1 , Danda Pani Paudel 2 , Marko Bertogna 1 , Luc Van Gool 2 
+
+> 1
+
+University of Modena and Reggio Emilia, Modena, Italy. 
+
+{name.surname}@unimore.it  
+
+> 2
+
+INSAIT, Sofia University “St. Kliment Ohridski”, Sofia, Bulgaria 
+
+{name.surname}@insait.ai 
+
+Abstract. Pretrained vision foundation models deliver strong perfor-mance across tasks with limited fine-tuning. However, their Vision Trans-former (ViT) backbones impose high inference costs, limiting deployment on resource-constrained devices. In this work, we accelerate large-scale pretrained ViTs while preserving their feature extraction capabilities by exploiting the intrinsic convolution-like behavior of some attention heads. Specifically, we introduce an efficient depthwise convolution-based layer that serves as a drop-in replacement for these heads. Additionally, we propose simple strategies to identify which heads can be replaced and introduce a fine-tuning procedure that recovers downstream task per-formance. Across both image classification and segmentation tasks, our method achieves 17–20% inference speedup with minimal performance degradation. We validate the approach through detailed derivations, ex-tensive experiments, and efficiency benchmarks. The reference implemen-tation is publicly available 1.
+
+Keywords: Efficient Attention · Edge Inference · Vision Transformers 
+
+## 1 Introduction 
+
+Large-scale-pretrained Vision Transformers (ViTs) ([11]) have emerged as a pow-erful paradigm in modern machine learning. With minimal fine-tuning, they can perform competitively on a wide range of downstream vision tasks. Dominating paradigms include DINO ([5,29]), MAE ([16]), and CLIP ([31]). A noticeable downside is the high inference cost of the ViT architecture, especially when tar-geting inference on low-power edge devices. Although various methods have been proposed to reduce the inference cost of ViTs, several challenges remain. Popular approaches leverage a reduction in token counts ([2,27,12]), which disrupts the spatial structure of the features and limits the applicability to dense prediction  
+
+> ⋆
+
+Work done while visiting INSAIT  
+
+> 1
+
+https://github.com/cscribano/DWConv_VFM  
+
+> arXiv:2605.22132v1 [cs.CV] 21 May 2026 2C. Scribano et al.
+
+tasks (i.e, segmentation). Another common occurrence is the reliance on dynamic conditional execution flow or dynamically shaped tensors, seldom supported by high-performance inference frameworks. In addition, for finetuned foundation models, it is fundamental to preserve the large-scale pretrained weights, which is usually not the case in efficient transformer backbones ([4,26,40]).  
+
+> (a) Dot-product Attention Reshape
+> DW-Conv (b) Proposed Drop-in replacement
+
+Fig. 1: Illustration of the proposed drop-in approximation. We replace attention (a) with a Depthwise convolution (b), which improves inference speed while reusing the pre-trained network parameters for performance. To address these challenges, in this paper, we propose an efficient, drop-in accel-eration method for foundation ViTs . Building on previous research (Section 2.2), we assume that several Multi-head Self Attention (MhSA) [38] heads learn highly localized, static patterns, with a structure closely resembling convolution. We propose to replace a carefully selected set of computationally intensive Self-Attention operators with a much more efficient depthwise convolution over the reshaped Value tensors (Figure 1). Our method works as a drop-in replacement, recovering the performance of the large-scale pretrained model with limited fine-tuning, showing minimal performance loss while achieving 17% to over 20% speedup. The contributions of this work can be summarized as follows. 
+
+– We derive an efficient formulation that serves as a drop-in replacement for attention heads that learn particular convolution-like structures. We later show that head ensembling from [15] can be made explicit and generalized to our setting, benefiting from the more efficient formulation. 
+
+– We propose a simple methodology to identify the heads to be approximated by convolution. We also validate the proposed heuristic against a more so-phisticated solution that we reformulate for this context. 
+
+– We explicitly consider the problem of performance optimization in the con-text of pretrained foundation models, targeting a realistic deployment sce-nario, focusing on a popular edge platform device (Nvidia Orin Nano) and an appropriate inference framework (TensorRT). We believe that the work presented addresses numerous challenges that have been only partially covered in the literature. It also allows for casting the per-formance improvement of vision foundation models from a different perspective, which in the future might become part of more advanced pruning frameworks. Accelerating Vision Foundation Models with Drop-in Depthwise Convolution 3
+
+## 2 Related Work 
+
+2.1 Pruning of Transformers 
+
+The idea of reducing the complexity of a neural network by eliminating less im-portant parameters, connections, and layers dates back to the early deep learning era ([21,14]). Similar techniques, while applicable to BERT [10] style transform-ers ([35,6,3]), induce unstructured sparsity, often causing overhead due to irregu-lar memory access. Some works partially address this via block sparsity ([20,43]). Structured pruning of attention heads was explored in [28], with [39] introducing stochastic gating to select heads during training. Building on this, [1] identifies prunable heads early using confidence scores, while DSP [22] introduces explicit control over pruning ratios. Some pruning methods for ViTs require access to training ([30,23]), others rely on distillation ([47,44]). Many focus on pretrained DeiT models ([37]) for classi-fication ([48,47,15,23]). SPViT [15] prune MhSA blocks during fine-tuning into learned convolutional layers formulated under the sufficient condition of [7]. That assumption implicitly collapses the block into a single convolution. In contrast, we derive a more general formulation applicable to pretrained foundation mod-els, and later show how SPViT arises as a special case within our framework. Lambda-ViT ([23]) gradually degenerates MhSA blocks to identity mappings, guided by a transfer-entropy measure. Both target DeiT backbones for classifi-cation tasks. 
+
+2.2 Attention Modeling as Convolution 
+
+Several works have investigated the similarity between convolution and spa-tial relationships learned by attention. ([32]) suggests substantial differences in learned patterns, though some shallow-layer heads focus on local features. The ability of attention to capture localized patterns is further explored in [18], em-phasizing the role of positional encoding in learning spatial connectivity. [7] constructively proves that, under strong assumptions, an MhSA block can im-plement a convolutional layer if each attention head attends to a distinct location within a region the size of a convolutional kernel. In practice, as stated by the authors, this stands only as a sufficient condition. We further discuss this in Section 3.2. An influential contribution to our work [13] discusses the relation-ship between attention (local) and Depth-Wise (DW) convolution, highlighting key properties that we further develop in Section 3.3. 
+
+2.3 Other Approaches 
+
+Token reduction methods [33,46,25,2] aim to reduce the number of tokens pro-cessed by transformers via removal or aggregation. These methods face limita-tions: token reduction disrupts spatial structure, making them unsuitable for dense prediction tasks like segmentation or depth estimation. Moreover, tech-niques relying on clustering, gather/scatter operations, or dynamic shapes often 4 C. Scribano et al. 
+
+incur significant overhead on specialized inference frameworks. Efficient Atten-tions contributions propose alternative formulations of the attention layer to mitigate computational complexity ([36,42,45]). These methods are generally not intended to serve as drop-in replacements in pretrained Vision Transform-ers, where preserving the pretrained weights and model behavior is essential and retraining from scratch is impractical. Alternative research directions include focusing on the algorithmic and implementation refinement of more intensive operations to take full advantage of hardware capabilities, a prominent example is Flash-Attention ([9,8]). 
+
+## 3 Methodology 
+
+3.1 Background 
+
+Vision Transformers and MhSA. The ViT input is defined by splitting an image 
+
+I ∈ RH×W ×3 into non-overlapping patches of size p × p, flattening each patch into a vector in R3p2
+
+and projecting it to a d-dimensional embedding. Assuming  
+
+> Hp
+
+= Wp = √n, this yields an input tensor X ∈ Rn×d of n patch embeddings, to which is added a positional encoding. Most implementations, including Dino-V2, prepend a [cls] token, which we ignore for now. The sequence is processed through transformer blocks alternating Multi-head Self-Attention (MhSA) and feed-forward layers. Let nh be the number of attention heads, the MhSA is parametrized by 
+
+W Q, W K , W V ∈ Rdi×(nh∗dh) and W O ∈ R(dh∗nh)×do where typically di = do = d
+
+and dh ∗ nh = d, as we assume from now on. Defining Query, Keys, and Values for the h-th head as: 
+
+Qh = XW Q
+
+> [: ,h, :]
+
+Kh = XW K
+
+> [: ,h, :]
+
+V h = XW V 
+
+> [: ,h, :]
+
+(1) For the h-th head, the attention is computed as: 
+
+Att (X)h = E(X)hV h (2) 
+
+E(X)h = sof tmax QhKh⊤
+
+√dh
+
+!
+
+(3) where E(X)h ∈ Rn×n is the attention (energy) matrix. Concatenating the head outputs yields the full MhSA output: 
+
+M hSA (X) = [ Att 1(X) ∥ . . . ∥ Att nh (X)] W O (4) with ∥ denoting concatenation along the embedding dimension. 
+
+Convolutional Layers. A Convolutional layer with kernel size k is parametrized by weights W C ∈ Rk×k×ci×co . Expliciting the symmetric shift set of size k × kAccelerating Vision Foundation Models with Drop-in Depthwise Convolution 5
+
+as ∆k = {(s, r ) ∈ Z2 : −⌊ k/ 2⌋ ≤ s, r ≤ ⌊ k/ 2⌋} (assuming a stride factor of 1), the output at location (i, j ) for an input X ∈ Rh×w×ci is defined as: 
+
+Conv (X, W C )i,j = X
+
+> r,s ∈∆k
+
+W Cr,s 
+
+> ⊤
+
+Xi+r,j +s (5) Thus, convolution produces a weighted local aggregation of the k × k neighbor-hood centered at (i, j ). Similarly, depth-wise convolution performs local aggre-gation by applying a distinct spatial filter to each channel independently. With 
+
+W D ∈ Rk×k×ci , we write 
+
+Conv DW (X, W D )i,j = X
+
+> (r,s )∈∆k
+
+W Dr,s ⊙ Xi+r, j +s (6) where ⊙ denotes elementwise multiplication. 
+
+3.2 Convolutional Approximation 
+
+In this section, we formalize how attention can be approximated by convolution, and present the efficient depthwise decomposition at the core of our method. We later show that the SPViT [15] bottleneck block arises as a special case of our formulation, extended with head ensembling. 
+
+Drop-in Depthwise Formulation. Consider a single attention head as in Equation (2). For clarity, we reshape the input X ∈ Rn×d to X ∈ Rm×m×d
+
+with m = √n, recovering spatial structure. Accordingly, E(X)h ∈ Rn×n can be viewed as E(X)h ∈ R(m×m)×(m×m), and the values as V h ∈ Rm×m×dh . When writing two-dimensional indices, we always refer to these unflattened tensors. The explicit form of attention at location (i, j ) is: 
+
+Att (X)hi,j = X
+
+> r,s ∈∆m
+
+Eh(X)(i,j ),(i+r,j +s)V hi+r,j +s (7) where ∆m denotes the full receptive field that spans the whole E(X)h. This resembles convolution, with key differences: the weights Eh(X)(i,j ),(i+r,j +s) for spatial aggregation depend on both the input X and the query position (i, j ),and convolutional kernels are fixed parameters shared across locations. We approximate attention by assuming that some heads can be replaced by 
+
+input-independent kernels restricted to a local neighborhood ∆k ⊂ ∆m. For-mally, for head h we write: 
+
+Att (X)hi,j ≈ X
+
+> (r,s )∈∆k
+
+Khr,s V hi+r, j +s (8) where Kh ∈ Rk×k are trainable parameters learned during fine-tuning. 6 C. Scribano et al. 
+
+Full convolution formulation. A direct implementation of Equation (8) is to fold 
+
+Kh into the value projection W V , producing a kernel W V h ∈ Rk×k×di×dh :
+
+> ∼
+
+Att C (X)h = Conv (X, W V h ) (9) 
+
+W V h r,s = Khr,s W V
+
+> [: ,h, :]
+
+, (r, s ) ∈ ∆k (10) This formulation, while being a faithful analogue of Eq. (8), is not appealing from a complexity standpoint, as assessed in Section 4.2. 
+
+Depthwise decomposition. To reduce cost, we separate the pointwise value pro-jection from the spatial aggregation. We first compute values V h = XW V
+
+> [: ,h, :]
+
+,then apply a depthwise convolution with head-specific kernels Kh ∈ Rk×k×1×dh :
+
+> ∼
+
+Att DW (X)h = Conv DW (V h, Kh) (11) Compared to the full convolution, the complexity is reduced from O(k2didh) to 
+
+O(didh +k2dh). In the full formulation (Equation (9)), each Khr,s is shared across all dh channels, enforcing a single spatial pattern. Depthwise kernels Kh, instead, provide one k ×k filter per channel, enabling distinct spatial aggregations. While channel-wise sharing could be easily implemented, we relax it without affecting performance. This layer can replace any subset of attention heads in the MhSA block (Eq. (4)). Its implementation is schematized in Figure 1 and thoroughly evaluated in the experimental section. 
+
+Head-ensembling. The formulation of [15] builds on the sufficient condition of [7], where each head attends to a distinct spatial location within a local neighbor-hood. This assumption implicitly enforces a degenerate head ensembling, causing the MhSA block to collapse into a single effective head. In contrast, we derive the ensembling explicitly and show that it extends beyond the full convolution setting. Specifically, by assigning learnable combination weights γ ∈ Rnh to con-trol the contribution of each head, the ensembled value and output projections become: 
+
+W V e =
+
+> nh
+
+X
+
+> h=1
+
+σ(γh) W V
+
+> [: ,h, :]
+
+, W Oe =
+
+> nh
+
+X
+
+> h=1
+
+σ(γh) W O
+
+> [: ,h, :]
+
+, (12) with σ(·) a softmax over heads. Crucially, this explicit ensembling extends nat-urally to our depthwise formulation: 
+
+> ∼
+
+M hSA  
+
+> eDW
+
+(X) = Conv DW (V e, Ke)W Oe 
+
+s.t V e = XW V e (13) and Ke denotes the depthwise convolution kernel as in Equation (11). In this view, [15] arises as a special case of our framework. We henceforth distinguish between the ensembled formulation (Equation (13)) and the unensembled for-mulation (direct head replacement via Equation (11)). Accelerating Vision Foundation Models with Drop-in Depthwise Convolution 7
+
+3.3 Layer Selection 
+
+Given a target of ph heads to approximate with convolution, selection can be either scattered, replacing arbitrary heads across the model, or blockwise, re-placing all nh heads within pb MhSA blocks. As shown in Sec. 4.3, the blockwise strategy yields higher inference efficiency, and we therefore adopt it as the de-fault. Below, we introduce two criteria for defining the head set S, both applicable to either selection mode. 
+
+Proposed Criterion. As briefly mentioned, the approximation for E(X)h in-troduced in Equation (8) is equivalent to real attention under the conditions of Locality (L), translation invariance (TI), and Input Invariance (II). For a receptive field ∆k and displacement (s, r ) ∈ ∆k, these are: 
+
+
+
+(L) : E(X)h
+
+> (i,j ),(u,v )
+
+̸ = 0 only if (u − i, v − j) ∈ ∆k (14a) (TI) : E(X)h 
+
+> (i,j ),(i+s,j +r)
+
+= E(X)h 
+
+> (l,t ),(l+s,t +r)
+
+∀(i, j ), (l, t ) (14b) (II) : E(X)h = E(Y )h ∀X, Y (14c) 
+
+Criterion Definition We empirically establish the sum of the pointwise standard deviation of E(X)h as a simple and effective proxy for identifying convolutional-like heads. Concretely, for each head h ∈ { 1, . . . , N h}, where Nh = nhnb is the cumulative number of heads across nb blocks, we compute the pointwise standard deviation σEh of E(X)h over Ns input samples. Direct computation of σEh impractical, since accumulating Eh(Xi) for a reasonable input set (i.e., 
+
+Ns = 1000 ) would require over 500GB of memory. We use Welford’s algorithm [41] to compute σEh online in a single pass. We then define a scalar score 
+
+Σh = X σEh , (15) summing over all entries of Eh. We select as candidate heads the set S[ph] 
+
+> h
+
+of the ph heads with the smallest Σh. In the blockwise setting, we adopt the same criterion at block level. For each block b ∈ { 1, . . . , n b} we compute the mean score across its nh heads: 
+
+Σb = 1
+
+nh
+
+X
+
+> h∈[nh]
+
+Σh, (16) and select the set S[pb] 
+
+> b
+
+of pb blocks with the smallest Σb.
+
+Rationale By construction, Σh = 0 is both necessary and sufficient for the Input-Invariance property Equation (14c). In the limit Σh → 0, the kernel collapses to its expectation Eh(X) → μEh , eliminating dependence on the input. Our heuristic is driven by the observation that Input-Invariance is the most stringent property: once achieved, it forces the head to ignore input variation entirely and reduces to a positional-only operator. In this regime, Eh(X) derives solely from 8 C. Scribano et al. 
+
+the learned positional encodings shared across heads in standard ViTs. Posi-tional attention mechanisms have been linked to spatial connectivity patterns (patch association; [18]), capturing the locality and translation-like structure that underlies convolutional inductive biases. We therefore use Σh as a heuris-tic, motivated by the Input-Invariance principle, but ultimately empirical. 
+
+Stochastic Gating. As an alternative to the presented criterion, we propose a comparison with a selection method derived from Differentiable Subset Pruning (DSP) [22]. While DSP in origin prunes transformer heads, we can easily gener-alize it to our scope. For simplicity, we present this mechanism in the blockwise case, although it can be trivially extended to the scattered selection. We define a set of trainable parameters wb ∈ Rnb , leveraging the topk (·) operator we can retrieve the largest pb elements of wb:topk (wb, p b)i =
+
+(
+
+1 if i ∈ S [pb]
+
+> b
+
+0 otherwise (17) Defining wbi = topk (wb, p b)i, we can implement a simple gating mechanism to select the chosen operation during the forward pass: 
+
+M hSA i(X) = (1 − wbi )M hSA (X)i + wbi
+
+> ∼
+
+M hSA (X)i (18) This formulation involves only a minimal increase in the number of parameters and no additional loss terms. Since the topk operator is non-differentiable, to learn wb during training, the Gumbel top-k relaxation [19] is used, an extension of the Gumbel softmax trick [17], which provides a differentiable approximation 
+
+˜wb of the hard selection wb, controlled by a temperature τ . As τ → 0, ˜wb
+
+approaches wb; we follow the τ annealing schedule from DSP authors. 
+
+## 4 Experiments and Comparisons 
+
+4.1 Experimental Setup 
+
+Unless otherwise specified, our analysis is based on the Dino-V2 ([29]) model fine-tuned on various downstream tasks. This choice simplifies the discussion of the results. In Section 4.2, we show that similar results hold when using other vision foundation transformer backbones. 
+
+Benchmarking. To reflect real deployment conditions, we mainly target Ten-sorRT on Nvidia Jetson Orin Nano to profile inference performances. Unlike general-purpose frameworks (e.g., PyTorch), TensorRT compiles models into op-timized GPU kernels, highlighting real-world performance constraints. 
+
+Task Performance. We evaluate fine-tuned models on semantic segmentation (COCO [24], ADE20K [49]) and classification (ImageNet-1K [34]). To support drop-in convolutions, we remove the [cls] token from inputs. For segmentation, this has no impact; for classification, we use the mean of tokens as decoder in-put, with negligible performance loss. Convolutional layers use a fixed kernel size 
+
+k = 3 for efficiency across all tasks. Accelerating Vision Foundation Models with Drop-in Depthwise Convolution 9
+
+4.2 Convolution Attention Results Head-level Profiling. In Table 1, we profile a single multi-head attention block, providing a straightforward setting to quantify performance differences. Both in the unensembled setup (lines 2-3) or in the ensembled one (lines 4-5), it is clear that the depthwise formulation is advantageous, speeding up execution by a factor 3× with respect to the full convolution. The ensembled formulation is significantly faster, although, as discussed later in this chapter, it results in a more significant performance drop. Memory usage patterns are less intuitive; the separable formulation has a slightly higher memory requirement due to in-termediate results and less effective buffer reuse, which is offset in the ensembled formulation. Table 1: Comparison of different choices for the MhSA block. All results are measured for a single MhSA block with nh = 16 heads and an input size of 
+
+24 × 24 patches (Equivalent to an image resolution of 336 × 336 for Dino-V2). Batch size is set as 1.                         
+
+> Attention FLOPs (G) Params (M) Inference (ms) Memory (MB)
+> MhSA (Eq. (4)) 6.19 4.2 3.2 47.2 Conv [all] (Eq. (9)) 12.08 2.1 3.71 4.5 DW [all] (Eq. (11)) 2.43 2.11 1.26 6.75 SPViT -style ([15]) 0.75 2.1 0.641 4.5 Ens+DW (Eq. (13)) 0.15 2.1 0.215 0.288
+
+Full Model Performance. When not otherwise specified, we first perform fine-tuning on the target task with regular MhSA heads, replace the selected heads with convolutional layers, and perform a new fine-tuning for half of the training epochs. The complete experimental setup is detailed in the Appendix. In Table 2 we compare the results obtained with different options for the MhSA block. For all experiments, we use the standard deviation criterion proposed in Section 3.3 with the blockwise selection. Despite not aiming for state-of-the-art performance, the strength of Dino-V2 features makes our baseline results highly competitive. Latency is reported only for the ViT backbone to avoid being affected by the design choices of the decoder. 
+
+Evaluation We first confirm that the depthwise formulation matches the per-formance of full convolution ( CL2–CL3 ), in line with our analytical derivation, while delivering a substantial speedup in inference. Without head ensembling, the full convolution baseline is 7.5% slower than MhSA ( CL1 ), whereas the depthwise variant achieves a 17.2% speedup. For a fair comparison with the en-sembled setup, we match configurations of |S| with similar observed speedup 10 C. Scribano et al. 
+
+|S| : 12 /24 blocks for the unensembled case and 10 /24 for the ensembled case. In this setting, depthwise unensembled ( CL3 ) incurs a smaller accuracy drop (-0.08 vs. -0.98 mIoU) than the SPViT-style full-convolution ensemble, while still providing a modest speedup advantage. When combined with head ensem-bling ( CL5 ), the depthwise formulation achieves an 18.8% speedup, but at the cost of a larger -1.6 mIoU drop. The same trade-off is observed when increasing 
+
+|S| to 16/24 and 12/24 ( CL6–CL7 ). Comparable results are observed on the smaller ViT-B backbone ( CB1–CB3 ) and on the ImageNet classification task (IL1–IL5 ), confirming the consistency of these observations across model scale and heterogeneous tasks. Additional results on ViT-B and on ADE20K dataset are reported in Table 3 Table 2: Results on COCO and Imagenet with different formulations. Results are obtained finetuning Dino-V2, 336 × 336 input resolution. Inference performances are reported with batch-size=1.                                                                                                         
+
+> ID Task ViT Attention |S| mIoU δ-mIoU Infer (ms) Speedup (%)
+> CL1
+> COCO Large MhSA -66.03 (baseline) 161.4 (baseline)
+> CL2 Conv [all] 12/24 65.84 -0.19 173.5 -7.49
+> CL3 DW [all] 12/24 65.95 -0.08 133.6 17.21
+> CL4 SPViT -style 10/24 65.05 -0.98 133.3 17.40
+> CL5 Ens + DW 10/24 64.81 -1.61 131.1 18.79
+> CL6 DW [all] 16/24 64.64 -1.39 126.1 21.85
+> CL7 Ens + DW 12/24 63.92 -2.11 124.5 22.87
+> CB1
+> Base
+> MhSA -63.37 (baseline) 49.9 (baseline)
+> CB2 DW [all] 6/12 62.22 -1.16 40.8 18.10
+> CB3 Ens + DW 6/12 60.55 -2.83 38.1 23.52
+> ID Task ViT Attention |S| Top-1 Acc. δ-Acc Infer (ms) Speedup (%)
+> IL1
+> Imagenet Large MhSA -86.22 (baseline) 161.4 (baseline)
+> IL2 DW [all] 12/24 85.45 -0.77 133.6 17.21
+> IL3 Ens + DW 10/24 84.96 -1.26 131.1 18.79
+> IL4 DW [all] 16/24 84.88 -1.34 126.1 21.85
+> IL5 Ens + DW 12/24 84.65 -1.57 124.5 22.87
+
+Generalization. We evaluate the generalization of our approach to backbone models beyond Dino-V2 by considering CLIP ([31]) and MAE ([16]). Despite their different pretraining objectives, both models share the same underlying ViT architecture, allowing us to replicate our training setup without modification. For each model, we evaluate both the ViT-Base and ViT-Large variants, with patch sizes indicated by /16 and /14, respectively. Results are reported in Table 4. We use the unensembled formulation with blockwise selection, applying the Σb
+
+criterion to identify the block set. Observing the drop in mIoU relative to the same backbone without drop-in convolutions (i.e., |S| = −), we observe results that mirror those obtained with Dino-V2, further validating the generality of our drop-in formulation across different vision foundation models. Accelerating Vision Foundation Models with Drop-in Depthwise Convolution 11 
+
+Table 3: Results on different tasks us-ing the Depthwise formulation. 
+
+Task ViT Attention |S| Acc. Imagenet Base MhSA - 83.76 DW [all] 6/12 82.00 
+
+Task ViT Attention |S| mIoU ADE20K Base MhSA - 53.83 DW [all] 6/12 51.70 
+
+Large MhSA - 56.84 DW [all] 12/24 56.05 
+
+Table 4: Evaluation of Depthwise for-mulation applied to MAE and CLIP fine-tuned on COCO Semantic seg-mentation.                                   
+
+> Model Backbone |S| mIoU Infer (ms)
+> MAE ViT-B/16 -58.84 42.95 MAE ViT-B/16 6/12 57.91 35.04 MAE ViT-L/16 -60.22 122.47 MAE ViT-L/16 12/24 59.81 102.23 CLIP ViT-B/16 -61.52 42.93 CLIP ViT-B/16 6/12 59.06 35.07 CLIP ViT-L/14 -64.65 153.91 CLIP ViT-L/14 12/24 62.17 128.38
+
+4.3 Selection Mechanism Results 
+
+Table 5: Comparison of selection mechanisms. 
+
+Crit. Stages BW |S| mIoU 
+
+Σb[LOWEST] 2Yes 12/24 65.95 DSP - e2e 2 12/24 64.15 DSP - 2S 3 12/24 64.00 
+
+Σb[LOWEST] 2Yes 17/24 63.77 DSP - e2e 2 17/24 58.25 DSP - 2S 3 17/24 64.20 (a) Comparision between Σb and DSP in Blockwise setting 
+
+Crit. Stages BW |S| mIoU 
+
+Σh[LOWEST] 2No 192/384 65.52 DSP - e2e 2 192/384 62.32 DSP - 2S 3 192/384 65.79 
+
+Σb[HIGHEST] 2Yes 12/24 61.46 
+
+Σb[HIGHEST] 2 7/24 64.02 
+
+Σb[LOWEST] 1 12/24 65.63 (b) (top) Comparision between Σh and DSP in Scattered setting (bottom) Abla-tion of Σb: selection of the worst candidates ( Σb[HIGHEST] ) and 1-stage finetuning. 
+
+We first discuss the implications of blockwise and scattered selection. While for blockwise selection the exact subset S[pb] 
+
+> b
+
+has no impact on the observed speedup, in the scattered setting the distribution of S[ph] 
+
+> h
+
+is relevant. Scattered heads selection causes speedup to scale non-linearly with the number of selected heads due to overhead from memory and multiple kernels execution, which can offset gains. The impact on model performance is clearly observable in Figure 2, with the blockwise selection being consistently faster, while only implying a small performance drop (Table 5). 
+
+Comparison. In Table 5 we compare the proposed selection heuristic (Sec-tion 3.3), with differentiable subset pruning (DSP) Section 3.3. For the latter, 12 C. Scribano et al. 16 64 128 160 192 224 256 288 320 352 No. Replaced Heads 
+
+> 5
+> 10
+> 15
+> 20
+> 25
+> 30
+> 35
+> 40
+> 45 Speedup (ms)
+> Blockwise Scattered
+
+Fig. 2: Speedup vs number of heads re-placed in blockwise and scattered se-tups. Results on ViT-L (24 blocks, 16 heads per block 336 × 336 ). 012345678910 11 12 13 14 15 16 17 18 19 20 21 22 23 Block   
+
+> 0
+> 5
+> 10
+> 15
+> 20
+> 25
+> 30
+> 35
+> b /100
+> b
+> b
+> DSP (| S|= 12) DSP (| S|= 17)
+
+Fig. 3: Blocks selected using DSP and 
+
+Σb criterion in blockwise setting. we evaluate both end-to-end training of selection gates (DSP-e2e, Equation (18)) and a two-stage variation (DSP-2S), where the learned set is reused in a new fine-tuning run with fixed selection, discarding the end-to-end weights. In the block-wise setup (Table 5a) with |S| = 12 /24 the Σb criterion outperforms the DSP, and DSP-2S reduces the gap only slightly, still trailing by nearly 2 mIoU points. A closer inspection (Figure 3), reveals that DSP often selects high-variance heads. Increasing to |S| = 17 /24 DSP-2S slightly surpasses Σb, while DSP-e2e suffers from severe training instabilities and degraded performance. 
+
+Ablation. To further test our criterion, we also evaluate replacing the worst heads (highest ΣEh ) in Table 5b. With only 7 blocks replaced, the performance drop already exceeds that of the best 12 blocks, and replacing the 12 worst blocks leads to severe degradation. Finally, we ablate the fine-tuning procedure (last row): a single-stage fine-tuning, where convolutions are applied directly, achieves performance close to the two-stage setup. 
+
+## 5 Conclusions and Future Work 
+
+We assessed the effectiveness of a simple drop-in replacement for attention heads exhibiting convolution-like behavior in large-scale pretrained ViTs. The proposed framework achieved 17% speedup with minimal impact on downstream perfor-mance, highlighting that many pretrained heads can be approximated by efficient depthwise convolution without losing their functional role and thus largely pre-serving the power of pretrained weights. The investigated approach is not an alternative to existing pruning techniques, but rather as a component that can also be effective in combination with existing solutions. 
+
+Acknowledgements This research was partially funded by the dAIedge project (HORIZON-CL4-2022-HUMAN-02-02, Grant Agreement Number: 101120726) and the Ministry of Education and Science of Bulgaria (support for INSAIT, part of the Bulgarian National Roadmap for Research Infrastructure). Accelerating Vision Foundation Models with Drop-in Depthwise Convolution 13 
+
+## References 
+
+1. Behnke, M., Heafield, K.: Losing heads in the lottery: Pruning transformer. In: The 2020 Conference on Empirical Methods in Natural Language Processing. pp. 2664–2674. Association for Computational Linguistics (ACL) (2020) 2. Bolya, D., Fu, C.Y., Dai, X., Zhang, P., Feichtenhofer, C., Hoffman, J.: Token merging: Your ViT but faster. In: International Conference on Learning Represen-tations (2023) 3. Brix, C., Bahar, P., Ney, H.: Successfully applying the stabilized lottery ticket hypothesis to the transformer architecture. In: Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics. pp. 3909–3915 (2020) 4. Cai, H., Li, J., Hu, M., Gan, C., Han, S.: Efficientvit: Lightweight multi-scale attention for high-resolution dense prediction. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 17302–17313 (2023) 5. Caron, M., Touvron, H., Misra, I., Jégou, H., Mairal, J., Bojanowski, P., Joulin, A.: Emerging properties in self-supervised vision transformers. In: Proceedings of the International Conference on Computer Vision (ICCV) (2021) 6. Chen, T., Frankle, J., Chang, S., Liu, S., Zhang, Y., Wang, Z., Carbin, M.: The lottery ticket hypothesis for pre-trained bert networks. Advances in neural infor-mation processing systems 33 , 15834–15846 (2020) 7. Cordonnier, J.B., Loukas, A., Jaggi, M.: On the relationship between self-attention and convolutional layers. In: International Conference on Learning Representations (2020), https://openreview.net/forum?id=HJlnC1rKPB 8. Dao, T.: FlashAttention-2: Faster attention with better parallelism and work par-titioning. In: International Conference on Learning Representations (ICLR) (2024) 9. Dao, T., Fu, D.Y., Ermon, S., Rudra, A., Ré, C.: FlashAttention: Fast and memory-efficient exact attention with IO-awareness. In: Advances in Neural Information Processing Systems (NeurIPS) (2022) 10. Devlin, J., Chang, M.W., Lee, K., Toutanova, K.: Bert: Pre-training of deep bidi-rectional transformers for language understanding. In: Proceedings of the 2019 conference of the North American chapter of the association for computational linguistics: human language technologies, volume 1 (long and short papers). pp. 4171–4186 (2019) 11. Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., Uszkoreit, J., Houlsby, N.: An image is worth 16x16 words: Transformers for image recognition at scale. In: International Conference on Learning Representations (2021), https://openreview. net/forum?id=YicbFdNTTy 12. Graham, B., El-Nouby, A., Touvron, H., Stock, P., Joulin, A., Jégou, H., Douze, M.: Levit: a vision transformer in convnet’s clothing for faster inference. In: Proceedings of the IEEE/CVF international conference on computer vision. pp. 12259–12269 (2021) 13. Han, Q., Fan, Z., Dai, Q., Sun, L., Cheng, M.M., Liu, J., Wang, J.: On the con-nection between local attention and dynamic depth-wise convolution. In: Inter-national Conference on Learning Representations (2022), https://openreview.net/ forum?id=L3_SsSNMmy 14. Hassibi, B., Stork, D.: Second order derivatives for network pruning: Optimal brain surgeon. Advances in neural information processing systems 5 (1992) 15. He, H., Cai, J., Liu, J., Pan, Z., Zhang, J., Tao, D., Zhuang, B.: Pruning self-attentions into convolutional layers in single path. IEEE Transactions on Pattern Analysis and Machine Intelligence (2024) 14 C. Scribano et al. 16. He, K., Chen, X., Xie, S., Li, Y., Dollár, P., Girshick, R.: Masked autoencoders are scalable vision learners. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 16000–16009 (2022) 17. Jang, E., Gu, S., Poole, B.: Categorical reparameterization with gumbel-softmax. arXiv preprint arXiv:1611.01144 (2016) 18. Jelassi, S., Sander, M., Li, Y.: Vision transformers provably learn spatial structure. Advances in Neural Information Processing Systems 35 , 37822–37836 (2022) 19. Kool, W., Van Hoof, H., Welling, M.: Stochastic beams and where to find them: The Gumbel-top-k trick for sampling sequences without replacement. In: Chaudhuri, K., Salakhutdinov, R. (eds.) Proceedings of the 36th International Conference on Machine Learning. Proceedings of Machine Learning Research, vol. 97, pp. 3499– 3508. PMLR (09–15 Jun 2019), https://proceedings.mlr.press/v97/kool19a.html 20. Lagunas, F., Charlaix, E., Sanh, V., Rush, A.M.: Block pruning for faster trans-formers. arXiv preprint arXiv:2109.04838 (2021) 21. LeCun, Y., Denker, J., Solla, S.: Optimal brain damage. Advances in neural infor-mation processing systems 2 (1989) 22. Li, J., Cotterell, R., Sachan, M.: Differentiable subset pruning of transformer heads. Transactions of the Association for Computational Linguistics 9, 1442–1459 (2021) 23. Lin, S., Lyu, P., Liu, D., Tang, T., Liang, X., Song, A., Chang, X.: Mlp can be a good transformer learner. In: Proceedings of the IEEE/CVF Conference on Com-puter Vision and Pattern Recognition. pp. 19489–19498 (2024) 24. Lin, T., Maire, M., Belongie, S.J., Bourdev, L.D., Girshick, R.B., Hays, J., Perona, P., Ramanan, D., Doll’a r, P., Zitnick, C.L.: Microsoft COCO: common objects in context. CoRR abs/1405.0312 (2014), http://arxiv.org/abs/1405.0312 25. Marin, D., Chang, J.H.R., Ranjan, A., Prabhu, A., Rastegari, M., Tuzel, O.: Token pooling in vision transformers. arXiv preprint arXiv:2110.03860 (2021) 26. Mehta, S., Rastegari, M.: Mobilevit: Light-weight, general-purpose, and mobile-friendly vision transformer. In: International Conference on Learning Representa-tions (2022) 27. Meng, L., Li, H., Chen, B.C., Lan, S., Wu, Z., Jiang, Y.G., Lim, S.N.: Adavit: Adaptive vision transformers for efficient image recognition. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 12309– 12318 (2022) 28. Michel, P., Levy, O., Neubig, G.: Are sixteen heads really better than one? Ad-vances in neural information processing systems 32 (2019) 29. Oquab, M., Darcet, T., Moutakanni, T., Vo, H.V., Szafraniec, M., Khalidov, V., Fernandez, P., Haziza, D., Massa, F., El-Nouby, A., Howes, R., Huang, P.Y., Xu, H., Sharma, V., Li, S.W., Galuba, W., Rabbat, M., Assran, M., Ballas, N., Synnaeve, G., Misra, I., Jegou, H., Mairal, J., Labatut, P., Joulin, A., Bojanowski, P.: Dinov2: Learning robust visual features without supervision (2023) 30. Prasetyo, Y., Yudistira, N., Widodo, A.W.: Sparse then prune: Toward efficient vision transformers. Available at SSRN 4529273 (2023) 31. Radford, A., Kim, J.W., Hallacy, C., Ramesh, A., Goh, G., Agarwal, S., Sastry, G., Askell, A., Mishkin, P., Clark, J., et al.: Learning transferable visual models from natural language supervision. In: International conference on machine learning. pp. 8748–8763. PMLR (2021) 32. Raghu, M., Unterthiner, T., Kornblith, S., Zhang, C., Dosovitskiy, A.: Do vision transformers see like convolutional neural networks? Advances in neural informa-tion processing systems 34 , 12116–12128 (2021) Accelerating Vision Foundation Models with Drop-in Depthwise Convolution 15 33. Rao, Y., Zhao, W., Liu, B., Lu, J., Zhou, J., Hsieh, C.J.: Dynamicvit: Efficient vision transformers with dynamic token sparsification. Advances in neural infor-mation processing systems 34 , 13937–13949 (2021) 34. Russakovsky, O., Deng, J., Su, H., Krause, J., Satheesh, S., Ma, S., Huang, Z., Karpathy, A., Khosla, A., Bernstein, M., Berg, A.C., Fei-Fei, L.: ImageNet Large Scale Visual Recognition Challenge. International Journal of Computer Vision (IJCV) 115 (3), 211–252 (2015). https://doi.org/10.1007/s11263-015-0816-y 35. Sanh, V., Wolf, T., Rush, A.: Movement pruning: Adaptive sparsity by fine-tuning. Advances in neural information processing systems 33 , 20378–20389 (2020) 36. Shen, Z., Zhang, M., Zhao, H., Yi, S., Li, H.: Efficient attention: Attention with linear complexities. In: Proceedings of the IEEE/CVF winter conference on appli-cations of computer vision. pp. 3531–3539 (2021) 37. Touvron, H., Cord, M., Douze, M., Massa, F., Sablayrolles, A., Jegou, H.: Training data-efficient image transformers & distillation through attention. In: International Conference on Machine Learning. vol. 139, pp. 10347–10357 (July 2021) 38. Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A.N., Kaiser, Ł., Polosukhin, I.: Attention is all you need. Advances in neural information pro-cessing systems 30 (2017) 39. Voita, E., Talbot, D., Moiseev, F., Sennrich, R., Titov, I.: Analyzing multi-head self-attention: Specialized heads do the heavy lifting, the rest can be pruned. In: Proceedings of the 57th Annual Meeting of the Association for Computational Linguistics. pp. 5797–5808 (2019) 40. Wadekar, S.N., Chaurasia, A.: Mobilevitv3: Mobile-friendly vision transformer with simple and effective fusion of local, global and input features (2022) 41. Welford, B.P.: Note on a method for calculating corrected sums of squares and products. Technometrics 4(3), 419–420 (1962) 42. Xiong, Y., Zeng, Z., Chakraborty, R., Tan, M., Fung, G., Li, Y., Singh, V.: Nys-trömformer: A nyström-based algorithm for approximating self-attention. In: Pro-ceedings of the AAAI conference on artificial intelligence. vol. 35, pp. 14138–14148 (2021) 43. Xu, K., Wang, Z., Chen, C., Geng, X., Lin, J., Yang, X., Wu, M., Li, X., Lin, W.: Lpvit: Low-power semi-structured pruning for vision transformers. In: European Conference on Computer Vision. pp. 269–287. Springer (2024) 44. Yang, H., Yin, H., Shen, M., Molchanov, P., Li, H., Kautz, J.: Global vision trans-former pruning with hessian-aware saliency. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 18547–18557 (2023) 45. Yao, Z., Wang, J., Wu, H., Wang, J., Long, M.: Mobile attention: mobile-friendly linear-attention for vision transformers. In: Forty-first International Conference on Machine Learning (2024) 46. Yin, H., Vahdat, A., Alvarez, J.M., Mallya, A., Kautz, J., Molchanov, P.: A-vit: Adaptive tokens for efficient vision transformer. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 10809–10818 (2022) 47. Yu, S., Chen, T., Shen, J., Yuan, H., Tan, J., Yang, S., Liu, J., Wang, Z.: Unified visual transformer compression. In: International Conference on Learning Repre-sentations (2022), https://openreview.net/forum?id=9jsZiUgkCZP 48. Zheng, C., Zhang, K., Yang, Z., Tan, W., Xiao, J., Ren, Y., Pu, S., et al.: Savit: Structure-aware vision transformer pruning via collaborative optimization. Ad-vances in Neural Information Processing Systems 35 , 9010–9023 (2022) 49. Zhou, B., Zhao, H., Puig, X., Fidler, S., Barriuso, A., Torralba, A.: Scene parsing through ade20k dataset. In: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (2017)

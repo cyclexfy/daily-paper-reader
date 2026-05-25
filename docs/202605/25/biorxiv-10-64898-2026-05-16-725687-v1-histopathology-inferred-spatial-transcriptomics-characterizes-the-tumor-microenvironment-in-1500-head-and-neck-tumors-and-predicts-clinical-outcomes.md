@@ -19,6 +19,15 @@ conclusion: HEiST提供可扩展低成本的生物标志物发现方法，推动
 ## 摘要
 头颈部鳞状细胞癌（HNSC）是一种常见的恶性肿瘤，尽管近年来治疗取得了进展，但预后仍较差。我们假设全面了解肿瘤微环境（TME）的空间异质性和组织可以显著改善HNSC的风险分层和治疗反应预测。由于空间转录组学（ST）仍然劳动密集且成本高昂，我们开发了HEiST（H&E推断的空间转录组学），这是一个深度学习框架，能够直接从常规苏木精-伊红（H&E）染色的组织学切片中预测空间分辨的基因表达谱。经过两个独立的外部ST队列的严格验证后，我们将HEiST应用于推断跨越两个公开可用数据集和两个新生成队列（一个接受同步放化疗（CCRT），另一个接受免疫治疗）的1500例HNSC患者肿瘤的空间转录组。这一大规模分析揭示了描述HNSC TME的可重复空间簇，定义了两种不同的预后空间型：免疫耗竭型和免疫激活型，它们具有显著不同的生存结局。关键的是，空间簇组成准确预测HPV状态，并产生针对CCRT/放疗和免疫治疗的治疗反应预测因子，其性能优于昂贵的基因表达和直接基于图像的方法。值得注意的是，基于ST簇的免疫治疗反应预测因子显著优于常用的FDA批准的生物标志物，包括CPS、TPS及其组合。据我们所知，这是迄今为止在HNSC中首次进行的虚拟空间分析以及最全面的大规模空间TME分析。因此，HEiST为HNSC的精准肿瘤学引入了一种可扩展、低成本且基于空间的生物标志物发现方法。
 
+## 速览
+**TLDR**：头颈部鳞状细胞癌（HNSC）预后差，现有治疗手段有限。本研究开发了HEiST深度学习框架，从常规H&E染色切片预测空间转录组，分析1500例HNSC肿瘤，发现两种预后不同的空间类型（免疫耗竭型和免疫活化型），并预测HPV状态及治疗反应，优于现有生物标志物。 \
+**Motivation**：理解肿瘤微环境的空间异质性可改善HNSC患者风险分层和治疗反应预测，但空间转录组技术昂贵耗时。 \
+**Method**：开发HEiST深度学习框架，从H&E染色切片预测空间转录组，并在独立外部队列验证后应用于1500例HNSC肿瘤。 \
+**Result**：发现两种预后显著不同的Spatiotypes（免疫耗竭与免疫活化），空间簇特征准确预测HPV状态，且对放化疗和免疫治疗的预测性能优于现有基因表达和图像方法。 \
+**Conclusion**：HEiST为HNSC提供了一种可扩展、低成本、基于空间的生物标志物发现方法，有望推动精准肿瘤学。
+
+---
+
 ## Abstract
 Head and neck squamous cell carcinoma (HNSC) is a prevalent malignancy associated with poor prognosis despite recent therapeutic advances. We hypothesized that a comprehensive understanding of the spatial heterogeneity and organization of the tumor microenvironment (TME) can substantially improve risk stratification and prediction of treatment response in HNSC. As spatial transcriptomics (ST) remains labor-intensive and costly, we developed HEiST (H&E-Inferred Spatial Transcriptomics), a deep learning framework that predicts spatially resolved gene expression profiles directly from routine hematoxylin and eosin (H&E)-stained histology slides. After rigorous validation across two independent external ST cohorts, we applied HEiST to infer spatial transcriptomes across 1,500 HNSC patient tumors spanning two publicly available datasets and two newly generated cohorts, one treated with concurrent chemoradiotherapy (CCRT) and one with immunotherapy. This large-scale analysis uncovered reproducible spatial clusters characterizing the HNSC TME, defining two distinct prognostic Spatiotypes, Immune-Exhausted and Immune-Activated, with significantly distinct survival outcomes. Critically, spatial cluster composition accurately predicts HPV status and yields treatment response predictors for both CCRT/radiotherapy and immunotherapy that outperform costly gene-expression and direct image-based approaches. Notably, the ST cluster-based predictor of immunotherapy response markedly surpasses the performance of commonly used FDA-approved biomarkers, including CPS, TPS, and their combination. To the best of our knowledge, this represents the first virtual spatial profiling effort and the most comprehensive large-scale spatial TME analysis in HNSC to date. HEiST thus introduces a scalable, low-cost, and spatially grounded biomarker discovery for precision oncology in HNSC.
 
