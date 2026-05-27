@@ -6,73 +6,62 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-26
-- 运行时间：2026-05-26 21:10:33 UTC
+- 最新运行日期：2026-05-27
+- 运行时间：2026-05-27 21:18:22 UTC
 - 运行状态：成功
-- 本次总论文数：17
+- 本次总论文数：14
 - 精读区：6
-- 速读区：11
+- 速读区：8
 
 ### 今日简报（AI）
-1) 今日精读聚焦两项9.0分突破：巨量病理图像自适应连续推理与全身FDG PET/CT肿瘤分割基础模型，另有8.0分速读聚焦病理案例聚类抽样、跨医院鲁棒性及可信癌症转诊框架。  
-2) 最值得关注两个方向：病理图像的多尺度推理加速策略（《Thinking in Scales》），以及多中心PET/CT肿瘤分割通用基础模型（《An Open Multi-Center...》）。  
-3) 建议优先精读上述高分论文，前者可显著提升千兆像素图像分析效率，后者为肿瘤分割提供开源基准；速读材料侧重实际应用增强鲁棒性与可信度。
-- 详情：[/202605/26/README](/202605/26/README)
+今日精读6篇速读8篇共14篇医学AI论文，聚焦内镜、肝癌和皮肤病检测领域。最值得关注的是两篇9.0分精读论文：参数高效VLM用于胃肠内镜图像生成与问答，以及生物因子MoE用于肝癌视觉语言预后建模。下一步建议优先精读这两篇高分论文，把握医疗视觉语言模型的最新落地应用方向。
+- 详情：[/202605/27/README](/202605/27/README)
 
 ### 精读区论文标签
-1. [Thinking in Scales: Accelerating Gigapixel Pathology Image Analysis via Adaptive Continuous Reasoning](/202605/26/2605.19491v2-thinking-in-scales-accelerating-gigapixel-pathology-image-analysis-via-adaptive-continuous-reasoning)  
+1. [Parameter-Efficient VLMs for Gastrointestinal Endoscopy: Medical Image Generation and Clinical Visual Question Answering](/202605/27/2605.24792v1-parameter-efficient-vlms-for-gastrointestinal-endoscopy-medical-image-generation-and-clinical-visual-question-answering)  
    标签：评分：9.0/10、query:cpath
-   evidence：全切片图像癌症诊断深度学习
-2. [An Open Multi-Center Whole-Body FDG PET/CT Foundation Model for Tumor Segmentation](/202605/26/2605.21835v1-an-open-multi-center-whole-body-fdg-petct-foundation-model-for-tumor-segmentation)  
+   evidence：用于胃肠内镜视觉问答的视觉语言模型
+2. [BioFact-MoE: Biologically Factorized Mixture of Experts for Vision-Language Prognostic Modeling in Hepatocellular Carcinoma](/202605/27/2605.26376v1-biofact-moe-biologically-factorized-mixture-of-experts-for-vision-language-prognostic-modeling-in-hepatocellular-carcinoma)  
    标签：评分：9.0/10、query:cpath
-   evidence：开放源代码的PET/CT肿瘤分割基础模型，直接匹配基础模型需求
-3. [ConceptM$^3$oE: Concept-Guided Multimodal Mixture of Experts for Interpretable Computational Pathology](/202605/26/2605.24399v1-conceptm3oe-concept-guided-multimodal-mixture-of-experts-for-interpretable-computational-pathology)  
+   evidence：视觉-语言模型用于癌症预后
+3. [Mapping Tumor-Microenvironment dependencies with TMEformer: A spatial foundation framework enabling in silico perturbation](/202605/27/biorxiv-10-64898-2026-05-17-725770-v1-mapping-tumor-microenvironment-dependencies-with-tmeformer-a-spatial-foundation-framework-enabling-in-silico-perturbation)  
    标签：评分：9.0/10、query:cpath
-   evidence：多模态专家混合用于计算病理学，涉及全切片图像
-4. [Benchmarking Pathology Foundation Models for Spatial Domain Understanding](/202605/26/2605.25764v1-benchmarking-pathology-foundation-models-for-spatial-domain-understanding)  
-   标签：评分：9.0/10、query:cpath
-   evidence：使用全切片图像对病理基础模型进行空间域理解基准评测
-5. [A Clinically Validated Foundation Model for Comprehensive Lung Pathology Interpretation](/202605/26/2605.25878v1-a-clinically-validated-foundation-model-for-comprehensive-lung-pathology-interpretation)  
-   标签：评分：9.0/10、query:cpath
-   evidence：经临床验证的肺部病理基础模型，基于全切片图像
-6. [PathNavigate: A Training-Free Pathology Agent with Surprise-Guided Scan and Shared Slide Memory for Whole-Slide Image VQA](/202605/26/2605.23559v1-pathnavigate-a-training-free-pathology-agent-with-surprise-guided-scan-and-shared-slide-memory-for-whole-slide-image-vqa)  
+   evidence：用于肿瘤微环境建模的空间基础框架
+4. [DUEL: Adversarial Self-Play for Multimodal Reasoning](/202605/27/2605.24794v1-duel-adversarial-self-play-for-multimodal-reasoning)  
    标签：评分：8.0/10、query:cpath
-   evidence：视觉语言模型全切片VQA
+   evidence：通过对抗性自我对弈提升视觉语言模型的推理能力
+5. [Universal Boosts, Specific Suppressors: Sparse Autoencoder Steering of Medical Vision-Language Models](/202605/27/2605.24977v1-universal-boosts-specific-suppressors-sparse-autoencoder-steering-of-medical-vision-language-models)  
+   标签：评分：8.0/10、query:cpath
+   evidence：医学视觉语言模型幻觉抑制
+6. [DigitAb: Domain-Adaptive Cell Type Prediction Method from Light Microscopy Images](/202605/27/biorxiv-10-64898-2026-05-19-726313-v1-digitab-domain-adaptive-cell-type-prediction-method-from-light-microscopy-images)  
+   标签：评分：8.0/10、query:cpath
+   evidence：直接从H&E全切片图像预测细胞类型。
 
 ### 速读区论文标签
-1. [CRISP -- Clustering-Based Redundancy-Reduced Instance Sampling for Pathology Case Representation and Retrieval](/202605/26/2605.24253v1-crisp----clustering-based-redundancy-reduced-instance-sampling-for-pathology-case-representation-and-retrieval)  
-   标签：评分：8.0/10、query:cpath
-   evidence：数字病理学中多全切片图像案例级分析的无监督框架
-2. [Discrepancy Minimization Improves Cross-Hospital Robustness in Digital Pathology](/202605/26/2605.25175v1-discrepancy-minimization-improves-cross-hospital-robustness-in-digital-pathology)  
-   标签：评分：8.0/10、query:cpath
-   evidence：病理基础模型域鲁棒性
-3. [RAPTOR+: A Visually Grounded Vision-Language Framework to Improve Clinical Trust and Auditability in Automated Cancer Referral Processing](/202605/26/2605.25956v1-raptor-a-visually-grounded-vision-language-framework-to-improve-clinical-trust-and-auditability-in-automated-cancer-referral-processing)  
-   标签：评分：8.0/10、query:cpath
-   evidence：使用视觉语言模型处理结直肠癌转诊
-4. [HESTIA: Scalable Multimodal Integration of Histology and High-Resolution Spatial Transcriptomics for Robust Spatial Domain Identification](/202605/26/biorxiv-10-64898-2026-05-14-723098-v1-hestia-scalable-multimodal-integration-of-histology-and-high-resolution-spatial-transcriptomics-for-robust-spatial-domain-identification)  
-   标签：评分：8.0/10、query:cpath
-   evidence：组织学与空间转录组的多模态整合
-5. [Case-Aware Medical Image Classification with Multimodal Knowledge Graphs and Reliability-Guided Refinement](/202605/26/2605.22547v1-case-aware-medical-image-classification-with-multimodal-knowledge-graphs-and-reliability-guided-refinement)  
+1. [WBCAtt+: Fine-Grained Pixel-Level Morphological Annotations for White Blood Cell Images](/202605/27/2605.19692v1-wbcatt-fine-grained-pixel-level-morphological-annotations-for-white-blood-cell-images)  
    标签：评分：7.0/10、query:cpath
-   evidence：多模态知识图谱用于医学图像分类
-6. [GMENet: Generative Mixture of Experts Network for Multi-Center Glioma Diagnosis with Incomplete Imaging Sequences](/202605/26/2605.23183v1-gmenet-generative-mixture-of-experts-network-for-multi-center-glioma-diagnosis-with-incomplete-imaging-sequences)  
+   evidence：注释的白细胞数据集用于诊断白血病和贫血
+2. [CNNs, Transformers, Hybrid, and Vision Language Models for Skin Cancer Detection](/202605/27/2605.26294v1-cnns-transformers-hybrid-and-vision-language-models-for-skin-cancer-detection)  
    标签：评分：7.0/10、query:cpath
-   evidence：多中心胶质瘤诊断，处理不完整MRI序列
-7. [Interpretability Transfer from Language to Vision via Sparse Autoencoders](/202605/26/2605.24946v1-interpretability-transfer-from-language-to-vision-via-sparse-autoencoders)  
-   标签：评分：7.0/10、query:cpath
-   evidence：从语言到视觉的可解释性迁移
-8. [Context-driven Missing-Modality Learning for Robust Medical Diagnosis with Image-Tabular Data](/202605/26/2605.25968v1-context-driven-missing-modality-learning-for-robust-medical-diagnosis-with-image-tabular-data)  
-   标签：评分：7.0/10、query:cpath
-   evidence：图像-表格数据多模态学习用于鲁棒医学诊断
-9. [Quantized Machine Learning Models for Medical Imaging in Low-Resource Healthcare Settings](/202605/26/2605.19207v1-quantized-machine-learning-models-for-medical-imaging-in-low-resource-healthcare-settings)  
+   evidence：视觉语言模型用于皮肤癌
+3. [Entropy-Guided Self-Supervised Learning for Medical Image Classification](/202605/27/2605.21970v1-entropy-guided-self-supervised-learning-for-medical-image-classification)  
    标签：评分：6.0/10、query:cpath
-   evidence：量化深度学习用于MRI脑肿瘤分类
-10. [ImPartial: Multi-channel Whole-Cell Segmentation using Partial Annotations](/202605/26/2605.24128v1-impartial-multi-channel-whole-cell-segmentation-using-partial-annotations)  
+   evidence：自监督与迁移学习用于医学图像分类，可应用于癌症诊断
+4. [Divide-and-Conquer Inference for Large-Scale Visual Recognition with Multimodal Large Language Models](/202605/27/2605.24799v1-divide-and-conquer-inference-for-large-scale-visual-recognition-with-multimodal-large-language-models)  
    标签：评分：6.0/10、query:cpath
-   evidence：使用部分标注的病理图像细胞分割深度学习
-11. [CLIP-Guided SAM: Parameter-Efficient Semantic Conditioning for Promptable Segmentation](/202605/26/2605.24807v1-clip-guided-sam-parameter-efficient-semantic-conditioning-for-promptable-segmentation)  
+   evidence：解决多模态大语言模型在大规模分类中的性能崩塌问题。
+5. [Stein-Encoder: A White-Box Supervised Encoder via Stein Identities in Multi-Modal Studies](/202605/27/2605.25734v1-stein-encoder-a-white-box-supervised-encoder-via-stein-identities-in-multi-modal-studies)  
    标签：评分：6.0/10、query:cpath
-   evidence：结合CLIP视觉语言模型和SAM进行语义分割
+   evidence：多模态生物医学研究，整合基因组数据与临床基线
+6. [Label-Free Multimodal Volumetric Imaging of Colon Cancer Tissue via Registration of Propagation-Based Phase-Contrast CT, Light-Sheet, and Three-Photon Microscopy](/202605/27/biorxiv-10-64898-2026-05-21-726767-v1-label-free-multimodal-volumetric-imaging-of-colon-cancer-tissue-via-registration-of-propagation-based-phase-contrast-ct-light-sheet-and-three-photon-microscopy)  
+   标签：评分：6.0/10、query:cpath
+   evidence：结肠癌组织的多模态体积成像
+7. [GAE-Δ: A Graph-Learning Framework for Gene Network Rewiring and Clinical Outcome Prediction from Multi-Omics Data](/202605/27/biorxiv-10-64898-2026-05-21-726880-v1-gae--a-graph-learning-framework-for-gene-network-rewiring-and-clinical-outcome-prediction-from-multi-omics-data)  
+   标签：评分：6.0/10、query:cpath
+   evidence：多组学癌症结局预测，计算病理学相关文献
+8. [Generalist large language models complement tailor-made predictors for tumor genomics interpretation](/202605/27/biorxiv-10-64898-2026-05-21-726957-v1-generalist-large-language-models-complement-tailor-made-predictors-for-tumor-genomics-interpretation)  
+   标签：评分：6.0/10、query:cpath
+   evidence：评估通用大语言模型在肿瘤基因组解释任务上的表现
 
 
 <div class="dpr-home-promo-card">
