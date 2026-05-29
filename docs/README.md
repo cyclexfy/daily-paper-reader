@@ -6,58 +6,42 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-28
-- 运行时间：2026-05-28 21:24:16 UTC
+- 最新运行日期：2026-05-29
+- 运行时间：2026-05-29 21:56:26 UTC
 - 运行状态：成功
-- 本次总论文数：11
-- 精读区：0
-- 速读区：11
+- 本次总论文数：6
+- 精读区：2
+- 速读区：4
 
 ### 今日简报（AI）
-今日速读11篇论文，重点聚焦医学图像分类，涵盖超声、多模态知识图谱及3D显微成像。
+今日精选6篇论文，精读2篇获9.0高分，涵盖可解释计算病理学与血液学诊断两大突破方向。
 
-最值得关注的方向：混合注意力双流网络用于乳腺超声分类，以及结合多模态知识图谱的医学图像分类。
+最值得关注的方向：概念引导多模态专家模型（ConceptM³oE）提升病理解释性，以及基因对齐患者表示优化血液诊断。
 
-建议优先阅读前两篇高分论文，快速了解物理信息增强与知识引导的改进思路。
-- 详情：[/202605/28/README](/202605/28/README)
+建议优先精读这两篇高分论文，深入理解可解释AI在临床病理与血液病诊断中的前沿应用。
+- 详情：[/202605/29/README](/202605/29/README)
 
 ### 精读区论文标签
-- 本次无精读推荐。
+1. [ConceptM$^3$oE: Concept-Guided Multimodal Mixture of Experts for Interpretable Computational Pathology](/202605/29/2605.24399v2-conceptm3oe-concept-guided-multimodal-mixture-of-experts-for-interpretable-computational-pathology)  
+   标签：评分：9.0/10、query:cpath
+   evidence：可解释计算病理学多模态MoE，结合全玻片图像和报告
+2. [Genetically Aligned Patient Representations Improve Hematological Diagnosis](/202605/29/2605.29980v1-genetically-aligned-patient-representations-improve-hematological-diagnosis)  
+   标签：评分：9.0/10、query:cpath
+   evidence：整合组织病理图像与基因数据用于血液癌症诊断，与需求8高度一致
 
 ### 速读区论文标签
-1. [HADS-Net:A Hybrid Attention-Augmented Dual-Stream Network with Physics-Informed Augmentation for Breast Ultrasound Image Classification](/202605/28/2605.20536v1-hads-neta-hybrid-attention-augmented-dual-stream-network-with-physics-informed-augmentation-for-breast-ultrasound-image-classification)  
+1. [From Theory to Decision Rule: Calibrating the Noisy-Label Crossover for Vision-Language Model Weak Supervision Across Three Medical-Imaging Benchmarks](/202605/29/2605.24771v1-from-theory-to-decision-rule-calibrating-the-noisy-label-crossover-for-vision-language-model-weak-supervision-across-three-medical-imaging-benchmarks)  
    标签：评分：7.0/10、query:cpath
-   evidence：基于超声图像的乳腺癌分类
-2. [Case-Aware Medical Image Classification with Multimodal Knowledge Graphs and Reliability-Guided Refinement](/202605/28/2605.22547v2-case-aware-medical-image-classification-with-multimodal-knowledge-graphs-and-reliability-guided-refinement)  
+   evidence：在医学影像基准上标定视觉语言模型弱监督
+2. [A multifractal-based masked auto-encoder: an application to medical images](/202605/29/2605.26287v1-a-multifractal-based-masked-auto-encoder-an-application-to-medical-images)  
    标签：评分：7.0/10、query:cpath
-   evidence：多模态知识图谱用于医学图像分类
-3. [A Multimodal 3D Foundation Model for Light Sheet Fluorescence Microscopy Enables Few-Shot Segmentation, Classification, and Deblurring](/202605/28/2605.26026v1-a-multimodal-3d-foundation-model-for-light-sheet-fluorescence-microscopy-enables-few-shot-segmentation-classification-and-deblurring)  
-   标签：评分：7.0/10、query:cpath
-   evidence：用于光片荧光显微镜的多模态3D基础模型
-4. [Chaos-SSL: An Attention-Based Self-Supervised Learning Framework with Chaotic Transformation for Medical Image Classification](/202605/28/2605.27146v1-chaos-ssl-an-attention-based-self-supervised-learning-framework-with-chaotic-transformation-for-medical-image-classification)  
-   标签：评分：7.0/10、query:cpath
-   evidence：自监督学习用于医学图像分类，可应用于全切片图像
-5. [Molecular Characterization of T-Lineage Acute Lymphoblastic Leukemia by an Optimal-Transport Based Multi-Omics Integration Framework](/202605/28/biorxiv-10-64898-2026-05-22-727257-v1-molecular-characterization-of-t-lineage-acute-lymphoblastic-leukemia-by-an-optimal-transport-based-multi-omics-integration-framework)  
-   标签：评分：7.0/10、query:cpath
-   evidence：利用最优传输整合多组学数据表征白血病
-6. [Universal CT Representations from Anatomy to Disease Phenotype through Agglomerative Pretraining](/202605/28/2605.21906v1-universal-ct-representations-from-anatomy-to-disease-phenotype-through-agglomerative-pretraining)  
+   evidence：基于掩码自编码器的医学图像分类自监督方法，可用于病理基础模型
+3. [Parameter-Efficient Subspace Decoupling ViT for Mitigating Multi-Task Negative Transfer in Histological Scoring](/202605/29/2605.29852v1-parameter-efficient-subspace-decoupling-vit-for-mitigating-multi-task-negative-transfer-in-histological-scoring)  
    标签：评分：6.0/10、query:cpath
-   evidence：CT基础模型与视觉-语言对齐
-7. [Cross-Stage Attention Multi-Expert Network for Radiologist-Inspired Breast Ultrasound Diagnosis](/202605/28/2605.25518v1-cross-stage-attention-multi-expert-network-for-radiologist-inspired-breast-ultrasound-diagnosis)  
+   evidence：使用视觉Transformer进行非酒精性脂肪性肝病组织学评分
+4. [MoSAIC: Multi-Resolution Spatial Regression Analysis of Cellular Colocalizations in Cancer Imaging](/202605/29/2605.30287v1-mosaic-multi-resolution-spatial-regression-analysis-of-cellular-colocalizations-in-cancer-imaging)  
    标签：评分：6.0/10、query:cpath
-   evidence：乳腺癌超声诊断
-8. [SCKAN: Structural Consensus-based KAN Prototype Learning for Semi-Supervised Pancreas Segmentation](/202605/28/2605.27032v1-sckan-structural-consensus-based-kan-prototype-learning-for-semi-supervised-pancreas-segmentation)  
-   标签：评分：6.0/10、query:cpath
-   evidence：胰腺分割用于癌症诊断
-9. [Domain-adversarial learning predicts clinically actionable drug combination synergy in leukemia patients using bulk transcriptomics data](/202605/28/biorxiv-10-64898-2026-05-18-725869-v1-domain-adversarial-learning-predicts-clinically-actionable-drug-combination-synergy-in-leukemia-patients-using-bulk-transcriptomics-data)  
-   标签：评分：6.0/10、query:cpath
-   evidence：利用域对抗学习预测白血病药物协同作用
-10. [Counterfactual Explanations for Graph Neural Networks in Patient Outcome Prediction](/202605/28/biorxiv-10-64898-2026-05-18-725906-v1-counterfactual-explanations-for-graph-neural-networks-in-patient-outcome-prediction)  
-   标签：评分：6.0/10、query:cpath
-   evidence：可解释图神经网络用于癌症患者预后预测
-11. [Multi-Algorithm Machine Learning Benchmarking for Pan-Cancer Classification from Tumour-Educated Platelet RNA Sequencing](/202605/28/biorxiv-10-64898-2026-05-22-727079-v1-multi-algorithm-machine-learning-benchmarking-for-pan-cancer-classification-from-tumour-educated-platelet-rna-sequencing)  
-   标签：评分：6.0/10、query:cpath
-   evidence：利用机器学习从血小板RNA测序进行泛癌分类
+   evidence：计算病理学中的癌症成像空间分析
 
 
 <div class="dpr-home-promo-card">
