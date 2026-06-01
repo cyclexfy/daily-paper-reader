@@ -1,0 +1,480 @@
+Title: CoFiDA-M: Concept-Aware Feature Modulation for Cross-Domain Adaptation with Image-Only Inference
+
+URL Source: https://arxiv.org/pdf/2605.31591v1
+
+Published Time: Mon, 01 Jun 2026 01:44:41 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# CoFiDA-M: Concept-Aware Feature Modulation for Cross-Domain Adaptation with Image-Only Inference 
+
+Nurjahan Sultana, Moi Hoon Yap, Xinqi Fan, Wenqi Lu †
+
+Department of Computing and Mathematics, Manchester Metropolitan University Dalton Building, Chester Street, M1 5GD Manchester, UK 
+
+nurjahan.sultana@stu.mmu.ac.uk; {m.yap, x.fan, w.lu }@mmu.ac.uk 
+
+Abstract 
+
+Models for AI-based skin cancer screening suffer a severe performance drop when shifting from expert dermoscopic (source) images to consumer-grade clinical (target) images, hindering real-world deployment. Existing domain adapta-tion methods often ignore crucial semantic invariants, such as clinical concepts. While new foundation models like MONET can provide this semantic information as dense, probabilistic scores, this metadata is unavailable at test time, creating a deployment paradox for practical image-only screening tools. We address this gap by proposing CoFiDA-M, a privileged information framework that learns from concepts at training time but deploys as an image-only model. Our method trains a teacher network that uses MONET concept probabilities to guide a FiLM modulator, transforming visual features into a semantically “edited” feature space. A lightweight, image-only student is then trained to reproduce this edited representation, not just the teacher’s final predictions. This distillation “bakes” the clinical reasoning into the student’s weights. On a chal-lenging multi-dataset benchmark, our image-only student significantly outperforms state-of-the-art approaches, espe-cially in melanoma recall. Our work provides a practical and generalizable framework for leveraging noisy, proba-bilistic metadata as privileged information, demonstrating strong cross-dataset robustness and potential for real-world deployment beyond dermatology. Implementation code is available at GitHub . 
+
+1. Introduction 
+
+The promise of AI for accessible skin cancer screening on mobile phones is hindered by a critical domain shift, as models trained on expert dermoscopic images degrade sharply on clinical smartphone photos [3, 29, 35]. This is not a static gap that can be solved by simply adding more 
+
+> †
+
+Corresponding author: w.lu@mmu.ac.uk This is the arXiv version of a paper accepted to CVPR 2026. Rich metadata available  
+
+> Training
+> NO metadata available
+> Real World
+> Shift
+> Deployment Paradox  Ulceration
+> Vasculature
+> Erythema
+> :
+> Pigmentation
+> 0.67
+> 0.23
+> 0.80
+> :
+> 0.13
+> Teacher
+> Model
+> Frozen
+> Teacher  Student
+> Model
+> Melanoma /Other
+> Real Unseen Data
+> Noisy Metadata  Image
+> Knowledge
+> Distillation Image
+> Solutio n
+
+Figure 1. CoFiDA-M resolves the Deployment Paradox : metadata are available at training but absent in the real world. A concept-guided teacher trained with noisy metadata transfers its reasoning to an image-only student that generalizes to unseen clinical data. 
+
+clinical images to the training set. Every new camera, light-ing condition, and patient population effectively behaves as a novel domain, causing models to fail when encountering these unseen variations [23, 28]. For AI to be reliably de-ployed in the wild, it must learn domain invariant features ensuring robust performance across all target distributions. To bridge this domain gap, Unsupervised Domain Adap-tation (UDA) methods aim to adapt a model from a labeled source domain to an unlabeled target domain. Many classi-cal approaches achieve this by forcing the source and target feature distributions to become indistinguishable, often by using adversarial training [11] or directly matching statisti-cal moments like covariance [30] and the maximum mean discrepancy [12] across multiple layers. The shared goal of these methods is to learn a single, unified feature space for both source and target data. However, in high stakes medical domains, this global alignment is often insufficient. It ignores crucial semantic invariants, high level clinical concepts that are shared across domains even when the low level pixel data differs. A clini-cal concept like ‘ulceration’ or a ‘pigment network’ remains the same, whether viewed in a dermoscopic image or a stan-dard clinical photo. A model that aligns domains based on these shared medical concepts would be more robust and interpretable than one that simply matches global statistics. This aligns with findings in multimodal medical AI, where 1
+
+> arXiv:2605.31591v1 [cs.CV] 29 May 2026
+
+grounding models in clinical knowledge and concepts, as seen in MedCLIP [37] or PanDerm [39], has proven critical for building robust systems. Recent research has increasingly utilized language and high-level conceptual information to inform and guide the adaptation process, as exemplified by the PØDA frame-work [9], which shows that a simple text prompt (“driving at night”) can steer features to adapt to a new, unseen do-main in a zero-shot fashion. LAGUNA [7] takes this fur-ther by using language to align the relative geometry of the class structure between domains, rather than forcing an ab-solute feature overlap. While powerful, these methods have limitations, i.e., PØDA is designed for text prompted zero shot transfer, and LAGUNA critically relies on having text captions available for the target domain during adaptation [7]. In dermatology, concept-based models such as MAKE [38] inject structured expert clinical knowledge during pre-training to enable zero shot lesion recognition, but they do not solve unsupervised domain adaptation between dermo-scopic and clinical images. This gap is particularly acute in specialized fields like medicine, where recent tools like MONET [15], a foundation model grounded in medical lit-erature, can now provide dense, probabilistic scores for high level concepts (e.g., ‘ulceration’, ‘pigmentation’). Such fine grained, probabilistic metadata offers a much richer super-visory signal than simple text prompts, but has been largely overlooked by domain adaptation research, likely due to its prior unavailability. The availability of such rich meta-data, however, gives rise to a deployment paradox. Al-though these detailed annotations can enhance model per-formance during training, the ultimate goal of accessible mobile screening necessitates a simple, image-only model, since patients cannot supply expert-level metadata at infer-ence time. Consequently, a key practical challenge remains. While this problem falls under the Privileged Information (PI) setting recently formalized for UDA by DALUPI [2], its proposed two-stage “hallucination” pipeline is not de-signed for our specific challenge. How to apply PI effec-tively in our medical context is not fully addressed. The key challenges are: (1) the concepts are available only dur-ing training, (2) the PI is a “messy” and noisy probability vector, not clean text or attributes, and (3) the final model must be a lightweight, image-only model that works on an unlabeled target domain. To address this specific gap, we introduce CoFiDA-M: Confidence Gated Feature Editing for Domain Adaptation. We propose a teacher-student framework that leverages ex-ternal concept probabilities (like MONET scores) as privi-leged information during training, while ensuring the final student model is image-only at inference. Figure 1 illus-trates the deployment paradox and a high-level overview of our proposed solution. Our key contributions are: • We introduce CoFiDA-M, a novel framework that inte-grates MONET-derived dermatological concepts into a FiLM based modulation mechanism, aligning visual fea-tures with semantic clinical context during training. • We propose a novel distillation scheme where the student learns to match not only the teacher’s final predictions (logits) but also its edited feature, allowing the student to learn the reasoning process, not just the final prediction. • Unlike previous concept based models that require con-cept inputs at test time, CoFiDA-M transfers the semantic alignment into a concept-independent student. At infer-ence, only image inputs are required, enabling faster and more practical deployment while maintaining both inter-pretability and accuracy without concept supervision. • Our model demonstrates superior generalization and in-terpretability: validated on a challenging out-of-domain benchmark of six unseen datasets, our image-only student outperforms state-of-the-art methods with significant im-provements in AUROC and melanoma recall, while pre-serving interpretability through the learned concept fea-ture modulation dynamics. 
+
+2. Related Work 
+
+Recent multimodal domain adaptation leverages language and expert concepts to steer visual representations across shifts. Vision language pre-training (VLP) provides a shared image text space that can be adapted with lightweight prompts, enabling transfer without full target supervision. In medical imaging, this idea appears in gen-eral VLMs [17], radiology-specific models like MedCLIP [37], and comprehensive multimodal reasoning systems like MIMO [4]. Dermatology specific resources further strengthen this route by pairing images with rich text and structured clinical descriptors, as seen in the PanDerm foun-dation model [39] and the MM-Skin/SkinVL dataset [40], improving the zero shot baselines that many Domain Adap-tation (DA) pipelines build upon. Standard classification models also show that combining skin lesion images with clinical metadata improves multimodal learning [6, 41]. Building on the use of language, prompt-driven adapta-tion uses textual cues to shift decision boundaries, “steer-ing” features towards a new domain without target labels. This strategy shows that a global text prompt can deliver zero shot gains under appearance change [9]. More ad-vanced methods use language to align the relative geometry of class structures [7] or learn domain-agnostic representa-tions through mutual text visual prompting [8]. While pow-erful, these approaches typically require clean text prompts or target domain captions, and do not provide per-image, calibrated evidence to supervise finer, concept level edits. A complementary line of research conditions the visual pathway directly on concepts or attributes. This approach aligns with the learning using PI paradigm, recently for-malized for UDA as DALUPI [2]. This framework lever-2ages auxiliary data (such as concepts) that is available only during training to improve adaptation [2]. However, the method proposed by DALUPI relies on a two-stage pipeline, where one model learns to “hallucinate” the PI (X → W ), and a second model predicts from that hallu-cination ( W → Y ) [2]. In contrast, we propose a more direct and unified strategy. Our CoFiDA-M framework uses the privileged concepts to directly modulate the visual fea-ture space via a FiLM-based teacher network [24]. Crit-ically, we introduce a novel distillation scheme where an image-only student learns to reproduce the teacher’s entire semantically-edited feature representation, rather than just mimicking its final predictions. This conditioning logic is also actively used in contemporary medical VLP, such as in the knowledge enhanced modules of models like MAKE for zero shot dermatology assessment [38]. Beyond multimodal approaches, other UDA methods ad-dress alternative data constraints. A prominent direction fo-cuses on Source-Free Domain Adaptation (SFDA), where a pre-trained source model is adapted using only unlabeled target data, a key constraint in medical applications. These approaches often rely on generating pseudo-labels by dis-covering target class prototypes, as in CPD [42], or by freez-ing the source classifier and training the feature encoder with information maximization, a method known as “hy-pothesis transfer” or SHOT [18]. Other SFDA methods adapt from black box APIs by distilling predictions, like DINE [20], or, for segmentation, synthesize source like im-ages by matching the source model’s BatchNorm statistics to enable knowledge transfer (SFDA) [22]. Concurrently, classical UDA methods (which retain access to source data) also continue to evolve, with IT-RUDA [26] aligning source and target features using a robust α-divergence that down-weights outliers and stabilizes transfer under label or sam-ple imbalance [26]. A related setting is Test-Time Adaptation (TTA), where the model adapts during inference as new target data arrives. A widely used consistency framework is the mean-teacher model, which forms a teacher by exponential moving aver-age of the student’s weights and trains the student to match the teacher’s predictions on unlabeled data [32]. The foun-dational TTA method, TENT [34], minimizes prediction entropy by only updating normalization layer parameters. Building on this, CoTTA [36] addresses adaptation in con-tinually changing environments by using a mean teacher for stable pseudo-labels and stochastically restoring weights to prevent catastrophic forgetting. Complementary to these, the Wisdom-of-Crowds filter retains only samples whose confidence increases relative to the frozen source model, improving robustness under open set and streaming condi-tions [16]. Our work bridges two strands of multimodal domain adaptation: prompt or language guided transfer [7, 9, 17, 37] and concept conditioned feature editing via lightweight modulation [24, 38]. We train with calibrated clinical concept probabilities to supervise edits in the multimodal teacher and then distil this behavior into an efficient, image-only student for deployment, framing the hand off as knowl-edge distillation [13]. This directly addresses the common gap between multimodal training signals and unimodal test-time constraints. 
+
+3. Methodology 
+
+Our proposed CoFiDA-M uses concept probabilities from MONET [15] as PI during training to guide feature edit-ing. The model learns how such concepts reshape the in-ternal representation in a concept-guided teacher, and trans-fers this ability to an image-only student through distilla-tion, enabling robust generalization without test-time adap-tation. As described in Figure 2, the proposed framework consists of three stages: • Teacher training: a MONET conditioned teacher edits im-age features via FiLM modulation and is trained with both labeled source and unlabeled target data. • Knowledge distillation: a student model learns to mimic the teacher’s concept-aware predictions and representa-tions using only image inputs. • Inference: the distilled student model performs image-only classification. 
+
+3.1. Problem Setup 
+
+We consider a labeled source domain Ds =
+
+{(x(i) 
+
+> s
+
+, s (i) 
+
+> s
+
+, y (i) 
+
+> s
+
+)}Ns 
+
+> i=1
+
+consisting of dermoscopic im-ages x(i) 
+
+> s
+
+∈ R3×H×W together with MONET concept probabilities and binary melanoma labels. The target 
+
+domain Dt = {(x(j) 
+
+> t
+
+, s (j) 
+
+> t
+
+)}Nt 
+
+> j=1
+
+contains clinical images with associated MONET probabilities but no labels. An EfficientNet-B2 backbone [31] fθ embeds each image into a d = 1408 -dimensional penultimate feature space, 
+
+v = fθ (x). Our goal is to exploit the labeled source data and the unlabeled target data to train a model that can predict the melanoma label y for target images xt, while operating with image-only inputs at inference. 
+
+3.2. Confidence-Gated MONET Embedding 
+
+Each MONET attribute a provides a probability sa ∈ [0 , 1] 
+
+representing the likelihood of concept presence. Instead of using sa directly, we form a two–state probability vector 
+
+qa =
+
+1 − sa
+
+sa
+
+
+
+∈ R2, (1) which retains information about both concept presence and absence. To reflect uncertainty, we introduce a confidence gate embedding module (CGEM) on Gini impurity [1] 
+
+ga = s2 
+
+> a
+
++ (1 − sa)2, (2) 30.67  
+
+> 0.23
+> 0.80
+> 0.13
+> Ulceration
+> Vasculature
+> Erythema
+> Pigmentation
+> …
+> …
+> MONET Score
+> CGEM
+
+! 
+
+> !
+> !!
+> ",$
+> %
+> "
+> Classifier
+
+"
+
+> ℒ!"#
+> ℒ$
+> ℒ%&'(
+> Image
+> Encoder
+> Labelled source
+
+⨀
+
+> ⊖
+
+© Concatenation    
+
+> Subtraction ⨀ Feature modulation ⨂
+> ⊖
+> Element -wise multiplication ⨁ Element -wise addition
+
+(A) 
+
+(C ) 
+
+> Weak view
+> Strong view
+> Image
+> Encoder
+> EMA
+> Teacher
+> !
+> !̅
+> !!
+> Ulceration
+> Vasculature
+> Erythema
+> Pigmentation
+> 0.67
+> 0.23
+> 0.80
+> 0.13
+> …
+> …
+> MONET Score
+> CGEM  ""
+> !, #
+> #!
+> #$#
+> ℒ$%&' ℒ($)'
+> Classifier  Classifier
+> &'#
+> &!
+> ℒ*+
+> Unlabelled target
+> MONET Score CGEM
+> ⊖
+> ⊖
+> ""
+> …
+> …
+> MLP
+> Gini –style Confidence
+> score
+> ©⨂
+> (!
+> ('#!'#
+> ⨀
+> ⨀
+
+Overall training objective ℒ = ℒ!"# +𝜆 $ ℒ$+𝜆 %&'( ℒ%&'( + 𝜆 )* ℒ+, + 𝜆 -./0 ℒ-./0 + 𝜆 .120 ℒ.120 
+
+(B) Figure 2. Overview of the CoFiDA-M Framework. Our method has three parts. (A) & (B) Stage 1: Teacher Training. A concept-guided Teacher model is trained using labeled source data (A) and unlabeled target data (B). The target branch uses a Mean Teacher framework to align domains via multi-level consistency. (C) Stage 2: Distillation & Stage 3: Inference. The “expert” Teacher is frozen ( ) and its knowledge is distilled ( Ldistill ) into a lightweight Image-Only Student, which replaces the FiLM module with a residual edit head and is used for final inference. 
+
+so that uncertain concepts ( sa ≈ 0.5) contribute less. Each concept has a learnable embedding table Ea ∈ R2×32 ,which is gated and projected using its query qa and gate ga.Concatenating these gated concept embeddings and passing them through a two–layer MLP yields the clinical condi-tioning vector 
+
+ct = MLP  concat a{ ga(E⊤ 
+
+> a
+
+qa) } ∈ R256 , (3) which summarizes the high-level clinical semantics. 
+
+3.3. Concept −Guided Feature Editing (Teacher) 
+
+Within the teacher, clinical context from MONET guides the feature-editing operation preceding classification. The context vector ct is used to modulate the image feature 
+
+v through a Feature wise Linear Modulation (FiLM)[24] based editing network. Specifically, a conditioning func-tion ψ : R256 → R2d is used to predict clinical feature con-ditioned affine parameters 
+
+γ, β = split  ψ(ct) (4) which are split into two d-dimensional vectors controlling scaling and shifting of v. With these two affine parameters, the clinical edited image feature uu = γ ⊙ v + β, (5) where ⊙ denotes element-wise multiplication. This affine modulation allows external clinical concepts to adjust inter-nal activations without modifying the backbone. The edit vector e, which contains clinical representations, can be ob-tained as e = u − v ∈ Rd.A two-layer MLP classifier h then operates on u to pre-dict logits ℓ, followed by the softmax operation to get class predicted probabilities p
+
+ℓ = h(u), p = softmax( ℓ) ∈ [0 , 1] 2. (6) Given confident MONET attributes, the network is designed to learn to amplify feature channels associated with rele-vant concepts while attenuating others, yielding concept-consistent representations across domains. 
+
+3.4. Stage 1: Teacher Training 
+
+The teacher network is trained on both labeled source data and unlabeled target data. The training loss combines the supervised loss on the source domain and the consistency-based UDA losses on the target domain 
+
+Lteacher = Lsource + Ltarget (7) 
+
+3.4.1. Source Supervision 
+
+To address class imbalance and emphasize hard examples, we adopt the focal loss [21] which is a variant of cross-4entropy that down-weights easy, high-confidence samples and places more weight on hard ones. 
+
+Lsup = − 1
+
+|B| 
+
+X
+
+> i∈B
+
+αy(i)
+
+ 1 − py(i)
+
+γf log py(i) (8) where γf = 1 .5 and class weight α = 0 .9, interpreted as 
+
+α0 = 0 .1 and α1 = 0 .9 for classes {0, 1}. B denotes the mini-batch of labeled samples used in one training step and the loss is averaged across all samples in the current batch. During the training process, the FiLM edit vector e is further regularized to maintain stable and interpretable fea-ture edits. First, an orthogonality constraint L⊥ is used to penalize edits that align with the classifier’s decision di-rections, preventing FiLM from trivially amplifying class-discriminative components rather than encoding clinical cues. 
+
+L⊥ = MSE  (eW ⊤
+
+> cls
+
+)Wcls , 0 (9) where Wcls denotes the weight matrix of the final linear classifier h and MSE is mean squared error. Additionally, a soft −norm constraint Lnorm is used to limit the overall edit magnitude, ensuring FiLM performs small, controlled adjustments to the feature representation rather than large distortions. 
+
+Lnorm = max  0, ∥e∥2 − Rmax 
+
+, Rmax = 2 .0 (10) Together, these regularizers encourage FiLM to make clini-cally meaningful refinements without altering the classifier boundary directly. The supervised training loss for the source domain is then 
+
+Lsource = Lsup + λ⊥ L⊥ + λnorm Lnorm (11) where λ⊥ = λnorm = 0 .01 .
+
+EMA teacher is a running average of the online model [32]. It acts as a stable target during training by smoothing short-term noise from recent updates. This improves con-sistency in pseudo-labels and makes training more stable. We maintain a teacher network as an exponential moving average (EMA) of the online parameters θ. At the start of training we set ¯θ0 ← θ0, and after every optimizer update we perform 
+
+¯θ ← αema ¯θ + (1 −αema )θ, αema = 0 .999 ,
+
+with stop-gradient on the teacher and no optimizer applied to ¯θ. αema is the decay rate which defines how quickly the teacher model follows the online model. Here we set αema 
+
+to 0.999 to make sure that the teacher updates slowly, pro-viding temporally smoothed predictions that suppress short-term training noise while still tracking long-term improve-ments of the online model. All model parameters (back-bone, FiLM, head) are included in the EMA. 
+
+3.4.2. Target Consistency Learning 
+
+To stabilize adaptation on unlabeled target data, we adopt a two-view consistency strategy between the EMA teacher and the online MONET-guided model. For each target im-age, two augmentations are generated: a weak view pre-serving global structure and a strong view with larger ap-pearance perturbations [27]. As both views share the same MONET-based context, we encourage agreement between weak/strong views of the same target image and stabilize the edited representation by matching both the logits and the edited features. The EMA teacher processes the weak view to produce a stable pseudo-label, while the online model predicts from the strong view. With temperature sharpening τ = 0 .6,logits are converted to soft prediction p = softmax( ℓ/τ ).Consistency is enforced by minimizing the divergence be-tween the EMA teacher’s weak-view prediction ¯pw and the model’s strong-view prediction ps.
+
+LKL = 0 .5  KL  ps ∥ ¯pw
+
+ + KL  ¯pw ∥ ps
+
+ (12) Feature- and edit-level consistencies are also maintained us-ing MSE losses 
+
+Lfeat = MSE( us, ¯uw), Ledit = MSE( es, ¯ew). (13) To reduce noise from unreliable pseudo-labels, only tar-get samples with sufficiently confident predictions are used in the loss. In this paper, we use a dynamic confidence threshold t(epoch) to control sample selection. Early in training, t(0) = 0.95 is set to restrict learning to high-confidence examples and the threshold gradually decays to 0.70 as the teacher becomes more stable. This strategy pre-vents error propagation at the start and increases data uti-lization over time. Then the total target loss combines the masked, two-view consistency terms 
+
+Ltarget = wkl LKL + wfeat Lfeat + wedit Ledit (14) with wkl = 0 .6, wfeat = 0 .1, and wedit = 0 .1. These losses encourage the online model to match the EMA teacher’s stable weak-view predictions under strong perturbations, yielding robust, domain-invariant representations. 
+
+3.5. Stage 2: Image-Only Student Distillation 
+
+After training the concept-guided EMA teacher, an image-only student network is trained to reproduce the teacher’s behavior without MONET inputs. We denote the teacher by 
+
+T and the student by S. The teacher parameters ¯θ are frozen while the student parameters θS are trained independently to imitate the teacher using only image input. Given an im-age x, the EMA teacher produces the concept-guided fea-ture uT and corresponding logits ℓT . The student network shares the same backbone and classifier but replaces the FiLM module with a lightweight residual edit head ψedit 
+
+that predicts its edited feature directly from the image 
+
+vS = fθS (x), uS = vS + ψedit (vS ). (15) Then the student classifier outputs logits ℓS = h(uS ) and the teacher and student logits are converted into soft proba-bility distributions pS , pT using a temperature-scaled soft-5max where the temperature τ set to 2.0 to smooth the distri-butions to reveal relative class confidence [13]. The student loss is 
+
+Ldistill = KL  pS ∥pT
+
+ τ 2 + λfeat MSE( uS , uT ) (16) with λfeat = 0.1. The KL-divergence loss transfers the teacher’s class-probability structure, and the feature-matching term encourages the student to reproduce the teacher’s concept-aware representation. Through this pro-cess, the student inherits the teacher’s clinically informed reasoning yet remains independent of MONET at infer-ence, enabling efficient and domain-robust image-only pre-diction. 
+
+3.6. Stage 3: Image-Only Inference and Evaluation 
+
+At inference time, the image-only student model is used. The predicted melanoma probability p1 determines the final label, where melanoma is predicted if p1 ≥ 0.5. Neither MONET concept inputs nor EMA teacher updates are re-quired during inference, ensuring a lightweight and fully image-based inference. 
+
+4. Results and Discussion 
+
+Datasets: We use eight public skin lesion datasets encom-passing two capture styles, Dermoscopic and Clinical, with examples shown in Figure 3 and a detailed summary in Ta-ble 1. During training, image-level concept probabilities derived from the clinical decision-support tool (MONET) are incorporated as supervision. These concept probabili-ties are not used during inference. 
+
+Evaluation Protocol: We train on a single source–target pair, MILK Dermoscopic → MILK Clinical . After train-ing the teacher and student model separately, the resulting image-only student model is frozen and evaluated directly on the test partitions of six unseen external datasets. This is a strict out-of-domain evaluation. Results are reported using AUROC and melanoma recall (sensitivity), with high recall being critical to ensure potential melanomas are not missed during screening. 
+
+Reproducibility: All experiments are run end-to-end with five random seeds. Models train for up to 50 epochs with early stopping on validation AUROC using develop-ment data only, ensuring strict separation from the test sets. Inference uses images only. Both teacher and student mod-els use batch size 32, an EfficientNet-B2 backbone [31], AdamW (lr 3 × 10 −4, weight decay 10 −4), and cosine an-nealing to 10 −6. Weak and strong augmentations (crop, flip, color jitter, Gaussian blur) are applied uniformly across methods. Additional metrics, plots, ablations, and imple-mentation details are provided in the supplementary mate-rial. Experiments are performed on an Apple Mac Studio (M3 Ultra, 28-core CPU, 60-core GPU, 32-core Neural En-gine) with 96 GB of unified memory. s-prd -460192767.jpg    
+
+> MILK _Dermos
+> MILK _Clini c
+> MIDAS _Dermos
+> MIDAS _Clini cD7_Clini c
+> D7_Dermo sHAM 1000 0
+> Fitzpatric k
+
+Figure 3. Eight dataset examples across dermoscopic and clinical capture. Dermoscopic images are close and uniform with fine tex-ture. Clinical images include wider context, varied lighting, and common artefacts such as hair, rulers, and shadows. These differ-ences create a clear domain gap for the same lesion classes. Table 1. Dataset summary across eight datasets. Bold * datasets denote unseen evaluation sets that are never used for training or adaptation. Mel counts all melanoma subtypes, and Other in-cludes all remaining diagnostic categories. The training dataset is split 70:15:15 into training, validation, and test partitions. Each unseen dataset uses all available images exclusively for test-time inference with the image-only model.                               
+
+> Dataset Domain Mel Other MILK10K (Md / Mc)[25] Dermoscopic and Clinical 452 4,792
+> Derm7pt *(D7d / D7c)[14] Dermoscopic and Clinical 254 762
+> Fitzpatrick (Fitz) *[10] Clinical 344 11,259
+> HAM10000 *(HAM)[33] Dermoscopic 780 6,232
+> MIDAS *(MID d)[5] Dermoscopic 96 952
+> MIDAS *(MID c)[5] Clinical 186 1,915
+
+Baselines: We compare our approach to ‘source-only’ training and a wide range of domain-adaptation and adaptation-free baselines, including DANN [11], Deep CORAL [30], MMD [12], Mean Teacher [32], IT-RUDA [26], SHOT++ [19], SFDA [22], CPD [42], DINE [20], CoTTA [36], WoC [16], TENT [34], DAMP [8], and DALUPI [2]. Training data, augmentation policies, and schedules are matched where applicable. Unless otherwise stated, all reported results correspond to the final image-only student model. 
+
+Comparison with other Methods: We evaluate our dis-tilled image-only student (CoFiDA-M) against the source only baseline and competing UDA methods (Tables 2). As shown in Table 2(B), our method achieves the highest av-erage AUROC on the clinical target domain at 67.50%. This represents a +9.11% absolute improvement over the source only baseline (58.39%) and significantly exceeds other strategies, including the strongest test-time method, TENT (62.32%), and the privileged information baseline, DALUPI (54.54%). 6Table 2. AUROC (%) mean ± std over 5 seeds. Left: Dermoscopic (A), macro-average across Dermoscopic and Right Clinical (B), macro-average across Clinical. MIDd, MIDc, D7d, D7c, HAM and Fitz are unseen test datasets. 
+
+(A) Dermoscopic (B) Clinical Setting / Method Md MIDd * D7d * HAM * Avg Mc MIDc * D7c * Fitz * Avg Classical / Standard 
+
+DANN [11] 78 .37 ± 0.05 72 .29 ± 0.08 69 .40 ± 0.07 72 .09 ± 0.09 73 .04 76 .81 ± 0.05 56 .43 ± 0.07 43 .84 ± 0.06 55 .23 ± 0.09 58 .08 
+
+DeepCoral [30] 79 .20 ± 0.05 69 .55 ± 0.07 52 .39 ± 0.04 76 .87 ± 0.06 69 .50 77 .30 ± 0.06 50 .41 ± 0.12 49 .37 ± 0.07 48 .76 ± 0.04 56 .46 
+
+MMD [12] 78 .23 ± 0.09 75 .83 ± 0.10 62 .15 ± 0.16 80 .10 ± 0.17 74 .08 79 .58 ± 0.04 52 .25 ± 0.05 46 .74 ± 0.12 56 .10 ± 0.09 58 .67 
+
+MeanTeacher [32] 62 .06 ± 0.26 45 .34 ± 0.13 51 .22 ± 0.10 65 .27 ± 0.12 55 .97 53 .08 ± 0.20 48 .81 ± 0.05 47 .46 ± 0.09 46 .30 ± 0.08 48 .91 
+
+IT -RUDA [26] 86 .27 ± 0.07 67 .16 ± 0.02 67 .19 ± 0.05 82 .79 ± 0.06 75 .85 63 .34 ± 0.06 51 .68 ± 0.05 57 .39 ± 0.08 53 .65 ± 0.01 56 .52 
+
+Modern Source Free 
+
+SHOT++ [19] 65 .17 ± 0.14 52 .57 ± 0.09 62 .19 ± 0.19 61 .45 ± 0.15 60 .35 55 .88 ± 0.03 57 .39 ± 0.02 51 .10 ± 0.11 39 .01 ± 0.09 50 .84 
+
+DINE [20] 70 .32 ± 0.13 71 .80 ± 0.12 65 .39 ± 0.12 79 .81 ± 0.10 71 .83 66 .54 ± 0.15 52 .93 ± 0.08 41 .22 ± 0.07 56 .94 ± 0.07 54 .41 
+
+SFDA [22] 58 .49 ± 0.11 55 .76 ± 0.16 55 .95 ± 0.03 54 .12 ± 0.19 56 .08 44 .91 ± 0.12 47 .27 ± 0.05 45 .39 ± 0.07 51 .42 ± 0.10 47 .25 
+
+CPD [42] 59 .87 ± 0.09 59 .87 ± 0.06 57 .05 ± 0.02 69 .24 ± 0.07 61 .51 46 .14 ± 0.05 51 .40 ± 0.06 52 .83 ± 0.05 42 .54 ± 0.07 48 .23 
+
+Modern Test Time 
+
+CoTTA [36] 62 .43 ± 0.13 53 .60 ± 0.22 55 .79 ± 0.01 54 .61 ± 0.07 56 .61 51 .99 ± 0.14 50 .55 ± 0.15 53 .71 ± 0.06 52 .75 ± 0.09 52 .25 
+
+TENT [34] 80 .21 ± 0.16 65 .30 ± 0.04 70 .08 ± 0.09 63 .21 ± 0.16 69 .70 81 .76 ± 0.11 55 .09 ± 0.17 55 .78 ± 0.15 56 .63 ± 0.07 62 .32 
+
+WoC [16] 66 .29 ± 0.18 58 .19 ± 0.10 61 .05 ± 0.20 54 .71 ± 0.14 60 .06 49 .76 ± 0.13 43 .57 ± 0.16 60 .73 ± 0.12 41 .87 ± 0.02 48 .98 
+
+Multimodal 
+
+DAMP [8] 87 .32 ± 0.09 65 .57 ± 0.02 69 .02 ± 0.01 80 .08 ± 0.01 75 .50 63 .59 ± 0.01 43 .52 ± 0.03 61 .14 ± 0.04 53 .68 ± 0.05 55 .48 
+
+DALUPI [2] 87 .38 ± 0.01 62 .69 ± 0.03 70 .26 ± 0.07 83 .97 ± 0.01 76 .07 58 .18 ± 0.02 47 .71 ± 0.03 62 .50 ± 0.08 49 .78 ± 0.02 54 .54 
+
+Source Only 84 .67 ± 0.06 65 .94 ± 0.03 54 .76 ± 0.05 74 .48 ± 0.01 69 .96 75 .02 ± 0.04 51 .51 ± 0.02 52 .85 ± 0.08 54 .20 ± 0.01 58 .39 
+
+Ours (CoFIDA-M) 89 .70 ± 0.09 76 .15 ± 0.07 61 .69 ± 0.04 78 .45 ± 0.05 76.50 83 .94 ± 0.01 69 .67 ± 0.04 50 .48 ± 0.07 65 .91 ± 0.09 67.50 
+
+Table 3. Recall for melanoma (%) mean ± std over 5 seeds. Left: Dermoscopic (A), macro-average across Dermoscopic and Right 
+
+Clinical (B), macro-average across Clinical. MIDd, MIDc, D7d, D7c, HAM and Fitz are unseen test datasets. 
+
+(A) Dermoscopic (B) Clinical Setting / Method Md MIDd * D7d * HAM * Avg Mc MIDc * D7c * Fitz * Avg Classical / Standard 
+
+DANN[11] 40 .29 ± 0.17 70 .89 ± 0.02 38 .30 ± 0.09 62 .87 ± 0.03 53 .09 21 .59 ± 0.05 49 .86 ± 0.12 20 .45 ± 0.06 3.47 ± 0.06 23 .84 
+
+DeepCoral[30] 79 .20 ± 0.24 69 .55 ± 0.19 52 .39 ± 0.31 76 .87 ± 0.22 69 .50 31 .82 ± 0.02 10 .97 ± 0.04 50 .00 ± 0.02 14 .86 ± 0.05 26 .91 
+
+MMD[12] 43 .69 ± 0.24 55 .70 ± 0.01 51 .06 ± 0.02 86 .46 ± 0.07 59 .23 30 .68 ± 0.07 5.81 ± 0.01 27 .27 ± 0.02 9.46 ± 0.10 18 .31 
+
+MeanTeacher[32] 74 .91 ± 0.32 70 .89 ± 0.04 65 .96 ± 0.08 44 .31 ± 0.07 64 .02 77 .27 ± 0.01 88 .71 ± 0.04 70 .45 ± 0.07 74 .23 ± 0.05 77 .67 
+
+IT-RUDA[26] 49 .28 ± 0.02 12 .66 ± 0.01 12 .62 ± 0.09 47 .90 ± 0.01 30 .62 9.77 ± 0.06 7.56 ± 0.07 12 .34 ± 0.09 22 .00 ± 0.10 12 .92 
+
+Modern Source Free 
+
+SHOT++[19] 72 .61 ± 0.09 64 .56 ± 0.01 39 .26 ± 0.19 68 .260 ± 0.008 61 .17 65 .91 ± 0.01 57 .42 ± 0.03 52 .94 ± 0.01 54 .05 ± 0.01 57 .58 
+
+DINE[20] 2.27 ± 0.01 8.86 ± 0.02 9.80 ± 0.05 38 .92 ± 0.03 14 .96 2.27 ± 0.01 3.58 ± 0.03 1.96 ± 0.01 1.35 ± 0.02 2.29 
+
+SFDA[22] 24 .53 ± 0.21 22 .09 ± 0.13 20 .10 ± 0.09 19 .77 ± 0.15 21 .62 6.31 ± 0.06 10 .67 ± 0.12 15 .91 ± 0.01 9.34 ± 0.10 10 .56 
+
+CPD[42] 57 .95 ± 0.01 35 .44 ± 0.06 70 .86 ± 0.06 62 .28 ± 0.09 56 .63 55 .68 ± 0.04 68 .23 ± 0.06 71 .52 ± 0.02 47 .52 ± 0.19 60 .74 
+
+Modern Test Time 
+
+CoTTA[36] 68 .29 ± 0.07 59 .49 ± 0.03 58 .82 ± 0.04 69 .58 ± 0.09 64 .05 56 .82 ± 0.01 63 .23 ± 0.03 52 .94 ± 0.08 59 .46 ± 0.05 58 .11 
+
+TENT[34] 76 .11 ± 0.10 67 .24 ± 0.09 50 .22 ± 0.27 69 .37 ± 0.17 65 .74 75 .00 ± 0.06 61 .10 ± 0.29 48 .30 ± 0.20 38 .22 ± 0.11 55 .65 
+
+WoC[16] 52 .45 ± 0.07 34 .18 ± 0.01 68 .09 ± 0.05 38 .92 ± 0.09 48 .41 37 .50 ± 0.02 9.03 ± 0.01 61 .36 ± 0.07 5.41 ± 0.05 28 .33 
+
+Multimodal 
+
+DAMP[8] 35 .23 ± 0.07 15 .19 ± 0.03 13 .25 ± 0.02 35 .93 ± 0.06 24 .90 1.14 ± 0.05 9.32 ± 0.03 7.28 ± 0.05 5.57 ± 0.06 5.83 
+
+DALUPI[2] 53 .41 ± 0.07 29 .11 ± 0.05 25 .83 ± 0.09 52 .10 ± 0.10 40 .11 4.55 ± 0.06 7.74 ± 0.05 12 .58 ± 0.08 13 .99 ± 0.01 9.72 
+
+Source Only 72 .37 ± 0.04 62 .70 ± 0.22 58 .64 ± 0.02 60 .48 ± 0.12 63 .55 65 .91 ± 0.03 65 .94 ± 0.03 55 .78 ± 0.14 35 .45 ± 0.04 55 .77 
+
+Ours (CoFIDA-M) 81 .56 ± 0.11 75 .95 ± 0.01 89 .36 ± 0.02 92 .81 ± 0.07 84.92 86 .36 ± 0.02 74 .84 ± 0.01 90 .91 ± 0.02 59 .46 ± 0.03 77.89 
+
+For the critical screening metric of melanoma recall Ta-ble 3, the improvement is more pronounced. On the clin-ical target domain Table 3(B), CoFiDA-M achieves an av-erage recall of 77.89%, a +22.12% absolute gain over the source only baseline (55.77%). Notably, while the stan-dard UDA method Mean Teacher achieves a similar high recall (77.67%), its clinical AUROC (58.67%) remains near the baseline. In contrast, our method yields substantial im-provements on both target-domain metrics. Importantly, the gain does not arise from a trade-off: our method also achieves the highest average recall on the source dermo-scopic domain Table 2(A) reaching 84.92% compared to 63.55% for the source-only baseline. These results indicate that our model learns a more robust, domain-invariant rep-resentation of the minority class, enabling safer and more reliable cross-domain generalization. Training loss Performance metrics Feature separation qualit y
+
+Figure 4. Ablation on Teacher Knowledge on MILK (Clinical). The image-only student is distilled from three fixed teachers: a fully trained Frozen Teacher (FT), a Random-weight Teacher (RT), and a Zero-weight Teacher (ZT). 
+
+7Table 4. Ablation study. Each metric reflects the average percentage score across the four Dermoscopic (d) and four Clinical (c) datasets. Section A compares image-only frameworks, Section B varies the teacher architecture, and Section C examines student distillation using the same frozen teacher.                                                        
+
+> Sec. Family Variant AUROC d↑AUROC c↑Recall d↑Recall c↑
+> ABaselines / Student Source-Only 69 .96 58 .39 63 .55 55 .77
+> Standard UDA (no MONET) 76 .07 62 .32 69 .50 77 .67
+> Ours: Student (image-only) 76 .50 67 .50 84 .92 77 .89
+> BTeacher design Full Teacher (Gating + FiLM) 85 .35 83 .81 87 .81 86 .36
+> w/o Confidence-Gating 78 .32 75 .24 47 .70 43 .20
+> w/o FiLM (Concat) 84 .18 81 .51 80 .68 73 .86
+> CKnowledge distillation (fixed Teacher) Logit KD Only 63 .80 64 .10 72 .49 64 .53
+> Logit KD + Align vT(pre-edit) 70 .68 66 .45 79 .12 75 .74
+> Logit KD + Align uT(post-edit) 76 .50 67 .50 84 .92 77 .89 (a) (b)
+> (c) (d)
+> XSamples
+> __ Trend
+> Figure 5. Qualitative Validation of the CoFiDA-M Framework. (a) Student’s implicit concept learning via edit magnitude corre-lation. (b) Teacher’s feature-editing mechanism transforming fea-ture space. (c) Causal proof of concept-guided feature steering. (d) Successful distillation via Student-Teacher feature alignment.
+
+Ablation Study: Table 4 validates our core design choices. Section A shows our image-only student outper-forms both the ‘Source-Only‘ baseline and standard UDA (without PI), confirming that distilling MONET-derived concepts provides a stronger training signal than raw un-labeled data alone. Section B analyzes the teacher’s ar-chitecture. Removing the confidence-gating mechanism causes a drastic drop in melanoma recall, demonstrating the necessity of filtering noisy concept scores. Replacing FiLM-based modulation with na¨ ıve concatenation also de-grades performance, confirming that explicitly editing the feature space is superior to simple feature augmentation. Finally, Section C isolates our distillation strategy. Train-ing with only logit-based KD is insufficient. Aligning the student to the teacher’s pre-edit features ( vT ) improves per-formance, but aligning to the post-edit, concept-adjusted features ( uT ) yields the best results. This confirms our primary hypothesis: the student must learn to reproduce the teacher’s concept-adjusted representation. This finding is validated by a sanity check, Figure 4, where distilling from a random-weight teacher (RT) or zero-weight teacher (ZT) fails to converge (FT ≫ RT ≈ ZT), achieving only chance-level performance. The student’s gains thus arise from the teacher’s learned semantic edits, not the distilla-tion process itself. The violin plot shows that the FT-based student achieves distinctly higher and tighter feature sepa-ration. RT and ZT collapse near the random baseline, which is evidence that only the trained teacher imparts meaningful semantic structure to the student’s embeddings. 
+
+Feature Space and Reliability Analysis: Figure 5(a) shows that the image-only student has internalized the teacher’s concept guided behavior: the MONET concept score (ground truth) correlates strongly and positively with the student’s self-generated edit magnitude ∥uS − vS ∥2.Figure 5(b) visualizes the MONET-guided teacher FiLM edit (vT → uT ) correcting the feature space and moving scattered samples into two well-separated clusters. Figure Figure 5(c) provides intervention based evidence: increas-ing melanoma like concept input moves the FiLM-edited feature towards the melanoma cluster. Figure 5(d) con-firms successful distillation, with the image-only student (open circles) reproducing the teacher’s (filled dots) cor-rected, separated manifold. 
+
+5. Conclusion 
+
+We introduced a practical domain adaptation framework that learns from privileged, high-level concepts during training but deploys as a lightweight, image-only model. Our method uses a MONET-conditioned, FiLM-based teacher to shape the feature space using clinical seman-tics. We then distill not only the final logits but also the edited feature representation into a student, effectively em-bedding expert knowledge into its weights to enable robust, concept-free generalization at inference time. Our analy-sis shows that alignment with the edited semantic space is 8critical for transferring the teacher’s knowledge. While we demonstrated this with MONET in dermatology, the core privileged-information framework is general. The main limitation lies in its dependency on the quality of training-time concepts, which future work could address by learning concepts end-to-end or extending the framework to other specialized domains. 
+
+References 
+
+[1] Leo Breiman, Jerome Friedman, Richard A Olshen, and Charles J Stone. Classification and regression trees . Chapman and Hall/CRC, 2017. 3 [2] Adam Breitholtz, Anton Matsson, and Fredrik D. Jo-hansson. Unsupervised domain adaptation by learn-ing using privileged information. Transactions on Ma-chine Learning Research , 2024. Published 16 Septem-ber 2024. 2, 3, 6, 7 [3] Sireesha Chamarthi, Katharina Fogelberg, Titus J Brinker, and Julia Niebling. Mitigating the influence of domain shift in skin lesion classification: A bench-mark study of unsupervised domain adaptation meth-ods. Informatics in Medicine Unlocked , 44:101430, 2024. 1 [4] Yanyuan Chen, Dexuan Xu, Yu Huang, Songkun Zhan, Hanpin Wang, Dongxue Chen, Xueping Wang, Meikang Qiu, and Hang Li. Mimo: A medical vi-sion language model with visual referring multimodal input and pixel grounding multimodal output. In Pro-ceedings of the Computer Vision and Pattern Recogni-tion Conference , pages 24732–24741, 2025. 2 [5] Albert S Chiou, Jesutofunmi A Omiye, Haiwen Gui, Susan M Swetter, Justin M Ko, Brian Gastman, Joshua Arbesman, Zhuo Ran Cai, Olivier Gevaert, Christoph Sad´ ee, et al. Multimodal image dataset for ai-based skin cancer (midas) benchmarking. NEJM AI , 2(6): AIdbp2400732, 2025. 6 [6] Dionysis Christopoulos, Sotiris Spanos, Eirini Baltzi, Valsamis Ntouskos, and Konstantinos Karantzalos. Skin lesion phenotyping via nested multi-modal con-trastive learning. arXiv preprint arXiv:2505.23709 ,2025. 2 [7] Anxhelo Diko, Antonino Furnari, Luigi Cinque, and Giovanni Maria Farinella. Laguna: Language guided unsupervised adaptation with structured spaces. arXiv preprint arXiv:2411.15557 , 2024. 2, 3 [8] Zhekai Du, Xinyao Li, Fengling Li, Ke Lu, Lei Zhu, and Jingjing Li. Domain-agnostic mutual prompting for unsupervised domain adaptation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 23375–23384, 2024. 2, 6, 7[9] Mohammad Fahes, Tuan-Hung Vu, Andrei Bursuc, Patrick P´ erez, and Raoul De Charette. Poda: Prompt-driven zero-shot domain adaptation. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 18623–18633, 2023. 2, 3 [10] Thomas B. Fitzpatrick. The validity and practicality of sun-reactive skin types i through vi. Archives of Dermatology , 124(6):869–871, 1988. 6 [11] Yaroslav Ganin, Evgeniya Ustinova, Hana Ajakan, Pascal Germain, Hugo Larochelle, Franc ¸ois Lavio-lette, Mario March, and Victor Lempitsky. Domain-adversarial training of neural networks. Journal of machine learning research , 17(59):1–35, 2016. 1, 6, 7 [12] Arthur Gretton, Karsten M Borgwardt, Malte J Rasch, Bernhard Sch¨ olkopf, and Alexander Smola. A kernel two-sample test. The journal of machine learning re-search , 13(1):723–773, 2012. 1, 6, 7 [13] Geoffrey Hinton, Oriol Vinyals, and Jeff Dean. Distill-ing the knowledge in a neural network. arXiv preprint arXiv:1503.02531 , 2015. 3, 6 [14] Jeremy Kawahara, Sara Daneshvar, Giuseppe Argen-ziano, and Ghassan Hamarneh. Seven-point checklist and skin lesion classification using multitask multi-modal neural nets. IEEE Journal of Biomedical and Health Informatics , 23(2):538–546, 2019. 6 [15] Chanwoo Kim, Soham U Gadgil, Alex J DeGrave, Jesutofunmi A Omiye, Zhuo Ran Cai, Roxana Daneshjou, and Su-In Lee. Transparent medical im-age ai via an image–text foundation model grounded in medical literature. Nature medicine , 30(4):1154– 1165, 2024. 2, 3 [16] Jungsoo Lee, Debasmit Das, Jaegul Choo, and Sungha Choi. Towards open-set test-time adaptation utilizing the wisdom of crowds in entropy minimization. In 
+
+Proceedings of the IEEE/CVF International Confer-ence on Computer Vision , pages 16380–16389, 2023. 3, 6, 7 [17] Junnan Li, Dongxu Li, Caiming Xiong, and Steven Hoi. Blip: Bootstrapping language-image pre-training for unified vision-language understanding and genera-tion. In International conference on machine learning ,pages 12888–12900. PMLR, 2022. 2, 3 [18] Jian Liang, Dapeng Hu, and Jiashi Feng. Do we re-ally need to access the source data? source hypoth-esis transfer for unsupervised domain adaptation. In 
+
+International conference on machine learning , pages 6028–6039. PMLR, 2020. 3 [19] Jian Liang, Dapeng Hu, Yunbo Wang, Ran He, and Ji-ashi Feng. Source data-absent unsupervised domain adaptation through hypothesis transfer and labeling transfer. IEEE Transactions on Pattern Analysis and Machine Intelligence , 44(11):8602–8617, 2021. 6, 7 [20] Jian Liang, Dapeng Hu, Jiashi Feng, and Ran He. Dine: Domain adaptation from single and multi-ple black-box predictors. In Proceedings of the 
+
+9IEEE/CVF conference on computer vision and pattern recognition , pages 8003–8013, 2022. 3, 6, 7 [21] Tsung-Yi Lin, Priya Goyal, Ross Girshick, Kaiming He, and Piotr Doll´ ar. Focal loss for dense object de-tection. In Proceedings of the IEEE international con-ference on computer vision , pages 2980–2988, 2017. 4[22] Yuang Liu, Wei Zhang, and Jun Wang. Source-free domain adaptation for semantic segmentation. In Pro-ceedings of the IEEE/CVF conference on computer vi-sion and pattern recognition , pages 1215–1224, 2021. 3, 6, 7 [23] Yaniv Ovadia, Emily Fertig, Jie Ren, Zachary Nado, David Sculley, Sebastian Nowozin, Joshua Dillon, Balaji Lakshminarayanan, and Jasper Snoek. Can you trust your model’s uncertainty? evaluating predictive uncertainty under dataset shift. Advances in neural in-formation processing systems , 32, 2019. 1 [24] Ethan Perez, Florian Strub, Harm De Vries, Vincent Dumoulin, and Aaron Courville. Film: Visual reason-ing with a general conditioning layer. In Proceedings of the AAAI conference on artificial intelligence , 2018. 3, 4 [25] Tschandl Philipp, Akay Nisa Beng¨ u, Rosendahl Cliff, Rotemberg Veronica, Todorovska Verche, Weber Jochen, Wolber Anna Katharina, M¨ uller Christoph, Kurtansky Nicholas, Halpern Allan, et al. Milk10k: A hierarchical multimodal imaging learning toolkit for diagnosing pigmented and non-pigmented skin cancer and its simulators. Journal of Investigative Dermatol-ogy , 2025. 6 [26] Shima Rashidi, Ruwan Tennakoon, Aref Miri Reka-vandi, Papangkorn Jessadatavornwong, Amanda Freis, Garret Huff, Mark Easton, Adrian Mouritz, Reza Hoseinnezhad, and Alireza Bab-Hadiashar. It-ruda: Information theory-assisted robust unsupervised domain adaptation. ACM Transactions on Intelligent Systems and Technology , 16(4):1–17, 2025. 3, 6, 7 [27] Kihyuk Sohn, David Berthelot, Nicholas Carlini, Zizhao Zhang, Han Zhang, Colin Raffel, Ekin Dogus Cubuk, Alexey Kurakin, and Chun-Liang Li. Fix-Match: Simplifying semi-supervised learning with consistency and confidence. In Advances in Neural Information Processing Systems , 2020. 5 [28] Nurjahan Sultana, Wenqi Lu, Xinqi Fan, and Moi Hoon Yap. Domain adaptation for skin lesion: Evaluating real-world generalisation. In Proceedings of the Computer Vision and Pattern Recognition Con-ference , pages 3433–3443, 2025. 1 [29] Nurjahan Sultana, Wenqi Lu, Xinqi Fan, and Moi Hoon Yap. Selective alignment transfer for do-main adaptation in skin lesion analysis. In Inter-national Conference on Medical Image Computing and Computer-Assisted Intervention , pages 596–606. Springer, 2025. 1 [30] Baochen Sun and Kate Saenko. Deep coral: Correla-tion alignment for deep domain adaptation. In Euro-pean conference on computer vision , pages 443–450. Springer, 2016. 1, 6, 7 [31] Mingxing Tan and Quoc Le. Efficientnet: Rethinking model scaling for convolutional neural networks. In 
+
+International conference on machine learning , pages 6105–6114. PMLR, 2019. 3, 6 [32] Antti Tarvainen and Harri Valpola. Mean teachers are better role models: Weight-averaged consistency tar-gets improve semi-supervised deep learning results. 
+
+Advances in neural information processing systems ,30, 2017. 3, 5, 6, 7 [33] Philipp Tschandl, Cliff Rosendahl, and Harald Kittler. The ham10000 dataset, a large collection of multi-source dermatoscopic images of common pigmented skin lesions. Scientific data , 5(1):1–9, 2018. 6 [34] Dequan Wang, Evan Shelhamer, Shaoteng Liu, Bruno Olshausen, and Trevor Darrell. Tent: Fully test-time adaptation by entropy minimization. In In-ternational Conference on Learning Representations (ICLR) , 2021. Spotlight. 3, 6, 7 [35] Janet Wang, Yunbei Zhang, Zhengming Ding, and Ji-hun Hamm. Achieving reliable and fair skin lesion diagnosis via unsupervised domain adaptation. In 
+
+Proceedings of the IEEE/CVF Conference on Com-puter Vision and Pattern Recognition , pages 5157– 5166, 2024. 1 [36] Qin Wang, Olga Fink, Luc Van Gool, and Dengxin Dai. Continual test-time domain adaptation. In Pro-ceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 7201–7211, 2022. 3, 6, 7 [37] Zifeng Wang, Zhenbang Wu, Dinesh Agarwal, and Ji-meng Sun. Medclip: Contrastive learning from un-paired medical images and text. In Proceedings of the Conference on Empirical Methods in Natural Lan-guage Processing. Conference on Empirical Methods in Natural Language Processing , page 3876, 2022. 2, 3[38] Siyuan Yan, Xieji Li, Ming Hu, Yiwen Jiang, Zhen Yu, and Zongyuan Ge. Make: Multi-aspect knowledge-enhanced vision-language pretraining for zero-shot dermatological assessment. In International Confer-ence on Medical Image Computing and Computer-Assisted Intervention , pages 369–379. Springer, 2025. 2, 3 [39] Siyuan Yan, Zhen Yu, Clare Primiero, Cristina Vico-Alonso, Zhonghua Wang, Litao Yang, Philipp Tschandl, Ming Hu, Lie Ju, Gin Tan, et al. A mul-10 timodal vision foundation model for clinical derma-tology. Nature Medicine , pages 1–12, 2025. 2 [40] Wenqi Zeng, Yuqi Sun, Chenxi Ma, Weimin Tan, and Bo Yan. Mm-skin: Enhancing dermatology vision-language model with an image-text dataset derived from textbooks. In Proceedings of the 33rd ACM In-ternational Conference on Multimedia , pages 3769– 3778, 2025. 2 [41] Yilan Zhang, Fengying Xie, and Jianqi Chen. Tformer: A throughout fusion transformer for multi-modal skin lesion diagnosis. Computers in biology and medicine , 157:106712, 2023. 2 [42] Lihua Zhou, Nianxin Li, Mao Ye, Xiatian Zhu, and Song Tang. Source-free domain adaptation with class prototype discovery. Pattern recognition , 145:109974, 2024. 3, 6, 7 11

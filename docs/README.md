@@ -6,46 +6,39 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-31
-- 运行时间：2026-05-31 20:33:00 UTC
+- 最新运行日期：2026-06-01
+- 运行时间：2026-06-01 21:59:32 UTC
 - 运行状态：成功
-- 本次总论文数：8
-- 精读区：2
-- 速读区：6
+- 本次总论文数：5
+- 精读区：1
+- 速读区：4
 
 ### 今日简报（AI）
-今日聚焦医学多模态大模型的可解释推理与规模化演进，同步覆盖血细胞形态映射、肿瘤多组学资源及药物响应预测优化等AI工具进展。  
-最值得关注《VITAL》和《One-Vision》两篇高分论文，分别提出视觉-语义双监督原生推理方法，并探索从像素到词的统一视觉模型架构。  
-建议持续追踪多模态模型在临床的可解释性突破，并尝试将LLM辅助的多组学资源应用于自身研究的交叉数据集验证。
-- 详情：[/202605/31/README](/202605/31/README)
+今日精选5篇论文，精读聚焦简易Token高效视觉语言模型在病理报告生成中的突破，速读覆盖多模态预测生物支持评估、跨域自适应及视网膜筛查基准。
+
+最值得关注的方向：Token高效VLM在病例级病理报告中的表现（9.0分），以及多模态预测生物学可解释性的诊断评估框架（7.0分）。
+
+建议优先深入精读的病理报告生成研究，同时结合生物学评估框架验证模型泛化性，为临床应用打下基础。
+- 详情：[/202606/01/README](/202606/01/README)
 
 ### 精读区论文标签
-1. [VITAL: Visual-Semantic Dual Supervision for Enhanced and Interpretable Latent Reasoning in Medical MLLMs](/202605/31/2605.28422v1-vital-visual-semantic-dual-supervision-for-enhanced-and-interpretable-latent-reasoning-in-medical-mllms)  
-   标签：评分：8.0/10、query:cpath
-   evidence：面向医学多模态大语言模型的视觉语义双监督潜在空间推理框架
-2. [From Pixels to Words -- Towards Native One-Vision Models at Scale](/202605/31/2605.28820v1-from-pixels-to-words----towards-native-one-vision-models-at-scale)  
-   标签：评分：8.0/10、query:cpath
-   evidence：原生视觉语言基础模型NEO-ov
+1. [Simple Token-Efficient Vision-Language Model for Case-level Pathology Synoptic Report Generation](/202606/01/2605.30716v1-simple-token-efficient-vision-language-model-for-case-level-pathology-synoptic-report-generation)  
+   标签：评分：9.0/10、query:cpath
+   evidence：病理报告生成的视觉-语言模型
 
 ### 速读区论文标签
-1. [Interpretable morphology mapping of peripheral blood leukocytes using annotation-efficient artificial intelligence](/202605/31/biorxiv-10-64898-2026-05-22-725537-v1-interpretable-morphology-mapping-of-peripheral-blood-leukocytes-using-annotation-efficient-artificial-intelligence)  
+1. [When Are Multimodal Predictions Biologically Supported? A Diagnostic Evaluation Framework](/202606/01/2605.31504v1-when-are-multimodal-predictions-biologically-supported-a-diagnostic-evaluation-framework)  
    标签：评分：7.0/10、query:cpath
-   evidence：注解高效的白细胞形态AI用于血液恶性肿瘤分析
-2. [dbGIST: An LLM-Assisted Multi-Omics Resource for Target Exploration and Cross-Dataset Validation in Gastrointestinal Stromal Tumors](/202605/31/biorxiv-10-64898-2026-05-22-727292-v1-dbgist-an-llm-assisted-multi-omics-resource-for-target-exploration-and-cross-dataset-validation-in-gastrointestinal-stromal-tumors)  
+   evidence：肿瘤学多模态评估框架
+2. [CoFiDA-M: Concept-Aware Feature Modulation for Cross-Domain Adaptation with Image-Only Inference](/202606/01/2605.31591v1-cofida-m-concept-aware-feature-modulation-for-cross-domain-adaptation-with-image-only-inference)  
    标签：评分：7.0/10、query:cpath
-   evidence：胃肠道间质瘤的多组学资源
-3. [Training Strategy Optimization to Mitigate Shortcut Learning in Pan-Cancer Drug Response Prediction](/202605/31/biorxiv-10-64898-2026-05-23-725295-v1-training-strategy-optimization-to-mitigate-shortcut-learning-in-pan-cancer-drug-response-prediction)  
-   标签：评分：7.0/10、query:cpath
-   evidence：泛癌药物反应预测
-4. [A New Hybrid Method for Brain Tumor Detection Based on Deep Learning](/202605/31/biorxiv-10-64898-2026-05-25-727707-v1-a-new-hybrid-method-for-brain-tumor-detection-based-on-deep-learning)  
-   标签：评分：7.0/10、query:cpath
-   evidence：混合DCNN-鲸鱼优化算法用于MRI脑肿瘤检测
-5. [MORPHE: Bridging Image Generation and Spatial Omics for Tissue Synthesis](/202605/31/biorxiv-10-64898-2026-03-03-709377-v2-morphe-bridging-image-generation-and-spatial-omics-for-tissue-synthesis)  
+   evidence：皮肤癌筛查域适应
+3. [Benchmarking Convolutional, Transformer, Hybrid, and Vision Language Models for Multi Disease Retinal Screening](/202606/01/2605.26283v1-benchmarking-convolutional-transformer-hybrid-and-vision-language-models-for-multi-disease-retinal-screening)  
    标签：评分：6.0/10、query:cpath
-   evidence：从空间组学数据合成组织图像，可用于病理学研究
-6. [COLOR-3D: a versatile tool for revealing novel 3D histological features](/202605/31/biorxiv-10-64898-2026-05-24-725631-v1-color-3d-a-versatile-tool-for-revealing-novel-3d-histological-features)  
+   evidence：对视网膜筛查中的视觉语言模型进行基准测试
+4. [Beyond Classification: Dynamic Adapter Routing for Continual Multimodal Retrieval](/202606/01/2605.31229v1-beyond-classification-dynamic-adapter-routing-for-continual-multimodal-retrieval)  
    标签：评分：6.0/10、query:cpath
-   evidence：三维组织学的计算流程
+   evidence：持续多模态检索与视觉语言模型
 
 
 <div class="dpr-home-promo-card">
