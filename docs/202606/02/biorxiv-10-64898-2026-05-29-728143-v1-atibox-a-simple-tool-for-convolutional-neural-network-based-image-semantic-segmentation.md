@@ -1,0 +1,23 @@
+---
+title: "ATI_Box: A Simple tool for convolutional neural network-based image semantic segmentation"
+title_zh: ATI_Box：一种用于基于卷积神经网络的图像语义分割的简单工具
+authors: "Przygodzki, T."
+date: 2026-06-02
+pdf: "https://www.biorxiv.org/content/10.64898/2026.05.29.728143v1.full.pdf"
+tags: ["query:cpath"]
+score: 6.0
+evidence: 一个用于显微镜图像的CNN分割工具，可应用于病理学
+tldr: 针对缺乏编程技能的研究人员难以应用卷积神经网络进行图像语义分割的问题，提出ATI_Box这一集成化平台。平台整合数据标注（Label Studio）、对象存储（MinIO）和模型训练（U-Net+ResNet），支持端到端流程。以实验室图像为例验证，平台能自动完成训练、评估并输出物体计数与覆盖率等量化结果。该工具在简化操作与维持基本分析能力间取得平衡，兼具实用性与教育价值。
+source: biorxiv
+selection_source: fresh_fetch
+motivation: 现有深度学习工具对无编程基础的研究者门槛高，缺乏简化且实用的非编码解决方案。
+method: 构建一体化平台，集成Label Studio标注、MinIO存储、U-Net+ResNet训练，提供像素级与物体级评估。
+result: 通过生物医学图像实例验证，平台能完成语义分割的全流程，并输出物体计数、覆盖率等量化指标。
+conclusion: ATI_Box降低了深度学习图像分割的使用门槛，适合基础研究教育和简单分析实验。
+---
+
+## 摘要
+显微图像的定量分析已成为基础生物学和生物医学研究中的标准方法。深度机器学习为此过程提供了强大的工具。然而，对于缺乏基本编码技能的研究人员来说，将深度机器学习实际应用于图像分析可能较为困难。这是由于非编码解决方案的数量有限，特别是在卷积神经网络（CNN）领域。这种稀缺性可以通过以下悖论来解释：CNN的训练是一个相对复杂的过程，熟悉该过程的研究人员通常也具备足够的技能，能够编写从标注、模型训练和评估到实验室实践使用的完整CNN实现流程。任何能够被不熟悉CNN概念的更广泛研究人员群体所接受的替代方案，都不可避免地会简化整个流程，尤其是训练步骤。这种简化反过来可能导致该工具解决特定问题的能力受限。然而，作者认为，在复杂性和简洁性之间可以找到某种折中方案，足以解决基础生物学和生物医学研究领域中的一些基本问题。为应对这一挑战，作者提出了ATI_Box（一体化标注、训练与推断），这是一个统一的、面向用户的端到端图像语义分割平台。该系统将数据标注、存储、模型训练、评估和定量分析集成到单个工作流中，显著简化了模型开发过程。图像和标注数据通过兼容S3的对象存储系统（MinIO）进行管理，实现了可扩展且透明的数据处理。标注过程通过Label Studio实现。模型训练基于带有ResNet编码器的卷积神经网络U-Net架构。模型评估使用训练期间预留的真实数据集，并提供像素级和对象级的评估指标。批量分析模式能够自动量化模型预测，如对象计数和覆盖面积。该平台的可用性通过实验室实践中的示例进行了展示。该平台有意不提供模型调优功能，因为其面向的是不熟悉深度机器学习概念的用户。同时，模型训练的基本功能（如定义迭代次数、保存和实施训练模型版本）的可访问性，使用户能够进行一些基本的分析实验。因此，该平台不仅可用作分析工具，还可作为解释语义分割过程实践基础的教育解决方案。
+
+## Abstract
+Quantitative analysis of microscopic images has become a standard in basic biological and biomedical research. Deep machine learning provided a powerful tool facilitating this process. However, practical adoption of deep machine learning to image analysis may be difficult for a researcher who lacks basic coding skills. This is caused by a limited number of non-coding solutions, specifically in the domain of convolutional neural networks (CNNs). This scarcity may be explained by the following paradox. Training of CNNs is a relatively complex process. Researchers who are familiar with this process are also skilled enough to code the full pipeline of CNN implementation from annotation, through model training and evaluation to its usage in laboratory practice. Any kind of an alternative solution, acceptable by a broader group of researchers who are unfamiliar with CNN concepts, must inevitably result in simplification of the entire process, specifically the training step. Such simplification in turn may lead to limitation to solve specific problems by such a tool. Author believes however, that some compromise may be found between complexity and simplicity that would be sufficient to solve some basic problems in the field of basic biological and biomedical research. To address this challenge, author proposes ATI_Box (Annotation, Training, Inference in One Box), a unified, user-oriented platform for end-to-end image semantic segmentation. The system integrates data annotation, storage, model training, evaluation, and quantitative analysis into a single workflow, significantly simplifying the model development process. Image and annotation data are managed through an S3-compatible object storage system (MinIO), enabling scalable and transparent data handling. Annotation process is implemented through Label Studio. Model training is based on convolutional neural network U-Net architecture with ResNet as an encoder. Model evaluation is performed on ground-truth dataset held-out during training and provides pixel-level and object-level evaluation metrics. Batch analysis mode enables automated quantification of model predictions such as object counts and coverage areas. The usability of the platform was presented on examples from laboratory practice. The platform is intentionally devoid of model-tuning capabilities as it is addressed for a user unfamiliar with profound machine learning concepts. At the same time, accessibility of such basic features of model training as definition of epochs number or saving and implementing of trained model versions enables one to perform some basic analytical experiments. As such, the platform may serve not only as an analytical tool but also as an educational solution to explain practical basics of semantic segmentation process.
