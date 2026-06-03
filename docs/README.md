@@ -6,59 +6,55 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-02
-- 运行时间：2026-06-02 23:00:18 UTC
+- 最新运行日期：2026-06-03
+- 运行时间：2026-06-03 21:50:29 UTC
 - 运行状态：成功
-- 本次总论文数：13
-- 精读区：2
-- 速读区：11
+- 本次总论文数：11
+- 精读区：5
+- 速读区：6
 
 ### 今日简报（AI）
-今日整理13篇论文，精读2篇高分研究，速读11篇相关工作。重点关注多任务负迁移缓解与计算免疫组化染色生成两大方向。建议普通读者深入病理图像多模态合成及跨模态蒸馏应用场景。
-- 详情：[/202606/02/README](/202606/02/README)
+今日推荐11篇论文，精读2篇聚焦多模态基础模型：SciCore-Omics融合组织学、空间转录组与语言，SOCO基准测试视觉基础模型的语义对应。  
+最亮眼的是SciCore-Omics（9/10），开创三模态统一模型；SOCO（8/10）为视觉语义对应提供新基准。  
+建议普通读者重点关注多模态融合在空间生物学中的应用，以及视觉模型语义对应能力的评测改进。
+- 详情：[/202606/03/README](/202606/03/README)
 
 ### 精读区论文标签
-1. [Parameter-Efficient Subspace Decoupling ViT for Mitigating Multi-Task Negative Transfer in Histological Scoring](/202606/02/2605.29852v2-parameter-efficient-subspace-decoupling-vit-for-mitigating-multi-task-negative-transfer-in-histological-scoring)  
+1. [SciCore-Omics: a tri-modal foundation model unifying histology, spatial transcriptomics and language for spatial biology](/202606/03/biorxiv-10-64898-2026-05-30-728937-v1-scicore-omics-a-tri-modal-foundation-model-unifying-histology-spatial-transcriptomics-and-language-for-spatial-biology)  
    标签：评分：9.0/10、query:cpath
-   evidence：使用ViT对组织学图像进行非酒精性脂肪肝自动评分
-2. [Deep Learning for Generating Computational PIN-4 Immunohistochemistry Staining from Prostate Biopsy H&E Images](/202606/02/2606.01871v1-deep-learning-for-generating-computational-pin-4-immunohistochemistry-staining-from-prostate-biopsy-he-images)  
-   标签：评分：9.0/10、query:cpath
-   evidence：深度学习用于前列腺活检全切片图像的自动化癌症诊断
+   evidence：三模态基础模型统一组织学、转录组学和语言
+2. [SOCO: Benchmarking Semantic Object Correspondence in Vision Foundation Models](/202606/03/2605.31597v1-soco-benchmarking-semantic-object-correspondence-in-vision-foundation-models)  
+   标签：评分：8.0/10、query:cpath
+   evidence：视觉基础模型基准，涉及视觉-语言评估
+3. [SOCO: Benchmarking Semantic Object Correspondence in Vision Foundation Models](/202606/03/2605.31597v2-soco-benchmarking-semantic-object-correspondence-in-vision-foundation-models)  
+   标签：评分：8.0/10、query:cpath
+   evidence：包含语言描述的视觉语言模型基准
+4. [SortIT - A Tool For Assessing Observer Variability And Creating Ground Truth Image Classification Datasets](/202606/03/biorxiv-10-64898-2026-05-28-728616-v2-sortit---a-tool-for-assessing-observer-variability-and-creating-ground-truth-image-classification-datasets)  
+   标签：评分：8.0/10、query:cpath
+   evidence：用于病理全玻片图像标注和真实数据集创建的工具
+5. [Equitable Health Intelligence: An Open Benchmark of Multi-Population Machine Learning for Omics-Based Cancer Prognosis](/202606/03/biorxiv-10-64898-2026-05-29-728755-v1-equitable-health-intelligence-an-open-benchmark-of-multi-population-machine-learning-for-omics-based-cancer-prognosis)  
+   标签：评分：8.0/10、query:cpath
+   evidence：多群体组学癌症预后基准
 
 ### 速读区论文标签
-1. [Single-Channel Tissue Segmentation via Cross-Modal Distillation from Foundation Models](/202606/02/2606.00928v1-single-channel-tissue-segmentation-via-cross-modal-distillation-from-foundation-models)  
+1. [ToolFG: Towards Well-Grounded Fine-Grained Image Classification](/202606/03/2606.02518v1-toolfg-towards-well-grounded-fine-grained-image-classification)  
    标签：评分：7.0/10、query:cpath
-   evidence：从基础模型进行跨模态蒸馏，实现单通道组织分割
-2. [PMC-InterCPT: Rethinking Biomedical Interleaved Data for Multimodal Continued Pretraining](/202606/02/2606.01049v1-pmc-intercpt-rethinking-biomedical-interleaved-data-for-multimodal-continued-pretraining)  
+   evidence：基于多模态大语言模型的工具集成，相关于视觉-语言模型
+2. [CoralBay: A Self-Supervised CT Foundation Model](/202606/03/2606.03888v1-coralbay-a-self-supervised-ct-foundation-model)  
    标签：评分：7.0/10、query:cpath
-   evidence：生物医学视觉语言模型的持续多模态预训练
-3. [PathAR: Structure-First Autoregressive Synthesis of Multimodal Pathology Images](/202606/02/2606.01543v1-pathar-structure-first-autoregressive-synthesis-of-multimodal-pathology-images)  
-   标签：评分：7.0/10、query:cpath
-   evidence：基于结构与外观分解的多模态病理图像合成
-4. [GC-MoE: Genomics-Guided Cell-Type-Specific Mixture of Experts for Histology-Based Single-Cell Spatial Transcriptomics](/202606/02/2606.02424v1-gc-moe-genomics-guided-cell-type-specific-mixture-of-experts-for-histology-based-single-cell-spatial-transcriptomics)  
-   标签：评分：7.0/10、query:cpath
-   evidence：整合组织病理图像和基因组数据进行基因表达预测
-5. [A Novel Global Context-aware Deep Neural Network for Enhanced Brain Tumor Segmentation using Magnetic Resonance Images](/202606/02/2605.30510v1-a-novel-global-context-aware-deep-neural-network-for-enhanced-brain-tumor-segmentation-using-magnetic-resonance-images)  
+   evidence：CT扫描的自监督基础模型
+3. [miDGD: a multi-modal deep generative model predicts miRNA expression from bulk or single-cell mRNA expression](/202606/03/biorxiv-10-64898-2026-05-29-727918-v1-midgd-a-multi-modal-deep-generative-model-predicts-mirna-expression-from-bulk-or-single-cell-mrna-expression)  
    标签：评分：6.0/10、query:cpath
-   evidence：脑肿瘤分割用于癌症诊断
-6. [Controllable Lung Nodule Synthesis via Histogram-Regularized Latent Diffusion Models](/202606/02/2605.30631v1-controllable-lung-nodule-synthesis-via-histogram-regularized-latent-diffusion-models)  
+   evidence：多模态深度生成模型从mRNA预测miRNA
+4. [UMITIC: An unsupervised framework for the joint characterization of cellular phenotypes and spatial neighborhoods in multiplex and hyperplex immunofluorescence imaging data](/202606/03/biorxiv-10-64898-2026-05-29-728633-v1-umitic-an-unsupervised-framework-for-the-joint-characterization-of-cellular-phenotypes-and-spatial-neighborhoods-in-multiplex-and-hyperplex-immunofluorescence-imaging-data)  
    标签：评分：6.0/10、query:cpath
-   evidence：用于癌症诊断的可控肺结节合成
-7. [ASAP: Advancing Medical Volumetric Representation Learning with Anatomy-aware Semantically-adaptive Pre-training](/202606/02/2606.00602v1-asap-advancing-medical-volumetric-representation-learning-with-anatomy-aware-semantically-adaptive-pre-training)  
+   evidence：无监督多重成像空间表征框架
+5. [UMITIC: An unsupervised framework for the joint characterization of cellular phenotypes and spatial neighborhoods in multiplex and hyperplex immunofluorescence imaging data](/202606/03/biorxiv-10-64898-2026-05-29-728633-v2-umitic-an-unsupervised-framework-for-the-joint-characterization-of-cellular-phenotypes-and-spatial-neighborhoods-in-multiplex-and-hyperplex-immunofluorescence-imaging-data)  
    标签：评分：6.0/10、query:cpath
-   evidence：医学影像视觉语言预训练
-8. [Multi-resolution Spatial Graphical Regression Models for Hierarchical Spatial Transcriptomics Data](/202606/02/biorxiv-10-64898-2026-05-12-724724-v3-multi-resolution-spatial-graphical-regression-models-for-hierarchical-spatial-transcriptomics-data)  
+   evidence：用于多重成像中细胞表型和空间邻域表征的无监督框架
+6. [A Pan-Cancer Multi-Omic SuperLearner for Regulated Cell Death Survival Topologies](/202606/03/biorxiv-10-64898-2026-05-29-728842-v1-a-pan-cancer-multi-omic-superlearner-for-regulated-cell-death-survival-topologies)  
    标签：评分：6.0/10、query:cpath
-   evidence：空间转录组模型用于癌症基因网络推断，与计算病理学相关
-9. [From unsupervised clustering to atlas-guided annotation in cohort-scale spatial omics with HiCAT](/202606/02/biorxiv-10-64898-2026-05-27-728266-v1-from-unsupervised-clustering-to-atlas-guided-annotation-in-cohort-scale-spatial-omics-with-hicat)  
-   标签：评分：6.0/10、query:cpath
-   evidence：机器学习用于空间组学组织学图像标注
-10. [Label-free 3D virtual histology of human formalin-fixed paraffin-embedded (FFPE) prostate needle biopsies with propagation-based phase-contrast micro-CT (PBCT)](/202606/02/biorxiv-10-64898-2026-05-28-728215-v1-label-free-3d-virtual-histology-of-human-formalin-fixed-paraffin-embedded-ffpe-prostate-needle-biopsies-with-propagation-based-phase-contrast-micro-ct-pbct)  
-   标签：评分：6.0/10、query:cpath
-   evidence：使用相位衬度显微CT对前列腺活检进行3D虚拟组织学成像
-11. [ATI_Box: A Simple tool for convolutional neural network-based image semantic segmentation](/202606/02/biorxiv-10-64898-2026-05-29-728143-v1-atibox-a-simple-tool-for-convolutional-neural-network-based-image-semantic-segmentation)  
-   标签：评分：6.0/10、query:cpath
-   evidence：一个用于显微镜图像的CNN分割工具，可应用于病理学
+   evidence：泛癌多组学分析用于生存预测
 
 
 <div class="dpr-home-promo-card">
