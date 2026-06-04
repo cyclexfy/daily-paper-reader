@@ -6,55 +6,59 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-03
-- 运行时间：2026-06-03 21:50:29 UTC
+- 最新运行日期：2026-06-04
+- 运行时间：2026-06-04 22:07:29 UTC
 - 运行状态：成功
-- 本次总论文数：11
-- 精读区：5
-- 速读区：6
+- 本次总论文数：13
+- 精读区：6
+- 速读区：7
 
 ### 今日简报（AI）
-今日推荐11篇论文，精读2篇聚焦多模态基础模型：SciCore-Omics融合组织学、空间转录组与语言，SOCO基准测试视觉基础模型的语义对应。  
-最亮眼的是SciCore-Omics（9/10），开创三模态统一模型；SOCO（8/10）为视觉语义对应提供新基准。  
-建议普通读者重点关注多模态融合在空间生物学中的应用，以及视觉模型语义对应能力的评测改进。
-- 详情：[/202606/03/README](/202606/03/README)
+今日精读胃癌病理基础模型与计算病理两项高分研究，速读聚焦乳腺癌多模态预测及3D影像评估。重点关注胃癌病理基础模型的实际验证价值与通路结构特权蒸馏的部署潜力。后续可跟进乳腺癌多模态大模型及3D医学影像评估基准的进展。
+- 详情：[/202606/04/README](/202606/04/README)
 
 ### 精读区论文标签
-1. [SciCore-Omics: a tri-modal foundation model unifying histology, spatial transcriptomics and language for spatial biology](/202606/03/biorxiv-10-64898-2026-05-30-728937-v1-scicore-omics-a-tri-modal-foundation-model-unifying-histology-spatial-transcriptomics-and-language-for-spatial-biology)  
+1. [A Pathology Foundation Model for Gastric Cancer with Real-World Validation](/202606/04/2606.04792v1-a-pathology-foundation-model-for-gastric-cancer-with-real-world-validation)  
+   标签：评分：10.0/10、query:cpath
+   evidence：基于全切片图像的胃癌病理基础模型
+2. [Pathway-Structured Privileged Distillation for Deployable Computational Pathology](/202606/04/2606.02877v1-pathway-structured-privileged-distillation-for-deployable-computational-pathology)  
    标签：评分：9.0/10、query:cpath
-   evidence：三模态基础模型统一组织学、转录组学和语言
-2. [SOCO: Benchmarking Semantic Object Correspondence in Vision Foundation Models](/202606/03/2605.31597v1-soco-benchmarking-semantic-object-correspondence-in-vision-foundation-models)  
-   标签：评分：8.0/10、query:cpath
-   evidence：视觉基础模型基准，涉及视觉-语言评估
-3. [SOCO: Benchmarking Semantic Object Correspondence in Vision Foundation Models](/202606/03/2605.31597v2-soco-benchmarking-semantic-object-correspondence-in-vision-foundation-models)  
-   标签：评分：8.0/10、query:cpath
-   evidence：包含语言描述的视觉语言模型基准
-4. [SortIT - A Tool For Assessing Observer Variability And Creating Ground Truth Image Classification Datasets](/202606/03/biorxiv-10-64898-2026-05-28-728616-v2-sortit---a-tool-for-assessing-observer-variability-and-creating-ground-truth-image-classification-datasets)  
-   标签：评分：8.0/10、query:cpath
-   evidence：用于病理全玻片图像标注和真实数据集创建的工具
-5. [Equitable Health Intelligence: An Open Benchmark of Multi-Population Machine Learning for Omics-Based Cancer Prognosis](/202606/03/biorxiv-10-64898-2026-05-29-728755-v1-equitable-health-intelligence-an-open-benchmark-of-multi-population-machine-learning-for-omics-based-cancer-prognosis)  
-   标签：评分：8.0/10、query:cpath
-   evidence：多群体组学癌症预后基准
+   evidence：通过特权蒸馏整合转录组学和组织病理学用于癌症风险建模
+3. [Spatial Transcriptomics-Guided Alignment Enhances Molecular Profiling in Pathology Foundation Model](/202606/04/2606.03644v1-spatial-transcriptomics-guided-alignment-enhances-molecular-profiling-in-pathology-foundation-model)  
+   标签：评分：9.0/10、query:cpath
+   evidence：空间转录组引导的对齐改进了病理基础模型从全切片图像进行分子谱分析
+4. [Do Foundation Models See Biology? Evaluating Attention Coherence with Spatial Transcriptomics in Glioblastoma](/202606/04/2606.04764v1-do-foundation-models-see-biology-evaluating-attention-coherence-with-spatial-transcriptomics-in-glioblastoma)  
+   标签：评分：9.0/10、query:cpath
+   evidence：使用基于注意力的多实例学习评估病理基础模型，在胶质母细胞瘤全切片图像上预测分子改变
+5. [SciCore-Omics: a tri-modal foundation model unifying histology, spatial transcriptomics and language for spatial biology](/202606/04/biorxiv-10-64898-2026-05-30-728937-v2-scicore-omics-a-tri-modal-foundation-model-unifying-histology-spatial-transcriptomics-and-language-for-spatial-biology)  
+   标签：评分：9.0/10、query:cpath
+   evidence：三模态基础模型，涵盖组织学、空间转录组学和语言
+6. [Integrating Histology with Spatial Molecular Programs Using a Multimodal Foundation Model](/202606/04/biorxiv-10-64898-2026-06-01-729028-v1-integrating-histology-with-spatial-molecular-programs-using-a-multimodal-foundation-model)  
+   标签：评分：9.0/10、query:cpath
+   evidence：整合组织学与空间分子程序的多模态基础模型
 
 ### 速读区论文标签
-1. [ToolFG: Towards Well-Grounded Fine-Grained Image Classification](/202606/03/2606.02518v1-toolfg-towards-well-grounded-fine-grained-image-classification)  
+1. [Automated Report-Derived Oncology VQA Benchmark for Evaluating Vision-Language Models on 3D Medical Imaging](/202606/04/2606.02809v1-automated-report-derived-oncology-vqa-benchmark-for-evaluating-vision-language-models-on-3d-medical-imaging)  
+   标签：评分：8.0/10、query:cpath
+   evidence：用于评估视觉-语言模型在肿瘤影像上的基准
+2. [Multi-Modal Machine Learning for Breast Cancer Recurrence Prediction](/202606/04/2606.02892v1-multi-modal-machine-learning-for-breast-cancer-recurrence-prediction)  
+   标签：评分：8.0/10、query:cpath
+   evidence：多模态机器学习整合临床数据预测乳腺癌复发
+3. [BreastGPT: A Multimodal Large Language Model for the Full Spectrum of Breast Cancer Clinical Routine](/202606/04/2606.04911v1-breastgpt-a-multimodal-large-language-model-for-the-full-spectrum-of-breast-cancer-clinical-routine)  
+   标签：评分：8.0/10、query:cpath
+   evidence：用于乳腺癌临床流程的多模态大语言模型，整合影像和临床数据
+4. [GLINT: Sparsely Gated Vision-Language Alignment for Fine-Grained Radiology Representations](/202606/04/2606.03180v1-glint-sparsely-gated-vision-language-alignment-for-fine-grained-radiology-representations)  
    标签：评分：7.0/10、query:cpath
-   evidence：基于多模态大语言模型的工具集成，相关于视觉-语言模型
-2. [CoralBay: A Self-Supervised CT Foundation Model](/202606/03/2606.03888v1-coralbay-a-self-supervised-ct-foundation-model)  
+   evidence：放射学视觉语言模型使用稀疏门控对齐，与视觉语言建模相关
+5. [Radiomic Feature Selection Using Gradient Loss of Deep Neural Network for Lung Cancer Stage Detection](/202606/04/2606.04453v1-radiomic-feature-selection-using-gradient-loss-of-deep-neural-network-for-lung-cancer-stage-detection)  
    标签：评分：7.0/10、query:cpath
-   evidence：CT扫描的自监督基础模型
-3. [miDGD: a multi-modal deep generative model predicts miRNA expression from bulk or single-cell mRNA expression](/202606/03/biorxiv-10-64898-2026-05-29-727918-v1-midgd-a-multi-modal-deep-generative-model-predicts-mirna-expression-from-bulk-or-single-cell-mrna-expression)  
+   evidence：放射组学特征选择用于肺癌分期检测
+6. [Single-cell multimodal profiling of pan-cancer cell lines uncovers gene regulatory principles underlying intrinsic cell states and environmental features](/202606/04/biorxiv-10-64898-2026-05-31-729161-v1-single-cell-multimodal-profiling-of-pan-cancer-cell-lines-uncovers-gene-regulatory-principles-underlying-intrinsic-cell-states-and-environmental-features)  
+   标签：评分：7.0/10、query:cpath
+   evidence：泛癌细胞系的单细胞多模态分析，与多模态学习和癌症相关
+7. [Bridging Topology and Deep Representation Learning: A TDA-ViT Fusion Model for Four-Class Brain Tumor Classification](/202606/04/2606.00927v1-bridging-topology-and-deep-representation-learning-a-tda-vit-fusion-model-for-four-class-brain-tumor-classification)  
    标签：评分：6.0/10、query:cpath
-   evidence：多模态深度生成模型从mRNA预测miRNA
-4. [UMITIC: An unsupervised framework for the joint characterization of cellular phenotypes and spatial neighborhoods in multiplex and hyperplex immunofluorescence imaging data](/202606/03/biorxiv-10-64898-2026-05-29-728633-v1-umitic-an-unsupervised-framework-for-the-joint-characterization-of-cellular-phenotypes-and-spatial-neighborhoods-in-multiplex-and-hyperplex-immunofluorescence-imaging-data)  
-   标签：评分：6.0/10、query:cpath
-   evidence：无监督多重成像空间表征框架
-5. [UMITIC: An unsupervised framework for the joint characterization of cellular phenotypes and spatial neighborhoods in multiplex and hyperplex immunofluorescence imaging data](/202606/03/biorxiv-10-64898-2026-05-29-728633-v2-umitic-an-unsupervised-framework-for-the-joint-characterization-of-cellular-phenotypes-and-spatial-neighborhoods-in-multiplex-and-hyperplex-immunofluorescence-imaging-data)  
-   标签：评分：6.0/10、query:cpath
-   evidence：用于多重成像中细胞表型和空间邻域表征的无监督框架
-6. [A Pan-Cancer Multi-Omic SuperLearner for Regulated Cell Death Survival Topologies](/202606/03/biorxiv-10-64898-2026-05-29-728842-v1-a-pan-cancer-multi-omic-superlearner-for-regulated-cell-death-survival-topologies)  
-   标签：评分：6.0/10、query:cpath
-   evidence：泛癌多组学分析用于生存预测
+   evidence：使用拓扑数据分析与视觉Transformer进行脑肿瘤分类，与癌症诊断直接相关
 
 
 <div class="dpr-home-promo-card">
