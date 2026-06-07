@@ -6,38 +6,43 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-06
-- 运行时间：2026-06-06 20:06:09 UTC
+- 最新运行日期：2026-06-07
+- 运行时间：2026-06-07 21:13:26 UTC
 - 运行状态：成功
-- 本次总论文数：6
-- 精读区：3
-- 速读区：3
+- 本次总论文数：7
+- 精读区：2
+- 速读区：5
 
 ### 今日简报（AI）
-今日共收录6篇论文，精读2篇均获9.0高分，聚焦医学影像分析前沿。最值得关注《In-Context Multiple Instance Learning》的上下文学习范式与《HOPE》结合空间组学实现可解释组织病理分析。建议普通读者优先精读这两篇，警惕医学视觉语言模型中的模态不对称风险。
-- 详情：[/202606/06/README](/202606/06/README)
+今日聚焦7篇AI医学论文，精读两篇高分工作：组织学可解释表示与四维动态融合医学图像分类。
+最值得关注的是利用稀疏自编码器构建可组合解释性组织学特征，以及TetraFuse框架通过四维动态融合提升分类鲁棒性。
+建议优先精读这两篇，关注稀疏编码的可解释性潜力与多模态时序融合设计思路。
+- 详情：[/202606/07/README](/202606/07/README)
 
 ### 精读区论文标签
-1. [In-Context Multiple Instance Learning](/202606/06/2606.06458v1-in-context-multiple-instance-learning)  
-   标签：评分：9.0/10、query:cpath
-   evidence：提出上下文多示例学习，适用于弱监督标签场景，可直接用于计算病理学
-2. [HOPE: Interpretable Histology Analysis with Spatial Omics-Derived Signatures for Precision Oncology](/202606/06/biorxiv-10-64898-2026-06-03-729847-v1-hope-interpretable-histology-analysis-with-spatial-omics-derived-signatures-for-precision-oncology)  
-   标签：评分：9.0/10、query:cpath
-   evidence：利用空间组学衍生签名的组织学基础模型用于癌症预后
-3. [A Foundation Model for the Cancer Genome](/202606/06/biorxiv-10-64898-2026-05-27-728319-v1-a-foundation-model-for-the-cancer-genome)  
+1. [Compositional and interpretable representation of histology using AI foundation models and sparse autoencoders](/202606/07/biorxiv-10-64898-2026-06-03-725182-v1-compositional-and-interpretable-representation-of-histology-using-ai-foundation-models-and-sparse-autoencoders)  
+   标签：评分：10.0/10、query:cpath
+   evidence：使用计算病理学基础模型进行组织学表征
+2. [TetraFuse: A Synergistic Four-Dimensional Dynamic Fusion Framework for Efficient and Robust Medical Image Classification](/202606/07/biorxiv-10-64898-2026-06-02-729722-v1-tetrafuse-a-synergistic-four-dimensional-dynamic-fusion-framework-for-efficient-and-robust-medical-image-classification)  
    标签：评分：8.0/10、query:cpath
-   evidence：癌症基因组基础模型，采用自监督学习
+   evidence：用于计算机辅助诊断的病理医学图像分类
 
 ### 速读区论文标签
-1. [Cross-modal linkage risk in clinical vision-language models](/202606/06/2606.02276v1-cross-modal-linkage-risk-in-clinical-vision-language-models)  
+1. [XSSR: Cross-Domain Self-Supervised Representative Selection for Efficient Annotation in Medical Image Segmentation](/202606/07/2606.04301v1-xssr-cross-domain-self-supervised-representative-selection-for-efficient-annotation-in-medical-image-segmentation)  
    标签：评分：7.0/10、query:cpath
-   evidence：研究临床视觉-语言模型的隐私风险
-2. [Disentangled Fine-Grained Prototype Learning for Incomplete Image-Tabular Classification](/202606/06/2606.05455v1-disentangled-fine-grained-prototype-learning-for-incomplete-image-tabular-classification)  
-   标签：评分：7.0/10、query:cpath
-   evidence：图像-表格多模态学习，通过原型学习处理缺失模态问题
-3. [Beyond Symmetric Alignment: Spectral Diagnostics of Modality Imbalance in Vision-Language Models in the Medical Domain](/202606/06/2606.04613v1-beyond-symmetric-alignment-spectral-diagnostics-of-modality-imbalance-in-vision-language-models-in-the-medical-domain)  
+   evidence：弱监督选择用于分割标注，减少标注工作量
+2. [CodeCytos: AI-assisted spatial molecular imaging analysis via code-augmented agent action space](/202606/07/2606.00472v1-codecytos-ai-assisted-spatial-molecular-imaging-analysis-via-code-augmented-agent-action-space)  
    标签：评分：6.0/10、query:cpath
-   evidence：医学视觉语言模型模态不平衡的诊断工具
+   evidence：基于代码增强代理的AI辅助空间分子成像分析
+3. [SWARD: Stochastic Window-Attention-Based Relational Distillation for Cross-Architectural Semantic Segmentation](/202606/07/2606.00999v1-sward-stochastic-window-attention-based-relational-distillation-for-cross-architectural-semantic-segmentation)  
+   标签：评分：6.0/10、query:cpath
+   evidence：从视觉基础模型进行知识蒸馏用于语义分割
+4. [A Vision-language Framework for Comparative Reasoning in Radiology](/202606/07/2606.06407v1-a-vision-language-framework-for-comparative-reasoning-in-radiology)  
+   标签：评分：6.0/10、query:cpath
+   evidence：用于医学图像比较的视觉-语言框架
+5. [Multivariate integration of histological images and gene expression data: a comparative review](/202606/07/biorxiv-10-64898-2026-06-02-729734-v1-multivariate-integration-of-histological-images-and-gene-expression-data-a-comparative-review)  
+   标签：评分：6.0/10、query:cpath
+   evidence：整合组织学图像与基因表达数据用于疾病亚型分析
 
 
 <div class="dpr-home-promo-card">
