@@ -6,45 +6,45 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-08
-- 运行时间：2026-06-08 21:31:57 UTC
+- 最新运行日期：2026-06-09
+- 运行时间：2026-06-09 21:38:29 UTC
 - 运行状态：成功
 - 本次总论文数：7
-- 精读区：5
-- 速读区：2
+- 精读区：4
+- 速读区：3
 
 ### 今日简报（AI）
-今日精读5篇、速读2篇，重点锁定病理图像分析中的MIL解释性与低分辨率高效分类两大方向。
+今日聚焦7篇论文，精读两篇高分计算病理学工作，速读涵盖医学VQA、细胞基础模型及乳腺病变分割。
 
-最值得关注的是《Symb-xMIL》提出的符号化MIL解释框架与《LRMIL》的低分辨率蒸馏方法，两者均获9.0高分。
+最值得关注方向：多模态智能体赋能证据驱动的计算病理学，以及可学习token稀疏化实现十亿像素全切片图像高效推理。
 
-建议优先阅读这两篇精读论文，理解MIL在病理切片中的应用瓶颈及最新解决方案。
-- 详情：[/202606/08/README](/202606/08/README)
+建议普通读者优先了解多模态协同与全切片图像高效处理技术，这是病理AI落地的关键突破。
+- 详情：[/202606/09/README](/202606/09/README)
 
 ### 精读区论文标签
-1. [Symb-xMIL: Symbolic Explanations for Multiple Instance Learning in Digital Pathology](/202606/08/2606.06224v2-symb-xmil-symbolic-explanations-for-multiple-instance-learning-in-digital-pathology)  
+1. [A Multi-modal Agentic Co-pilot for Evidence Grounded Computational Pathology](/202606/09/2606.08093v1-a-multi-modal-agentic-co-pilot-for-evidence-grounded-computational-pathology)  
    标签：评分：9.0/10、query:cpath
-   evidence：数字病理学中多实例学习的符号解释
-2. [LRMIL: Efficient Low-Resolution Multiple Instance Learning via High-Resolution Knowledge Distillation for Whole Slide Image Classification](/202606/08/2606.06864v1-lrmil-efficient-low-resolution-multiple-instance-learning-via-high-resolution-knowledge-distillation-for-whole-slide-image-classification)  
+   evidence：面向循证计算病理学的多模态AI智能体
+2. [Learnable Token Sparsification for Efficient Gigapixel Whole Slide Image Reasoning](/202606/09/2606.08641v1-learnable-token-sparsification-for-efficient-gigapixel-whole-slide-image-reasoning)  
    标签：评分：9.0/10、query:cpath
-   evidence：弱监督多实例学习用于全切片图像分类，采用低分辨率策略
-3. [Multi-FRuGaL: Multimodal Flexible Redundancy-aware Decomposed Gated Learning for Cancer Diagnosis and Prognosis](/202606/08/2606.06867v1-multi-frugal-multimodal-flexible-redundancy-aware-decomposed-gated-learning-for-cancer-diagnosis-and-prognosis)  
-   标签：评分：9.0/10、query:cpath
-   evidence：缺失数据下的多模态癌症诊断和预后学习
-4. [DaX: Learning General Pathology Representations Across Scales](/202606/08/2606.06983v1-dax-learning-general-pathology-representations-across-scales)  
-   标签：评分：9.0/10、query:cpath
-   evidence：面向全切片组织病理学的病理视觉基础模型
-5. [Mitosis Detection in the Wild: Multi-Tumor and Context-Aware Generalization in the MIDOG 2025 Challenge](/202606/08/2606.07368v1-mitosis-detection-in-the-wild-multi-tumor-and-context-aware-generalization-in-the-midog-2025-challenge)  
-   标签：评分：9.0/10、query:cpath
-   evidence：计算病理学中的有丝分裂检测用于癌症诊断
+   evidence：基于可学习令牌稀疏化的千兆像素全切片图像推理
+3. [GD-MIL: Grade-Disentangled Multiple Instance Learning for Multimodal Biochemical Recurrence Prediction in Prostate Cancer](/202606/09/2606.09453v1-gd-mil-grade-disentangled-multiple-instance-learning-for-multimodal-biochemical-recurrence-prediction-in-prostate-cancer)  
+   标签：评分：8.0/10、query:cpath
+   evidence：利用多实例学习在WSI上前列腺癌生化复发预测
+4. [Label-free 3D virtual histology of human formalin-fixed paraffin-embedded (FFPE) prostate needle biopsies with propagation-based phase-contrast micro-CT (PBCT)](/202606/09/biorxiv-10-64898-2026-05-28-728215-v2-label-free-3d-virtual-histology-of-human-formalin-fixed-paraffin-embedded-ffpe-prostate-needle-biopsies-with-propagation-based-phase-contrast-micro-ct-pbct)  
+   标签：评分：8.0/10、query:cpath
+   evidence：前列腺癌活检的3D虚拟组织学
 
 ### 速读区论文标签
-1. [STREAM: Stochastic Riemannian Flow Matching with Anisotropic Decoder for Digital Histopathology Image Generation](/202606/08/2606.07036v1-stream-stochastic-riemannian-flow-matching-with-anisotropic-decoder-for-digital-histopathology-image-generation)  
+1. [Noise-Aware Visual Representation Learning for Medical Visual Question Answering](/202606/09/2606.05535v1-noise-aware-visual-representation-learning-for-medical-visual-question-answering)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于基础模型的合成组织病理学图像生成
-2. [DualGate-Net: A Prior-Gated Dual-Encoder Framework for Histopathology Cell Detection](/202606/08/2606.07222v1-dualgate-net-a-prior-gated-dual-encoder-framework-for-histopathology-cell-detection)  
+   evidence：医学视觉问答中的视觉语言模型
+2. [Finetuning masking challenges narrow-task evaluation of cell foundation models](/202606/09/biorxiv-10-64898-2026-06-04-730272-v1-finetuning-masking-challenges-narrow-task-evaluation-of-cell-foundation-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：先验门控双编码器用于组织病理学细胞检测
+   evidence：微调掩盖效应下细胞基础模型的评估
+3. [DSU-Net: An Attention-Enhanced Dense Skip U-Net for Breast Lesion Segmentation in Mammographic Images](/202606/09/2606.06537v1-dsu-net-an-attention-enhanced-dense-skip-u-net-for-breast-lesion-segmentation-in-mammographic-images)  
+   标签：评分：6.0/10、query:cpath
+   evidence：乳腺病变分割用于癌症诊断
 
 
 <div class="dpr-home-promo-card">
