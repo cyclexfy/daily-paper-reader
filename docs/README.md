@@ -6,45 +6,35 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-09
-- 运行时间：2026-06-09 21:38:29 UTC
+- 最新运行日期：2026-06-10
+- 运行时间：2026-06-10 22:39:16 UTC
 - 运行状态：成功
-- 本次总论文数：7
+- 本次总论文数：5
 - 精读区：4
-- 速读区：3
+- 速读区：1
 
 ### 今日简报（AI）
-今日聚焦7篇论文，精读两篇高分计算病理学工作，速读涵盖医学VQA、细胞基础模型及乳腺病变分割。
-
-最值得关注方向：多模态智能体赋能证据驱动的计算病理学，以及可学习token稀疏化实现十亿像素全切片图像高效推理。
-
-建议普通读者优先了解多模态协同与全切片图像高效处理技术，这是病理AI落地的关键突破。
-- 详情：[/202606/09/README](/202606/09/README)
+今日精选5篇论文，精读《From Patches to Patients》及《A Vision-language Framework》两篇高分研究。最值得关注数字病理学中的tile-to-slide性能迁移评估，以及放射学视觉语言比较推理框架。建议优先精读这两篇，速读多模态脑肿瘤分类作为补充。
+- 详情：[/202606/10/README](/202606/10/README)
 
 ### 精读区论文标签
-1. [A Multi-modal Agentic Co-pilot for Evidence Grounded Computational Pathology](/202606/09/2606.08093v1-a-multi-modal-agentic-co-pilot-for-evidence-grounded-computational-pathology)  
+1. [From Patches to Patients: A study of the tile-to-slide performance transferability in Digital Pathology](/202606/10/2606.10778v1-from-patches-to-patients-a-study-of-the-tile-to-slide-performance-transferability-in-digital-pathology)  
    标签：评分：9.0/10、query:cpath
-   evidence：面向循证计算病理学的多模态AI智能体
-2. [Learnable Token Sparsification for Efficient Gigapixel Whole Slide Image Reasoning](/202606/09/2606.08641v1-learnable-token-sparsification-for-efficient-gigapixel-whole-slide-image-reasoning)  
-   标签：评分：9.0/10、query:cpath
-   evidence：基于可学习令牌稀疏化的千兆像素全切片图像推理
-3. [GD-MIL: Grade-Disentangled Multiple Instance Learning for Multimodal Biochemical Recurrence Prediction in Prostate Cancer](/202606/09/2606.09453v1-gd-mil-grade-disentangled-multiple-instance-learning-for-multimodal-biochemical-recurrence-prediction-in-prostate-cancer)  
+   evidence：数字病理中基于多实例学习的图块到切片性能迁移研究
+2. [A Vision-language Framework for Comparative Reasoning in Radiology](/202606/10/2606.06407v2-a-vision-language-framework-for-comparative-reasoning-in-radiology)  
    标签：评分：8.0/10、query:cpath
-   evidence：利用多实例学习在WSI上前列腺癌生化复发预测
-4. [Label-free 3D virtual histology of human formalin-fixed paraffin-embedded (FFPE) prostate needle biopsies with propagation-based phase-contrast micro-CT (PBCT)](/202606/09/biorxiv-10-64898-2026-05-28-728215-v2-label-free-3d-virtual-histology-of-human-formalin-fixed-paraffin-embedded-ffpe-prostate-needle-biopsies-with-propagation-based-phase-contrast-micro-ct-pbct)  
+   evidence：放射学比较推理的视觉语言框架
+3. [Stain-Aware Wavelet Regularization for Instant Adversarial Purification in Histopathology](/202606/10/2606.08745v1-stain-aware-wavelet-regularization-for-instant-adversarial-purification-in-histopathology)  
    标签：评分：8.0/10、query:cpath
-   evidence：前列腺癌活检的3D虚拟组织学
+   evidence：计算病理学中的对抗净化方法
+4. [Patient-Level Diagnosis of Acute Myeloid Leukemia via Deep Learning Analysis of Bone Marrow Smear](/202606/10/2606.10735v1-patient-level-diagnosis-of-acute-myeloid-leukemia-via-deep-learning-analysis-of-bone-marrow-smear)  
+   标签：评分：8.0/10、query:cpath
+   evidence：利用深度学习从骨髓涂片诊断急性髓系白血病
 
 ### 速读区论文标签
-1. [Noise-Aware Visual Representation Learning for Medical Visual Question Answering](/202606/09/2606.05535v1-noise-aware-visual-representation-learning-for-medical-visual-question-answering)  
-   标签：评分：7.0/10、query:cpath
-   evidence：医学视觉问答中的视觉语言模型
-2. [Finetuning masking challenges narrow-task evaluation of cell foundation models](/202606/09/biorxiv-10-64898-2026-06-04-730272-v1-finetuning-masking-challenges-narrow-task-evaluation-of-cell-foundation-models)  
-   标签：评分：7.0/10、query:cpath
-   evidence：微调掩盖效应下细胞基础模型的评估
-3. [DSU-Net: An Attention-Enhanced Dense Skip U-Net for Breast Lesion Segmentation in Mammographic Images](/202606/09/2606.06537v1-dsu-net-an-attention-enhanced-dense-skip-u-net-for-breast-lesion-segmentation-in-mammographic-images)  
+1. [Multimodal Brain Tumour Classification Using Feature Fusion](/202606/10/2606.11107v1-multimodal-brain-tumour-classification-using-feature-fusion)  
    标签：评分：6.0/10、query:cpath
-   evidence：乳腺病变分割用于癌症诊断
+   evidence：结合MRI和放射组学特征的多模态分类
 
 
 <div class="dpr-home-promo-card">
