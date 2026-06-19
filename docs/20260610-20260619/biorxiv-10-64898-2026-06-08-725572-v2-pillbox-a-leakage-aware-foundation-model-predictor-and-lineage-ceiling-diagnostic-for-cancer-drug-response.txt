@@ -1,0 +1,614 @@
+Title: Pillbox: A Leakage-Aware Foundation-Model Predictor and Lineage-Ceiling Diagnostic for Cancer Drug Response
+
+URL Source: https://www.biorxiv.org/content/10.64898/2026.06.08.725572v2.full.pdf
+
+Number of Pages: 39
+
+Markdown Content:
+# Pillbox: A Leakage-Aware Foundation-Model Predictor and Lineage-Ceiling Diagnostic for Cancer Drug Response 
+
+Justin Hill ∗1, Eric Jiao 2, Shwetank Singh 3, Arhant Ghanta 3, Declan Anders 4, Joo Ho Jeong 5 and Hong Joo Ryoo 61Columbia Engineering, Columbia University, New York, NY, USA 
+
+> 2
+
+California State University Fullerton Engineering, Fullerton, CA, USA 
+
+> 3
+
+University of California, Berkeley, Berkeley, CA, USA 
+
+> 4
+
+Ohio State University, Columbus, Ohio 
+
+> 5
+
+Sungkyunkwan University, Seoul, Republic Of Korea 
+
+> 6
+
+Johns Hopkins University, Baltimore, MD, USA 
+
+Abstract 
+
+We present Pillbox, a predictor whose pipeline is audited against the six Asiaee leakage modes with the one residual pathway shown by per-fold ablation to be non-load-bearing on hard splits. Our model combines CpGPT methylation embeddings, CLAMP drug embed-dings, and per-fold-fit gene-expression principal components which are fused by Feature-wise Linear Modulation (FiLM)-conditioned graph attention on the STRING v12 protein-protein interaction graph. Then we α-ensemble the model against a histogram-based gradient boosting regressor baseline. On GDSC GSE68379 (987 cell lines, 375 drugs) across seeds 42, 7, and 123, the ensemble reaches test R 2 of 0.78, 0.77, and 0.76 on random, histology-blind, and site-blind splits re-spectively, with cell-aware lifts above the drug-mean floor of +0.054, +0.060, and +0.037. As a quantitative diagnostic for feature-stack saturation we propose the cross-architecture residual correlation, cali-brated against a same-architecture-different-initialization control. On 
+
+> ∗
+
+Corresponding author: joonk4402@gmail.com 
+
+1
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+histology-blind splits the cross-architecture value of 0.939 falls short of the same-architecture ceiling of 0.974 by approximately 0.03 in resid-ual correlation, a gap we interpret as the headroom available to ar-chitecture choice on top of the current foundation-model representa-tion and consistent with the long-established observation that tissue lineage dominates cell-line drug response. We integrated curated mu-tation, methylation, and drug-target-expression channels, but these do not improve prediction once foundation-model embeddings are in place. Cross-screen validation against PRISM matches the GDSC-to-PRISM measurement reproducibility ceiling within 0.01 Spearman. 
+
+# 1 Introduction 
+
+Predicting how a cancer cell line will respond to a drug from its molecular profile is one of the oldest open problems in pharmacogenomics. The clinical motivation for a machine learning driven approach is that a model trained on a panel of well-characterized lines should help nominate compounds for cancer types it has not been trained on. However, the reality is that published methods as of current have accumulated an evaluation problem which, by the most recent audit, affects the majority of them [1]. Three audits in the last eighteen months have made the situation clearer. Asiaee and colleagues [1] examined 32 published methods cited more than 3,000 times in aggregate, found data leakage in 23, and showed that leakage-free cross-validation raises mean squared error by 16.6 percent on average. The selected feature sets differ between leaky and corrected pipelines at Jac-card 0.18, which means the biomarkers reported in those papers are largely artifacts of the preprocessing protocol. Codic` e et al. [2] introduced a sharper observation. A predictor that simply memorizes each drug’s training-set mean ln(IC 50 ) reaches pair-pooled Pearson correlation of 0.85 on warm-start GDSC random splits. We replicate this exactly: a DummyDrugAvg baseline on our evaluation reaches Pearson 0.852 on random, 0.850 on histology-blind, and 0.844 on site-blind. The published 0.94 numbers are barely 0.09 Pear-son above the drug-mean floor. Garai and colleagues [3] benchmarked five methods against a mean-based baseline and concluded that several of them cannot reliably outperform the baseline; Chen and Zhang [4] showed that un-der cold-drug evaluation a similarity-regularized matrix factorization baseline outperforms every deep learning method tested. Standardized benchmarking efforts [5, 6] have begun to set a more honest 2
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+floor. They are useful, and we follow the leakage-discipline principles they prescribe. However, neither effort ships a new prediction method that pairs foundation-model embeddings with that discipline. Our paper seeks to fill this gap. The contribution of the work is as follows. We first provide a leakage-aware cancer drug response predictor with explicit verification against the six leakage modes catalogued by Asiaee. The residual M2 leakage pathway flagged by our internal audit (the global-fit gene-expression PCA plus the similarity-augmentation k-NN graph, six fit() calls total) is shown to be non-load-bearing on hard splits via a per-fold selective-removal / ablation. Second, we fill a specific empty cell in the post-audit competitive landscape: of the six methods Asiaee certified clean as of May 2026 (Velodrome, UNO, DeepResponse, ScreenDL [7], DrVAE, and MMDRP [8]; see Supplementary Table S6 for the full roster with citations), none combines a methylation foun-dation model with a drug foundation model under tissue blind hard splits and multi-seed validation. Third, we propose cross-architecture residual correla-tion as a quantitative diagnostic for feature-stack saturation. The lineage-dominance observation has been around since the original GDSC analysis [9] and has been re-articulated in recent work [10, 4], but a number for the ceiling it imposes has been missing, and we provide one. Fourth, we report a negative result: curated mutation, methylation, and drug-target-expression channels do not improve prediction once foundation-model embeddings are in place, the simplest explanation being that the embeddings already encode the lineage axis these priors carry. The structure of the paper follows. Section 2 introduces the dataset, evaluation protocols, and modeling framework. Section 3 presents the main results and a series of analyses probing robustness, interpretability, and ar-chitectural effects. Section 4 situates the work in context and clarifies its limitations. 
+
+# 2 Methods 
+
+2.1 Dataset 
+
+The primary training and evaluation cohort is the GDSC1 panel of Iorio and colleagues [9]. After intersecting on cell lines for which we have paired DNA methylation, gene expression, and drug response measurements, the dataset 3
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+contains 987 cancer cell lines spanning 38 GDSC histology categories and 13 anatomical primary sites. Drug response labels are ln(IC 50 ) values from GDSC1 [11, 12]. We retained 375 compounds for which at least 100 cell lines in our cohort have IC 50 measurements, to ensure each drug has enough observations to be modelable. The resulting label matrix is sparse, with 295,641 valid (cell, drug) pairs realized out of 337,875 nominal (87.5% fill). Of these, approximately 246,000 pairs enter random-5fold evaluation ( ∼49,000 per test fold; see Supplementary Table S7); the remainder are dropped at training time by additional filters for per-fold feature availability. Methylation comes from Gene Expression Omnibus (GEO) accession GSE68379 on the Illumina HumanMethylation450K platform [13, 14]. CpGPT preprocessing drops three probes as unmappable to its internal coor-dinate metadata, leaving 9,997. We retain the top 10,000 CpGs by variance across the cohort. The variance ranking is computed once on all cells but is unsupervised with respect to IC 50 .Gene expression is GDSC Robust Multi-array Average (RMA)-normalized microarray data [15]. We keep the 5,000 most variable genes and transform them per training fold by standardization followed by prin-cipal components analysis (128 components). The per-fold protocol is the post-audit revision of an earlier global-PCA pipeline; we ablate the original in Section 3. The PRISM Repurposing Secondary Screen [16] is used for exter-nal cross-screen validation only. DepMap 24Q4 binary somatic mutation calls (DepMap Portal release 24Q4, depmap.org/portal/data_page/?tab= allData ; 880 cells, 1,314 genes) are used only in the negative-result sparse-bio ablation and are absent from the headline pipeline. 
+
+2.2 Evaluation protocol 
+
+We report three split types, each with multi-seed validation across initializa-tion seeds 42, 7, and 123. 
+
+Random 5-fold : standard 80/20 random partitioning of (cell, drug) pairs. The same cell can appear in train and test with different drugs. We use this split to compare with published reports of model performances on random folds. 
+
+Histology-blind (38 folds) : leave-one-tissue-out. Each fold withholds all cell lines belonging to one GDSC histology category, with folds of fewer than five cell lines skipped. The model must generalize to cancer types it has never 4
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+seen during training. 
+
+Site-blind (13 folds) : leave-one-anatomical-site-out. Each fold withholds all cells from one primary site. Site is coarser than histology, so held-out folds typically contain multiple histologies of the same tissue. Within each train fold we hold the last 10 percent of training cells, cell-level not pair-level, as a deterministic validation carve-out. We used valida-tion MSE as our early-stopping signal and the fit target for the α-ensemble coefficient. We ensure the test fold is never observed during training or model selection. Per-seed metrics are means across the fold-level test R 2 values. Cross-seed metrics are the mean of per-seed means. Across-seed standard deviation is consistently smaller than within-seed across-fold standard deviation by roughly an order of magnitude (Supplementary Table S7), which we read as evidence of stable architecture behavior under seed variation. 
+
+2.3 Foundation-model embeddings 
+
+CpGPT. CpGPT is a 100M-parameter transformer pretrained on approxi-mately 150,000 methylation samples from 2,042 GEO studies [17], and we use it frozen to produce a 512-dimensional cell embedding per sample. Per private correspondence with the lead CpGPT author (April 2026), GSE68379 was not included in the CpGCorpus pretraining set, so there is no foundation-model contamination of our evaluation cohort. 
+
+CLAMP. CLAMP is a contrastive language-molecule pretraining model that produces 768-dimensional drug embeddings from SMILES inputs [18, 19], and we use it frozen. CLAMP covers all 429 GDSC1 compounds with parseable SMILES, of which the 375 screened against at least 100 cell lines form the prediction-task evaluation set, while the full 429-drug CLAMP-covered set is used only for FiLM γ-vector extraction in Section 3, where the prediction-task threshold does not apply. For compounds with multiple SMILES variants we use the canonical SMILES representation. 
+
+Gene expression PCA. Standardization and PCA-128 are both fit on training cells only within each fold. The PCA loadings (5,000 by 128) are also used as gene-node feature augmentations in the GNN. 
+
+2.4 Architecture I 
+
+Architecture I, illustrated in Figure 1, has three components. 5
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+Cell-side encoder Drug-side encoder  
+
+> GDSC GSE68379 cell line
+> (methylation + RMA gene expression)
+> CpGPT 512-d (frozen)
+> RMA -> StandardScaler -> PCA-128 (per fold)
+> GAT, 3 layers, 4 heads, hidden 64
+> STRING v12 PPI: 5K genes, 21,558 edges
+> RWR propagation (3 step)
+> plus module pooling (20 k-means modules)
+> Drug SMILES
+> (375 GDSC drugs, 429 CLAMP-covered)
+> CLAMP 768-d (frozen)
+> Drug MLP
+> (768 -> 256 -> 128)
+> gamma, beta MLP -> (1280-d, 1280-d)
+> bias-init gamma=1, beta=0
+> FiLM modulation
+> cell' = gamma (.) cell + beta -> fusion MLP (256-d)
+> Arch I prediction
+> y_archI
+> HGBR on FM stack
+> (per-fold RobustScaler)
+> alpha-ensemble y = a * y_archI + (1 - a) * y_HGBR
+> (a fit on validation carve-out, applied to test)
+
+ln(IC50) prediction 
+
+Architecture I: foundation-model stack with FiLM-conditioned GAT and alpha-ensemble Figure 1: Architecture I and its components. Cell-side encoder (left, blue): frozen CpGPT plus per-fold StandardScaler and PCA-128 of gene expression, feeding a 3-layer 4-head GAT on the STRING v12 PPI graph (5,000 gene nodes, 21,558 high-confidence edges), with random-walk-with-restart prop-agation and 20-module pooling. Drug-side encoder (right, orange): frozen CLAMP embedding through a small MLP, with a γ, β head producing the FiLM modulation parameters. Fusion (center, green): c′ = γ ⊙ c + β, then a fusion MLP to the Arch I prediction. HGBR baseline (lower left, pink) trained on the concatenated foundation-model feature vector with per-fold RobustScaler. α-ensemble fit on the validation carve-out, applied to test. The cell encoder is a 3-layer, 4-head graph attention network [20] on the 5,000 gene nodes connected by 21,558 high-confidence STRING v12 edges [21]. Each node carries a 129-dimensional feature: the cell’s expression value for that gene (1-d) concatenated with the gene’s 128-d PCA loading vec-6
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint tor. Hidden dimension is 64, and the final-layer output is pooled into 20 functional modules identified by k-means clustering on the PCA loadings. The drug encoder is a small MLP (768 to 256 to 128) over the CLAMP embedding. Fusion is by Feature-wise Linear Modulation [22]. A second small head produces drug-conditional scaling and shifting parameters γ and 
+
+β (each 1,280-dimensional, matching the pooled cell representation). The modulated cell representation is c′ = γ ⊙ c + β, where ⊙ denotes element-wise product. Both γ and β are bias-initialized to leave the FiLM block at identity ( γ = 1, β = 0), so it can only help during training, never hurt at initialization. We also apply a 3-step random walk with restart [23, 24] on the PPI graph to produce a propagated cell representation concatenated with the FiLM-modulated one before the final fusion MLP. During training we apply a similarity-augmentation regularizer that, for each batch, replaces a fraction of the cell-side input with a convex combina-tion of its five nearest neighbors in expression space (mixing weight 0.5 on the original cell, α = 0 .5). The neighbor graph is constructed per training fold over training cells only. This is a regularizer only and does not change inference-time predictions. Training uses Adam at learning rate 10 −3, plateau LR scheduling (factor 0.5, patience 10), batch size 2,048, and patience-30 early stopping on val-idation MSE. We note that mixed-precision bf16 autocast on A100 GPUs introduces approximately 10 −4 R2 nondeterminism between runs of the same configuration. 
+
+2.5 HGBR baseline and α-ensemble 
+
+The HGBR baseline (scikit-learn’s HistGradientBoostingRegressor [25, 26]) uses the concatenated foundation-model feature vector of 1,408 di-mensions, with per-fold RobustScaler on the cell-side features and fixed hyperparameters across all folds and seeds ( max iter =200, max depth =6, 
+
+learning rate =0.1), and we apply no test-set hyperparameter selection. The α-ensemble is fit per fold on the validation carve-out only. We min-imize validation MSE for ˆ y = αˆyarchI + (1 − α)ˆ yHGBR by closed-form one-dimensional least squares, then apply the fitted α to the test fold. Across hard splits the fitted α falls between 0.58 and 0.61, comfortably inside the in-terval [0 .2, 0.8] we pre-specified as the gate for evidence that both component models contribute non-trivially to the ensemble. 7
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+2.6 Leakage discipline 
+
+We verify the pipeline against the six leakage modes catalogued by Asiaee [1]. Per-mode evidence is in Supplementary Table S1. 
+
+M1 (supervised feature screening on full data). The CpG variance filter is unsupervised with respect to IC 50 so there is no ’contamination’ in this mode. 
+
+M2 (unsupervised preprocessing on full data). StandardScaler, PCA-128, and the HGBR RobustScaler are all fit per training fold. An earlier version of the pipeline fit gene-expression PCA on the union of train and test cells; we retain that as the comparator for the per-fold ablation in Section 3 and show its impact is below noise on hard splits. 
+
+M3 (test-set hyperparameter or model selection). Hyperparameters are fixed across folds, and early stopping uses validation MSE only. 
+
+M4 (auxiliary encoder pretraining contamination). CpGPT’s pretraining corpus was confirmed disjoint from GSE68379 by author correspondence. CLAMP was pretrained on independent ligand-language corpora unrelated to drug response. 
+
+M5 (improper cross-validation aggregation). We report mean-of-per-fold-R2, not pooled-prediction-then-scored R 2.
+
+M6 (post-hoc test-metric selection). No best-test-epoch selection. Re-ported metrics are from the final checkpoint selected on validation MSE. 
+
+2.7 DummyDrugAvg baseline 
+
+For each (split, seed, fold) the DummyDrugAvg predictor computes the mean ln(IC 50 ) per drug across the training cells of that fold, and predicts that drug-mean for every test (cell, drug) pair regardless of cell identity. Drugs unseen in train fall back to the global training mean. We report this baseline as a row in Table 1 on the recommendation of [2] and [3], who showed that the cell-aware lift above the drug-mean floor is the meaningful comparison on cell-line drug response benchmarks. 8
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+# 3 Results 
+
+3.1 Headline performance and the drug-mean floor 
+
+Table 1 reports test R 2 and pair-pooled Pearson correlation across five model classes and three split types. Figure 2 visualizes the same numbers. The Arch I + HGBR α-ensemble reaches R 2 of 0.7796 on random 5-fold, 0.7717 on histology-blind, and 0.7629 on site-blind. Pair-pooled Pearson correlations are approximately 0.882, 0.879, and 0.873 across the three splits, placing the model in the 0.85 to 0.90 range that recent leakage-aware re-evaluations of published methods report [4, 3, 5]. random 5-fold histology-blind site-blind  
+
+> 0.55
+> 0.60
+> 0.65
+> 0.70
+> 0.75
+> 0.80
+> Test  R2
+> +0.054
+> +0.060
+> +0.037
+> Cell-aware contribution above the drug-mean baseline (red): +0.04 to +0.06 R 2
+> DummyDrugAvg
+> TransCDR-like
+> HGBR on FM stack
+> Arch I (this work)
+> Arch I + HGBR -ensemble
+
+Figure 2: Headline performance across three evaluation splits. Test R 2 for five model classes on random 5-fold, histology-blind, and site-blind. The DummyDrugAvg baseline (gray) sets the drug-identity floor at R 2 around 0.71 to 0.73. Red annotations show the lift of the Arch I + HGBR α-ensemble over DummyDrugAvg: +0.054 random, +0.060 histology-blind, +0.037 site-blind. Multi-seed across seeds 42, 7, and 123. The DummyDrugAvg baseline reaches R 2 of 0.7261, 0.7116, and 0.7263, with pair-pooled Pearson correlations of 0.852, 0.850, and 0.844 across the three splits. This replicates the finding of [2]: a predictor that knows only drug identity, with no cell-side input at all, sits within 0.09 Pearson of the published 0.94 state-of-the-art numbers. The cell-aware lift above this floor is 0.054, 0.060, and 0.037 R 2 across the three splits. We argue that this lift, not the absolute R 2 or Pearson, is the more informative comparison for a cell-line drug response method to be evaluated against. 9
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint Table 1: Headline performance across three evaluation splits. R 2 values are means across folds, multi-seed across initialization seeds 42, 7, and 123. The cell-aware lift over the DummyDrugAvg baseline (italic row) is the load-bearing comparison. See Methods for split definitions. 
+
+Model Random R 2 Hist-blind R 2 Site-blind R 2
+
+DummyDrugAvg (drug-mean floor) 0.7261 0.7116 0.7263 
+
+TransCDR-like (cross-attention on our FMs) 0.7222 0.7049 0.6791 HGBR (CpGPT + PCA + CLAMP) 0.7754 0.7625 0.7505 Arch I (FM-stack + FiLM + GAT) 0.7723 0.7655 0.7597 
+
+Arch I + HGBR α-ensemble 0.7796 0.7717 0.7629 
+
+Lift over DummyDrugAvg +0.054 +0.060 +0.037 
+
+3.2 The representation jump explains most of the gain 
+
+Figure 3 decomposes the headline performance across five phases of the project. Flat-feature baselines (random forests, gradient boosting, Lasso, and generalized additive models, all trained on the raw 10,000 CpG plus 5,000 gene matrix) reach R 2 of 0.05 to 0.10 on the random split but collapse to negative R 2 on both hard splits. The histology-blind R 2 from those base-lines is around −0.06, meaning the flat-feature models predict worse than the global IC 50 mean once tissue is held out. Replacing the raw input with foundation-model embeddings, while keeping the model class fixed at histogram-based gradient boosting, lifts histology-blind R 2 to 0.7625. The single-step gain is roughly +0.82 R 2 on histology-blind, achieved by representation change alone, before any archi-tectural development. The architectural lift on top of HGBR-on-FM-stack, that is, the addition of Arch I and the α-ensemble, adds a further +0.009 R2 on histology-blind. The architectural contribution is significant, but its magnitude is roughly an order of magnitude smaller than the representation contribution. The paper does not headline architecture as a result. 
+
+3.3 Cross-architecture residual correlation puts anumber on the tissue-lineage ceiling 
+
+That the predictive signal in cell-line drug response is dominated by tissue lineage is not a finding of this paper. It is established in the original GDSC 10   
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint random 5-fold histology-blind site-blind
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> Test  R2
+> +0.82 R 2
+> FM stack
+> Phase progression: representation change drives the headline lift,
+> architectural lift is much smaller
+> Flat features
+> (phase 2 baselines)
+> DummyDrugAvg
+> (drug-mean only)
+> HGBR on FM stack
+> Arch I
+> (FM + FiLM + GAT)
+> Arch I + HGBR
+> -ensemble
+
+Figure 3: Phase progression on three evaluation splits. Test R 2 for flat features (RF / gradient boosting / Lasso / GAM on raw 10,000 CpGs + 5,000 genes), DummyDrugAvg, HGBR on foundation-model stack, Arch I, and Arch I + HGBR α-ensemble. The histology-blind jump from −0.06 to +0 .7625 is achieved by representation change alone. The architectural lift on top is roughly an order of magnitude smaller. landscape analysis [9], re-articulated in cross-method assessments [4], and confirmed in recent generative-framework work [10]. What we contribute is a number for the ceiling. For each (split, seed, fold) we compute the per-pair residual rM = ˆ yM −
+
+ytrue for both Arch I and the HGBR baseline on the test fold. The Pearson correlation between Arch I and HGBR residuals on histology-blind hard splits is ρ = +0 .939, averaged across all 38 folds and 3 seeds. The same statistic on site-blind is +0 .949, and on random 5-fold is +0 .950. All three are well above 0.9. Two radically different architectures on the same feature stack agree on most of their residual error. Figure 4 shows the residual scatter on the largest histology-blind fold (lung NSCLC adenocarcinoma, n = 16 ,784 aligned test pairs). The cross-architecture correlation on this fold is ρ = +0 .948. The inset gives the comparator that makes this number meaningful: the Pearson correlation between residuals from two independently initialized Arch I models on the same fold is ρ = +0 .985, or +0 .9736 ± 0.0109 aggregated across all 114 fold-pairs on histology-blind. The 0.97 versus 0.94 gap on histology-blind, roughly 11 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint 0.03, is the architecture-specific signal. The rest is shared lineage variance encoded in the foundation-model features. 6 4 2 0 2 4 6   
+
+> Arch I residual (Arch I prediction ln(IC50))
+> 6
+> 4
+> 2
+> 0
+> 2
+> 4
+> 6
+> HGBR residual  (HGBR prediction  ln(IC50))
+> Cross-architecture residual
+> = +0.948
+> (n = 16,784 pairs)
+> Architecture-specific signal
+> = +0.037
+> above the shared lineage axis
+> Lineage-ceiling diagnostic on one histology-blind fold
+> (held-out tissue: lung NSCLC adenocarcinoma)
+> Same-architecture control
+> (seed 42 vs seed 7) = +0.985
+> 50
+> 100
+> 150
+> 200
+> 250
+> 300
+> 350
+> 400
+> pairs per hexbin
+
+Figure 4: Cross-architecture residual correlation quantifies the tissue-lineage ceiling. Test-set residuals from Arch I (seed 42) and the HGBR baseline on a representative histology-blind fold (held-out tissue: lung NSCLC adeno-carcinoma, n = 16 ,784). Cross-architecture Pearson correlation ρ = +0 .948 on this fold, with aggregate ρ = +0 .939 across all 38 hist-blind folds and 3 seeds. Inset: same-architecture control, residuals from two independently initialized Arch I models (seed 42 vs seed 7) on the identical fold, ρ = +0 .985 (aggregate +0 .974). The 0.037 gap on this fold (0.034 in aggregate) is the architecture-specific signal above the shared tissue-lineage axis. We propose this metric, cross-architecture residual ρ calibrated against a same-architecture-different-initialization control, as a quantitative diagnostic for the saturation of a feature stack with respect to a particular pair of 12 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint model classes. It is cheap to compute: no retraining is required if per-fold predictions are stored for two model classes and two initializations of one of them. The intuition is that values close to the same-architecture ceiling indicate the architectures recover similar predictive structure from the shared inputs, while a wider gap indicates the architectures are extracting decorrelated signal from the same features. 
+
+3.4 Curated biological priors do not improve predic-tion 
+
+We tested whether curated mutation, methylation, and drug-target-expression channels provide signal beyond the foundation-model stack. The augmented Arch I has an additional SparseBioHead, a 64 to 32 MLP whose last layer is zero-initialized so the augmented model is identical to baseline Arch I at initialization. The head’s 32-d output is concatenated into the fusion MLP. Three channels were tested: 
+
+• Driver mutations. 17 GDSC-relevant driver genes from DepMap 24Q4 binary calls, restricted to those at population frequency at least 5 percent (these are a different 17-gene panel from the canonical-driver set used in the CpGPT linear-probing analysis in Supplementary Sec-tion S10; overlap is partial). 
+
+• Pharmacogenomic CpG panel. 13 canonical methylation probes cover-ing MGMT, MLH1, BRCA1, CDKN2A, GSTP1, and RASSF1A. 
+
+• Drug-target expression. 69 genes encoding direct targets of GDSC drugs, z-scored expression. The mutations channel alone produces ∆R 2 = −0.0036 on random 5-fold compared to baseline Arch I (across-seed std 0.0019). The all-three-channels-combined configuration produces ∆R 2 = −0.0146 (across-seed std 0.0007). The deficits are small but reproducibly negative. The combined-channel deficit is larger than the mutations-only deficit, consistent with the interpretation that adding more sparse-bio columns through a shared head uses gradient capacity without bringing decorrelated signal. We interpret the result as feature-stack saturation rather than as a prop-erty of the SparseBioHead design. CpGPT embeddings linearly encode tissue 13 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+at 9.1 times above chance and histology at 21.1 times above chance, and cu-rated mutation, methylation, and drug-target-expression channels are them-selves substantially lineage-correlated [27, 28]. The 99 added columns mostly carry information the foundation-model embeddings already encode densely. We are not claiming that mutations are biologically irrelevant to drug re-sponse; the original GDSC analysis documented many specific mutation-drug interactions [9]. We claim only that, conditional on a CpGPT plus RMA-PCA cell representation, the curated channels in our configuration add no aggregate R 2.
+
+3.5 The global-PCA leak is non-load-bearing on hard splits 
+
+The leakage-audit flagged a residual M2 pathway in the original pipeline, comprising six fit() calls: a global-fit gene-expression PCA on all 987 cells, plus the similarity-augmentation k-nearest-neighbors graph also fit on all 987 cells (full per-mode breakdown in Supplementary Table S1). To quantify whether these vectors inflated the headline numbers, we refit the Standard-Scaler, PCA-128, and the sim-aug k-nearest-neighbors graph on training cells only for one representative fold per split. The three folds were random 5-fold fold 0, histology-blind large intestine, and site-blind lung. Arch I was retrained against the per-fold-clean preprocessing. The per-fold-clean test R 2 versus the global-PCA baseline: 
+
+• Random 5-fold, fold 0: 0.7515 (per-fold-clean) vs 0.7491 (global, sparse-bio-mutations seed 42 run used as the closest matched-seed global-PCA baseline since the vanilla seed-42 random-5fold run did not store per-fold predictions), ∆ = +0 .0024. 
+
+• Histology-blind, large intestine: 0.7027 vs 0.7039 (global, seed 42), ∆ = 
+
+−0.0012. 
+
+• Site-blind, lung: 0.7595 vs 0.7563 (global, seed 42), ∆ = +0 .0032. All three deltas are within ±0.005 R 2, well below any meaningful effect size. Two are positive (the per-fold-clean variant is slightly better), and one is negative. The M2 leakage pathway is empirically non-load-bearing on hard splits, so the headline numbers in Table 1 stand. 14 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+3.6 FiLM γ structure is cross-seed reproducible at the drug-grouping level, not at the pathway level 
+
+We extracted the FiLM γ and β vectors for all 429 drugs across three in-dependently trained Arch I checkpoints (seeds 42, 7, 123) and computed pathway-pair cosine similarity matrices per seed, grouping drugs by GDSC TARGET PATHWAY annotation (23 pathways with at least 3 drug mem-bers, yielding 253 pathway pairs). Cross-seed Pearson correlations on the upper-triangular entries are 0.528 (seeds 42 vs 7), 0.675 (seeds 42 vs 123), and 0.560 (seeds 7 vs 123). To test whether this cross-seed agreement reflects pathway-specific struc-ture or any consistent drug grouping, we ran a 1,000-permutation null in which drug-to-pathway assignments were shuffled before recomputing the pathway-pair similarity matrices for each seed. Under the shuffled labeling the null cross-seed correlations have mean values of 0.541, 0.601, and 0.517 (standard deviations roughly 0.10 for each pair). The observed correlations fall within the null distribution, with empirical one-sided p-values of 0.565, 0.230, and 0.367. The cross-seed reproducibility we see is therefore a property of any consistent drug grouping on these embeddings. 
+
+γ-space structure in the FiLM analysis is reproducible across random seeds. It is misleading to claim the structure reflects biological pathway grouping when an equally consistent random grouping yields the same mag-nitude of cross-seed agreement. We retain the per-seed γ heatmaps and the mean-centered pathway-pair matrix as supplementary figures with this hedge in their captions, rather than as a headline biological interpretation result. 
+
+3.7 Multi-seed stability 
+
+Across-seed standard deviations on R 2 are approximately an order of mag-nitude smaller than within-seed across-fold standard deviations: on random 5-fold the seed-std is 0.0006 with fold-std around 0.011, on histology-blind the seed-std is also 0.0006, and on site-blind the seed-std rises to 0.0058 be-cause the 13 sites differ more substantially in test-set composition than the 38 histologies do. The full per-seed per-fold matrix is reported in Supple-mentary Table S7, confirming that the headline numbers are not artifacts of the seed-42 draw. 15 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+3.8 Cross-screen validation against PRISM matches the measurement reproducibility ceiling 
+
+We froze one trained Arch I checkpoint (seed 42, random 5-fold fold 0) and predicted ln(IC 50 ) for 39,682 (cell, drug) pairs from the PRISM Repurpos-ing Secondary Screen [16], without any retraining or fine-tuning on PRISM data. Of these pairs, 26,714 are also in GDSC and provide the cross-screen measurement-reproducibility ceiling. The model’s global Pearson correlation against PRISM is 0.225 and its Spearman correlation is 0.627. The GDSC-to-PRISM measurement ceiling, computed by treating the GDSC IC 50 values themselves as predictions of the PRISM values on the shared (cell, drug) pairs, is 0.207 Pearson and 0.635 Spearman. The model matches Spearman within 0.01 and slightly exceeds the Pearson ceiling. Figure 5 reports both metrics alongside the per-drug Pearson distribution. 0.4 0.2 0.0 0.2 0.4      
+
+> Per-drug Pearson correlation (predicted vs PRISM)
+> 0
+> 5
+> 10
+> 15
+> 20
+> 25
+> Number of drugs (of 179)
+> Per-drug correlation distribution
+> global PCC = 0.225
+> GDSC PRISM ceiling = 0.207
+> Pearson Spearman
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> correlation
+> 0.225
+> 0.627
+> 0.207
+> 0.635
+> Cross-screen correlation matches the
+> GDSC PRISM reproducibility ceiling
+> Arch I (this work)
+> GDSC PRISM measurement ceiling
+> n = 39,682 PRISM evaluation pairs (26,714 also in GDSC). R 2is negative for both model and ground truth (model -0.023, ceiling -0.032) due to inter-screen magnitude divergence, a known phenomenon (Haibe-Kains et al. 2013). Rank-based
+> correlations are the meaningful comparison.
+
+Figure 5: Cross-screen validation against PRISM. Left: distribution of per-drug Pearson correlations across 179 shared drugs ( ndrug ≥ 5). Right: model versus GDSC-to-PRISM measurement reproducibility ceiling on Pearson and Spearman correlation. Model Spearman 0.627 is within 0.01 of ceiling 0.635; model Pearson 0.225 slightly exceeds ceiling 0.207. R 2 is negative for both the model and the GDSC ground truth, reflecting inter-screen magnitude di-vergence [29]; rank-based correlations are the appropriate cross-screen com-parison. 16 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint R2 is negative for both the model ( −0.023) and the GDSC ground truth (−0.032), as expected from inter-screen magnitude divergence: GDSC and PRISM use different dose ranges and viability readouts, so the absolute IC 50 
+
+magnitudes do not align even when both measurements are correct [29]. Rank-based correlations are the appropriate cross-screen comparison, and on those metrics the model captures the transferable rank signal between the two screens up to the measurement reproducibility ceiling. 
+
+3.9 TransCDR-like architectural control 
+
+To isolate the contribution of architecture choice from input choice, we re-implemented the TransCDR fusion mechanism [30] on identical foundation-model inputs and trained it under the same multi-seed and three-split pro-tocol. The TransCDR-like comparator reaches R 2 of 0.7222, 0.7049, and 0.6791 across random, histology-blind, and site-blind. Arch I reaches 0.7723, 0.7655, and 0.7597 under the same protocol. The margin is 5 to 8 R 2 points and widens on harder splits. This comparison is architecture-only on clean inputs. The published TransCDR pipeline uses different inputs (z-scored RNA and methylation, mutation, and GIN drug graphs) and reports Pearson 0.94 on warm-start random splits. We are not claiming to beat the published TransCDR un-der leakage-aware re-evaluation. The public TransCDR training code reads z-scored matrices computed on the full cell-line set before applying cross-validation, which is Asiaee mode M2 leakage, and would require a substantive rewrite to test under matched discipline. 
+
+# 4 Discussion 
+
+Tissue lineage dominates the predictive signal in cell-line drug response. That has been established for a decade [9], replicated in cross-method assessments [4], and re-articulated under generative frameworks [10]. The Connectiv-ity Map / L1000 work tells the same story for transcriptional perturbation response more broadly [31]. On histology-blind splits, where we have the most fold-pairs (114 across 38 folds and 3 seed pairs), the cross-architecture residual correlation is ρ = 0 .939 against a same-architecture-different-initialization ceiling of 0 .9736 ± 0.0109, a ∆ = +0 .0346 gap that clears our pre-specified threshold of +0 .03 for non-17 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+trivial architecture-specific signal. On site-blind and random 5-fold the gaps are smaller (+0 .024 and +0 .020) and below threshold (Supplementary Ta-ble S4); the histology-blind PASS is the load-bearing measurement. Either way, the headroom that depends on architecture choice given the current feature stack is small. We expect that heavier architectures, including graph transformers, mixture-of-experts fusion blocks, and larger language-model fusion heads, would not move this number substantially given the present cell representation, although we have not directly tested them under our protocol. The implication is that the bottleneck appears to lie in the repre-sentation rather than in the architecture. Promising directions for moving past this ceiling include cell features that better decorrelate from the lineage axis, such as spatial or single-cell-resolved methylation atlases, multi-tissue perturbation profiles, or different prediction targets such as per-cell residuals after a tissue-mean baseline. 
+
+4.1 Why curated biological priors did not help 
+
+The mutation, methylation, and drug-target-expression channels carry sig-nificant biological information. Driver mutations have well-documented and often clinically actionable drug-response interactions [9, 32, 33]. Why, then, do they fail to improve aggregate R 2 once foundation-model embeddings are in place? The cleanest answer is feature-stack saturation along the lineage axis. CpGPT linearly encodes tissue at 9.1 times above chance and histology at 21.1 times above chance. Mutation frequencies are strongly tissue-stratified [27]. Pharmacogenomic methylation loci segregate by histology [28, 32]. Drug-target gene expression varies systematically across tissues. The 99 sparse-bio columns therefore project largely onto the same low-rank sub-space the foundation-model embeddings already encode. The 32-dimensional SparseBioHead output consumes gradient capacity without bringing decor-related signal. This is a statement about aggregate R 2 on the GDSC panel. It is not a statement that mutations are biologically irrelevant. A more tar-geted use, per-drug stratified prediction, biomarker discovery for a specific mutation-drug interaction, or fine-tuning to a panel of compounds with known mutation-driven sensitivity, might still benefit from these channels even under our feature stack. The negative result here is conditional on a specific evaluation regime, and we make no claim about other regimes. 18 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+4.2 What the leakage-clean window means for the field 
+
+Of the 32 audited methods in the public companion roster maintained by Asiaee and colleagues at the time of writing [1], six are certified clean, and none of them combines a methylation foundation model with a drug foun-dation model under multi-omics input and leave-tissue-out hard splits with multi-seed validation; the intersection is, as of May 2026, an empty cell. We expect that leakage-aware evaluation will increasingly become a standard expectation in this area as the audit literature is taken up by reviewers. Pillbox fills that cell, though we do not interpret this as conferring special standing on our work, and we expect the cell to fill in over the next year as the leakage-aware reframing spreads. We do propose the present pipeline as a template: a per-fold preprocessing discipline that closes M2 by construc-tion, an external corpus disjoint check by author correspondence for M4, a cross-architecture residual diagnostic to test saturation of the chosen feature stack, and an honest hedge on interpretability claims that do not survive a permutation null. 
+
+4.3 Limitations 
+
+There is a non-trivial clinical translation gap: we evaluate end-to-end on cell-line data with cross-screen validation against PRISM, but we do not have patient-derived organoid, patient-derived xenograft, or clinical-trial data, and recent translational work in this area has reached a higher bar than ours [34, 35]. A natural extension of the present pipeline would be to use the Arch I + HGBR ensemble as a pretrained stage and fine-tune on PDO or PDX data before clinical inference, but we have not done this. The graph attention network used in our cell encoder is a 2018 architec-ture, which has proven empirically to be somewhat outdated. Graph trans-formers and long-range message-passing variants are now the medium-tier standard. A graph-transformer ablation under our protocol is realistic and expected future work. Given the lineage-ceiling diagnostic we report, we do not expect such an ablation to move hard-split R 2 by more than roughly the 0.03 architectural headroom. The FiLM γ-space pathway-pair interpretation does not survive a permu-tation null. The structure in γ-space exists and is cross-seed reproducible, but it is not pathway-driven. Earlier internal analyses identified specific cross-pathway pairs (DNA Replication with Mitosis, EGFR with WNT, and 19 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+so on) with biologically plausible interpretations. We do not lead with these results because we cannot show they exceed what an arbitrary drug grouping would produce on the same γ vectors. The honest framing is that FiLM γ-space is reproducible across seeds, the specific pathway interpretation is not distinguishable from arbitrary groupings, and we leave the biology to further work with a pathway-survivable test. Mixed-precision bf16 autocast introduces approximately 10 −4 R2 nonde-terminism, and we did not enable deterministic CUDA flags; reported num-bers are reproducible within this tolerance, and absolute differences smaller than 10 −3 R2 between configurations should be treated as within noise. Finally, all headline results are on GDSC1. PRISM cross-screen valida-tion provides external evidence against a different screen on largely overlap-ping cell lines, but we have not retrained or fine-tuned on PRISM. Datasets used by the broader literature (CCLE, gCSI, CTRPv2) are absent from our evaluation. The IMPROVE benchmark [5] provides matched preprocessing across all five and would be the natural cross-dataset extension. We ex-pect the cross-dataset generalization picture for our method to look similar to other clean methods evaluated under IMPROVE: substantial degradation cross-dataset, consistent with what [4] and [3] report. 
+
+# 5 Conclusion 
+
+Cancer drug response prediction on cell-line panels is in a period of method-ological reassessment. The published accuracy numbers in this area appear to be substantially shaped by preprocessing protocol and by drug-identity variance, rather than by cell-aware predictive signal alone. Once leakage is audited away and the floor is set at drug-mean prediction, the cell-aware con-tribution we observe is small, in the 0.04 to 0.06 R 2 range, and similar in mag-nitude to what other recent leakage-aware re-evaluations report. Our spe-cific contribution is a leakage-aware predictor combining foundation-model embeddings under multi-seed hard splits, paired with a residual-correlation diagnostic that puts a number on the tissue-lineage ceiling for our feature stack. 20 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+# Ethics Statement 
+
+No ethical approval was required for this work. All data analyzed are publicly available molecular and pharmacological measurements of established cancer cell lines (GDSC1, PRISM, DepMap, GEO accession GSE68379); no human or animal subjects, patient data, or identifiable specimens were involved. 
+
+# Acknowledgements 
+
+This work used the Advanced Cyberinfrastructure Coordination Ecosystem: Services & Support (ACCESS), supported by the National Science Founda-tion (NSF). This material is also based upon work supported by the NSF Graduate Research Fellowship Program under Grant No. DGE-2139757. Any opinions, findings, and conclusions or recommendations expressed in this material are those of the authors and do not necessarily reflect the views of the NSF. 
+
+# Author Contributions 
+
+J.H. designed the study, led the analysis, and wrote the manuscript. E.J. con-tributed to the GNN architecture experiments and the FiLM interpretability analysis. S.S., A.G., and D.A. contributed to data curation, baseline bench-marking, and the leakage audit. J.H.J. contributed to the foundation-model embedding pipeline and cross-screen validation. H.J.R. secured computa-tional resources, and contributed to the biological-priors ablation and the clinical-translation framing. All authors reviewed and approved the final manuscript. 
+
+# Competing Interests 
+
+The authors declare no competing interests. 21 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+# Supplementary Information 
+
+S1. Asiaee M1–M6 leakage audit (Supplementary Ta-ble S1) 
+
+The audit covers every fit() and fit transform() call in the pill-box codebase outside of visualization and archived scripts. Each call is classified as M1–M6 clean, leaky against a specific Asi-aee mode, or non-training (N/A). The HGBR pipeline (run_xgb_ hard_splits.py , run_xgb_mutation_ablation.py ; filename retains the historical xgb prefix for the legacy gradient-boosting baseline, but the imported class is scikit-learn’s HistGradientBoostingRegressor )is per-fold clean throughout: RobustScaler is fit on Xtr only and 
+
+transform is applied to Xva and Xte . The GNN pipeline has six pre-audit M2 vectors: the gene-expression StandardScaler + PCA-128 fit on the full 987-cell matrix (scripts/encode_gene_expr.py: 173-177 , scripts/encode_gene_expr.py:363-366 ), and the similarity-augmentation NearestNeighbors.fit(expr np) over all 987 cells used at train time ( run_hard_splits.py:113 , train_gnn.py:200 , scripts/dump_ arch_i_predictions.py:92 ). The per-fold PCA ablation in Section 3 and Supplementary Table S2 shows the impact of these vectors is within noise on hard splits. We do not patch them in the headline numbers reported in Sec-tion 3, but we do report the per-fold-clean ablation explicitly. Audit script: 
+
+scripts/audit fit calls.py ; raw output: results/leakage audit.json .
+
+S2. Per-fold PCA ablation (Supplementary Table S2) 
+
+For one representative fold per split, we refit StandardScaler + PCA-128 + the sim-aug k-nearest-neighbors graph on training cells only and re-train Arch I. The fold-level test R 2 values are 0.7515 (random 5fold/fold 0, vs 0.7491 global-PCA baseline), 0.7027 (histology blind/large intestine, vs 0.7039), and 0.7595 (site blind/lung, vs 0.7563). All three deltas are within 
+
+±0.005 R 2; two are positive (per-fold-clean better) and one is slightly nega-tive. The M2 leakage pathway is non-load-bearing for our headline numbers. Build script: scripts/per fold pca ablation.py . The 
+
+PILLBOX TRAIN DIR and PILLBOX EMB DIR environment variables over-ride the static paths in src/data/graph dataset.py so that per-fold-fitted PCA components and gene loadings replace the global ones, while all other 22 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+Table S1: Asiaee M1–M6 leakage audit. Every fit() and fit transform() 
+
+call in pillbox outside visualization and archived scripts, classified as clean, leaky against a specific Asiaee mode, or non-training (N/A). 
+
+File Line Mode Disposition probe cpgpt representations.py 61 N/A LabelEncoder.fit transform on tissue/histology la-bels; supervised probe target encoding probe cpgpt representations.py 82 clean Per-fold StandardScaler on Xtr inside 
+
+StratifiedKFold 
+
+probe cpgpt representations.py 86 clean Per-fold supervised classifier fit on Xtr 
+
+probe cpgpt representations.py 115 clean Per-fold StandardScaler on Xtr 
+
+probe cpgpt representations.py 119 clean Per-fold supervised classifier fit on Xtr 
+
+run hard splits.py 113 M2 NearestNeighbors.fit on expr by wide (all 987 cells) for sim aug; test cells in the kNN graph run transcdr benchmark.py 154 clean RobustScaler fit on cell emb[tr] only run xgb hard splits.py 113 clean RobustScaler fit on Xtr only, then transform val/test run xgb hard splits.py 123 clean HistGradientBoostingRegressor.fit on ( Xtr , y tr )run xgb mutation ablation.py 54 clean RobustScaler fit on Xtr only run xgb mutation ablation.py 62 clean HistGradientBoostingRegressor.fit on train train gnn.py 200 M2 NearestNeighbors.fit on expr by wide (all 987 cells) for sim aug; test cells in the kNN graph scripts/dump arch i predictions.py 92 M2 NearestNeighbors.fit on full expr; only used for in-ference re-loading, but matches the trained-time graph scripts/encode drugs.py 553 N/A TSNE.fit transform ; visualization only scripts/encode drugs clamp.py 249 N/A TSNE.fit transform ; visualization only scripts/encode drugs clamp.py 277 N/A PCA.fit transform on ECFP for 2-D viz only scripts/encode drugs clamp.py 285 N/A PCA.fit transform on CLAMP for 2-D viz only scripts/encode gene expr.py 173 M2 StandardScaler.fit transform on full expression ma-trix (all 987 cells) scripts/encode gene expr.py 177 M2 PCA.fit transform on full standardized expression matrix scripts/encode gene expr.py 363 M2 StandardScaler.fit transform on full expression ma-trix (RMT eigenvalue analysis path) scripts/encode methylation cpgpt.py 376 N/A PCA.fit transform for 2-D embedding visualization only src/visualization/plot gse270494.py 311 N/A StandardScaler for visualization only 
+
+static assets (drug lookups, split JSONs, methylation arrays) remain shared by hardlink. 
+
+S3. FiLM permutation null (Supplementary Table S3) 
+
+We extracted γ and β vectors for all 429 drugs from three independently trained Arch I checkpoints (seeds 42, 7, 123, fold 0 of random 5fold). We grouped drugs by GDSC TARGET PATHWAY annotation (filtered to pathways with ≥ 3 drugs, yielding 23 pathway groups), centered the pathway-mean γ
+
+vectors within each seed, computed the 23 × 23 cosine-similarity matrix per seed, and Pearson-correlated the upper-triangular entries ( n = 253 pathway 23 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint Table S2: Per-fold PCA ablation. For one representative fold per split, we refit StandardScaler + PCA-128 + the sim-aug k-NN graph on train-ing cells only and retrain Arch I. The global-PCA baseline is the original pipeline; for random 5fold/fold 0 the matched-seed comparator is the sparse-bio-mutations seed-42 run (the vanilla seed-42 random-5fold run did not store per-fold predictions, and sparse-bio-mut ∆ vs vanilla is −0.004 across seeds). 
+
+Split Fold Per-fold-clean R 2 Global-PCA R 2 ∆ R 2
+
+random 5fold fold 0 0.7515 0.7491 +0.0024 histology blind large intestine 0.7027 0.7039 −0.0012 site blind lung 0.7595 0.7563 +0.0032 
+
+pairs) across seed pairs. To test pathway-specificity, we shuffled the drug-to-pathway assignment uniformly at random and recomputed all three cross-seed correlations under the shuffled labeling, repeated for 1,000 permutations. Observed correlations are within the null distribution, indicating that the cross-seed reproducibility of pathway-pair similarity is a property of any consistent drug grouping rather than a property of the GDSC pathway annotation specifically. We retain the per-seed γ-space heatmaps and the mean-centered pathway-pair similarity matrix as supplementary figures with hedged captions. The robust positive and negative pathway pairs reported in earlier internal anal-yses (DNA replication ↔ Mitosis, EGFR ↔ WNT, Cytoskeleton ↔ RTK signaling, and the corresponding anti-correlations) are not claimed as sup-ported by cross-seed reproducibility alone; they may still reflect underly-ing biology but require an independent permutation-survivable test. Script: 
+
+scripts/film pathway permutation null.py .Table S3: FiLM γ-space cross-seed agreement under a drug-to-pathway per-mutation null. Pearson r on upper-triangular pathway-pair cosine-similarity entries ( n = 253 pairs across 23 pathways). All three observed values fall within the shuffled null distribution. 
+
+Seed pair Obs. r Null mean Null std Null p95 p (1-sided) Verdict 42 vs 7 +0 .5281 +0 .5410 0.0993 +0 .6911 0.5654 n.s. 42 vs 123 +0 .6754 +0 .6009 0.0977 +0 .7496 0.2298 n.s. 7 vs 123 +0 .5598 +0 .5168 0.1105 +0 .6904 0.3666 n.s. 
+
+24 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+S4. Cross-architecture residual-ρ null (Supplementary Table S4) 
+
+The headline biology claim in Section 3 is that cross-architecture residual correlation between Arch I and HGBR on hard splits is meaningfully below the same-architecture-different-initialization ceiling. To compute the null, we used the per-fold prediction arrays from three independently-initialized Arch I models (seeds 42, 7, 123) on the same fold definitions and computed Pearson residual correlations between all (seed-A, seed-B) pairs. The histology-blind split yields a same-arch overall correlation of 0 .9736 ±
+
+0.0109 ( n = 114 fold-pairs across 38 folds × 3 seed pairs), compared to the cross-architecture observed value of 0.939. The ∆ = +0 .0346 exceeds our pre-specified threshold of +0 .03 for “same-arch ρ exceeds cross-arch ρ
+
+by a margin compatible with non-trivial architecture-specific signal.” The site-blind and random 5fold splits yield ∆ values of +0 .0241 and +0 .0200 respectively, positive in direction but below the +0 .03 threshold. We classify these as WEAK in the table but note that all three directions are consistent. random 5fold has only 5 fold-pairs because only the (seed7, seed123) pair has the per-fold prediction arrays needed for the computation; the seed42 random 5fold preds were not dumped during the original multi-seed run. Script: scripts/residual rho null.py .
+
+S5. Architecture history (Supplementary Table S5) 
+
+We document the full progression of nine GNN architectures (A through I) plus the final α-ensemble, including negative results that did not enter the headline. Architectures A and B (multi-head GAT and HGT-with-CpG-nodes) had the cell encoder detached from the gradient path due to GPU memory pressure, so only the drug encoder and prediction head were actually training; both plateaued at R 2 ≈ 0.735 random. Architectures C and D were interim drug-target-gating variants, kept in src/models/ for reproducibility but not paper-relevant. Architecture E (module pooling + drug targeting) was the first GNN competitive with HGBR, with its site-blind PCC of 0.874 surpassing the published TransCDR cold-cell PCC of 0.864 on a generaliza-tion metric. The arch-E v2 ablation identified three positive components: similarity augmentation, inferred drug targets, and multitask auxiliary tis-sue prediction. Architecture F (more capacity) overfit with 880 cells and was kept as evidence for the limited-data regime. Architecture G (edge-masking 25 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+Table S4: Cross-architecture residual-ρ null. Same-architecture-different-initialization residual correlation across (seed-A, seed-B) pairs of Arch I, compared to the cross-architecture (Arch I vs HGBR) residual correlation on the same fold definitions. PASS = ∆ > +0 .03 (pre-specified threshold for non-trivial architecture-specific signal); WEAK = positive but below thresh-old; NO DATA = required per-fold prediction arrays not on disk.                                                                                                         
+
+> Split Seed pair nfolds Same-arch ρ(mean ±std) Cross-arch ρ∆Verdict random 5fold 42-7 n.a. n.a. +0 .9500 n.a. NO DATA random 5fold 42-123 n.a. n.a. +0 .9500 n.a. NO DATA random 5fold 7-123 5+0 .9700 ±0.0084 +0 .9500 +0 .0200 WEAK random 5fold overall 5+0 .9700 ±0.0084 +0 .9500 +0 .0200 WEAK histology blind 42-7 38 +0 .9731 ±0.0110 +0 .9390 +0 .0341 PASS histology blind 42-123 38 +0 .9745 ±0.0095 +0 .9390 +0 .0355 PASS histology blind 7-123 38 +0 .9733 ±0.0120 +0 .9390 +0 .0343 PASS histology blind overall 114 +0 .9736 ±0.0109 +0 .9390 +0 .0346 PASS site blind 42-7 13 +0 .9757 ±0.0159 +0 .9490 +0 .0267 WEAK site blind 42-123 13 +0 .9754 ±0.0103 +0 .9490 +0 .0264 WEAK site blind 7-123 13 +0 .9682 ±0.0188 +0 .9490 +0 .0192 WEAK site blind overall 39 +0 .9731 ±0.0158 +0 .9490 +0 .0241 WEAK
+
++ RWR propagation) showed that edge masking hurts, while RWR propaga-tion alone provides +0 .004 R 2, indicating that mutation topology is not the bottleneck. Architecture H (cross-attention) collapsed to R 2 ≈ 0.55 because aggressive aggregation kills the signal. Architecture I (production: GAT + FiLM + module pooling + RWR) gave R 2 = 0 .7723 /0.7655 /0.7597 across random / hist-blind / site-blind; with α-ensemble: 0 .7796 /0.7717 /0.7629. The arch-A through arch-H negative results matter because they con-strain the interpretation of the FiLM mechanism in Section 3: more capacity, mutation-conditioned topology, and aggressive aggregation all degrade per-formance under our feature stack, while FiLM-style conditioning and RWR propagation provide the small remaining lift that is then matched and slightly exceeded by α-ensembling with HGBR. 
+
+S6. Asiaee 2026 leakage-clean roster comparison (Sup-plementary Table S6) 
+
+We list the six methods Asiaee 2026 (v2, April 2026) certified leakage-clean (Velodrome 2022, UNO/IMPROVE 2024, DeepResponse 2023, ScreenDL 2024 [7], DrVAE 2019, and MMDRP 2024 [8]) alongside one additional col-26 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+Table S5: Architecture history. Progression of GNN architectures A–I plus the α-ensemble, including negative results that did not enter the headline. Em dashes denote configurations for which the specific split was not run. “D-###” references are entries in the project decision log. 
+
+Arch Year Description Rand R 2 Hist R 2 Site R 2 Notes phase 2 baselines 2025-Q4 RF/GBR/Lasso/GAM on raw 10K CpGs + 5K genes 0.05–0.10 −0.06 −0.02 flat features memorize tis-sue shortcuts; fail on hard splits; motivates the FM pivot A: GAT (PPI gene-only) 2026-Q1 4-head GAT, gene nodes only 0.735 n.a. n.a. cell encoder detached from gradient due to OOM (D-062) B: HGT (CpG nodes) 2026-Q1 heterogeneous graph transformer; CpG-to-gene regulatory edges 0.735 n.a. n.a. same detach issue; HGT params not trained (D-064) C, D 2026-Q2 interim drug-target gating variants n.a. n.a. n.a. not paper-relevant; kept in 
+
+src/models/ 
+
+E: module pool + drug targeting 2026-Q3 GAT + 20-module pooling + target-aware reweighting 0.747 0.760 0.758 site-blind PCC 0.874 first beat TransCDR cold-cell PCC 0.864 (D-067) E v2 winners 2026-Q3 sim aug + in-fer targets + mul-titask n.a. n.a. n.a. D-069: all three positive; FiLM later subsumes in-fer targets F: more capacity 2026-Q4 deeper/wider GAT n.a. n.a. n.a. overfits with 880 cells; limited-data regime evi-dence (D-074) G: edge masking + RWR 2026-Q4 mutation-conditioned dynamic graph n.a. n.a. n.a. edge masking hurts; RWR alone +0 .004; mutation topology not bottleneck (D-076) H: cross-attention 2026-Q4 cross-attention drug-cell fusion 0.55 n.a. n.a. collapsed; aggressive aggre-gation kills signal (D-078) I: production (GAT+FiLM+module+RWR) 2026-Q4 headline architecture 0.7723 0.7655 0.7597 multi-seed mean (42/7/123); seed-std 0.0006/0.0006/0.0058 (D-082) I + HGBR α-ensemble 2026-Q4 per-fold val carve-out fits scalar α
+
+0.7796 0.7717 0.7629 α ∈ [0 .58 , 0.61] on hard splits; both models con-tribute (D-090, D-092) 
+
+umn for pillbox. The intersection of all eight criterion rows is occupied only by pillbox as of May 2026. We do not interpret this as a discovery; we treat it as a methodological template, and we expect this intersection to fill in over the next twelve months as the leakage-aware reframing is taken up by other methods groups. 27 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint Table S6: Asiaee 2026 leakage-clean roster comparison. Criteria are rows; methods are columns. “y” = satisfies criterion, “n” = does not, “˜” = partial. LTO = leave-tissue-out; LSO = leave-site-out; LCO = leave-cell-out; LDO = leave-drug-out.                                                           
+
+> Criterion Velodrome UNO DeepResp. ScreenDLDrVAEMMDRP pillbox
+> Leakage-aware (Asiaee-certified) yyyyyyyNew method (not re-eval har-ness) ynyyyyyFM-stack (any foundation model) nnnnnnyMethylation foundation model nnnnnny(CpGPT) Drug foundation model nnnnnny(CLAMP) Multi-omics input n∼nnnyyHard splits at tissue level (LTO / LSO) nnyLCO only yy(LCO+LDO+LTO) yMulti-seed validation nimplicit nnnny (42 / 7 / 123)
+
+S7. Full per-seed × per-fold results matrix (Supplemen-tary Table S7) 
+
+Per-seed per-fold test R 2 / RMSE / Pearson correlation for five Arch I vari-ants (the baseline, the per-fold-PCA-clean ablation, the two sparse-bio ab-lations, and the α-ensemble with HGBR) across the three split types. 206 rows total. The across-seed standard deviation is approximately an order of magnitude smaller than the within-seed across-fold standard deviation at the architecture-stable convergence point (for example, on random 5-fold, Arch I shows seed-std 0.0006 and fold-std around 0.011), providing the basis for our claim that the headline numbers are not artifacts of the seed-42 draw. Model legend for Supplementary Table S7: I = Arch I; I+HGBR = Arch I + HGBR α-ensemble (headline architecture); I/PCAcln = Arch I with the M2-clean per-fold-PCA preprocessing (Section 3); I/bio-mut = Arch I + sparse-bio mutations channel; I/bio-all = Arch I + sparse-bio all-combined channel. The last two are the negative-result curated-bio-prior ablations. n test is the number of (cell, drug) pairs in the held-out test fold; “n.a.” for the I/PCAcln rows, which were re-trained against the original test split. 28 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+Table S7: Full per-seed-per-fold results matrix (206 rows). See preceding paragraph for the model legend. Model Seed Split Fold R2 RMSE PCC ntest 
+
+I 7 random-5fold fold 0 0.7586 1.2953 0.8717 49468 I 7 random-5fold fold 1 0.7752 1.2654 0.8805 49655 I 7 random-5fold fold 2 0.7734 1.2599 0.8796 49260 I 7 random-5fold fold 3 0.7729 1.2630 0.8809 48762 I 7 random-5fold fold 4 0.7791 1.2412 0.8866 48774 I 123 random-5fold fold 0 0.7595 1.2928 0.8719 49468 I 123 random-5fold fold 1 0.7838 1.2409 0.8858 49655 I 123 random-5fold fold 2 0.7667 1.2785 0.8789 49260 I 123 random-5fold fold 3 0.7745 1.2585 0.8811 48762 I 123 random-5fold fold 4 0.7793 1.2406 0.8836 48774 I/PCAcln 42 histology-blind large intestine 0.7027 1.4076 0.8517 n.a. I/PCAcln 42 random-5fold 0 0.7515 1.3141 0.8673 n.a. I/PCAcln 42 site-blind lung 0.7595 1.2556 0.8735 n.a. I/bio-all 7 random-5fold fold 0 0.7532 1.3095 0.8690 49468 I/bio-all 7 random-5fold fold 1 0.7498 1.3349 0.8659 49655 I/bio-all 7 random-5fold fold 2 0.7628 1.2891 0.8751 49260 I/bio-all 7 random-5fold fold 3 0.7589 1.3012 0.8731 48762 I/bio-all 7 random-5fold fold 4 0.7623 1.2876 0.8781 48774 I/bio-all 42 random-5fold fold 0 0.7440 1.3339 0.8642 49468 I/bio-all 42 random-5fold fold 1 0.7658 1.2915 0.8755 49655 I/bio-all 42 random-5fold fold 2 0.7509 1.3211 0.8710 49260 I/bio-all 42 random-5fold fold 3 0.7621 1.2925 0.8746 48762 I/bio-all 42 random-5fold fold 4 0.7640 1.2829 0.8752 48774 I/bio-all 123 random-5fold fold 0 0.7453 1.3304 0.8648 49468 I/bio-all 123 random-5fold fold 1 0.7642 1.2958 0.8762 49655 I/bio-all 123 random-5fold fold 2 0.7589 1.2996 0.8751 49260 I/bio-all 123 random-5fold fold 3 0.7683 1.2755 0.8777 48762 I/bio-all 123 random-5fold fold 4 0.7575 1.3005 0.8744 48774 I/bio-mut 7 random-5fold fold 0 0.7590 1.2941 0.8724 49468 I/bio-mut 7 random-5fold fold 1 0.7747 1.2666 0.8812 49655 I/bio-mut 7 random-5fold fold 2 0.7678 1.2754 0.8777 49260 I/bio-mut 7 random-5fold fold 3 0.7712 1.2676 0.8784 48762 I/bio-mut 7 random-5fold fold 4 0.7821 1.2327 0.8856 48774 I/bio-mut 42 random-5fold fold 0 0.7491 1.3205 0.8656 49468 I/bio-mut 42 random-5fold fold 1 0.7780 1.2575 0.8821 49655 I/bio-mut 42 random-5fold fold 2 0.7685 1.2734 0.8776 49260 I/bio-mut 42 random-5fold fold 3 0.7769 1.2518 0.8816 48762 I/bio-mut 42 random-5fold fold 4 0.7742 1.2548 0.8825 48774 I/bio-mut 123 random-5fold fold 0 0.7606 1.2898 0.8723 49468 I/bio-mut 123 random-5fold fold 1 0.7596 1.3084 0.8718 49655 I/bio-mut 123 random-5fold fold 2 0.7697 1.2703 0.8775 49260 I/bio-mut 123 random-5fold fold 3 0.7687 1.2745 0.8773 48762 I/bio-mut 123 random-5fold fold 4 0.7738 1.2560 0.8834 48774 I+HGBR 7 histology-blind B cell leukemia 0.7727 1.2742 0.8863 3094 I+HGBR 7 histology-blind B cell lymphoma 0.7782 1.2353 0.8825 8472 I+HGBR 7 histology-blind Burkitt lymphoma 0.8037 1.1435 0.8966 3865 I+HGBR 7 histology-blind Hodgkin lymphoma 0.7642 1.2194 0.8766 2108 I+HGBR 7 histology-blind acute myeloid leukaemia 0.7330 1.3817 0.8573 7132 
+
+continued on next page 
+
+29 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint Supplementary Table S7 (continued). 
+
+Model Seed Split Fold R2 RMSE PCC ntest 
+
+I+HGBR 7 histology-blind bladder 0.8074 1.1450 0.9017 4914 I+HGBR 7 histology-blind breast 0.7291 1.3324 0.8548 13206 I+HGBR 7 histology-blind cervix 0.7775 1.2612 0.8820 3629 I+HGBR 7 histology-blind chronic myeloid leukaemia 0.7269 1.4312 0.8572 2883 I+HGBR 7 histology-blind endometrium 0.7971 1.1997 0.8949 3038 I+HGBR 7 histology-blind ewings sarcoma 0.7670 1.2946 0.8760 5611 I+HGBR 7 histology-blind glioma 0.8178 1.1086 0.9050 14335 I+HGBR 7 histology-blind haematopoietic neo-plasm other 0.7491 1.3687 0.8714 1427 I+HGBR 7 histology-blind head and neck 0.7870 1.2416 0.8903 10451 I+HGBR 7 histology-blind kidney 0.7738 1.2255 0.8808 8320 I+HGBR 7 histology-blind large intestine 0.7062 1.3991 0.8489 11598 I+HGBR 7 histology-blind liver 0.7714 1.2322 0.8824 4185 I+HGBR 7 histology-blind lung NSCLC adeno-carcinoma 0.7666 1.2669 0.8761 16784 I+HGBR 7 histology-blind lung NSCLC large cell 0.7839 1.1938 0.8866 3616 I+HGBR 7 histology-blind lung NSCLC not specified 0.7350 1.2866 0.8601 2873 I+HGBR 7 histology-blind lung NSCLC squa-mous cell carcinoma 0.7992 1.1466 0.8940 3708 I+HGBR 7 histology-blind lung small cell carci-noma 0.7723 1.2003 0.8803 14720 I+HGBR 7 histology-blind lymphoblastic T cell leukaemia 0.8160 1.1176 0.9033 2354 I+HGBR 7 histology-blind lymphoblastic leukemia 0.8242 1.1191 0.9105 3637 I+HGBR 7 histology-blind lymphoid neoplasm other 0.7026 1.4361 0.8394 2990 I+HGBR 7 histology-blind melanoma 0.7538 1.3319 0.8691 13807 I+HGBR 7 histology-blind mesothelioma 0.7455 1.2401 0.8848 1669 I+HGBR 7 histology-blind myeloma 0.8086 1.1161 0.9004 3109 I+HGBR 7 histology-blind neuroblastoma 0.7299 1.3348 0.8651 8413 I+HGBR 7 histology-blind oesophagus 0.7767 1.2335 0.8831 9466 I+HGBR 7 histology-blind osteosarcoma 0.7093 1.4728 0.8446 2705 I+HGBR 7 histology-blind ovary 0.7842 1.2322 0.8873 10397 I+HGBR 7 histology-blind pancreas 0.7897 1.2055 0.8928 7958 I+HGBR 7 histology-blind prostate 0.7939 1.1942 0.8964 1860 I+HGBR 7 histology-blind rhabdomyosarcoma 0.8043 1.1643 0.8981 2268 I+HGBR 7 histology-blind soft tissue other 0.7894 1.2930 0.9103 2363 I+HGBR 7 histology-blind stomach 0.7519 1.3056 0.8730 5938 I+HGBR 7 histology-blind thyroid 0.7942 1.2385 0.8958 3800 I+HGBR 42 histology-blind B cell leukemia 0.7765 1.2636 0.8902 3094 I+HGBR 42 histology-blind B cell lymphoma 0.7798 1.2310 0.8845 8472 I+HGBR 42 histology-blind Burkitt lymphoma 0.7989 1.1574 0.8945 3865 I+HGBR 42 histology-blind Hodgkin lymphoma 0.7542 1.2448 0.8727 2108 I+HGBR 42 histology-blind acute myeloid leukaemia 0.7317 1.3851 0.8562 7132 I+HGBR 42 histology-blind bladder 0.8103 1.1363 0.9027 4914 I+HGBR 42 histology-blind breast 0.7288 1.3332 0.8544 13206 I+HGBR 42 histology-blind cervix 0.7804 1.2529 0.8835 3629 
+
+continued on next page 
+
+30 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint Supplementary Table S7 (continued). 
+
+Model Seed Split Fold R2 RMSE PCC ntest 
+
+I+HGBR 42 histology-blind chronic myeloid leukaemia 0.7257 1.4342 0.8555 2883 I+HGBR 42 histology-blind endometrium 0.8027 1.1830 0.8971 3038 I+HGBR 42 histology-blind ewings sarcoma 0.7598 1.3146 0.8765 5611 I+HGBR 42 histology-blind glioma 0.8173 1.1103 0.9044 14335 I+HGBR 42 histology-blind haematopoietic neo-plasm other 0.7557 1.3507 0.8734 1427 I+HGBR 42 histology-blind head and neck 0.7981 1.2088 0.8949 10451 I+HGBR 42 histology-blind kidney 0.7732 1.2272 0.8802 8320 I+HGBR 42 histology-blind large intestine 0.7021 1.4088 0.8508 11598 I+HGBR 42 histology-blind liver 0.7723 1.2298 0.8813 4185 I+HGBR 42 histology-blind lung NSCLC adeno-carcinoma 0.7703 1.2568 0.8777 16784 I+HGBR 42 histology-blind lung NSCLC large cell 0.7851 1.1906 0.8870 3616 I+HGBR 42 histology-blind lung NSCLC not specified 0.7382 1.2787 0.8610 2873 I+HGBR 42 histology-blind lung NSCLC squa-mous cell carcinoma 0.8017 1.1394 0.8954 3708 I+HGBR 42 histology-blind lung small cell carci-noma 0.7771 1.1877 0.8822 14720 I+HGBR 42 histology-blind lymphoblastic T cell leukaemia 0.8155 1.1192 0.9035 2354 I+HGBR 42 histology-blind lymphoblastic leukemia 0.8178 1.1390 0.9102 3637 I+HGBR 42 histology-blind lymphoid neoplasm other 0.7053 1.4294 0.8427 2990 I+HGBR 42 histology-blind melanoma 0.7573 1.3222 0.8703 13807 I+HGBR 42 histology-blind mesothelioma 0.7389 1.2561 0.8818 1669 I+HGBR 42 histology-blind myeloma 0.8061 1.1235 0.8978 3109 I+HGBR 42 histology-blind neuroblastoma 0.7378 1.3152 0.8641 8413 I+HGBR 42 histology-blind oesophagus 0.7728 1.2442 0.8821 9466 I+HGBR 42 histology-blind osteosarcoma 0.7176 1.4517 0.8488 2705 I+HGBR 42 histology-blind ovary 0.7874 1.2230 0.8879 10397 I+HGBR 42 histology-blind pancreas 0.7904 1.2033 0.8921 7958 I+HGBR 42 histology-blind prostate 0.7904 1.2043 0.8952 1860 I+HGBR 42 histology-blind rhabdomyosarcoma 0.8057 1.1601 0.8985 2268 I+HGBR 42 histology-blind soft tissue other 0.7809 1.3186 0.9101 2363 I+HGBR 42 histology-blind stomach 0.7587 1.2877 0.8745 5938 I+HGBR 42 histology-blind thyroid 0.7931 1.2417 0.8961 3800 I+HGBR 123 histology-blind B cell leukemia 0.7883 1.2296 0.8901 3094 I+HGBR 123 histology-blind B cell lymphoma 0.7769 1.2390 0.8829 8472 I+HGBR 123 histology-blind Burkitt lymphoma 0.8042 1.1420 0.8968 3865 I+HGBR 123 histology-blind Hodgkin lymphoma 0.7669 1.2122 0.8758 2108 I+HGBR 123 histology-blind acute myeloid leukaemia 0.7363 1.3731 0.8587 7132 I+HGBR 123 histology-blind bladder 0.8119 1.1314 0.9017 4914 I+HGBR 123 histology-blind breast 0.7339 1.3206 0.8574 13206 I+HGBR 123 histology-blind cervix 0.7803 1.2533 0.8836 3629 I+HGBR 123 histology-blind chronic myeloid leukaemia 0.7296 1.4240 0.8558 2883 I+HGBR 123 histology-blind endometrium 0.7989 1.1946 0.8960 3038 I+HGBR 123 histology-blind ewings sarcoma 0.7654 1.2992 0.8752 5611 
+
+continued on next page 
+
+31 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint Supplementary Table S7 (continued). 
+
+Model Seed Split Fold R2 RMSE PCC ntest 
+
+I+HGBR 123 histology-blind glioma 0.8186 1.1064 0.9058 14335 I+HGBR 123 histology-blind haematopoietic neo-plasm other 0.7513 1.3626 0.8717 1427 I+HGBR 123 histology-blind head and neck 0.7984 1.2078 0.8944 10451 I+HGBR 123 histology-blind kidney 0.7711 1.2328 0.8791 8320 I+HGBR 123 histology-blind large intestine 0.7106 1.3886 0.8530 11598 I+HGBR 123 histology-blind liver 0.7729 1.2281 0.8805 4185 I+HGBR 123 histology-blind lung NSCLC adeno-carcinoma 0.7684 1.2620 0.8768 16784 I+HGBR 123 histology-blind lung NSCLC large cell 0.7883 1.1817 0.8884 3616 I+HGBR 123 histology-blind lung NSCLC not specified 0.7417 1.2702 0.8634 2873 I+HGBR 123 histology-blind lung NSCLC squa-mous cell carcinoma 0.7981 1.1495 0.8936 3708 I+HGBR 123 histology-blind lung small cell carci-noma 0.7696 1.2073 0.8775 14720 I+HGBR 123 histology-blind lymphoblastic T cell leukaemia 0.8165 1.1161 0.9037 2354 I+HGBR 123 histology-blind lymphoblastic leukemia 0.8166 1.1429 0.9104 3637 I+HGBR 123 histology-blind lymphoid neoplasm other 0.7023 1.4369 0.8386 2990 I+HGBR 123 histology-blind melanoma 0.7560 1.3259 0.8696 13807 I+HGBR 123 histology-blind mesothelioma 0.7367 1.2613 0.8806 1669 I+HGBR 123 histology-blind myeloma 0.7988 1.1444 0.8942 3109 I+HGBR 123 histology-blind neuroblastoma 0.7423 1.3036 0.8645 8413 I+HGBR 123 histology-blind oesophagus 0.7732 1.2432 0.8821 9466 I+HGBR 123 histology-blind osteosarcoma 0.7132 1.4628 0.8474 2705 I+HGBR 123 histology-blind ovary 0.7789 1.2472 0.8847 10397 I+HGBR 123 histology-blind pancreas 0.7917 1.1996 0.8927 7958 I+HGBR 123 histology-blind prostate 0.7984 1.1812 0.9008 1860 I+HGBR 123 histology-blind rhabdomyosarcoma 0.8073 1.1552 0.8993 2268 I+HGBR 123 histology-blind soft tissue other 0.7981 1.2661 0.9113 2363 I+HGBR 123 histology-blind stomach 0.7597 1.2849 0.8750 5938 I+HGBR 123 histology-blind thyroid 0.7919 1.2452 0.8952 3800 I+HGBR 7 random-5fold fold 0 0.7649 1.2781 0.8747 49468 I+HGBR 7 random-5fold fold 1 0.7819 1.2464 0.8845 49655 I+HGBR 7 random-5fold fold 2 0.7807 1.2394 0.8836 49260 I+HGBR 7 random-5fold fold 3 0.7804 1.2418 0.8837 48762 I+HGBR 7 random-5fold fold 4 0.7888 1.2135 0.8895 48774 I+HGBR 123 random-5fold fold 0 0.7640 1.2808 0.8744 49468 I+HGBR 123 random-5fold fold 1 0.7877 1.2296 0.8879 49655 I+HGBR 123 random-5fold fold 2 0.7798 1.2421 0.8841 49260 I+HGBR 123 random-5fold fold 3 0.7814 1.2390 0.8843 48762 I+HGBR 123 random-5fold fold 4 0.7859 1.2220 0.8870 48774 I+HGBR 7 site-blind aero digestive tract 0.7793 1.2462 0.8856 19917 I+HGBR 7 site-blind blood 0.6484 1.5692 0.8479 44827 I+HGBR 7 site-blind bone 0.7512 1.3486 0.8670 9728 I+HGBR 7 site-blind breast 0.7341 1.3202 0.8571 13206 I+HGBR 7 site-blind digestive system 0.7435 1.3215 0.8626 23213 I+HGBR 7 site-blind kidney 0.7721 1.2313 0.8798 8584 I+HGBR 7 site-blind lung 0.7634 1.2453 0.8766 44584 
+
+continued on next page 
+
+32 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint Supplementary Table S7 (continued). 
+
+Model Seed Split Fold R2 RMSE PCC ntest 
+
+I+HGBR 7 site-blind nervous system 0.7884 1.1925 0.8884 23889 I+HGBR 7 site-blind pancreas 0.7935 1.1943 0.8938 7958 I+HGBR 7 site-blind skin 0.7599 1.3151 0.8717 14677 I+HGBR 7 site-blind soft tissue 0.7873 1.2744 0.8918 5475 I+HGBR 7 site-blind thyroid 0.7977 1.2278 0.8986 3800 I+HGBR 7 site-blind urogenital system 0.7883 1.2181 0.8916 26061 I+HGBR 42 site-blind aero digestive tract 0.7888 1.2190 0.8893 19917 I+HGBR 42 site-blind blood 0.6623 1.5380 0.8334 44827 I+HGBR 42 site-blind bone 0.7467 1.3607 0.8645 9728 I+HGBR 42 site-blind breast 0.7250 1.3425 0.8522 13206 I+HGBR 42 site-blind digestive system 0.7439 1.3205 0.8627 23213 I+HGBR 42 site-blind kidney 0.7712 1.2340 0.8793 8584 I+HGBR 42 site-blind lung 0.7626 1.2474 0.8761 44584 I+HGBR 42 site-blind nervous system 0.7880 1.1937 0.8887 23889 I+HGBR 42 site-blind pancreas 0.7954 1.1889 0.8945 7958 I+HGBR 42 site-blind skin 0.7605 1.3133 0.8722 14677 I+HGBR 42 site-blind soft tissue 0.7834 1.2860 0.8887 5475 I+HGBR 42 site-blind thyroid 0.7988 1.2245 0.8979 3800 I+HGBR 42 site-blind urogenital system 0.7899 1.2135 0.8914 26061 I+HGBR 123 site-blind aero digestive tract 0.7882 1.2210 0.8892 19917 I+HGBR 123 site-blind blood 0.6629 1.5366 0.8320 44827 I+HGBR 123 site-blind bone 0.7518 1.3470 0.8681 9728 I+HGBR 123 site-blind breast 0.7332 1.3222 0.8571 13206 I+HGBR 123 site-blind digestive system 0.7463 1.3143 0.8640 23213 I+HGBR 123 site-blind kidney 0.7716 1.2329 0.8791 8584 I+HGBR 123 site-blind lung 0.7587 1.2578 0.8757 44584 I+HGBR 123 site-blind nervous system 0.7913 1.1843 0.8901 23889 I+HGBR 123 site-blind pancreas 0.7882 1.2095 0.8933 7958 I+HGBR 123 site-blind skin 0.7586 1.3184 0.8719 14677 I+HGBR 123 site-blind soft tissue 0.7831 1.2867 0.8897 5475 I+HGBR 123 site-blind thyroid 0.8003 1.2200 0.9002 3800 I+HGBR 123 site-blind urogenital system 0.7939 1.2019 0.8922 26061 
+
+S8. TransCDR public-code M2 leakage 
+
+The TransCDR paper [30] reports random-split Pearson 0.94 and cold-cell Pearson 0.86 on GDSC. Inspection of the public training pipeline at github. com/XiaoqiongXia/TransCDR shows that Step1_Data_split.py reads pre-z-scored expression and methylation matrices ( RNA_n18451_1018_zscore. csv and mrna_n20617_1028_zscore.csv , z-scored across all 1,018 / 1,028 cell lines in the source files) before applying KFold cross-validation. This is Asiaee mode M2 (preprocessing fit on full data before the train/test split) and is a confirmed leakage vector in published code that we did not test against in our TransCDR-like architecture-only comparator (Section 3). Our comparator uses our own preprocessing pipeline (per-fold scaler, frozen FM embeddings); the 5–8 R 2 gap we report against TransCDR-like is thus a 33 
+
+.CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint reflection of fusion-architecture differences on clean inputs. 
+
+S9. CpGPT pretraining corpus disjoint from evaluation cohort 
+
+The CpGPT foundation model [17] is pretrained on the “CpGCorpus,” ap-proximately 150,000 methylation samples from 2,042 GEO studies, none indi-vidually enumerated in the preprint. To establish that our evaluation cohort GSE68379 was not in this corpus, we contacted the lead CpGPT author by email in April 2026; the author confirmed by reply that GSE68379 was not included in the CpGCorpus pretraining set. The CLAMP drug foundation model [18] was pretrained on independent ligand-language paired corpora (PubChem assay descriptions and similar) and has no possible overlap with drug-response label data. 
+
+S10. CpGPT linear probing on tissue, histology, and driver mutations 
+
+To characterize what CpGPT embeddings linearly encode, we ran 5-fold cross-validation logistic regression on the frozen 512-d CpGPT cell embed-dings for three classes of target: primary tissue site (13 classes, n = 901), primary histology (38 classes, n = 854), and binary driver-mutation sta-tus for 17 canonical drivers (TP53, KRAS, BRAF, PIK3CA, PTEN, EGFR, APC, RB1, CDKN2A, MYC, BRCA1, BRCA2, NRAS, STK11, NF1, ATM, CDH1). Primary site is decodable at accuracy 0.7025 (chance 0.0769; 9 .13 × above chance, macro-F1 0.5945). Primary histology is decodable at accuracy 0.5539 (chance 0.0263; 21 .05 × above chance, macro-F1 0.3989). Among driver mutations, only TP53 shows linearly decodable signal beyond the major-ity baseline (accuracy 0.7004 vs majority 0.6759, macro-F1 0.7868); all 16 other drivers have F1 between 0.02 and 0.44 with accuracy within 1% of the majority baseline. This is consistent with [36]’s characterization of TP53 as a pan-cancer master regulator whose loss-of-function is reflected in down-stream methylation patterns, while other driver-mutation states have effects that are less linearly decodable from cell-line methylation alone. These probing results support the lineage-saturation interpretation of Sections 3 and 4: CpGPT cell embeddings linearly encode tissue identity 34 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+densely and only one driver mutation (TP53) explicitly; the rest of the pre-dictive subspace operates through tissue-correlated channels that are shared between CpGPT, the curated bio priors, and the rest of the foundation-model stack. Probing script: probe cpgpt representations.py ; raw out-put: results/cpgpt probing/probing results.json .
+
+S11. Data and code availability 
+
+All code, foundation-model embeddings, deterministic fold def-initions, per-fold prediction arrays, ensemble outputs, and in-termediate result files referenced in this paper are deposited at 
+
+github.com/just5034/pillbox research data . The repository in-cludes the curated training tables (methylation, gene expression, and IC 50 
+
+in joined CSV form), the foundation-model embeddings (CpGPT 512-d cell, CLAMP 768-d drug, expression PCA-128 with gene loadings), per-fold prediction arrays from Arch I and from the HGBR baseline across all three splits and all multi-seed runs, every result JSON cited in the text, all five final figures, and the seven supplementary tables. The deterministic split JSON files are at data/training/splits/ in the same repository. Raw methylation data is from GEO accession GSE68379. Raw GDSC1 IC 50 values are at cancerrxgene.org . Raw DepMap 24Q4 binary mutation calls are at depmap.org . The PRISM Repurposing Secondary Screen data is at depmap.org/portal under accession PRISM Repurposing Public 19Q4 secondary screen. Trained model weights for Arch I (per-seed, per-fold PyTorch checkpoints, approximately 1.5 GB across all splits and seeds) are available from the corre-sponding author on request. They are not required to reproduce any number in the paper from the deposited prediction arrays. If one wants to run new inference with the trained weights themselves, the data repository contains the training scripts and a deterministic seed protocol that will regenerate equivalent weights in roughly 80 A100 GPU-hours. The CpGPT methylation foundation model is at 
+
+github.com/lucascamillomd/CpGPT . The CLAMP drug foundation model is at github.com/ml-jku/clamp . Seed control covers numpy , torch ,Python random , and CUDA. Reported numbers are reproducible within approximately 10 −4 R2 tolerance due to mixed-precision bf16 autocast. 35 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+# References 
+
+[1] Asiaee, A. et al. Widespread data leakage inflates accuracy and cor-rupts biomarker discovery in cancer drug response prediction. bioRxiv 
+
+(2026). URL https://www.biorxiv.org/content/10.1101/2026.02. 05.704016v2 . Preprint, version 2 (posted 2026-04-05). Companion audit roster at github.com/AsiaeeLab/drug-response-leakage. [2] Codic` e, F. et al. The specification game: rethinking the evaluation of drug response prediction for precision oncology. Journal of Cheminfor-matics 17 , 33 (2025). [3] Garai, U., Pal, A. S., Ghosh, K., Salunke, D. B. & Garain, U. Bench-marking deep learning models for predicting anticancer drug potency (ic50) with insights for medicinal chemists. Communications Chemistry 
+
+9, 106 (2026). [4] Chen, Y. & Zhang, L. How much can deep learning improve prediction of the responses to drugs in cancer cell lines? Briefings in Bioinformatics 
+
+23 , bbab378 (2022). [5] Partin, A., Vasanthakumari, P., Narykov, O. et al. Benchmarking com-munity drug response prediction models: datasets, models, tools, and metrics for cross-dataset generalization analysis. Briefings in Bioinfor-matics 27 , bbaf667 (2026). Journal version of arXiv:2503.14356; same authors and title. [6] Bernett, J. et al. From hype to health check: critical evaluation of drug response prediction models with DrEval. bioRxiv (2025). Posted 2025-05-29. Code at github.com/daisybio/drevalpy. [7] Sederman, C. et al. A precision oncology-focused deep learning frame-work for personalized selection of cancer therapy. bioRxiv (2024). Posted 2024-12-16, v1. Still preprint as of May 2026. [8] Taj, F. & Stein, L. D. MMDRP: drug response prediction and biomarker discovery using multi-modal deep learning. Bioinformatics Advances 4,vbae010 (2024). [9] Iorio, F., Knijnenburg, T. A., Vis, D. J. et al. A landscape of pharma-cogenomic interactions in cancer. Cell 166 , 740–754 (2016). 36 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+[10] Carli, F. et al. Learning and actioning general principles of cancer cell drug sensitivity. Nature Communications 16 , 1654 (2025). [11] Garnett, M. J., Edelman, E. J., Heidorn, S. J. et al. Systematic iden-tification of genomic markers of drug sensitivity in cancer cells. Nature 
+
+483 , 570–575 (2012). [12] Yang, W., Soares, J., Greninger, P. et al. Genomics of Drug Sensitivity in Cancer (GDSC): a resource for therapeutic biomarker discovery in cancer cells. Nucleic Acids Research 41 , D955–D961 (2013). [13] Bibikova, M., Barnes, B., Tsan, C. et al. High density DNA methylation array with single CpG site resolution. Genomics 98 , 288–295 (2011). [14] Zhou, W., Laird, P. W. & Shen, H. Comprehensive characterization, annotation and innovative use of Infinium DNA methylation BeadChip probes. Nucleic Acids Research 45 , e22 (2017). [15] Irizarry, R. A., Hobbs, B., Collin, F. et al. Summaries of Affymetrix GeneChip probe level data. Nucleic Acids Research 31 , e15 (2003). [16] Corsello, S. M., Nagari, R. T., Spangler, R. D. et al. Discovering the anti-cancer potential of non-oncology drugs by systematic viability profiling. 
+
+Nature Cancer 1, 235–248 (2020). [17] de Lima Camillo, L. P. et al. CpGPT: a foundation model for DNA methylation. bioRxiv (2024). Currently v3 on bioRxiv (posted 2025-08-28). Still preprint as of May 2026. [18] Seidl, P., Vall, A., Hochreiter, S. & Klambauer, G. Enhancing activity prediction models in drug discovery with the ability to understand hu-man language. In Proceedings of the 40th International Conference on Machine Learning (ICML) (2023). [19] Weininger, D. SMILES, a chemical language and information system. 1. Introduction to methodology and encoding rules. Journal of Chemical Information and Computer Sciences 28 , 31–36 (1988). [20] Veliˇ ckovi´ c, P., Cucurull, G., Casanova, A. et al. Graph attention net-works. In International Conference on Learning Representations (ICLR) 
+
+(2018). ArXiv:1710.10903. 37 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+[21] Szklarczyk, D., Kirsch, R., Koutrouli, M. et al. The STRING database in 2023. Nucleic Acids Research 51 , D638–D646 (2023). [22] Perez, E., Strub, F., de Vries, H., Dumoulin, V. & Courville, A. FiLM: visual reasoning with a general conditioning layer. In Proceedings of the AAAI Conference on Artificial Intelligence (2018). ArXiv:1709.07871. [23] Tong, H., Faloutsos, C. & Pan, J.-Y. Fast random walk with restart and its applications. In Proceedings of the 6th International Conference on Data Mining (ICDM) (2006). [24] K¨ ohler, S., Bauer, S., Horn, D. & Robinson, P. N. Walking the interac-tome for prioritization of candidate disease genes. American Journal of Human Genetics 82 , 949–958 (2008). [25] Pedregosa, F. et al. Scikit-learn: machine learning in Python. Journal of Machine Learning Research 12 , 2825–2830 (2011). [26] Ke, G. et al. LightGBM: a highly efficient gradient boosting decision tree. In Advances in Neural Information Processing Systems , vol. 30, 3146–3154 (2017). Histogram-based GBDT algorithm; scikit-learn’s 
+
+HistGradientBoostingRegressor is inspired by this work. [27] Tsherniak, A., Vazquez, F., Montgomery, P. G. et al. Defining a cancer dependency map. Cell 170 , 564–576 (2017). [28] Baylin, S. B. & Jones, P. A. A decade of exploring the cancer epigenome: biological and translational implications. Nature Reviews Cancer 11 ,726–734 (2011). [29] Haibe-Kains, B., El-Hachem, N., Birkbak, N. J. et al. Inconsistency in large pharmacogenomic studies. Nature 504 , 389–393 (2013). [30] Xia, X., Zhu, C., Zhong, F. & Liu, L. TransCDR: a deep learning model for enhancing the generalizability of drug activity prediction through transfer learning and multimodal data fusion. BMC Biology 22 , 227 (2024). Published 2024-10-09. arXiv preprint at 2311.12040 used a dif-ferent title. [31] Subramanian, A., Narayan, R., Corsello, S. M. et al. A next generation connectivity map: L1000 platform and the first 1,000,000 profiles. Cell 
+
+171 , 1437–1452 (2017). 38 
+
+> .CC-BY 4.0 International license available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint this version posted June 16, 2026. ;https://doi.org/10.64898/2026.06.08.725572 doi: bioRxiv preprint
+
+[32] Hegi, M. E., Diserens, A.-C., Gorlia, T. et al. MGMT gene silencing and benefit from temozolomide in glioblastoma. New England Journal of Medicine 352 , 997–1003 (2005). [33] Esteller, M., Silva, J. M., Dominguez, G. et al. Promoter hypermethy-lation and BRCA1 inactivation in sporadic breast and ovarian tumors. 
+
+Journal of the National Cancer Institute 92 , 564–569 (2000). [34] Zhou, Y. et al. PharmaFormer predicts clinical drug responses through transfer learning guided by patient derived organoid. npj Precision On-cology 9, 282 (2025). [35] Smabers, L. P., Wensink, G. E., Verissimo, C. S. et al. Patient-derived organoids predict treatment response in metastatic colorectal cancer. 
+
+Clinical Cancer Research 31 , 5015–5026 (2025). OPTIC trial. [36] Kastenhuber, E. R. & Lowe, S. W. Putting p53 in context. Cell 170 ,1062–1078 (2017). 39
