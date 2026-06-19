@@ -1,0 +1,682 @@
+Title: Unsupervised Learning for Missing Modalities in Multimodal Learning
+
+URL Source: https://arxiv.org/pdf/2606.15743v1
+
+Published Time: Tue, 16 Jun 2026 01:10:49 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# In the name of God 
+
+# UNSUPERVISED LEARNING FOR MISSING MODALITIES IN 
+
+# MULTIMODAL LEARNING 
+
+Hassan Ismkhan* and Hamid Bouchahcia 
+
+Bournemouth University Bournemouth, UK {hismkhan*, abouchachia}@bournemouth.ac.uk *Responsible author 
+
+# ABSTRACT 
+
+This paper addresses the missing-modality challenge in multi-modal learning by introducing Unsu-pervised Learning for Missing Modalities in Multi-Modal Learning (UL4M4), a flexible framework that imputes missing feature embeddings in a task-independent manner before supervised prediction. We propose modality-specific normalization and a novel partial-modality distance metric to enable fair clustering of incomplete observations, capturing cross-modal structures while preserving scale-invariance across varying dimensionalities and modality counts. Cluster centers from this unsuper-vised stage guide an iterative greedy imputation process for any missing modalities during training or inference, supporting arbitrary numbers of modalities and arbitrary missing patterns per sample. The imputation module is lightweight, uses frozen encoders, and decouples from the downstream task, allowing easy integration with any fusion/prediction architecture. Extensive experiments under diverse and highly incomplete regimes demonstrate UL4M4’s robustness, achieving, to the best of our knowledge, the first consistent F1-Micro scores above 0.7 on challenging missing configurations even when more than 50% of modality slots are missing. Results are also stable across cluster sizes and significantly outperform state-of-the-art baselines. Code is available here: https://github.com/h-ismkhan/Multimodal-Learning-with-Missing-Modalities-via-Unsupervised-Learning. 
+
+Keywords Unsupervised Learning · Mutlimodal Learning · Missing Modalities. 
+
+# 1 Introduction 
+
+Multimodal learning has emerged as a powerful paradigm for leveraging complementary information from multiple data sources such as text, audio, and visual modalities, leading to more robust and accurate predictions across various tasks including sentiment analysis, emotion recognition, and classification [1, 2, 3]. In real-world applications, how-ever, data completeness is rarely guaranteed: modalities can be missing due to sensor failures, privacy restrictions, communication errors, or acquisition constraints [4, 5, 6]. This missing-modality problem severely degrades per-formance in traditional multimodal models that assume all modalities are present during both training and inference [7, 8]. Existing approaches to handle missing modalities fall into two main categories. Generative methods attempt to re-construct or impute missing modalities using available ones [9, 4, 8, 10]. Non-generative methods focus on learning shared and modality-specific representations or adapting fusion strategies to maintain robustness under incomplete inputs [5, 6, 11, 12, 13, 14]. Several works have explored cross-modal interactions, representation alignment, and modality translation to mitigate the impact of missing data [15, 16, 17, 18, 7, 19, 20, 21, 22]. More recently, mixture-of-experts architectures with dynamic gating have been proposed to adaptively weight modality contributions at both 
+
+> arXiv:2606.15743v1 [cs.LG] 14 Jun 2026
+
+Unsupervised Learning for Missing Modalities in Multimodal Learning training and inference time [23], and retrieval-augmented in-context learning has been explored to address the com-pounded challenge of missing modalities under data scarcity [24]. Despite significant progress, most prior methods suffer from one or more of the following limitations: (i) they are restricted to a fixed number of modalities, (ii) they handle only specific missing-modality patterns (e.g., one or two modalities missing), (iii) imputation or adaptation mechanisms are tightly coupled with the downstream task, lim-iting generalizability — for instance, expert-based approaches [23] require modality-specific network branches and two-stage co-training that are not straightforwardly transferable across tasks, while retrieval-augmented methods [24] depend on the availability of full-modality reference samples at inference time, a condition that may not hold in severely incomplete regimes, or (iv) they are not rigorously evaluated under severe missing-modality regimes. These constraints hinder the deployment of multimodal models in highly heterogeneous and unreliable real-world environ-ments. In this paper, we propose UL4M4 (Unsupervised Learning for Multi-Modal Missing Modalities), a novel framework that addresses these challenges through the following key contributions: • Arbitrary number of modalities : UL4M4 supports datasets with any number of input modalities without requiring architectural redesign. • Arbitrary missing patterns at sample level : The method handles any combination of missing modalities for each training, validation, or test sample, including extremely severe cases. • Task-independent unsupervised imputation : Feature embeddings for missing modalities are imputed via an unsupervised learning stage that is decoupled from the final supervised task prediction, enabling the un-supervised component to be reused or extended to other multimodal learning problems with severe missing data. • Rigorous evaluation under severe missing regimes : Experiments are conducted across a wide range of configurations with very high missing rates — frequently more than 50% of all modality slots missing across the dataset. • State-of-the-art performance in challenging settings : On particularly difficult multimodal sentiment anal-ysis benchmarks, UL4M4 achieves, to the best of our knowledge, the first reported F1-Micro scores consis-tently above 0.7 under such severe missing-modality conditions. Extensive experiments across standard multimodal datasets demonstrate the effectiveness, generality, and robustness of UL4M4 under diverse and severe missing-modality scenarios, outperforming strong baselines and setting a new reference for handling real-world incomplete multimodal data. The remainder of this paper is organized as follows. section 2 reviews the related work. section 3 presents our proposed UL4M4 framework. section 4 details the experimental setup, results, and analysis. Finally, section 5 concludes the paper. 
+
+# 2 Related Work 
+
+Multimodal learning leverages complementary information from multiple modalities, like text, audio or visual, to achieve more robust representations than unimodal methods [1, 2]. However, real-world applications frequently en-counter missing modalities due to sensor failures, privacy constraints, or data acquisition issues. Early approaches assumed complete modalities during both training and inference [2, 3]. Recent methods address this challenge in two main ways: generative and non-generative. Generative approaches reconstruct missing modalities from available ones. [9] introduced deep adversarial learning for multi-modality missing data completion. [4] proposed SMIL, a Bayesian meta-learning method to approximate full-modality embeddings under severely missing conditions. [8] presented a modality translation-based model using Transformers to fuse translated features. [10] developed MD²N, a duplex diffusion network for unbiased recovery through cross-modal transfer. [25] proposed the Missing Modality Imagination Network to predict missing represen-tations. Non-generative methods focus on learning shared and modality-specific features to maintain robustness. [5] used auxiliary tasks for distribution alignment and domain classification. [6] evaluated Transformer robustness to miss-ing modalities and optimized fusion strategies. [11] adapted pre-trained Transformers via prompt learning. [12] decomposed prototypes with low-rank constraints for decoding under arbitrary missing conditions. [13] applied self-supervised multi-task learning for modality-specific representations. [14] introduced dynamic modality experts and 2Unsupervised Learning for Missing Modalities in Multimodal Learning ranking losses for improved robustness. A related line of work proposes mixture-of-experts architectures with learn-able gating to dynamically reweight modality contributions: [23] introduced the Dynamic Mixture of Modality Ex-perts (DMoME) together with a More-vs-Fewer ranking loss that encourages performance to improve monotonically as more modalities become available, demonstrating strong results on segmentation and classification benchmarks. Complementarily, [24] proposed a retrieval-augmented in-context learning framework that borrows full-modality con-text from nearest neighbours to support both missing-modality and low-data regimes, showing particular effectiveness when labelled training samples are scarce. In multimodal sentiment analysis (MSA), several works tackle missing modalities through cross-modal interactions and representation alignment: [15] distinguished shared and private semantics via cross-modal prediction; [16] pro-posed hybrid cross-modal interaction learning; [17] enhanced non-linguistic modalities with text-guided mapping; [18] dynamically shifted representations with hybrid-modal attention; [7] aligned modal-missing and modal-complete representations; [19] employed hierarchical cross-modality interactions; [20] modeled cross-modal consistency with knowledge distillation; [21] used consistent regression for joint visual-textual sentiment; [22] focused on interactive cross-modality learning. Some approaches developed in federated contexts also propose multimodal handling under missing modalities: [26] used prototype masks and contrastive learning; [27] introduced cross-prototype learning with regularization; [28] leveraged pre-trained models for modality completion. While prior works primarily target supervised settings, our UL4M4 advances multimodal learning under missing modalities with a unified representation strategy, evaluated on standard MSA benchmarks. 
+
+# 3 Cluster-Guided Iterative Imputation for Missing Modalities 
+
+Let D = {(x(1)  
+
+> i
+
+, . . . , x (K) 
+
+> i
+
+, y i)}Ni=1 denote the multi-modal training dataset, where x(m) 
+
+> i
+
+∈ X m is the raw input of modality m (or missing) and yi is the target label. For each modality m, a frozen pretrained encoder Em : Xm → Rdm
+
+produces the embedding z(m) 
+
+> i
+
+= Em(x(m) 
+
+> i
+
+) whenever x(m) 
+
+> i
+
+is available. To handle missing modalities in this setting, we propose UL4M4, a two-stage unsupervised approach that relies on clustering followed by iterative greedy completion. The method operates entirely on the frozen encoder representations without updating any encoder parameters. In the first stage, we perform multi-modal clustering to obtain cluster centres that capture shared structures across partial observations. In the second stage, we impute missing embeddings for each incomplete sample using an iterative selection of candidate completions derived from these centres. Once all training samples are completed, downstream task training proceeds by fusing the full modality representations and minimizing the task loss using only fusion and head parameters. At inference, test samples with missing modalities are similarly imputed using the training-derived centres and statistics before fusion and prediction. 
+
+3.1 Stage 1: Multi-Modal Clustering with Partial-Modality Distance 
+
+Prior to clustering, we compute modality-specific normalization statistics. For each modality m, let Im = {i :
+
+x(m) 
+
+> i
+
+is available } be the set of samples containing modality m. We calculate the mean and standard deviation over all available embeddings of that modality: 
+
+μm = 1
+
+|I m|
+
+X
+
+> i∈I m
+
+z(m) 
+
+> i
+
+, σm =
+
+s 1
+
+|I m|
+
+X
+
+> i∈I m
+
+∥z(m) 
+
+> i
+
+− μm∥2. (1) Normalized features are then obtained via ˜z(m) 
+
+> i
+
+= ( z(m) 
+
+> i
+
+− μm)/σm (element-wise) for every available z(m) 
+
+> i
+
+.We perform k-means clustering on the training set using these normalized features. The algorithm is initialized by randomly selecting k training samples as initial cluster centres c(0) 1 , . . . , c(0)  
+
+> k
+
+. Each centre inherits exactly the modali-ties present in its initializing sample. The clustering proceeds iteratively with the following steps until convergence or a maximum number of iterations is reached. In the assignment step, every training sample i is assigned to the cluster j that minimizes the partial-modality distance to centre cj . Let Mi,j be the set of modalities available in both sample i and centre cj . The distance is defined as 
+
+d(i, j ) = 
+
+vuut 1
+
+|M i,j |
+
+X
+
+> m∈M i,j
+
+∥˜z(m) 
+
+> i
+
+− ˜c(m) 
+
+> j
+
+∥22
+
+dm
+
+, (2) 3Unsupervised Learning for Missing Modalities in Multimodal Learning 
+
+Algorithm 1 UL4M4 Clustering Stage (Stage 1) 
+
+Require: Dataset D, number of clusters k, max iterations T 
+
+> 1:
+
+Compute normalization statistics {μm, σm} for each modality m using eq. (1)  
+
+> 2:
+
+Normalize all available embeddings to obtain {˜z(m) 
+
+> i
+
+} 
+
+> 3:
+
+Randomly select k samples as initial centres {c(0)  
+
+> j
+
+}kj=1  
+
+> 4:
+
+for t = 1 to T do  
+
+> 5:
+
+Assignment Step:  
+
+> 6:
+
+for each sample i do  
+
+> 7:
+
+Assign i to cluster j∗ = arg min j d(i, j ) using eq. (2)  
+
+> 8:
+
+end for  
+
+> 9:
+
+Update Step:  
+
+> 10:
+
+for each cluster j and modality m do  
+
+> 11:
+
+if I(m)
+
+> j
+
+̸ = ∅ then  
+
+> 12:
+
+Update c(m) 
+
+> j
+
+using eq. (3)  
+
+> 13:
+
+else  
+
+> 14:
+
+Leave c(m) 
+
+> j
+
+undefined  
+
+> 15:
+
+end if  
+
+> 16:
+
+end for  
+
+> 17:
+
+if assignments converged then  
+
+> 18:
+
+Break  
+
+> 19:
+
+end if  
+
+> 20:
+
+end for  
+
+> 21:
+
+return Cluster centres {cj }kj=1 and assignments where dm = dim( z(m) 
+
+> i
+
+) = dim(˜ c(m) 
+
+> j
+
+) is the dimensionality of modality m and ˜c(m) 
+
+> j
+
+denotes the normalized embed-ding of modality m in centre j (if available). If Mi,j = ∅, the pair is considered infinitely distant. The two normalization factors in eq. (2) serve distinct but complementary purposes. First, the outer division by 
+
+|M i,j | ensures that distances are comparable across pairs that share different numbers of modalities; without it, pairs sharing more modalities would tend to produce systematically larger summed squared errors (even when per-modality disagreement is small), biasing assignments toward centres with fewer overlaps. Second, the inner division by dm
+
+converts each modality’s squared error into a mean squared error per dimension. This is necessary because different modalities typically have very different embedding dimensionalities (e.g., dm = 768 for text versus dm = 2048 or higher for video or audio features). Without this term, high-dimensional modalities would disproportionately influence the overall distance simply by contributing more summation terms, even after per-modality z-score normalization. Together, these factors yield a balanced, scale-invariant, and modality-fair distance that better reflects true semantic disagreement rather than artifacts of overlap cardinality or embedding size. In the update step, for each cluster j and each modality m, the new centre embedding c(m) 
+
+> j
+
+is computed as the mean of the features over all samples currently assigned to cluster j that possess modality m:
+
+c(m) 
+
+> j
+
+= 1
+
+|I (m) 
+
+> j
+
+|
+
+X
+
+> i∈I (m)
+> j
+
+˜z(m) 
+
+> i
+
+, (3) where I(m) 
+
+> j
+
+is the set of assigned samples that contain modality m. If no assigned sample possesses modality m, then 
+
+c(m) 
+
+> j
+
+remains undefined (missing) in the centre. After convergence, we obtain k cluster centres {cj }kj=1 , each potentially missing some modalities, together with a hard assignment of every training sample to one of these clusters. The procedure is summarized in algorithm 1. 
+
+3.2 Stage 2: Iterative Greedy Completion of Training Samples 
+
+For each training sample i that is missing at least one modality, we first construct an initial set of candidate comple-tions Ci = {di, 1, . . . , di,k }. For every cluster centre index f ∈ { 1, . . . , k }, the candidate di,f is formed by taking all modalities originally available in sample i and, for each missing modality m, filling it with the corresponding embed-4Unsupervised Learning for Missing Modalities in Multimodal Learning 
+
+Algorithm 2 UL4M4 Completion Stage (Stage 2) for a Sample i
+
+Require: Cluster centres {cj }kj=1 , incomplete sample i with available embeddings {z(m) 
+
+> i
+
+} 
+
+> 1:
+
+Initialize Ci = ∅ 
+
+> 2:
+
+for f = 1 to k do  
+
+> 3:
+
+Create candidate di,f : copy available modalities from i; fill missing m with c(m) 
+
+> f
+
+if defined  
+
+> 4:
+
+Add di,f to Ci 
+
+> 5:
+
+end for  
+
+> 6:
+
+while sample i has missing modalities do  
+
+> 7:
+
+Compute distances d(d, j ) for all d ∈ C i, j = 1 , . . . , k using eq. (2)  
+
+> 8:
+
+Find (d∗, j ∗) = arg min d(d, j ) 
+
+> 9:
+
+Remove d∗ from Ci 
+
+> 10:
+
+for each missing modality m in i do  
+
+> 11:
+
+if m is present in d∗ then  
+
+> 12:
+
+Copy d∗(m) to i 
+
+> 13:
+
+end if  
+
+> 14:
+
+end for  
+
+> 15:
+
+end while  
+
+> 16:
+
+return Completed representation of sample i
+
+ding c(m) 
+
+> f
+
+from centre f whenever c(m) 
+
+> f
+
+is defined. If centre f does not possess a required missing modality m, then modality m remains absent in di,f .The completion process then proceeds iteratively. In each iteration, we compute the partial-modality distance (as defined in eq. (2)) between every remaining candidate d ∈ C i and every cluster centre cj (j = 1 , . . . , k ), using the z-score normalized versions of the embeddings present in both the candidate and the centre. If no modalities are shared between a candidate and a centre ( Md,j = ∅), the distance is considered infinite. We identify the pair (d∗, j ∗) that achieves the global minimum distance among all candidate-centre pairs. The selected candidate d∗ is removed from Ci. For every modality m that is still missing in the target representation of sample i,we copy the embedding d∗(m) into the representation of i (if modality m is present in d∗). This greedy selection-and-imputation step is repeated until the representation of sample i contains embeddings for all 
+
+K modalities. Because the union of all cluster centres collectively covers every modality (assuming the training data contains all modalities overall) and because every centre is used to generate at least one initial candidate, the process is guaranteed to terminate with a fully completed representation. The procedure is summarized in algorithm 2. 
+
+3.3 Downstream Task Training and Inference 
+
+Once every training sample has a complete set of K modality embeddings (either originally available or imputed via UL4M4), a fusion module combines the K (now complete) modality representations into a single cross-modal representation, which is then passed to the task-specific head to produce the final prediction. The fusion module 
+
+fS : Q 
+
+> i∈S
+
+Rdi → Rdf uses multi-head self-attention (MHSA) for cross-modal interactions. Inputs are projected onto 
+
+df :
+
+mproj  
+
+> i
+
+= W proj  
+
+> i
+
+M′ 
+
+> i
+
++ bproj  
+
+> i
+
+, i ∈ S . (4) Stacking into sequence M = [ mproj  
+
+> 1
+
+; . . . ; mproj  
+
+> |S|
+
+] ∈ R|S|× df and applying L MHSA layers yields: head h = softmax (MW Qh )( MW Kh )⊤
+
+pdf /H 
+
+!
+
+(MW Vh ), (5) MHSA (M) = Concat (head 1, . . . , head H )W O , (6) where attention weights in each head are additionally regularized via dropout with probability p. Following the stan-dard Transformer block convention [29], dropout is applied to the attention output prior to the residual connection and layer normalization: 
+
+M(ℓ) = LayerNorm 
+
+
+
+M(ℓ−1) + Dropout p
+
+
+
+MHSA (M(ℓ−1) )
+
+ 
+
+. (7) 5Unsupervised Learning for Missing Modalities in Multimodal Learning Finally, mean pooling is applied over the modality dimension, FS = 1
+
+> |S|
+
+P 
+
+> i
+
+M(L) 
+
+> i
+
+, followed by an output projection and activation: 
+
+fS ({M′
+
+> i
+
+}i∈S ) = ReLU (W out FS + bout ). (8) This attention-based fusion with dropout dynamically weights modalities while reducing overfitting and enhancing robustness to noisy or incomplete inputs. During training we minimize the task loss Ltask (cross-entropy for classi-fication or mean squared error for regression) over the entire dataset using only the task-related parameters (fusion and head), while all encoders and the imputed embeddings remain fixed. At inference time, missing modalities in a test sample are imputed using the same two-stage UL4M4 procedure (with cluster centres and normalization statistics computed solely from the training set), after which the complete representation is fused and passed through the trained task head. 
+
+# 4 Results of Experiments 
+
+In experiments we use MM-IMDb dataset which comprises image (movie posters) and text (plot summaries) modal-ities for movie genre classification across 27 distinct genres including Drama, Comedy, Thriller, and Romance. Each sample can be associated with multiple genres simultaneously, making this a challenging multi-label classification task. For missing modalities, we various availability patterns: • α-image-β-text : α% image with β% text, • complex-γ-α-β: γ% both-modalities-presence, α% image only and β% text only. Other dataset used in experiments is CMU-MOSI which is a multi-modal Opinion Sentiment Intensity dataset and contains three modalities: text (transcripts), audio (waveforms), and video (facial expressions) from YouTube movie review segments. Each segment is annotated with a continuous sentiment score ranging from -3 (strongly negative) to +3 (strongly positive), forming a regression task. Missing modality configurations specify availability percentages for each modality independently or complex distributions defining proportions for all-three-present, single-modality, and pairwise-modality combinations: • X-text-Y-audio-Z-video : X% text, Y% audio, and Z% video, • complex-TAV-T-A-V-TA-TV-AV : TAV % all-modalities-presence, T% text only, A% audio only, V% video only, 
+
+TA % text with audio but no video, TV % text with video but no audio, AV % audio with video but no text. The Sleep-EDF polysomnography is another dataset used in experiments, which has K = 5 signal modalities, 5 sleep-stage classes (W, N1, N2, N3, REM), and signals are resampled to 250 time steps. Two parameters ps and pm are used for missing modalities configuration. The ps shows how fraction(%) of samples face with missing modalities, the pm shows what fraction of modalities are missing in these samples. CMU-MOSI remains a challenging benchmark, especially under missing-modality settings. While general missing-modality methods such as M 3Care[30], ShaSpec[5], and PmcmFL[26] excel in domains like healthcare, general com-puter vision datasets, or federated learning, they are rarely evaluated on CMU-MOSI. Therefore, we focus compar-isons on MissModal, as it is specifically designed for CMU-MOSI and outperforms other state-of-the-art methods. In these experiments M 3Care[30], ShaSpec[5], ICL-CA[24], and SimMLM[14] are participated. To show UL4M4 is also comparable against most task specific SOTA, for CMU-MOSI, UL4M4 also competes with MissModal[7], which is specifically designed for sentimental analysis and specially this dataset. For all experiments in this section, 10 independent runs are performed. 
+
+4.1 The Basic Results 
+
+Tables 1 and 2 summarize the F-Micro and accuracy results across MM-IMDb, CMU-MOSI, and Sleep-EDF, respec-tively. 
+
+MM-IMDb. UL4M4 achieves substantially higher F-Micro scores than all competing methods across every missing-modality configuration on MM-IMDb, and both t-test and Wilcoxon signed-rank test confirm the differences are statistically significant in all cases. The margin over the second-best baseline is consistently large, suggesting that the cluster-guided imputation strategy is particularly well-suited to this bimodal setting, where text and image embeddings are highly complementary and the downstream task is multi-label classification. 6Unsupervised Learning for Missing Modalities in Multimodal Learning Table 1: F-micro Obtained by the Modles on MM-IMDb and CMU-MOSI 
+
+MM-IMDb CMU-MOSI 
+
+Method 
+
+> 100-image-100-text
+> 100-image-20-text
+> 20-image-100-text
+> complex-10-45-45
+> complex-20-40-40
+> complex-30-35-35
+> 100-text-100-audio-100-video
+> 100-text-100-audio-20-video
+> 100-text-20-audio-100-video
+> 100-text-20-audio-20-video
+> 20-text-100-audio-100-video
+> 20-text-100-audio-20-video
+> 20-text-20-audio-100-video
+> complex-20-20-20-10-10-10-10
+
+ShaSpec 0.49 0.39 0.45 0.39 0.38 0.43 0.35 0.33 0.32 0.30 0.28 0.25 0.27 0.29 
+
+M 3Care 0.46 0.39 0.43 0.43 0.37 0.45 0.36 0.34 0.33 0.31 0.29 0.26 0.28 0.30 ICL-CA 0.56 0.48 0.43 0.46 0.47 0.43 0.71 0.56 0.78 0.56 0.67 0.56 0.65 0.68 SimMLM 0.58 0.54 0.54 0.51 0.51 0.54 0.77 0.76 0.77 0.45 0.69 0.54 0.63 0.68 UL4M4 0.93 0.92 0.92 0.92 0.92 0.92 0.81 0.81 0.81 0.81 0.69 0.59 0.69 0.72 
+
+Winner (t-test) ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓
+
+Winner (WCOX) ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓
+
+Table 2: Comparison of Accuracy of Models on 5-Modal EDF Dataset 
+
+## pm = 0 .4 pm = 0 .6
+
+## Missing Ratio ps=0.2 ps=0.4 ps=0.6 ps=0.8 ps=0.2 ps=0.4 ps=0.6 ps=0.8 
+
+## ShaSpec 0.32 0.34 0.34 0.34 0.33 0.33 0.32 0.32 
+
+## M 3Care 0.39 0.39 0.38 0.37 0.38 0.37 0.36 0.36 ICL-CA 0.39 0.36 0.36 0.35 0.36 0.36 0.35 0.35 SimMLM 0.39 0.38 0.38 0.38 0.37 0.36 0.35 0.34 UL4M4 0.43 0.43 0.41 0.42 0.42 0.41 0.41 0.40 Winner(t-test) ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓
+
+## Winner(WCOX) ✓ ✓ ✓ ✓ ✓ ✓ ✓ ✓
+
+CMU-MOSI. On CMU-MOSI, UL4M4 again outperforms all baselines across all configurations in F-Micro, with statistical significance confirmed by both tests. The advantage is most pronounced in the configurations where text availability is severely reduced, which are the hardest settings for sentiment analysis given the central role of language. In the less severe configurations — where all three modalities are at least partially available — UL4M4 maintains its edge while delivering consistently strong performance across the full range of missing-modality patterns. 
+
+Sleep-EDF. On the five-modal Sleep-EDF dataset, UL4M4 consistently outperforms all baselines across the full range of missing-sample and missing-modality-fraction combinations considered, again with statistical significance confirmed by both tests. Importantly, performance degrades gracefully as missing rates increase in both dimensions, whereas the baselines exhibit more pronounced drops under the more severe configurations. This robustness in the high-missing regime underlines the scalability of UL4M4 to datasets with a larger number of modalities and more aggressive missing patterns. 
+
+4.2 Comparison with a Task-Specific State-of-the-Art: UL4M4 vs. MissModal 
+
+To further situate UL4M4 within the landscape of existing methods, we compare it against MissModal [7], a method specifically designed for multimodal sentiment analysis and particularly tailored to the CMU-MOSI benchmark. Un-like the general-purpose baselines evaluated above, MissModal incorporates task-specific inductive biases and align-ment objectives optimized for this setting, making it a particularly demanding point of comparison for a general framework such as UL4M4. Table 3 reports MSE, F-Micro, and F-Macro side by side across all evaluated config-urations, with bold entries indicating a statistically significant advantage. Across the MSE metric, UL4M4 yields significantly lower error than MissModal in the majority of configurations, with MissModal holding a statistically sig-nificant advantage only in the most audio-degraded setting. This isolated reversal is consistent with the intuition that 7Unsupervised Learning for Missing Modalities in Multimodal Learning Table 3: Comparison of MissModal vs. UL4M4 across MSE, F-Micro, and F-Macro on CMU-MOSI.                                                              
+
+> MSE ↓F-Micro ↑F-Macro ↑
+> Configuration MissModal UL4M4 MissModal UL4M4 MissModal UL4M4 100-text-100-audio-100-video 1.11 1.01 0.80 0.81 0.80 0.81
+> 100-text-100-audio-20-video 1.08 1.03 0.80 0.81 0.80 0.81 100-text-20-audio-100-video 1.13 0.99 0.80 0.81 0.80 0.81 100-text-20-audio-20-video 1.07 1.04 0.81 0.81 0.81 0.81 20-text-100-audio-100-video 2.04 1.91 0.67 0.69 0.67 0.68
+> 20-text-100-audio-20-video 2.14 2.19 0.57 0.59 0.52 0.52 20-text-20-audio-100-video 2.00 1.90 0.68 0.69 0.67 0.68 complex-20-20-20-10-10-10-10 1.59 1.56 0.71 0.72 0.71 0.71 Bold values indicate the statistically significantly better result. Non-bold entries indicate no significant difference.
+> Text Audio Video
+
+Figure 1: Visualisation of the feature embedding of the missing modalities for complex-20-20-20-10-10-10-10. severe degradation of a single modality can expose edge cases for any imputation strategy, yet it remains the exception rather than the rule. For F-Micro and F-Macro, UL4M4 matches or significantly outperforms MissModal in most configurations, with no configuration showing a statistically significant advantage for MissModal on either metric. Taken together, these results demonstrate that UL4M4, despite being a domain-agnostic framework with no task-specific design choices, is competitive with — and in most settings superior to — a method purpose-built for mul-timodal sentiment analysis on CMU-MOSI. This finding strengthens the case for UL4M4 as a general and robust solution to the missing-modality problem. fig. 1 qualitatively evaluates the quality of imputed embeddings for UL4M4 in the third run under the complex missing-modality setting, complex-20-20-20-10-10-10-10 , via t-SNE[31] projection to 2D. In each diagram, blue points rep-resent the ground-truth embeddings of text features, green points represent those of audio features, and yellow points represent those of video features; red points denote their corresponding imputed feature embeddings. UL4M4 produces imputed points that tightly overlap and integrate with the ground-truth embeddings across all modalities, preserving realistic distributions. It should be noted that these results are from the test split of the data and that the number of blue, green, and yellow points is equal. However, for the audio modality, the frozen encoder produces nearly identical feature embeddings for several samples; consequently, their imputed embeddings are also similar, causing the audio diagram to appear to contain fewer points than the other two. 
+
+4.3 Impact of Cluster Number on UL4M4 Performance 
+
+To assess the sensitivity of UL4M4 to the number of clusters k, we vary k from 10 to 100 in steps of 10 and evaluate F-Micro scores across various missing modality configurations, with results averaged over 10 independent runs. fig. 2 illustrates these results, showing relatively stable performance with minor fluctuations (typically within 0.01-0.02) for each configuration. This indicates that UL4M4 is robust to the choice of k in this range, as increasing k does not lead to significant improvements or degradations, allowing flexible selection based on computational constraints without compromising effectiveness. 8Unsupervised Learning for Missing Modalities in Multimodal Learning Table 4: UL4M4 results with varying number of clusters ( k) on CMU-MOSI.                                                    
+
+> MSE ↓F-Micro ↑
+> Configuration
+> UL4M4/ k=40
+> UL4M4/ k=70
+> UL4M4/ k=100
+> UL4M4/ k=40
+> UL4M4/ k=70
+> UL4M4/ k=100
+> 100-text-100-audio-100-video 1.01 1.01 1.01 0.81 0.81 0.81 100-text-100-audio-20-video 1.04 1.05 1.04 0.80 0.81 0.81 100-text-20-audio-100-video 0.99 0.98 0.99 0.81 0.82 0.81 100-text-20-audio-20-video 1.05 1.02 1.05 0.81 0.81 0.81 20-text-100-audio-100-video 1.88 1.88 1.89 0.69 0.69 0.69 20-text-100-audio-20-video 2.19 2.20 2.19 0.60 0.60 0.60 20-text-20-audio-100-video 1.91 1.90 1.89 0.69 0.69 0.70 complex-20-20-20-10-10-10-10 1.61 1.61 1.59 0.72 0.72 0.72
+
+4.4 Sensitivity to the Number of Clusters k
+
+A natural question arising from the UL4M4 framework is how sensitive the imputation quality — and consequently the downstream task performance — is to the choice of the number of clusters k. A method that requires careful tuning of 
+
+k for each dataset or missing-modality configuration would be considerably less practical than one that is robust across a broad range of values. To investigate this, we evaluate UL4M4 on CMU-MOSI across ten values of k spanning a wide range, under all missing-modality configurations, and report F-Micro scores in Figure 2. In addition, Table 4 complements the figure by reporting both MSE and F-Micro for three representative values of k side by side, providing a more precise quantitative picture that the compressed y-axes of the plots — necessary to reveal within-configuration variation — can obscure. The overarching finding from both the figure and the table is that UL4M4 is remarkably stable across the entire range of k evaluated. Within each configuration, F-Micro scores fluctuate only within a very narrow band across all tested values, and no systematic trend of improvement or degradation with increasing k is apparent. The same stability is reflected in the MSE columns of Table 4: across the three representative values of k, the differences in error are negligible for virtually every configuration. This consistency holds across both the easier settings — where the majority of modalities are available — and the harder ones where text availability is severely reduced, which are otherwise the most challenging configurations for the model. This robustness has an important practical implication: practitioners do not need to invest significant effort in tuning 
+
+k on a held-out validation set, and a moderate default value selected without dataset-specific tuning is sufficient to obtain performance representative of the method’s full capability. It also suggests that the cluster-guided imputation mechanism does not rely on the cluster structure being highly refined — even a relatively coarse partitioning of the embedding space captures enough of the shared multimodal structure to produce effective imputations. 
+
+4.5 Implementation Details 
+
+For CMU-MOSI, UL4M4 uses BERT encoder with weights ’bert-base-uncased’ for text, WavLM-Large encoder with ’microsoft/wavlm-large’ weights for audio, and CLIP vision encoder with ’openai/clip-vit-base-patch32’ for video frames, as its frozen encoders. As the problem is originally regression problem with ranging from -3 (strongly nega-tive) to +3, for UL4M4, the task head g : Rdf → R is a linear projection followed by a bounded activation. Specifically, the prediction for sample i is computed as: 
+
+ˆyi = HardTanh [−3, 3] 
+
+ W head FS,i + bhead  , (9) where W head ∈ R1×df and bhead ∈ R are learnable parameters, and HardTanh [−3,3] clamps the output to the interval 
+
+[−3, 3] , defined as: HardTanh [−3, 3] (x) = 
+
+
+
+−3 if x < −3,x if − 3 ≤ x ≤ 3,
+
+3 if x > 3.
+
+(10) 9Unsupervised Learning for Missing Modalities in Multimodal Learning 
+
+> k=20
+> k=40
+> k=60
+> k=80
+> k=100 0.795
+> 0.800
+> 0.805
+> 0.810
+> 0.815
+
+100-text-100-audio-20-video 
+
+> k=20
+> k=40
+> k=60
+> k=80
+> k=100 0.805
+> 0.810
+> 0.815
+> 0.820
+
+100-text-20-audio-100-video 
+
+> k=20
+> k=40
+> k=60
+> k=80
+> k=100 0.795
+> 0.800
+> 0.805
+> 0.810
+> 0.815
+
+100-text-20-audio-20-video 
+
+> k=20
+> k=40
+> k=60
+> k=80
+> k=100 0.680
+> 0.685
+> 0.690
+> 0.695
+
+20-text-100-audio-100-video 
+
+> k=20
+> k=40
+> k=60
+> k=80
+> k=100
+> 0.590
+> 0.600
+> 0.610
+
+20-text-100-audio-20-video 
+
+> k=20
+> k=40
+> k=60
+> k=80
+> k=100 0.680
+> 0.685
+> 0.690
+> 0.695
+> 0.700
+
+20-text-20-audio-100-video 
+
+> k=20
+> k=40
+> k=60
+> k=80
+> k=100
+> 0.710
+> 0.720
+> 0.730
+
+complex-20-20-20-10-10-10-10 
+
+Figure 2: F-Micro scores across different number of clusters ( k) for the missing configurations. For regression, the training objective is the mean squared error (MSE) loss: 
+
+Ltask = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+(yi − ˆyi)2 , (11) where yi ∈ R is the ground-truth label and ˆyi is the predicted scalar for sample i, with Ltask driving end-to-end optimization of all trainable components. For MM-IMDb, UL4M4 uses frozen CLIP (ViT-B/32) encoders for both image and text modalities, producing em-beddings of equal dimensionality for each. The downstream task is multi-label genre classification, so the task head consists of a multi-layer feedforward network with dropout and ReLU activations, trained with binary cross-entropy loss. Model selection during training is based on the best validation F1-Micro score across epochs. For Sleep-EDF, no suitable pretrained encoder exists for raw EEG signals, so UL4M4 incorporates an additional Stage 0 in which a lightweight 1-D convolutional autoencoder is trained from scratch on the raw signal windows in a fully unsupervised manner. Once pretraining is complete, the decoder is discarded and the encoder is frozen; the resulting embeddings are then passed through the standard UL4M4 Stages 1 and 2. The task head for the five-class sleep-stage classification is a small feedforward network trained with weighted cross-entropy loss, with model selection based on best validation accuracy. 10 Unsupervised Learning for Missing Modalities in Multimodal Learning 
+
+# 5 Conclusion 
+
+In this paper, we introduced UL4M4, a novel framework for addressing the missing-modality problem in multimodal learning. By leveraging unsupervised clustering with modality-specific normalization and a partial-modality distance metric, UL4M4 enables robust imputation of missing feature embeddings in a task-independent manner. This de-coupling allows seamless integration with any downstream supervised prediction architecture, supporting arbitrary numbers of modalities and highly flexible missing patterns at the sample level. Our extensive experiments across three diverse benchmarks — multimodal sentiment analysis (CMU-MOSI), multi-label movie genre classification (MM-IMDb), and polysomnographic sleep staging (Sleep-EDF) — under diverse and severe missing regimes demonstrate UL4M4’s effectiveness and generality. In configurations where large frac-tions of modality slots are absent, UL4M4 achieves competitive or superior performance compared to both general-purpose baselines and task-specific methods such as MissModal, which is purpose-built for sentiment analysis. No-tably, UL4M4 is the first method to report F1-Micro scores consistently above 0.7 on CMU-MOSI under such severe missing-modality conditions. The method also proves largely insensitive to the choice of cluster number k across a wide range of values, relieving practitioners of the burden of careful hyperparameter tuning. UL4M4 advances multimodal learning by providing a general, lightweight solution that handles real-world data in-completeness without compromising downstream task accuracy. Future directions include extending the framework to streaming or online settings where cluster centres must be updated incrementally, exploring learned or adaptive dis-tance metrics to further improve imputation quality, and investigating fully unsupervised variants that operate without any downstream task supervision. 
+
+# References 
+
+[1] Tadas Baltrušaitis, Chaitanya Ahuja, and Louis-Philippe Morency. Multimodal machine learning: A survey and taxonomy. IEEE Transactions on Pattern Analysis and Machine Intelligence , 41(2):423–443, 2018. [2] Amir Zadeh, Minghai Chen, Soujanya Poria, Erik Cambria, and Louis-Philippe Morency. Tensor fusion network for multimodal sentiment analysis. In Proceedings of the 2017 Conference on Empirical Methods in Natural Language Processing , pages 1103–1114, 2017. [3] Yao-Hung Hubert Tsai, Shaojie Bai, Paul Pu Liang, J Zico Kolter, Louis-Philippe Morency, and Ruslan Salakhut-dinov. Multimodal transformer for unaligned multimodal language sequences. In Proceedings of the 57th Annual Meeting of the Association for Computational Linguistics , pages 6558–6569, 2019. [4] Mengmeng Ma, Jian Ren, Long Zhao, Sergey Tulyakov, Cathy Wu, and Xi Peng. Smil: Multimodal learning with severely missing modality. In Proceedings of the AAAI conference on artificial intelligence , volume 35, pages 2302–2310, 2021. [5] Hu Wang, Yuanhong Chen, Congbo Ma, Jodie Avery, Louise Hull, and Gustavo Carneiro. Multi-modal learning with missing modality via shared-specific feature modelling, jul 2023. [6] Mengmeng Ma, Jian Ren, Long Zhao, Davide Testuggine, and Xi Peng. Are multimodal transformers robust to missing modality? Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,pages 18177–18186, 2021. [7] Ronghao Lin and Haifeng Hu. Missmodal: Increasing robustness to missing modality in multimodal sentiment analysis. Transactions of the Association for Computational Linguistics , 11:1686–1702, 2023. [8] Zhizhong Liu, Bin Zhou, Dianhui Chu, Yuhang Sun, and Lingqiang Meng. Modality translation-based multi-modal sentiment analysis under uncertain missing modalities. Information Fusion , 101:101973, 2024. [9] Lei Cai, Zhengyang Wang, Hongyang Gao, Dinggang Shen, and Shuiwang Ji. Deep adversarial learning for multi-modality missing data completion. In Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining , pages 1158–1166. ACM, 2019. [10] Ruiting Dai, Chenxi Li, Yandong Yan, Lisi Mo, Ke Qin, and Tao He. Unbiased missing-modality multimodal learning, 2024. Project page: https://md2n.github.io. [11] Yi-Lun Lee, Yi-Hsuan Tsai, Wei-Chen Chiu, and Chen-Yu Lee. Multimodal prompting with missing modalities for visual recognition. Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,pages 14943–14952, 2023. [12] Tao Jin, Xize Cheng, Linjun Li, Wang Lin, Ye Wang, and Zhou Zhao. Rethinking missing modality learning from a decoding perspective. In Proceedings of the 31st ACM International Conference on Multimedia , pages 1996–2004. ACM, 2023. 11 Unsupervised Learning for Missing Modalities in Multimodal Learning [13] Wenmeng Yu, Hua Xu, Ziqi Yuan, and Jiele Wu. Learning modality-specific representations with self-supervised multi-task learning for multimodal sentiment analysis. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 35, pages 10790–10797, 2021. [14] Sijie Li, Chen Chen, and Jungong Han. Simmlm: A simple framework for multi-modal learning with missing modality, oct 2024. Code available at https://github.com/LezJ/SimMLM. [15] Yang Wu, Zijie Lin, Yanyan Zhao, Bing Qin, and Li-Nan Zhu. A text-centered shared-private framework via cross-modal prediction for multimodal sentiment analysis. Findings of the Association for Computational Lin-guistics: ACL-IJCNLP 2021 , pages 4730–4738, 2021. [16] Yanping Fu, Zhiyuan Zhang, Ruidi Yang, and Cuiyou Yao. Hybrid cross-modal interaction learning for multi-modal sentiment analysis. Neurocomputing , 571:127201, 2024. [17] Jingwen Chen, Shuxiang Song, Yumei Tan, and Haiying Xia. Temsa: Text enhanced modal representation learning for multimodal sentiment analysis. Computer Vision and Image Understanding , 258:104391, 2025. [18] Ronghao Lin and Haifeng Hu. Dynamically shifting multimodal representations via hybrid-modal attention for multimodal sentiment analysis. IEEE Transactions on Multimedia , 26:2740–2750, 2024. [19] Tao Zhou, Jiuxin Cao, Xuelin Zhu, Bo Liu, and Shancang Li. Visual-textual sentiment analysis enhanced by hierarchical cross-modality interaction. IEEE Systems Journal , 15(3):4303–4313, 2021. [20] Huan Liu, Ke Li, Jianping Fan, Caixia Yan, Tao Qin, and Qinghua Zheng. Social image–text sentiment classi-fication with cross-modal consistency and knowledge distillation. IEEE Transactions on Affective Computing ,14(4):3332–3344, 2023. [21] Quanzeng You, Jiebo Luo, Hai Jin, and Jianchao Yang. Cross-modality consistent regression for joint visual-textual sentiment analysis of social multimedia. Proceedings of the Ninth ACM International Conference on Web Search and Data Mining , pages 13–22, 2016. [22] Jian Huang, Yanli Ji, Yang Yang, and Hengtao Shen. Cross-modality representation interactive learning for multimodal sentiment analysis. Proceedings of the 31st ACM International Conference on Multimedia , pages 1482–1490, 2023. [23] Sijie Li, Chen Chen, and Jungong Han. Simmlm: A simple framework for multi-modal learning with missing modality. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 24068–24077, 2025. [24] Zhuo Zhi, Ziquan Liu, Moe Elbadawi, Adam Daneshmend, Mine Orlu, Abdul Basit, Andreas Demosthenous, and Miguel Rodrigues. Borrowing treasures from neighbors: In-context learning for multimodal learning with missing modalities and data scarcity. arXiv preprint arXiv:2403.09428 , 2024. [25] Jinming Zhao, Ruichen Li, and Qin Jin. Missing modality imagination network for emotion recognition with uncertain missing modalities. Proceedings of the 59th Annual Meeting of the Association for Computational Lin-guistics and the 11th International Joint Conference on Natural Language Processing (Volume 1: Long Papers) ,pages 2608–2618, 2021. [26] Guangyin Bao, Qi Zhang, Duoqian Miao, Zixuan Gong, Liang Hu, Ke Liu, Yang Liu, and Chongyang Shi. Multimodal federated learning with missing modality via prototype mask and contrast. arXiv preprint arXiv:2312.13508 , 2023. [27] Huy Q Le, Chu Myaet Thwal, Yu Qiao, Ye Lin Tun, Minh NH Nguyen, Eui-Nam Huh, and Choong Seon Hong. Cross-modal prototype based multimodal federated learning under severely missing modality. Information Fusion , 113:103219, 2025. [28] Liwei Che, Jiaqi Wang, Xinyue Liu, and Fenglong Ma. Leveraging foundation models for multi-modal federated learning with incomplete modality, jun 2024. [29] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention is all you need. Advances in neural information processing systems , 30, 2017. [30] Chaohe Zhang, Xu Chu, Liantao Ma, Yinghao Zhu, Yasha Wang, Jiangtao Wang, and Junfeng Zhao. M3care: Learning with missing modalities in multimodal healthcare data. In Proceedings of the 28th ACM SIGKDD conference on knowledge discovery and data mining , pages 2418–2428, 2022. [31] Laurens Van der Maaten and Geoffrey Hinton. Visualizing data using t-sne. Journal of machine learning re-search , 9(11), 2008. 12
