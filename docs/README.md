@@ -6,53 +6,40 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-19
-- 运行时间：2026-06-19 21:45:22 UTC
+- 最新运行日期：2026-06-20
+- 运行时间：2026-06-20 21:30:20 UTC
 - 运行状态：成功
-- 本次总论文数：10
-- 精读区：0
-- 速读区：10
+- 本次总论文数：6
+- 精读区：2
+- 速读区：4
 
 ### 今日简报（AI）
-今日共速读10篇论文，聚焦零样本LLM病理提取、皮肤病变图Transformer及空间多组学整合三大方向。  
-最值得关注的是《Prompt, Plan, Extract》中零样本AI工作流用于肺部病理文本分析，以及《Geometry-Aware Superpixel Graph Transformer》的皮肤病变分类新方法。  
-建议普通读者优先了解零样本大模型在临床文本中的自动化潜力，这是无需标注数据的高效工具。
-- 详情：[/202606/19/README](/202606/19/README)
+今日推荐6篇论文，重点精读2篇高分研究，聚焦病理图像分析与空间转录组学。
+最值得关注的方向：血管空间分析工具VeSpA和基于转录组先验的H&E图像分子重建。
+建议优先阅读精读论文，探索组织学与分子数据整合的新方法。
+- 详情：[/202606/20/README](/202606/20/README)
 
 ### 精读区论文标签
-- 本次无精读推荐。
+1. [Vessel Spatial Analysis (VeSpA): a tool for whole slide image segmentation, morphometry, and QuPath extension.](/202606/20/biorxiv-10-64898-2026-06-15-732366-v1-vessel-spatial-analysis-vespa-a-tool-for-whole-slide-image-segmentation-morphometry-and-qupath-extension)  
+   标签：评分：9.0/10、query:cpath
+   evidence：全切片图像分割与形态测量工具
+2. [Morpho-FM: spatial molecular reconstruction from routine H&E histology using transcriptomic foundation-model priors](/202606/20/biorxiv-10-64898-2026-06-15-732498-v1-morpho-fm-spatial-molecular-reconstruction-from-routine-he-histology-using-transcriptomic-foundation-model-priors)  
+   标签：评分：9.0/10、query:cpath
+   evidence：使用基础模型从H&E全切片图像预测空间基因表达
 
 ### 速读区论文标签
-1. [Prompt, Plan, Extract: Zero-Shot Agentic LLMs Workflows for Lung Pathology Extraction from Clinical Narratives](/202606/19/2606.19852v1-prompt-plan-extract-zero-shot-agentic-llms-workflows-for-lung-pathology-extraction-from-clinical-narratives)  
+1. [Multimodal Concept Bottleneck Models](/202606/20/2606.19882v1-multimodal-concept-bottleneck-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：使用大语言模型作为基础模型进行病理报告信息抽取
-2. [Geometry-Aware Superpixel Graph Transformer with Metadata for Skin Lesion Classification](/202606/19/2606.20390v1-geometry-aware-superpixel-graph-transformer-with-metadata-for-skin-lesion-classification)  
+   evidence：多模态概念瓶颈模型扩展CLIP
+2. [Scalable Training of Spatially Grounded 2D Vision-Language Models for Radiology](/202606/20/2606.20477v1-scalable-training-of-spatially-grounded-2d-vision-language-models-for-radiology)  
    标签：评分：7.0/10、query:cpath
-   evidence：使用图Transformer和元数据进行皮肤癌诊断
-3. [Robust integration of weakly anchored spatial multi-omics](/202606/19/biorxiv-10-64898-2026-06-10-731246-v1-robust-integration-of-weakly-anchored-spatial-multi-omics)  
-   标签：评分：7.0/10、query:cpath
-   evidence：使用H&E图像作为多组学整合的锚点
-4. [Learning Task-Aware Sampling with Shared Saliency through Density-Equalizing Mappings](/202606/19/2606.12869v1-learning-task-aware-sampling-with-shared-saliency-through-density-equalizing-mappings)  
+   evidence：医学影像视觉语言模型的可扩展训练
+3. [Self-Questioning Vision-Language Models: Reinforcement Learning for Compositional Visual Reasoning](/202606/20/2606.15651v1-self-questioning-vision-language-models-reinforcement-learning-for-compositional-visual-reasoning)  
    标签：评分：6.0/10、query:cpath
-   evidence：针对病理变化医学图像的自适应采样方法
-5. [Beyond Scalar Distances: Semantic Attribute Gradients from Frozen MLLMs for Visual Embeddings](/202606/19/2606.15134v1-beyond-scalar-distances-semantic-attribute-gradients-from-frozen-mllms-for-visual-embeddings)  
+   evidence：自问答视觉语言模型用于组合推理
+4. [Sparse Autoencoders Reveal Interpretable Features in Single-Cell Foundation Models](/202606/20/biorxiv-10-1101-2025-10-22-681631-v3-sparse-autoencoders-reveal-interpretable-features-in-single-cell-foundation-models)  
    标签：评分：6.0/10、query:cpath
-   evidence：利用多模态大语言模型为视觉嵌入生成属性感知训练信号
-6. [Mutual Distillation of Dual-Foundation Models for Semi-Supervised PET/CT Segmentation](/202606/19/2606.15611v1-mutual-distillation-of-dual-foundation-models-for-semi-supervised-petct-segmentation)  
-   标签：评分：6.0/10、query:cpath
-   evidence：利用双基础模型进行半监督分割
-7. [Unsupervised Learning for Missing Modalities in Multimodal Learning](/202606/19/2606.15743v1-unsupervised-learning-for-missing-modalities-in-multimodal-learning)  
-   标签：评分：6.0/10、query:cpath
-   evidence：多模态学习中缺失模态处理
-8. [Task-Instructed Causal Routing of Vision Foundation Models for Multi-Task Learning](/202606/19/2606.15765v1-task-instructed-causal-routing-of-vision-foundation-models-for-multi-task-learning)  
-   标签：评分：6.0/10、query:cpath
-   evidence：通过任务指令协调多个视觉基础模型
-9. [HEad and neCK TumOR (HECKTOR) 2025: Benchmark of Segmentation, Diagnosis, and Prognosis in Multimodal PET/CT](/202606/19/2606.20143v1-head-and-neck-tumor-hecktor-2025-benchmark-of-segmentation-diagnosis-and-prognosis-in-multimodal-petct)  
-   标签：评分：6.0/10、query:cpath
-   evidence：头颈癌多模态PET/CT诊断与预后基准
-10. [Robust integration of weakly anchored spatial multi-omics](/202606/19/biorxiv-10-64898-2026-06-10-731246-v3-robust-integration-of-weakly-anchored-spatial-multi-omics)  
-   标签：评分：6.0/10、query:cpath
-   evidence：以H&E图像为锚点的空间多组学整合
+   evidence：单细胞基础模型的可解释性研究
 
 
 <div class="dpr-home-promo-card">
