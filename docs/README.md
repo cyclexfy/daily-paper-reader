@@ -6,46 +6,47 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-25
-- 运行时间：2026-06-25 22:14:59 UTC
+- 最新运行日期：2026-06-26
+- 运行时间：2026-06-26 20:33:56 UTC
 - 运行状态：成功
-- 本次总论文数：8
-- 精读区：3
-- 速读区：5
+- 本次总论文数：9
+- 精读区：2
+- 速读区：7
 
 ### 今日简报（AI）
-今日精选8篇医学AI论文，重点关注视觉语言模型与病理切片匹配技术。  
-最值得看的两篇高分论文：一是《Steering Vision-Language Models with Joint Sparse Autoencoders》探索模型调控；二是《CellDF》实现HE-IHC切片高质量细胞匹配。  
-建议优先精读这两篇，并速读《Brain-Adapter》中3D CT急性颅内病变诊断框架作为补充。
-- 详情：[/202606/25/README](/202606/25/README)
+今日推荐9篇医学图像分析论文，聚焦全切片图像索引检索与放射学视觉语言模型。精读研究证实去除冗余补丁可显著提升WSI检索可扩展性，而空间对齐的2D视觉语言模型训练方法有效改善放射学图文理解。建议优先精读这两项成果，并速读皮肤病变、肺结节分割及胃肠间质瘤多模态预测等应用研究。
+- 详情：[/202606/26/README](/202606/26/README)
 
 ### 精读区论文标签
-1. [Steering Vision-Language Models with Joint Sparse Autoencoders](/202606/25/2606.25657v1-steering-vision-language-models-with-joint-sparse-autoencoders)  
+1. [Reducing Redundancy in Whole-Slide Image Patching for Scalable Indexing and Retrieval](/202606/26/2606.26157v1-reducing-redundancy-in-whole-slide-image-patching-for-scalable-indexing-and-retrieval)  
    标签：评分：9.0/10、query:cpath
-   evidence：提出联合稀疏自编码器用于视觉-语言模型
-2. [CellDF: Quality-controlled cell matching for whole-slide HE-IHC label transfer](/202606/25/biorxiv-10-64898-2026-06-18-733058-v1-celldf-quality-controlled-cell-matching-for-whole-slide-he-ihc-label-transfer)  
-   标签：评分：9.0/10、query:cpath
-   evidence：全切片HE-IHC标签迁移与细胞匹配
-3. [C2RM-Seg: Causal Counterfactual Reasoning with Structural-Semantic Priors for Weakly Supervised Histopathological Tissue Segmentation](/202606/25/2606.25508v1-c2rm-seg-causal-counterfactual-reasoning-with-structural-semantic-priors-for-weakly-supervised-histopathological-tissue-segmentation)  
+   evidence：减少全切片图像补丁冗余以用于索引和检索
+2. [Scalable Training of Spatially Grounded 2D Vision-Language Models for Radiology](/202606/26/2606.20477v2-scalable-training-of-spatially-grounded-2d-vision-language-models-for-radiology)  
    标签：评分：8.0/10、query:cpath
-   evidence：弱监督组织病理组织分割
+   evidence：可扩展的医学影像视觉语言模型训练
 
 ### 速读区论文标签
-1. [Brain-Adapter: A Dual-Stream Vision-Language MIL Framework for Comprehensive 3D CT Diagnosis of Acute Intracranial Pathologies](/202606/25/2606.23494v1-brain-adapter-a-dual-stream-vision-language-mil-framework-for-comprehensive-3d-ct-diagnosis-of-acute-intracranial-pathologies)  
+1. [Geometry-Aware Superpixel Graph Transformer with Metadata for Skin Lesion Classification](/202606/26/2606.20390v2-geometry-aware-superpixel-graph-transformer-with-metadata-for-skin-lesion-classification)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉语言多实例学习框架用于3D CT诊断
-2. [MammoExpert: Benchmarking Chain-of-Thought Reasoning in Mammography Diagnosis](/202606/25/2606.21119v1-mammoexpert-benchmarking-chain-of-thought-reasoning-in-mammography-diagnosis)  
+   evidence：利用图变换器和元数据自动进行皮肤癌分类
+2. [Human and AI collaboration for pulmonary nodule segmentation](/202606/26/2606.22486v1-human-and-ai-collaboration-for-pulmonary-nodule-segmentation)  
+   标签：评分：7.0/10、query:cpath
+   evidence：肺结节分割用于癌症诊断
+3. [Cross-Attention Multimodal Learning for Predicting Response to Neoadjuvant Imatinib in Gastrointestinal Stromal Tumors: A Multicenter Retrospective Study](/202606/26/2606.25579v1-cross-attention-multimodal-learning-for-predicting-response-to-neoadjuvant-imatinib-in-gastrointestinal-stromal-tumors-a-multicenter-retrospective-study)  
+   标签：评分：7.0/10、query:cpath
+   evidence：跨注意力多模态学习整合CT和临床数据预测肿瘤反应
+4. [MEDLAYXPLAIN: Benchmarking the Expert-Lay Gap in Medical Vision-Language Models](/202606/26/2606.21194v1-medlayxplain-benchmarking-the-expert-lay-gap-in-medical-vision-language-models)  
    标签：评分：6.0/10、query:cpath
-   evidence：带有思维链推理标注的乳腺X线摄影数据集，用于乳腺癌检测
-3. [E-MRL: Cross-view Aligned Evidence-driven Multimodal Reinforcement Learning for Reliable 3D Tumor Analysis](/202606/25/2606.23888v1-e-mrl-cross-view-aligned-evidence-driven-multimodal-reinforcement-learning-for-reliable-3d-tumor-analysis)  
+   evidence：医学视觉语言模型基准测试，评估通俗语言生成
+5. [ABACUS: Adapting Unified Foundation Model for Bridging Image Count Understanding and Generation](/202606/26/2606.23835v1-abacus-adapting-unified-foundation-model-for-bridging-image-count-understanding-and-generation)  
    标签：评分：6.0/10、query:cpath
-   evidence：多模态强化学习；3D肿瘤分析；视觉语言模型
-4. [Proteomics-constrained deconvolution reveals spatial cell-type programs in tumours](/202606/25/biorxiv-10-64898-2026-06-01-729268-v2-proteomics-constrained-deconvolution-reveals-spatial-cell-type-programs-in-tumours)  
+   evidence：统一的视觉语言模型用于目标计数和生成
+6. [A Leakage-Aware Comparative Benchmark of Machine Learning, Deep Learning, and Transformer Models for Reliable Leukemia Detection](/202606/26/2606.24944v1-a-leakage-aware-comparative-benchmark-of-machine-learning-deep-learning-and-transformer-models-for-reliable-leukemia-detection)  
    标签：评分：6.0/10、query:cpath
-   evidence：利用蛋白质组学约束的空间转录组解卷积用于肿瘤分析
-5. [CellOS: Learning a World Model of Cellular State through Joint Embedding Prediction](/202606/25/biorxiv-10-64898-2026-06-18-733163-v2-cellos-learning-a-world-model-of-cellular-state-through-joint-embedding-prediction)  
+   evidence：从血涂片图像进行白血病检测
+7. [Revealing Mammographic Phenotypes in Deep Learning Breast Cancer Risk Models](/202606/26/2606.26431v1-revealing-mammographic-phenotypes-in-deep-learning-breast-cancer-risk-models)  
    标签：评分：6.0/10、query:cpath
-   evidence：提出一个基于转录组学的多视图细胞状态基础模型
+   evidence：基于深度学习的乳腺癌风险预测
 
 
 <div class="dpr-home-promo-card">
