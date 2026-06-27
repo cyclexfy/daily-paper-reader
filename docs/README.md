@@ -6,47 +6,35 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-26
-- 运行时间：2026-06-26 20:33:56 UTC
+- 最新运行日期：2026-06-27
+- 运行时间：2026-06-27 20:02:50 UTC
 - 运行状态：成功
-- 本次总论文数：9
-- 精读区：2
-- 速读区：7
+- 本次总论文数：5
+- 精读区：1
+- 速读区：4
 
 ### 今日简报（AI）
-今日推荐9篇医学图像分析论文，聚焦全切片图像索引检索与放射学视觉语言模型。精读研究证实去除冗余补丁可显著提升WSI检索可扩展性，而空间对齐的2D视觉语言模型训练方法有效改善放射学图文理解。建议优先精读这两项成果，并速读皮肤病变、肺结节分割及胃肠间质瘤多模态预测等应用研究。
-- 详情：[/202606/26/README](/202606/26/README)
+今日共处理5篇论文，精读1篇、速读4篇。最值得关注SPEAK在空间转录组学中的空间提示与专家知识对齐方法，以及HiMatch-AD的免训练医学异常检测。建议优先精读SPEAK，并关注疾病中心视觉语言预训练在3D CT上的应用。
+- 详情：[/202606/27/README](/202606/27/README)
 
 ### 精读区论文标签
-1. [Reducing Redundancy in Whole-Slide Image Patching for Scalable Indexing and Retrieval](/202606/26/2606.26157v1-reducing-redundancy-in-whole-slide-image-patching-for-scalable-indexing-and-retrieval)  
-   标签：评分：9.0/10、query:cpath
-   evidence：减少全切片图像补丁冗余以用于索引和检索
-2. [Scalable Training of Spatially Grounded 2D Vision-Language Models for Radiology](/202606/26/2606.20477v2-scalable-training-of-spatially-grounded-2d-vision-language-models-for-radiology)  
+1. [SPEAK: Spatial Prompting with Expert Aligned Knowledge for Tissue Domain Identification in Spatial Transcriptomics](/202606/27/biorxiv-10-64898-2026-06-22-733750-v1-speak-spatial-prompting-with-expert-aligned-knowledge-for-tissue-domain-identification-in-spatial-transcriptomics)  
    标签：评分：8.0/10、query:cpath
-   evidence：可扩展的医学影像视觉语言模型训练
+   evidence：利用大语言模型和组织学先验的空间转录组组织域识别
 
 ### 速读区论文标签
-1. [Geometry-Aware Superpixel Graph Transformer with Metadata for Skin Lesion Classification](/202606/26/2606.20390v2-geometry-aware-superpixel-graph-transformer-with-metadata-for-skin-lesion-classification)  
-   标签：评分：7.0/10、query:cpath
-   evidence：利用图变换器和元数据自动进行皮肤癌分类
-2. [Human and AI collaboration for pulmonary nodule segmentation](/202606/26/2606.22486v1-human-and-ai-collaboration-for-pulmonary-nodule-segmentation)  
-   标签：评分：7.0/10、query:cpath
-   evidence：肺结节分割用于癌症诊断
-3. [Cross-Attention Multimodal Learning for Predicting Response to Neoadjuvant Imatinib in Gastrointestinal Stromal Tumors: A Multicenter Retrospective Study](/202606/26/2606.25579v1-cross-attention-multimodal-learning-for-predicting-response-to-neoadjuvant-imatinib-in-gastrointestinal-stromal-tumors-a-multicenter-retrospective-study)  
-   标签：评分：7.0/10、query:cpath
-   evidence：跨注意力多模态学习整合CT和临床数据预测肿瘤反应
-4. [MEDLAYXPLAIN: Benchmarking the Expert-Lay Gap in Medical Vision-Language Models](/202606/26/2606.21194v1-medlayxplain-benchmarking-the-expert-lay-gap-in-medical-vision-language-models)  
+1. [HiMatch-AD: DINOv3-driven Hierarchical Matching for Training-free Medical Anomaly Detection](/202606/27/2606.22556v1-himatch-ad-dinov3-driven-hierarchical-matching-for-training-free-medical-anomaly-detection)  
    标签：评分：6.0/10、query:cpath
-   evidence：医学视觉语言模型基准测试，评估通俗语言生成
-5. [ABACUS: Adapting Unified Foundation Model for Bridging Image Count Understanding and Generation](/202606/26/2606.23835v1-abacus-adapting-unified-foundation-model-for-bridging-image-count-understanding-and-generation)  
+   evidence：使用DINOv3基础模型的无训练医学异常检测
+2. [Black-Box Continual Learning for Vision-Language Models](/202606/27/2606.22999v1-black-box-continual-learning-for-vision-language-models)  
    标签：评分：6.0/10、query:cpath
-   evidence：统一的视觉语言模型用于目标计数和生成
-6. [A Leakage-Aware Comparative Benchmark of Machine Learning, Deep Learning, and Transformer Models for Reliable Leukemia Detection](/202606/26/2606.24944v1-a-leakage-aware-comparative-benchmark-of-machine-learning-deep-learning-and-transformer-models-for-reliable-leukemia-detection)  
+   evidence：视觉语言模型的持续学习
+3. [Disease-Centric Vision-Language Pretraining with Hybrid Visual Encoding for 3D Computed Tomography](/202606/27/2606.25546v1-disease-centric-vision-language-pretraining-with-hybrid-visual-encoding-for-3d-computed-tomography)  
    标签：评分：6.0/10、query:cpath
-   evidence：从血涂片图像进行白血病检测
-7. [Revealing Mammographic Phenotypes in Deep Learning Breast Cancer Risk Models](/202606/26/2606.26431v1-revealing-mammographic-phenotypes-in-deep-learning-breast-cancer-risk-models)  
+   evidence：面向3D CT的疾病中心视觉语言预训练
+4. [EventHorizon: A Foundation Model for Clinical Flow Cytometry](/202606/27/biorxiv-10-64898-2026-06-18-733197-v1-eventhorizon-a-foundation-model-for-clinical-flow-cytometry)  
    标签：评分：6.0/10、query:cpath
-   evidence：基于深度学习的乳腺癌风险预测
+   evidence：用于临床流式细胞术的自监督基础模型
 
 
 <div class="dpr-home-promo-card">
