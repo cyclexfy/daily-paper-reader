@@ -6,47 +6,41 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-06-28
-- 运行时间：2026-06-28 21:20:47 UTC
+- 最新运行日期：2026-06-29
+- 运行时间：2026-06-29 21:42:44 UTC
 - 运行状态：成功
-- 本次总论文数：9
+- 本次总论文数：7
 - 精读区：2
-- 速读区：7
+- 速读区：5
 
 ### 今日简报（AI）
-今日聚焦9篇多模态与医学影像论文，精读两篇高分工作：语义-像素自对齐统一多模态模型SPAR与3D CT概念级对比学习Jolia。最值得关注的方向是多模态模型统一架构与3D医学影像预训练，尤其癌症检测偏差分析值得深挖。建议读者优先精读SPAR和Jolia，再速读BenchX的癌症检测偏差研究。
-- 详情：[/202606/28/README](/202606/28/README)
+今日阅读7篇论文，精读2篇，重点聚焦病理AI中的肿瘤评分与跨域筛查。最值得关注的是《Distribution-based deep multiple instance learning for tumor proportion scoring in NSCLC》（9.0分）提出的分布式多实例学习方法，以及《Two-Stage Cross-Domain Cervical Abnormality Screening with Cytopathological Image Synthesis and Knowledge Distillation》（8.0分）为解决数据域差异提供的两阶段知识蒸馏框架。建议普通读者优先关注这两个方向：病理片自动评分和跨域泛化筛查，实用性强且是临床AI落地的关键。
+- 详情：[/202606/29/README](/202606/29/README)
 
 ### 精读区论文标签
-1. [SPAR: Semantic-Pixel Self-Alignment and Adaptive Routing for Unified Multimodal Models](/202606/28/2606.23041v1-spar-semantic-pixel-self-alignment-and-adaptive-routing-for-unified-multimodal-models)  
+1. [Distribution-based deep multiple instance learning for tumor proportion scoring in NSCLC](/202606/29/2606.27579v1-distribution-based-deep-multiple-instance-learning-for-tumor-proportion-scoring-in-nsclc)  
+   标签：评分：9.0/10、query:cpath
+   evidence：基于深度多实例学习的非小细胞肺癌肿瘤比例评分
+2. [Two-Stage Cross-Domain Cervical Abnormality Screening with Cytopathological Image Synthesis and Knowledge Distillation](/202606/29/2606.27678v1-two-stage-cross-domain-cervical-abnormality-screening-with-cytopathological-image-synthesis-and-knowledge-distillation)  
    标签：评分：8.0/10、query:cpath
-   evidence：统一的多模态框架对齐语义和像素特征
-2. [Jolia: Concept-Level Vision-Language Alignment for 3D CT Contrastive Learning](/202606/28/2606.24570v1-jolia-concept-level-vision-language-alignment-for-3d-ct-contrastive-learning)  
-   标签：评分：8.0/10、query:cpath
-   evidence：用于3D CT医学基础模型的概念级视觉语言对齐
+   evidence：使用细胞病理图像合成和知识蒸馏进行宫颈异常筛查
 
 ### 速读区论文标签
-1. [Improving Reasoning in Vision-Language Models via Perception Verified Self-Training](/202606/28/2606.22158v2-improving-reasoning-in-vision-language-models-via-perception-verified-self-training)  
+1. [Jolia: Concept-Level Vision-Language Alignment for 3D CT Contrastive Learning](/202606/29/2606.24570v2-jolia-concept-level-vision-language-alignment-for-3d-ct-contrastive-learning)  
    标签：评分：7.0/10、query:cpath
-   evidence：通过自训练改进视觉语言模型推理
-2. [BenchX: Benchmarking AI Models for Cancer Detection and Localization with Demographic and Protocol Biases](/202606/28/2606.24883v1-benchx-benchmarking-ai-models-for-cancer-detection-and-localization-with-demographic-and-protocol-biases)  
+   evidence：用于3D医学影像的视觉-语言对比预训练
+2. [Text as Illumination: Spatial Contrastive Retinex Learning for Language-guided Medical Image Segmentation](/202606/29/2606.27794v1-text-as-illumination-spatial-contrastive-retinex-learning-for-language-guided-medical-image-segmentation)  
    标签：评分：7.0/10、query:cpath
-   evidence：在CT扫描上对AI癌症检测模型进行基准测试
-3. [Mask to Concept: Auto-Promptable SAM3 via Efficient Test-Time Concept Embedding Search for Few-Shot Annotation](/202606/28/2606.26711v1-mask-to-concept-auto-promptable-sam3-via-efficient-test-time-concept-embedding-search-for-few-shot-annotation)  
+   evidence：将文本嵌入作为语义光照用于医学图像分割
+3. [Can a Tissue-derived Progression Signature Accurately Predict Colorectal Cancer Stage Transitions in Blood?](/202606/29/biorxiv-10-64898-2026-06-23-734006-v1-can-a-tissue-derived-progression-signature-accurately-predict-colorectal-cancer-stage-transitions-in-blood)  
    标签：评分：7.0/10、query:cpath
-   evidence：将SAM3基础模型适应为自动可提示的医学标注工具
-4. [Ask, Solve, Generate: Self-Evolving Unified Multimodal Understanding and Generation via Self-Consistency Rewards](/202606/28/2606.27376v1-ask-solve-generate-self-evolving-unified-multimodal-understanding-and-generation-via-self-consistency-rewards)  
+   evidence：利用基因表达机器学习预测结直肠癌分期转变
+4. [Learning Perturbation Effects Through Contrastive Alignment of Multimodal Biological Embeddings](/202606/29/biorxiv-10-64898-2026-06-23-734145-v1-learning-perturbation-effects-through-contrastive-alignment-of-multimodal-biological-embeddings)  
    标签：评分：7.0/10、query:cpath
-   evidence：通过自一致性奖励实现自我进化的统一多模态模型
-5. [Intra-African Geographic Domain Shift in Wildlife Camera Trap Species Classification: A Comparative Study of Supervised and Zero-Shot Foundation Models](/202606/28/biorxiv-10-64898-2026-06-24-734283-v1-intra-african-geographic-domain-shift-in-wildlife-camera-trap-species-classification-a-comparative-study-of-supervised-and-zero-shot-foundation-models)  
-   标签：评分：7.0/10、query:cpath
-   evidence：使用基础模型进行野生动物分类及领域迁移评估的研究
-6. [PIGMENT: A deep learning framework for Porcine Immunohistochemistry seGMENTation](/202606/28/biorxiv-10-64898-2026-06-18-733245-v1-pigment-a-deep-learning-framework-for-porcine-immunohistochemistry-segmentation)  
+   evidence：提出CLIP风格的多模态学习，对齐转录组、文本和图像嵌入
+5. [Training-free Cross-domain Few-shot Segmentation via Robust Semantic Representation and Matching](/202606/29/2606.24297v1-training-free-cross-domain-few-shot-segmentation-via-robust-semantic-representation-and-matching)  
    标签：评分：6.0/10、query:cpath
-   evidence：深度学习方法用于免疫组化组织图像分割，适用于病理学
-7. [A multi-modal transcriptomic atlas reveals the cellular and spatial landscape of canine gastric cancer](/202606/28/biorxiv-10-64898-2026-06-19-732976-v1-a-multi-modal-transcriptomic-atlas-reveals-the-cellular-and-spatial-landscape-of-canine-gastric-cancer)  
-   标签：评分：6.0/10、query:cpath
-   evidence：多模态转录组图谱描述犬胃癌，与癌症诊断相关
+   evidence：利用视觉基础模型实现无训练跨域少样本分割
 
 
 <div class="dpr-home-promo-card">
