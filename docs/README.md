@@ -6,43 +6,53 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-01
-- 运行时间：2026-07-01 22:11:41 UTC
+- 最新运行日期：2026-07-02
+- 运行时间：2026-07-02 20:20:36 UTC
 - 运行状态：成功
-- 本次总论文数：7
+- 本次总论文数：11
 - 精读区：3
-- 速读区：4
+- 速读区：8
 
 ### 今日简报（AI）
-1) 今日精选7篇论文，精读两篇获得9.0高分，聚焦全切片图像分析与卵巢癌同源重组缺陷预测。  
-2) 最值得关注：TaxoMIL引入分层约束学习提升弱监督分析精度；卵巢癌HRD预测通过标签精炼及基础模型基准测试实现突破。  
-3) 推荐进一步探索APRIL-MedSeg模块化分割工具箱及RADIANT-PET融合大语言模型的病灶分割方法。
-- 详情：[/202607/01/README](/202607/01/README)
+今日聚焦病理AI领域，精读两篇先验引导方法。最值得关注先验引导的细胞检测与长尾病理报告生成。建议后续关注先验知识在去偏及多域泛化中的实际效果。
+- 详情：[/202607/02/README](/202607/02/README)
 
 ### 精读区论文标签
-1. [TaxoMIL: Taxonomy-Constrained Learning for Hierarchical Whole Slide Image Analysis](/202607/01/2606.31100v1-taxomil-taxonomy-constrained-learning-for-hierarchical-whole-slide-image-analysis)  
+1. [CellPrior-Net: Prior-Guided Nuclei Detection and Classification for H&E Whole-Slide Images](/202607/02/2607.00802v1-cellprior-net-prior-guided-nuclei-detection-and-classification-for-he-whole-slide-images)  
    标签：评分：9.0/10、query:cpath
-   evidence：基于分类约束的多示例学习用于层次化全切片分析
-2. [Homologous recombination deficiency prediction from whole slide images using label refinement and foundation-model benchmarking in ovarian cancer](/202607/01/biorxiv-10-64898-2026-06-25-734452-v1-homologous-recombination-deficiency-prediction-from-whole-slide-images-using-label-refinement-and-foundation-model-benchmarking-in-ovarian-cancer)  
-   标签：评分：9.0/10、query:cpath
-   evidence：利用标签细化和基础模型从全切片图像预测卵巢癌HRD
-3. [Latent-CURE for Breast Cancer Diagnosis](/202607/01/2606.29928v1-latent-cure-for-breast-cancer-diagnosis)  
+   evidence：H&E全切片图像中的细胞核检测与分类，用于计算病理学
+2. [Prior-Anchored Debiasing for Long-Tailed Multi-Organ Pathology Report Generation](/202607/02/2607.00499v1-prior-anchored-debiasing-for-long-tailed-multi-organ-pathology-report-generation)  
    标签：评分：8.0/10、query:cpath
-   evidence：利用多模态大模型和链式推理进行乳腺癌诊断
+   evidence：用于全切片图像病理报告生成的视觉-语言模型，并针对长尾器官分布进行去偏
+3. [AdaBoosting Text Prompts for Vision-Language Models](/202607/02/2607.00684v1-adaboosting-text-prompts-for-vision-language-models)  
+   标签：评分：8.0/10、query:cpath
+   evidence：通过AdaBoost启发式框架改进视觉语言模型提示
 
 ### 速读区论文标签
-1. [APRIL-MedSeg: A Modular Medical Image Segmentation Toolbox Embracing Modern Paradigms](/202607/01/2606.30577v2-april-medseg-a-modular-medical-image-segmentation-toolbox-embracing-modern-paradigms)  
+1. [Rank-Aware Hyperbolic Alignment for Vision-Language Dataset Distillation](/202607/02/2606.29464v1-rank-aware-hyperbolic-alignment-for-vision-language-dataset-distillation)  
    标签：评分：7.0/10、query:cpath
-   evidence：模块化医学分割工具箱，支持弱监督学习
-2. [Controllable Histopathology Image Synthesis with Training-free Structural Initialization and Textural Modulation](/202607/01/2606.27935v2-controllable-histopathology-image-synthesis-with-training-free-structural-initialization-and-textural-modulation)  
+   evidence：视觉语言模型的数据集蒸馏与双曲对齐
+2. [Enhancing Prostate Cancer Segmentation for Multi-Domain Generalization using a novel Parallel-Route Coherent Mixup Regularization Training](/202607/02/2607.00370v1-enhancing-prostate-cancer-segmentation-for-multi-domain-generalization-using-a-novel-parallel-route-coherent-mixup-regularization-training)  
+   标签：评分：7.0/10、query:cpath
+   evidence：前列腺癌分割及域泛化
+3. [ClinRAG-GRAPH: Clinical-prior Retrieval-Augmented Graph Model with Domain Adversarial Learning for Breast pCR Prediction](/202607/02/2607.00798v1-clinrag-graph-clinical-prior-retrieval-augmented-graph-model-with-domain-adversarial-learning-for-breast-pcr-prediction)  
+   标签：评分：7.0/10、query:cpath
+   evidence：利用临床、影像和活检数据的多模态预测
+4. [Foundation Models vs. Radiomics for Lung Computed Tomography: A Benchmark of Feature Extractors, Classification Heads, and Segmentation Choices](/202607/02/2607.01001v1-foundation-models-vs-radiomics-for-lung-computed-tomography-a-benchmark-of-feature-extractors-classification-heads-and-segmentation-choices)  
+   标签：评分：7.0/10、query:cpath
+   evidence：对肺癌表型分析中的基础模型进行基准测试
+5. [SpatialFuser: a unified framework for integrative analysis of unpaired spatial multi-omics data](/202607/02/biorxiv-10-1101-2025-09-14-676067-v3-spatialfuser-a-unified-framework-for-integrative-analysis-of-unpaired-spatial-multi-omics-data)  
+   标签：评分：7.0/10、query:cpath
+   evidence：用于非配对空间多组学数据整合的深度学习框架
+6. [MCD Stitcher: An open-source tool for whole-slide stitching and conversion of Imaging Mass Cytometry data](/202607/02/biorxiv-10-64898-2026-06-26-732348-v1-mcd-stitcher-an-open-source-tool-for-whole-slide-stitching-and-conversion-of-imaging-mass-cytometry-data)  
+   标签：评分：7.0/10、query:cpath
+   evidence：提供了用于成像质谱流式数据的全切片拼接工具
+7. [In Vitro Detection of Breast Cancer Cell Types Using Machine Learning-Assisted Spectral Fingerprinting of SWCNTs](/202607/02/biorxiv-10-64898-2026-06-30-735651-v1-in-vitro-detection-of-breast-cancer-cell-types-using-machine-learning-assisted-spectral-fingerprinting-of-swcnts)  
+   标签：评分：7.0/10、query:cpath
+   evidence：利用机器学习与光谱指纹检测乳腺癌细胞
+8. [LeVLJEPA: End-to-End Vision-Language Pretraining Without Negatives](/202607/02/2607.00784v1-levljepa-end-to-end-vision-language-pretraining-without-negatives)  
    标签：评分：6.0/10、query:cpath
-   evidence：可控制组织病理学图像合成用于数据增强
-3. [RADIANT-PET: Reasoning-Augmented PET/CT Lesion Segmentation with Large Language Models and Reinforcement Learning](/202607/01/2606.28392v1-radiant-pet-reasoning-augmented-petct-lesion-segmentation-with-large-language-models-and-reinforcement-learning)  
-   标签：评分：6.0/10、query:cpath
-   evidence：使用大语言模型推理进行PET/CT病变分割
-4. [Thinking Before Retrieving: Robust Zero-Shot Composed Image Retrieval via Strategic Planning and Self-Criticism](/202607/01/2606.31222v1-thinking-before-retrieving-robust-zero-shot-composed-image-retrieval-via-strategic-planning-and-self-criticism)  
-   标签：评分：6.0/10、query:cpath
-   evidence：使用视觉语言模型进行零样本组合图像检索
+   evidence：无需负样本的端到端视觉语言预训练方法
 
 
 <div class="dpr-home-promo-card">
