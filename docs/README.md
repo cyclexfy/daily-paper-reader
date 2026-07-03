@@ -6,53 +6,38 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-02
-- 运行时间：2026-07-02 20:20:36 UTC
+- 最新运行日期：2026-07-03
+- 运行时间：2026-07-03 21:36:44 UTC
 - 运行状态：成功
-- 本次总论文数：11
-- 精读区：3
-- 速读区：8
+- 本次总论文数：6
+- 精读区：2
+- 速读区：4
 
 ### 今日简报（AI）
-今日聚焦病理AI领域，精读两篇先验引导方法。最值得关注先验引导的细胞检测与长尾病理报告生成。建议后续关注先验知识在去偏及多域泛化中的实际效果。
-- 详情：[/202607/02/README](/202607/02/README)
+今日精读2篇、速读4篇，共6篇医学影像与病理分析论文。最值得关注的是长尾多器官病理报告生成的去偏方法（9.0分）和强化学习辅助微超声前列腺癌检测（8.0分）。建议优先精读这两篇高评分论文，重点关注去偏策略与强化学习框架在临床诊断中的实用价值。
+- 详情：[/202607/03/README](/202607/03/README)
 
 ### 精读区论文标签
-1. [CellPrior-Net: Prior-Guided Nuclei Detection and Classification for H&E Whole-Slide Images](/202607/02/2607.00802v1-cellprior-net-prior-guided-nuclei-detection-and-classification-for-he-whole-slide-images)  
+1. [Prior-Anchored Debiasing for Long-Tailed Multi-Organ Pathology Report Generation](/202607/03/2607.00499v2-prior-anchored-debiasing-for-long-tailed-multi-organ-pathology-report-generation)  
    标签：评分：9.0/10、query:cpath
-   evidence：H&E全切片图像中的细胞核检测与分类，用于计算病理学
-2. [Prior-Anchored Debiasing for Long-Tailed Multi-Organ Pathology Report Generation](/202607/02/2607.00499v1-prior-anchored-debiasing-for-long-tailed-multi-organ-pathology-report-generation)  
+   evidence：用于全切片图像多器官病理报告生成的视觉-语言模型
+2. [Learning Where to Look: A Reinforcement Learning Framework for Robust Micro-Ultrasound Prostate Cancer Detection](/202607/03/2606.30951v1-learning-where-to-look-a-reinforcement-learning-framework-for-robust-micro-ultrasound-prostate-cancer-detection)  
    标签：评分：8.0/10、query:cpath
-   evidence：用于全切片图像病理报告生成的视觉-语言模型，并针对长尾器官分布进行去偏
-3. [AdaBoosting Text Prompts for Vision-Language Models](/202607/02/2607.00684v1-adaboosting-text-prompts-for-vision-language-models)  
-   标签：评分：8.0/10、query:cpath
-   evidence：通过AdaBoost启发式框架改进视觉语言模型提示
+   evidence：基于强化学习的前列腺癌检测
 
 ### 速读区论文标签
-1. [Rank-Aware Hyperbolic Alignment for Vision-Language Dataset Distillation](/202607/02/2606.29464v1-rank-aware-hyperbolic-alignment-for-vision-language-dataset-distillation)  
+1. [HistoSeg++: Delving deeper with attention and multiscale feature fusion for biomarker segmentation](/202607/03/2607.01675v1-histoseg-delving-deeper-with-attention-and-multiscale-feature-fusion-for-biomarker-segmentation)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉语言模型的数据集蒸馏与双曲对齐
-2. [Enhancing Prostate Cancer Segmentation for Multi-Domain Generalization using a novel Parallel-Route Coherent Mixup Regularization Training](/202607/02/2607.00370v1-enhancing-prostate-cancer-segmentation-for-multi-domain-generalization-using-a-novel-parallel-route-coherent-mixup-regularization-training)  
+   evidence：使用注意力和多尺度融合的生物标志物分割方法
+2. [Quaternion Nondecimated Wavelet Descriptors for Multiclass Breast Histology Classification](/202607/03/2607.02133v1-quaternion-nondecimated-wavelet-descriptors-for-multiclass-breast-histology-classification)  
    标签：评分：7.0/10、query:cpath
-   evidence：前列腺癌分割及域泛化
-3. [ClinRAG-GRAPH: Clinical-prior Retrieval-Augmented Graph Model with Domain Adversarial Learning for Breast pCR Prediction](/202607/02/2607.00798v1-clinrag-graph-clinical-prior-retrieval-augmented-graph-model-with-domain-adversarial-learning-for-breast-pcr-prediction)  
+   evidence：使用小波描述符进行乳腺组织学分类
+3. [Phenotypic inference from sparse tumor genomes informs an explainable deep-learning model for cancer prognosis](/202607/03/biorxiv-10-64898-2026-06-26-734894-v1-phenotypic-inference-from-sparse-tumor-genomes-informs-an-explainable-deep-learning-model-for-cancer-prognosis)  
    标签：评分：7.0/10、query:cpath
-   evidence：利用临床、影像和活检数据的多模态预测
-4. [Foundation Models vs. Radiomics for Lung Computed Tomography: A Benchmark of Feature Extractors, Classification Heads, and Segmentation Choices](/202607/02/2607.01001v1-foundation-models-vs-radiomics-for-lung-computed-tomography-a-benchmark-of-feature-extractors-classification-heads-and-segmentation-choices)  
-   标签：评分：7.0/10、query:cpath
-   evidence：对肺癌表型分析中的基础模型进行基准测试
-5. [SpatialFuser: a unified framework for integrative analysis of unpaired spatial multi-omics data](/202607/02/biorxiv-10-1101-2025-09-14-676067-v3-spatialfuser-a-unified-framework-for-integrative-analysis-of-unpaired-spatial-multi-omics-data)  
-   标签：评分：7.0/10、query:cpath
-   evidence：用于非配对空间多组学数据整合的深度学习框架
-6. [MCD Stitcher: An open-source tool for whole-slide stitching and conversion of Imaging Mass Cytometry data](/202607/02/biorxiv-10-64898-2026-06-26-732348-v1-mcd-stitcher-an-open-source-tool-for-whole-slide-stitching-and-conversion-of-imaging-mass-cytometry-data)  
-   标签：评分：7.0/10、query:cpath
-   evidence：提供了用于成像质谱流式数据的全切片拼接工具
-7. [In Vitro Detection of Breast Cancer Cell Types Using Machine Learning-Assisted Spectral Fingerprinting of SWCNTs](/202607/02/biorxiv-10-64898-2026-06-30-735651-v1-in-vitro-detection-of-breast-cancer-cell-types-using-machine-learning-assisted-spectral-fingerprinting-of-swcnts)  
-   标签：评分：7.0/10、query:cpath
-   evidence：利用机器学习与光谱指纹检测乳腺癌细胞
-8. [LeVLJEPA: End-to-End Vision-Language Pretraining Without Negatives](/202607/02/2607.00784v1-levljepa-end-to-end-vision-language-pretraining-without-negatives)  
+   evidence：利用基因组数据进行深度学习癌症预后预测
+4. [Multimodal Fusion for Fine-Grained Classification of Breast Fibroadenoma and Phyllodes Tumors](/202607/03/2607.02091v1-multimodal-fusion-for-fine-grained-classification-of-breast-fibroadenoma-and-phyllodes-tumors)  
    标签：评分：6.0/10、query:cpath
-   evidence：无需负样本的端到端视觉语言预训练方法
+   evidence：融合超声、临床和文本数据的多模态方法用于乳腺肿瘤分类
 
 
 <div class="dpr-home-promo-card">
