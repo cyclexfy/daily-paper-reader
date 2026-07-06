@@ -1,0 +1,603 @@
+Title: SPICE: A Robust Computational Framework for Identifying Copy Number Variations in Spatial Transcriptomics
+
+URL Source: https://www.biorxiv.org/content/10.64898/2026.06.30.735508v1.full.pdf
+
+Published Time: Mon, 06 Jul 2026 21:29:12 GMT
+
+Number of Pages: 39
+
+Markdown Content:
+1
+
+SPICE: A Robust Computational Framework for Identifying Copy Number Variations in Spatial Transcriptomics 
+
+Kalins Banerjee 1, Robert C. Langefeld 2, Evan T. Keller 1, & Xiang Zhou 3 * 
+
+> 1
+
+Department of Urology, Single Cell Spatial Analysis Program and Biointerfaces Institute, University of Michigan Medical School, Ann Arbor, MI, USA.  
+
+> 2
+
+Department of Biostatistics, University of Michigan, Ann Arbor, MI, USA.  
+
+> 3
+
+Department of Statistics and Data Science, Yale University, New Haven, CT, USA. *To whom correspondence should be addressed. Email: xiang.zhou.xz735@yale.edu Abstract Copy number variation (CNV), which alters the number of genomic segments, is a major driver of intratumor heterogeneity, characterized by spatially organized and genetically distinct cell populations. Recent advances in spatially resolved transcriptomic (SRT) technologies, which profile gene expression across thousands of spatially indexed tissue locations, offer a powerful opportunity to reconstruct the CNV architecture and dissect the spatial organization of cancer subclones. Here, we introduce SPICE (sp atial inference of CNV events), a probabilistic method for identifying somatic CNVs and allele-specific copy number (ASCN) profiles from SRT data. A key feature of SPICE is its ability to integrate multiple complementary information available in SRT data, including gene expression, spatial coordinates, and heterozygous SNPs inferred from transcriptomic reads, to substantially enhance the accuracy and power of 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+2CNV detection. Using datasets generated across different SRT platforms, we first assess the reliability of SNPs derived from SRT data to ensure robust downstream inference. We then demonstrate that SPICE effectively integrates these modalities to deliver accurate and spatially coherent reconstruction of CNV landscapes and subclonal architecture, while maintaining excellent control of false discoveries. Together, SPICE provides a robust and effective solution for dissecting genomic heterogeneity in SRT studies of cancer. 
+
+# 1 Introduction 
+
+Intratumor heterogeneity is a fundamental feature of cancer, and is largely driven by genomic alterations including CNVs which are duplications and deletions of genomic regions [1]. CNVs promote cancer development and progression through amplification of oncogenes and deletion or inactivation of tumor suppressor genes [2]. In cancer tissues, CNVs can either be inherited or arise somatically [3], and become spatially segregated [2,4], giving rise to genetically distinct subclones that often differ in proliferation capacity, metastatic potential, and resistance to chemotherapy [2]. Characterizing the CNV architecture of cancer cells and mapping the spatial distribution of the associated subclones are therefore essential for understanding tumor evolution and heterogeneity, microenvironmental interactions, as well as treatment response. Single-cell DNA sequencing (sc-DNAseq) remains the gold-standard for resolving per-cell CNV profiles [5], while emerging spatial DNA sequencing technologies provide direct insights into the spatial organization of cancer subclones [6]. However, sc-DNAseq is costly and often suffers from limited coverage, and spatial DNAseq technologies are still under active development. In contrast, a wide variety of RNAseq data, including bulk, single cell, and spatial, have become abundant and relatively straightforward to produce, which have motivated computational strategies to infer CNVs from these data. Such computational approaches rely on the assumption that genes located on amplified or deleted genomic segments often exhibit concordant shifts in expression levels relative to normal diploid genomic regions [4]. Building on this assumption, several methods [7–16] have been developed to infer CNVs from bulk or sc-RNAseq data. 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+3Despite this progress, two major challenges remain. First, most existing RNAseq-based CNV inference methods were developed for bulk or sc-RNAseq studies, and are not suitable for the emerging SRT technologies. SRT platforms now enable transcriptomic profiling on tissues with spatial localization information , offering an unprecedented opportunity to map CNVs within their native spatial context . Although sc-RNAseq-based CNV inference methods are frequently used on SRT data [17–20], these methods do not account for the spatial information that is critical for characterizing heterogeneity and organization of cancer subclones [21]. Additionally, SRT data are, in general, more sparse as compared to sc-RNAseq data, especially with regard to SNP coverage, and thus contain relatively limited information for CNV inference [9,21,22]. Second, using only gene expression for CNV inference can be suboptimal. Specifically, gene expression is influenced by multiple regulatory mechanisms beyond CNV (e.g., regulation by transcription factors, DNA methylation, and chromatin modification), introducing substantial noise into CNV inference [13]. While matched DNA sequencing data are often limited, RNAseq data alone contain allelic information from SNPs, which can inform associated changes in allele-specific copy number (ASCN) i.e., number of copies of the haplotype chromosomes. Consequently, incorporating RNAseq-derived SNP information can, in principle, provide complementary evidence to gene expression shifts, and can substantially improve the resolution and robustness of CNV inference. Although several recent tools [21–25] have been proposed for inferring CNVs from SRT data, they remain limited: many rely solely on gene expression, are designed for a specific SRT platform, or require matched DNA sequencing data. For example, SlideCNA [21] is designed specifically for Slide-seq gene expression data [26], whereas CalicoST [22] is designed primarily for Visium. Recently developed Clonalscope [25] does not explicitly model spatial dependencies among neighboring locations and requires allelic information from matched DNA sequencing data which most SRT experiments do not collect. As SRT technologies rapidly advance, there is an urgent need for a unified and platform-agnostic framework that can jointly model gene expression, spatial structure, and allelic information to robustly identify CNVs across diverse SRT platforms. To address the above critical limitations, we present SPICE, a probabilistic framework, to identify somatic CNVs originating in cancer cells and associated ASCNs from SRT dataset. SPICE is compatible with SRT 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+4platforms of different resolutions which include multi-cellular resolution platforms such as Visium and near-single-cell resolution platforms such as Slide-seqV2 [27]. SPICE first identifies spatial domains within the malignant region, providing a spatially aware foundation for subclone detection. Then, it employs a Gaussian mixture model (GMM) for gene expression, a Binomial mixture model for allele counts at heterozygous SNPs, and finally, a data-adaptive joint likelihood framework integrating results from the two modalities. By bridging the gap between transcriptomic profiles and underlying DNA alterations in a spatially aware framework, SPICE offers an efficient and robust tool for dissecting the complex CNV architecture of SRT datasets from cancer tissues. 
+
+# 2 Results 
+
+2.1 Overview 
+
+We propose SPICE, a probabilistic method that integrates gene expression and allele counts from SNPs to identify genomic regions with CNVs in cancer tissues using SRT datasets. The proposed method is applicable for both spot level (multi-cellular resolution) and single-cell level (cellular resolution) SRT datasets. SPICE is designed to estimate CNVs by contrasting data from locations within the cancer region, often referred to as the malignant region, against those in the control region, referred to as the benign region. It takes four inputs: the standard UMI count matrix (gene x location), allele-count matrices for a set of heterozygous SNPs capturing read counts on reference and alternative alleles (SNP x location), coordinates of the tissue locations, and annotations that categorizes each location as either benign or malignant. In the first step, we identify potential subclones within the malignant region using location-wise annotations and spatial domains derived with SpatialPCA, a spatially aware dimension reduction tool [28] (Figure 1, upper panel). SpatialPCA extracts a low dimensional representation (spatial principal components or spatial PCs) of the SRT dataset while preserving biological signal and spatial correlation structure. The spatial domains are then identified by clustering the tissue locations based on their spatial PCs. As a result, the tissue is segmented into multiple spatially organized and functionally distinct structures or microenvironments each of which is characterized by a distinct transcriptomic profile. We define a 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+5subclone as the collection of malignant locations belonging to a particular spatial domain. Thus, the malignant region of the tissue either can be represented by a single spatial domain (a single subclone) or can get divided into multiple subclones displaying transcriptomic heterogeneity. In the subsequent steps, we focus on identifying CNVs from each subclone using gene expression and allele counts from SNPs (Figure 1, lower panel). For the gene expression component of our framework, we first normalize the gene expression data and perform baseline adjustment (section 4.1) so that any remaining relatively large-scale variations, observed in the malignant section of the tissue can be, on an average, attributed to the underlying CNVs. Then, a GMM is used for each subclone to represent the likelihood of the data under different CNV states (section 4.2). For the SNP component of our framework, we first obtain allele counts for a set of common, germline, bi-allelic, and heterozygous SNPs (section 4.3). We then aggregate the allele counts across each subclone as well as across the benign locations, to account for sparsity in coverage. Next, a mixture of Binomial distributions is used to model the allele counts and identify CNV clusters for each subclone based on ASCNs (section 4.4). Here, we follow the intuition that, for any allele, the proportion of reads mapped to a subclone among the reads mapped either to the benign region or to the subclone is, on an average, an increasing function of the number of copies of the underlying halpotype chromosomes in the subclone [29]. Finally, we combine results from the two modalities in a joint likelihood and obtain posterior probabilities for CNV assignments along the genome (section 4.5). 
+
+2.2 Assessment of SNPs derived from SRT datasets 
+
+For our research, we considered a human colon cancer dataset [6], generated using Slide-seqV2 [27], and two human cutaneous squamous cell carcinoma (cSCC) datasets [30], generated using the Visium platform (Additional details). Specifically, we considered cSCC datasets of patient 4 and patient 6 from the original study [30], following earlier publications [24,31]. We first investigated the extent to which germline SNPs could be recovered from SRT datasets. For ground truth, we obtained germline SNPs from matched single-cell whole-genome sequencing (scWGS) data associated with the colon cancer study and from matched whole-exome sequencing (WES) data associated with the cSCC study (section 4.6). We 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+6used bcftools [32] for scWGS data and Strelka2 [33] for WES data. The resulting variants which were also present in a panel of common SNPs (minor allele frequency > 0.05) from phase 3 of the 1000 Genomes Project were designated as germline (Additional details, Supplementary Figure 3) [34]. We referred this panel as ‘known SNPs’ for convenience. We considered Strelka2, bcftools, and cellsnp-lite [35], three widely used variant-callers in sc-RNAseq studies [9,10,36], to obtain germline SNPs from SRT samples (section 4.6). To the best of our knowledge, the existing studies had used cellsnp-lite to obtain SNPs from SRT datasets [9,22]. We first focused on the homozygous SNPs for evaluation (Figure 2 C & G). For this purpose, we compared SNPs detected as homozygous in a SRT sample with the homozygous SNPs identified from the corresponding benchmark dataset. We found that the average recall was only about 5% (range: 3.6-9.3%), whereas the precision levels varied greatly among the variant callers (range: 20.1-83.4%). For every dataset, cellsnp-lite achieved the best recall and the best F1 score, while Strelka2 had the best precision. Cellsnp-lite had relatively poor precision (avg. P= 21%), and the results from cellsnp-lite were quite similar whether all the locations or only the benign locations were used as input (section 4.6). Next, we evaluated the quality of heterozygous SNPs (Figure 2 C-E, G). All three variant-callers achieved more than 90% precision (range: 90.2-99.1%), while the highest attained recall was only 5% (range: 1.4-5%). Clearly, a small proportion of germline heterozygous SNPs were recovered, likely due to the low RNA sequencing coverage from SRT platforms, but the identified SNPs were extremely rich in true positives. Among the three variant callers, bcftools had the best precision, while cellsnp-lite had the highest recall and the highest F1 score. Furthermore, bcftools identified the least number of heterozygous SNPs (avg. count=219), while cellsnp-lite had the highest number of calls (avg. count=642). Cellsnp-lite produced identical results regardless of whether all the locations or only the benign locations were used. The relatively high precision laid the foundation for incorporating heterozygous SNPs towards detecting CNVs from SRT datasets. In addition, given that cellsnp-lite achieved the best F1 scores and readily provided location-level allele counts (SNP x location matrix), we used it with all the tissue locations in our workflow. While precision, recall, and F1 score were used to assess location-level matches within each genotype class, the concordance rate was used to examine all the location-level matches with respect to allele-level match 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+7and genotype-level match (Figure 2 F). Strelka2 had the best concordance rate (avg. C=88.5%). For cellsnp-lite, the approach involving only benign locations provided better results as compared to the approach involving all the locations (avg. C=84% vs 74.5%). We conducted two additional quality assessment studies. First, we examined the sensitivity of the findings with respect to the usage of the panel of known SNPs (Supplementary Figure 4). We found that the known SNPs acted as a filter in the final selection step, significantly improving the signal (true detection) to noise ratio. Specifically, we noticed a 44% drop in precision, on an average, for heterozygous SNPs without considering the panel. Second, we evaluated the quality of phased heterozygous SNPs, that were derived with a population based phasing technique [37], and had been used for CNV detection from sc-RNAseq or SRT datasets [9,10,22] (Supplementary Figure 3). The results revealed that the average precision was only 47.3%, while average recall was 3.5%. The details of the two studies can be found in the Supplementary Notes. 
+
+2.3 Application to human colon cancer Slide-seqV2 dataset 
+
+We benchmarked SPICE against established tools, designed for detecting CNVs from scRNA-seq and SRT data, including Numbat [9], CopyKAT [7], inferCNV [8], and CalicoST [22]. We further assessed the efficacy of the proposed joint inference framework by evaluating SPICE against its components: SPICE_GE (GMM applied to gene expression; section 4.2) and SPICE_SNP (Binomial mixture model applied to SNPs; section 4.4). For ground truth, we considered CNVs that were detected in matched DNAseq datasets (scWGS/WES), and were reported either in the original study or in published literature (section 4.7). We assessed SPICE’s performance, starting with the colon cancer Slide-seqV2 dataset. SPICE achieved the best F1 score (Figure 3 E; F1=72.73%, P=66.67%, R=80%), followed by the F1 scores of Numbat and CopyKAT which were at least 60% lower (F1=28.57%, 20.09% respectively). We could not apply CalicoST as the Slide-seqV2 dataset was too sparse for the pipeline (https://github.com/raphael-group/CalicoST/issues/18) .SPICE detected the least number of false CNVs by achieving the best precision. Numbat had the second-best precision (P=50%), while precisions of other methods were less than 30%. In terms of retrieving true CNVs, inferCNV had the best performance (R=90%). But it had the poorest precision (P=11.54%) which led the F1 score to be almost 72% lower than 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+8the best. We further compared the accurate CNV calls of SPICE with those of Numbat and CopyKAT, the two best competing methods. It turned out that all the true detections of Numbat and CopyKAT (amplifications on 8q, 20p and 20q) were identified by SPICE. Additionally, SPICE had several unique recoveries (deletions on 15q, 18p and 18q; amplifications on 1q and 7p). Next, we considered the two CNV classes (deletion and amplification) separately to examine the robustness of the performances. SPICE was able to achieve the best F1 scores in both classes (Figure 3 F-G). It retrieved around 83% amplifications with 83% precision. The second best F1 score in this class belonged to CopyKAT (F1=60%). Interestingly, Numbat did not make any false amplification calls, while inferCNV retrieved all the amplifications. But Numbat's recall and inferCNV’s precision were relatively poor. On the other hand, only SPICE and inferCNV were able to identify true deletions. While both achieved 75% recall, SPICE outperformed inferCNV with a substantially higher precision (P= 50% vs. 7.69%) that ultimately provided it with the best F1 score within the deletion class. We next evaluated the efficacy of SPICE’s joint modelling framework by examining the performances of its components. SPICE_GE had a much higher recall than SPICE_SNP (R= 80% vs. 30%), while the latter achieved perfect precision (P=100%). SPICE efficiently integrated the CNV-signals from the two modalities (Supplementary Figure 5 A-B). First, it preserved all the true detections of its components. Second, SPICE rectified multiple false detections (e.g., chromosomes 1, 4, 5, 7q, 10p, 12q, and 19) of SPICE_GE without making additional false detections. Consequently, SPICE was able to outperform its components. SPICE can further characterize the diversity within the malignant region by identifying subclones along with the corresponding clonal (shared) and subclonal (subclone-specific) CNVs. In this dataset, SPICE identified two spatially segregated subclones (Figure 3 D), of almost equal size (47% and 53% of locations respectively). SPICE revealed the subclonal nature of multiple amplifications. To illustrate, subclone 1 was characterized by amplification on chromosome 20p, while subclone 2 was characterized by the co-occurrence of amplifications on chromosomes 1q and 7p (Supplementary Figure 5 A). Similar subclonal amplifications from two subclones were also reported in the original study (Fig.3e of [6]). SPICE also accurately identified multiple CNVs shared by the subclones 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+9(deletions on 15q, 18p, and 18q; amplification on 8q). It missed the subclonal nature of a single CNV (20q amplification) among its accurate calls. We further analyzed the matched scWGS dataset and found that SPICE accurately estimated ASCNs for several of its true CNV calls (e.g., one copy amplification on 1q, 7p, 20p, and 20q; detailed in Supplementary Notes). As a next step, we performed differential expression analysis between the two subclones to examine changes in gene expression within the inferred subclonal CNVs. We identified multiple upregulated genes, having well-established roles in colorectal cancer (CRC) biology, from the subclonally amplified regions (Figure 3 I-L, Supplementary Figure 5 C-H). Examples from subclone 2 included upregulated expression of HOXA13, SCIN, SELENBP1, LGR6, PLA2G4A, LEFTY1, and GPA33. HOXA13 (7p), a prognostic biomarker for CRC, reportedly facilitates metastasis by transactivating ATP-citrate lyase and insulin-like growth factor 1 receptor [38]. SCIN (7p) is known for its elevated expression in CRC patients with synchronous liver metastasis and a poor prognosis [1]. LGR6 (1q) plays a tumor -promoting role in CRC development, and its elevated expression has been associated with tumor differentiation [39]. On the other hand, the aggressiveness of CRC reportedly increases with decreased SELENBP1 (1q) expression [40]. PLA2G4A (1q) is also noteworthy given its sidedness-dependent prognostic association- higher expression correlating with improved overall survival in left-sided CRC but poorer prognosis in right-sided CRC [41]. GPA33 (1q) has been recognized for its heterogeneous expression in CRC with antigen loss at the infiltrative tumor edge [42]. Finally, LEFTY1 (1q) is a robust biomarker for tumor-initiating cells in colonic tissues [43]. Conversely, among the DE genes upregulated in subclone 1, RALGAPA2 and NOP56 were located on chromosome 20p, a segment exhibiting amplification in this subclone. Higher expression of NOP56 has been associated with adverse outcome in overall survival of patients with advanced colon cancer [44], while RALGAPA2 has been found upregulated in sporadic CRC and in normal colon as compared to colitis-associated cancer [45]. To gain further insights of the identified subclones, we performed gene set enrichment analysis (GSEA) of the differentially expressed (DE) genes using the Hallmark gene sets linked to specific biological pathways [46] (Figure 3 H). We found that subclone 1 was enriched in multiple pathways including epithelial mesenchymal transition, coagulation, myogenesis, complement system, hypoxia, ultraviolet 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+10 response (down), and KRAS activation (up). Meanwhile, subclone 2 was enriched in pathways of peroxisome and fatty acid metabolism. Notably, genes supporting xenobiotic metabolism and allograft rejection were upregulated in both subclones. 
+
+2.4 Application to human squamous cell carcinoma Visium datasets 
+
+In this section, we present results from the two Visium datasets, starting with patient 6. SPICE demonstrated outperformance by achieving the best F1 score (Figure 4 E; F1=48%, P=85.7%, R=33.3%). Among the competing methods, inferCNV, Numbat, and CopyKAT had similar F1 scores (range= 35.71-37.68%). SPICE achieved the best precision which was almost 54% higher than the next-best precision of Numbat (P=55.56%). SPICE had the second-best recall while inferCNV had the best recall at the cost of poorest precision (P=25.49%; R=72.22%). We next compared the methods by considering amplifications and deletions separately (Figure 4 F-G). SPICE identified amplifications with the best F1 score and the best precision (F1=66.7%, P=83.3%), while Numbat was the best competitor in these two criteria. Although inferCNV achieved the best recall, its precision was the poorest. On the other hand, methods relying solely on gene expression, such as CopyKAT and inferCNV, outperformed within the deletion class. It turned out that methods incorporating the SNP modality were extremely conservative in identifying deletions. For instance, SPICE made a single correct deletion call (13q) without inferring any false deletions (F1=20%). We further investigated the relatively weak recall of SPICE in identifying deletions by examining the performances of its components (Supplementary Figure 6 E-F). SPICE_GE outperformed SPICE_SNP by a great margin (F1= 77.78% vs. 28.58%), whereas SPICE_SNP, demonstrating perfect precision, identified three amplifications (1p, 3q, and 20q). It turned out that, SPICE was unable to preserve multiple true deletions (3p, 4q, 10q, 21q) along with some true amplifications (8q, 14q, 17q) identified by SPICE_GE. Still, it benefited from the perfect precision of SPICE_SNP as it overturned many false detections from SPICE_GE (deletions on 5p; amplifications on 11p and 16p). Overall, SPICE demonstrated robustness by smoothing out the contrasting performances of its components and produced superior results. 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+11 We next investigated whether the CNVs were spread across the malignant region or prevalent within some subclones. SPICE partitioned the malignant region into two subclones (Figure 4 C-D), where subclone 1 had only 226 locations and existed primarily along the boundary of the malignant region. Interestingly, SPICE did not detect any CNVs in this subclone. Thus, all the detections of SPICE belonged to subclone 2. We further validated the corresponding ASCNs by analyzing the matched WES dataset. SPICE was accurate in predicting one copy amplification with most of its accurate amplification calls (Supplementary Notes). Next, we performed DE analysis between the two subclones to compare gene expression patterns with a particular focus on the CNV harboring regions successfully traced by SPICE (Figure 4 H, Supplementary Figure 7). Among the DE genes mapped to regions harboring amplification in subclone 2, PCYT1A (3q; upregulated), has been highlighted as a candidate gene in squamous cell carcinoma (SCC) biology, including reports of tumor-suppressive effects in lung SCC and head and neck SCC, where higher PCYT1A expression correlates with improved survival [46,47]. Another example involved upregulation of ARRDC1(9q). Published evidence suggests context-dependent roles for ARRDC1, including reported downregulation with tumor-suppressive activity in clear cell renal cell carcinoma [48] and upregulation in hepatocellular carcinoma [49]. Conversely, POSTN (13q) showed reduced expression in subclone 2, consistent with the observed 13q deletion. In cSCC, POSTN has been reported to be highly expressed in both malignant and stromal compartments [47]. Besides, elevated expression of POSTN is associated with poor prognosis in many cancers including cSCC [47,48]. GSEA analysis with the Hallmark gene sets linked to specific biological pathways further found that subclone 1 was enriched in pathways related to epithelial mesenchymal transition, allograft rejection, myogenesis, KRAS activation (up), and IL-6/JAK/STAT3 signaling (Figure 4 I). On the other hand, subclone 2 was enriched in pathways of KRAS activation (down), adipogenesis, and TNFA signaling via NF-kB. Next, we focus on findings from the Visium dataset of patient 4 where SPICE had the best performance as it accurately estimated all chromosome arms to have ASCN of (1,1) (Supplementary Figure 8). Here, the SNP modality had a substantial impact in reducing the number of false detections to zero as SPICE_SNP had no false detections while SPICE_GE had 10 false calls. Besides, the malignant locations belonged to a single spatial domain. Among the competing methods, CopyKAT had a 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+12 single false call (amplification on 18q), while Numbat and CalicoST had two false calls each (Numbat: deletion on 1q and 5q; CalicoST: copy number neutral loss of heterozygosity on 1q and deletion on 5q). Surprisingly, inferCNV identified 47 CNV-harboring segments, spanning the entire autosome. Notice that, inferCNV had the poorest precision also in the other real data applications. Finally, it is worth highlighting that SPICE's integration framework is flexible in assigning more weightage to a specific modality. Accordingly, preference to a particular modality based on prior knowledge can be easily incorporated. For instance, the two Visium datasets we analyzed had, on an average, twice the number genes on each chromosome arm than the colon cancer Slide-seqV2 dataset (avg. gene count= 363 vs. 740; Supplementary Figure 1 A-B). Besides, the average total UMI count and the average number of genes expressed at each location were also higher for the Visium samples (Supplementary Figure 1 E-G). On the other hand, the average total read count per heterozygous SNP was lower on each arm for the Visium dataset of patient 6, reflecting lower confidence on the SNP modality (Supplementary Figure 2 B). We utilized this observation by assigning 25% additional weightage to SPICE’s gene expression component ( 𝑤 =0.75; section 4.5) for the Visium datasets. As a result, there was a substantial boost in SPICE's ability to retrieve true CNVs from the patient 6 dataset at a minor compromise in precision (F1= 60%, P=75%, R= 50%). Specifically, SPICE was able to identify two additional deletions (3p and 5q) and one additional amplification (8q) in subclone 2, further enhancing its superiority (Supplementary Figures 6G & 10). At the same time, the superior result of zero CNV calls from the patient 4 dataset remained unaffected (Supplementary Figure 11). We additionally conducted an extensive sensitivity analysis with respect to the weighting strategy and demonstrated SPICE’s robust performance across all the real datasets considered (Supplementary Notes, Supplementary Figures 9-11). 
+
+# 3 Discussion 
+
+We introduced SPICE, a probabilistic framework designed to identify somatic CNVs from SRT sample of cancer tissues. A key strength of SPICE is its compatibility and robust performance across different spatial resolutions. The efficacy of SPICE was elucidated through its application to real-world datasets from two commercialized SRT platforms: Visium Spatial 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+13 Gene Expression by 10x Genomics, a platform having multi-cellular resolution, and Slide-seqV2, a near-single-cell resolution platform, commercialized as Curio Seeker. A significant contribution of our research also included the systematic assessment of germline SNPs derived from SRT datasets. To our knowledge, this represented the first such evaluation, revealing a substantially high signal-to-noise ratio in heterozygous SNPs. Even though we encountered poor recalls, the high precision levels provided a strong foundation for using heterozygous SNPs to identify CNVs and infer the associated ASCNs. SPICE’s flexible joint likelihood framework efficiently integrated gene expression and allele counts to provide superior performance while ensuring excellent protection against false detections. The GMM, applied to gene expression, exhibited an edge in retrieving true CNVs, whereas the Binomial mixture model, designed for heterozygous SNPs, primarily served as a safeguard against false detections. SPICE efficiently modelled this complementary relationship to demonstrate robust performance. Addressing the intrinsic challenges of SRT data, such as high sparsity or zero inflation, was a primary focus in our development. We observed significant sparsity in both gene expression (locations with zero total UMI; avg.= 97%, range=72-99%; Supplementary Figure 1) and in heterozygous SNP data (locations with zero total allele count; avg.= 99.5%, range=80-100%; Supplementary Figure 2). We accounted for sparsity in two ways. First, we focused on relatively large scale CNVs by considering chromosome arms as analysis unit. Second, we aggregated sparse allele counts within each subclone and within the benign region for the Binomial mixture model. Additionally, we emphasize the importance of expert-guided annotations in our framework. SPICE requires annotated benign and malignant locations as inputs. This requirement is often fulfilled by pathologists examining the H&E images associated with SRT experiments. Existing CNV detection pipelines can separate benign and malignant locations using different approaches that lack extensive benchmarking. Besides, a SRT location can be composed of multiple cells (e.g., 1-10 cells for Visium), and SRT data, collected along the boundary of the malignant region, are often composed of a mixture of malignant and benign cells. These locations can introduce errors into the analysis, providing unreliable biological conclusions. In fact, identifying malignant region from muti-cellular SRT data is a separate area of research [49]. Thus, we preferred annotations provided by a pathologist, often available along with the published dataset. Otherwise, marker gene expression, deconvolution 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+14 tools, which have been comprehensively benchmarked [50], or external pipelines [49] might be used for annotation. Methodologically, SPICE leverages SpatialPCA-derived spatial domains and annotated malignant locations to identify subclones. The spatial domains segment the tissue into multiple spatially organized and functionally distinct structures having unique transcriptomic profiles. When restricted within the malignant region, these distinct transcriptomic profiles of the spatial domains can reflect the underlying CNV profiles. Our approach of identifying subclones accounts for the spatial correlation structure of the tissue- a feature that is often ignored by existing pipelines. Since SpatialPCA has been recognized as a top-performing tool for spatial domain detection in terms of accuracy and robustness [51], its integration into our framework ensures that subclone identification is both accurate and biologically grounded. Besides, any efficient and robust spatial domain detection tools [51] can be easily incorporated into the proposed framework. Despite the capabilities, SPICE has multiple areas for future expansion. Currently optimized for a single tissue slice of an SRT experiment, the framework could be extended to incorporate multiple slices or to modalities other than SRT. Considering the high sparsity of SRT datasets, integration with features extracted from the accompanying H&E images, or integration with matched sc-RNAseq datasets, have the potential to amplify the underlying CNV signals. Finally, SPICE is designed for SRT platforms compatible for variant calling. For instance, allele counts cannot be derived from imaging based or probe-based platforms such as Xenium, FFPE compatible Visium or Visium HD. Although the gene expression component of SPICE can be applied to these datasets, such an application would carry higher risk of false detections. In conclusion, SPICE represents a robust, resolution independent, and spatially aware method for characterizing the CNV architecture of SRT datasets. We expect that the two modalities used in SPICE would complement each other in providing robust results across a wide range of datasets through the proposed joint inference framework. 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+15 
+
+# 4 Methods 
+
+4.1 Preprocessing of gene expression data 
+
+The UMI count matrix (gene x location) was subjected to multiple preprocessing steps prior to the analysis. Initially, cycle genes, HLA genes, non-autosomal genes, and mitochondria genes were left out, following standard practice [7]. Next, genes expressed in fewer than 5 locations, or with total UMI count less than 100, or that displayed extreme variability (more details below) were not considered. Finally, locations with total UMI count less than 100 were filtered out. In order to account for variation in sequencing depths, the UMI counts were then scaled so that the total UMI count of each location became equal to the median of the location-wise total UMIs. Subsequently, log transformation was applied using a pseudo count of 1. A standard preprocessing step for identification of CNVs from RNA-seq data is to smooth out gene-level variations by considering a group of neighboring genes as unit of analysis instead of individual genes [23,52]. We followed a similar procedure to construct a matrix (bin x location) of normalized expression by computing successive averages over bins, comprised of 100 neighboring genes, along the autosomes. In order to create a baseline for each bin, we then computed the corresponding average normalized expression over the set of benign locations. Finally, the baseline expression of each bin was subtracted from its normalized expression at each malignant location, and the log transformation was inverted by exponentiation [8,23]. We noticed certain characteristic differences among the gene expression (UMI count) datasets generated using different platforms (e.g., Visium, Slide-seqV2). Such characteristics included proportion of genes expressed at each location, total UMI count from each location, and variation in gene expression across locations (Supplementary Figure 1). Accordingly, the preprocessing pipeline included certain steps that were specific to the data generating platform. In particular, we used the 95 th and 99 th percentiles of gene-wise variances for Visium and Slide-seqV2 data respectively as thresholds to identify genes with extreme variation. 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+16 
+
+4.2 Gaussian mixture model for gene expression data 
+
+Let there be 𝑛 many malignant locations 𝑛 (") of which belong to subclone 𝑘 . For any bin 𝑔 located on chromosome arm 𝑟 , let 𝒁 $ 
+
+> %
+
+denote the resulting vector with elements representing baseline adjusted and normalized expressions of malignant locations. Henceforth, we refer the elements of 𝒁 $ 
+
+> %
+
+as normalized expressions for simplicity. Let 𝒁 $
+
+> %(")
+
+be a sub-vector of 𝒁 $ 
+
+> %
+
+having elements representing locations from subclone 𝑘 .Our objective from SRT gene expression data is to estimate the most likely CNV state of each chromosome arm in the cancer region. The CNV state of any region in the genome (e.g., a chromosome arm) is characterized by the underlying number of parental halpotype chromosomes, and the corresponding total chromosome count is defined as the total copy number of that region. There are three major CNV states, namely deletion, copy number neutral, and amplification, where deletion refers to a state having total copy number less than 2, copy number neutral refers to a state having 2 as total copy number, and any state with total copy number greater than 2 is considered as an amplification state. A diploid normal human genome possesses a single copy of each of the two parental haplotype chromosomes. Consequently, the total copy number of any region in a diploid normal human genome is 2. On the other hand, each of the two haplotype chromosomes underlying any CNV-affected region on a cancer genome either gets deleted or amplified (i.e., duplicated) by at least one copy. Furthermore, if a genomic region harbors a CNV during cancer development, the CNV can either be prevalent across the entire malignant region (i.e., clonal CNV) or be limited to only a subsection of the malignant region (i.e., subclonal CNV). As a result, a CNV affected cancer genome can be uniquely partitioned within each subclone into multiple genomic regions where each region can be assigned to one of the three major CNV states. Notice that, a copy number neutral state indicates that the underlying region either has not been affected by any CNVs or has undergone one copy deletion along with one copy amplification (i.e., copy number neutral loss of heterozygosity). Even though RNAseq gene expression data can be used to separate genomic regions having different total copy numbers, it cannot distinguish among the different configurations generating same total copy number (e.g., the two configurations generating copy number neutral state). Considering the high sparsity level in typical SRT gene expression datasets, we limit our gene expression-based CNV detection to the three 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+17 major states. In other words, we assume that the underlying signal might not be rich (or dense) enough to distinguish between two copy deletions and a single copy deletion, or between a single copy amplification and various multi-copy amplifications. Due to the same reason, we have focused on estimating relatively large scale CNVs at the chromosome arm level. Accordingly, let 𝑠 % 
+
+> (")
+
+denote the true CNV state of chromosome arm 𝑟 
+
+within subclone 𝑘 . For ease of presentation, we denote the three CNV states by integers (1: deletion, 2: copy number neutral, 3: amplification). We model the conditional distribution of 𝒁 $
+
+> %(")
+
+given the underlying CNV state 𝑠 % 
+
+> (")
+
+as a mixture of three multivariate Normal distributions while applying a hierarchical prior on 𝑠 %
+
+> (")
+
+. Specifically, 
+
+𝒁 $
+
+> %(")
+
+|𝑠 % 
+
+> (")
+
+= 𝑗 ~ MVN (𝜇 &(")𝟏 '(") , 𝜃 ((")
+
+𝐼 '(") ); 𝑗 ∈ {1,2,3},
+
+𝑠 %
+
+> (")
+
+?
+
+p(") ∼ Categorical L
+
+p)("),
+
+p(("),
+
+p*(")M, and 
+
+p(") ∼ Dirichlet L
+
+a)("),
+
+a(("),
+
+a*(")M
+
+(1) 
+
+Here, 𝟏 '(") is a vector of 𝑛 (") many ones, 𝐼 '(") is an identity matrix of order 
+
+𝑛 (") , 𝜃 ((")
+
+is the subclone specific variance component, and 𝜇 &(") is the subclone specific expected normalized expression of a bin harboring CNV state 𝑗 . Since, the normalized expressions are expected to be directly proportional to the underlying total copy numbers on an average, we get 
+
+𝜇 )(") < 𝜇 ((") < 𝜇 *(") . In practice, we have fixed L
+
+a)(") ,
+
+a((") ,
+
+a*(") M as (0.05, 0.99, 0.05), which assigns a high prior belief for a region to remain copy number neutral. This is consistent with the fact that most regions, in general, are not expected to have undergone any CNVs. Besides, as shown in results (sections 2.3-2.4), such a stringent assignment has provided SPICE with substantial protection against false detections. We have estimated the parameters S𝜇 )(") , 𝜇 ((") , 𝜇 *(") , 𝜃 ((")
+
+T using the Expectation-Maximization (EM) algorithm. Further details on parameter estimation are provided in the Supplementary Notes. We denote the results obtained from this GMM as SPICE_GE. 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+18 
+
+4.3 Preprocessing of SNP data 
+
+We followed an existing approach [9] to obtain a set of germline, bi-allelic, autosomal, and heterozygous SNPs. Specifically, we used cellsnp-lite [35], a tool for genotyping bi-allelic SNPs, with a panel of known common SNPs (minor allele frequency > 0.05) from the 1000 Genomes Project (Additional details). As a result, we obtained a matrix (SNP x location) of alternative allele counts, representing the number of reads mapped to the alternative alleles, and another matrix of the same dimension having total counts i.e., total number of reads mapped to the reference and alternative alleles. Then, we applied a few quality control steps. First, we only considered SNPs with positive total count over the set of benign locations. Then, we eliminated SNPs with excessively high total counts using the 99 th 
+
+percentile of the SNP-wise total counts as threshold. Locations with zero total count combining all SNPs were also eliminated. Finally, SNPs with proportion of alternative allele counts within the range of [0.10, 0.90] over the set of benign locations were identified as germline heterozygous [9]. 
+
+4.4 Binomial mixture model for SNPs 
+
+Let the two alleles at each heterozygous SNP be denoted as 𝐴 and 𝐵 ,and the two halpotype chromosomes be labelled as 𝑎 and 𝑏 . We define, 
+
+𝑋 + 
+
+> (")
+
+= (𝑋 +
+
+> ,(")
+
+, 𝑋 +
+
+> -(")
+
+), as allele counts at heterozygous SNP 𝑡 from locations in subclone 𝑘 . Additionally, let 𝑌 + = (𝑌 +,, 𝑌 +-), be allele counts at the same heterozygous SNP 𝑡 from locations in the benign region. Next, for each allele, we define the total counts combining locations from subclone 𝑘 and the benign region as 𝑛 + 
+
+> (")
+
+= (𝑛 +
+
+> ,(")
+
+, 𝑛 +
+
+> -(")
+
+), where 𝑛 +
+
+> ,(")
+
+= (𝑋 +
+
+> ,(")
+
++ 𝑌 +,) and 
+
+𝑛 +
+
+> -(")
+
+= (𝑋 +
+
+> -(")
+
++ 𝑌 +-). The phasing information i.e., whether a specific allele is located on chromosome 𝑎 or chromosome 𝑏 , remains usually unknown. Let 𝐼 + be a latent indicator that equals 1 if allele 𝐴 is situated on chromosome 𝑎 and equals 0 if allele 𝐴 is situated on chromosome 𝑏 . Since, Mendel's law of equal segregation allows the allele to have an equal chance to be located on any one of the two haplotype chromosomes, we have the prior probability 𝑃 [𝐼 + = 1] = 0.5 [29]. Besides, the value of 𝐼 +
+
+remains same across all the cells. Haplotype-specific copy number or allele-specific copy number (ASCN) of any genomic region is defined as the number of copies of the underlying haplotype chromosomes. A diploid normal human genome 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+19 possesses a single copy of each of the two haplotype chromosomes. Consequently, the ASCN for any genomic region can be represented as (1,1). On the other hand, CNVs divide the cancer genome into several contiguous genomic regions that are characterized by the underlying ASCNs. For example, a single copy from both arm 1p and arm 2p might undergo deletion, while both the copies of arm 1q might remain intact. In this case, the ASCNs of the three contiguous arms (1p, 1q, and 2p) can be represented as (0,1), (1,1) and (0,1) respectively. As any somatic CNV can either be prevalent across the entire malignant region or be limited to only a subsection of the malignant region, the ASCNs of a CNV-affected cancer genome can be represented by piece-wise constants within each subclone. Let ℎ% 
+
+> (")
+
+be a variable denoting the ASCN of genomic region 𝑟 (e.g., a chromosome arm) within subclone 𝑘 , and let 𝑐 (") = S𝑐 .(") 
+
+, 𝑐 /(") 
+
+T denote an observed value of ℎ%
+
+> (")
+
+, where 𝑐 .(") 
+
+and 𝑐 /(") 
+
+respectively represent the number of copies of chromosomes 𝑎 and 𝑏 underlying that region within subclone 𝑘 . Additionally, for any CNV affected region, we denote the haplotype chromosome with lesser number of copies as chromosome 
+
+𝑎 . Thus, 𝑐 (") = (0,1) represents deletion of chromosome 𝑎 , whereas 
+
+𝑐 (") = (1,1) represents a region that has not undergone any CNVs. Now, for each heterozygous SNP 𝑡 in region 𝑟 , we use a pair of Binomial distributions to model the allele counts from subclone 𝑘 𝑋 +
+
+> (")
+
+, conditional on the combined allele counts 𝑛 +
+
+> (")
+
+, the phasing indicator 𝐼 +, and the underlying ASCN ℎ%
+
+> (")
+
+. Specifically, 
+
+𝑋 ! 
+
+> (#)
+
+|( ℎ% 
+
+> (#)
+
+= 𝑐 (#), 𝐼 ! = 1, 𝑛 ! 
+
+> (#)
+
+) ~ 𝐵𝑖𝑛 (𝑥 !
+
+> &(")
+
+; 𝑛 !
+
+> &(")
+
+, 𝑝 '$(") ) 𝐵𝑖𝑛 (𝑥 !
+
+> ((")
+
+; 𝑛 !
+
+> ((")
+
+, 𝑝 '%(") ), and 
+
+𝑋 ! 
+
+> (#)
+
+|(ℎ% 
+
+> (#)
+
+= 𝑐 (#), 𝐼 ! = 0, 𝑛 ! 
+
+> (#)
+
+) ~ 𝐵𝑖𝑛 (𝑥 !
+
+> &(")
+
+; 𝑛 !
+
+> &(")
+
+, 𝑝 '%(") ) 𝐵𝑖𝑛 (𝑥 !
+
+> ((")
+
+; 𝑛 !
+
+> ((")
+
+, 𝑝 '$(") ) (2) Here, the notation 𝐵𝑖𝑛 (𝑥 ; 𝑛 , 𝑝 ) denotes a Binomial distribution with mean 
+
+𝑛𝑝 , and 𝑥 is an observation of the underlying random variable. As the copy number of a haplotype chromosome underlying any region of the cancer genome increases (or decreases), if we consider reads mapped to an allele from that region and reads mapped to the same allele from a matched normal diploid genome, the proportion of the former over the total is expected to increase (or decrease) on an average. In other words, the Binomial parameter 𝑝 0(.) can be expected to behave like an increasing function of the corresponding ASCN 𝑐 (.) . Besides, modelling the conditional 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+20 distribution of the allele counts from malignant locations given the allele counts combining malignant and benign locations allows us to internally control for various experimental influences. Similar modelling approaches have been used earlier in the context of inferring ASCNs from whole genome sequencing data [29] and whole-exome sequencing data [53]. Since we model each subclone separately, we drop the superscript (𝑘 )
+
+henceforth for ease of notation. Then, the joint distribution of SNPs can be written as ∏ ∏ 𝑓(𝑋 +|𝑛 +)+:+∈ 4&% where 
+
+𝑓 (𝑋 +| 𝑛 +) = k k   
+
+> )
+> 5670∈8
+
+𝑓 (𝑋 +| ℎ% = 𝑐 , 𝐼 + = 𝑖 , 𝑛 +) 𝑃 [ℎ% = 𝑐 , 𝐼 + = 𝑖 , |𝑛 +]
+
+= k k 𝑓 (𝑋 +|ℎ% = 𝑐 , 𝐼 + = 𝑖 , 𝑛 +)
+
+> )
+> 567
+
+𝑃 [ℎ% = 𝑐 ] 𝑃 [𝐼 + = 𝑖 ] 
+
+> 0∈8
+
+(3) Here, 𝑊 % denotes the set of heterozygous SNPs in region 𝑟 , 𝐶 denotes the set of ASCNs, and the distribution 𝑓 (𝑋 +|ℎ % = 𝑐, 𝐼 + = 𝑖, 𝑛 +) has been specified in (2). Considering the ASCNs that are both likely to be inferred from RNA-seq experiments, and have been selected in existing literature, we have specified 𝐶 as { (0,0), (0,1), (1,1), (0,2), (1,2), (1,3), (2,2)} [9]. Similar to a recent study [54], our modelling approach treats each chromosome arm independently while inferring the underlying ASCNs. Besides, we have considered the chromosome arms as genomic regions considering the sparse SNP coverage of typical SRT datasets. We have used an EM algorithm to estimate the Binomial parameters ( 𝑝 7, 𝑝 ),𝑝 (,𝑝 *), and the corresponding details are provided in the Supplementary Notes. We denote the results obtained from this Binomial mixture model as SPICE_SNP. 
+
+4.5 Joint inference from gene expression and SNPs 
+
+The GMM, described in section 4.2, can identify the most likely CNV state (deletion, copy number neutral, amplification). However, it cannot provide further information regarding the underlying ASCNs. In addition, it might be difficult to distinguish among the deletion and amplification levels that result in different total copy numbers (e.g., two copy deletions, one copy deletion, one copy amplification, two copy amplifications etc.) due to the relatively high sparsity in SRT gene expression datasets. On the other hand, the Binomial mixture model, described in section 4.4, can provide the 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+21 most likely copy number configurations at the haplotype level. However, its performance may be compromised by the sparse SNP coverage in SRT datasets. Therefore, we propose SPICE, a likelihood-based framework, that efficiently integrates results from the two modalities, to provide accurate and robust results across a wide variety of SRT datasets. Our objective is to assign an ASCN 𝑐 7 to each chromosome arm, such that, 𝑐 7
+
+maximizes the posterior assignment probability conditional on two data modalities. Mathematically, 
+
+𝑐 7 = 𝑎𝑟𝑔 𝑚𝑎𝑥 
+
+> 0∈8
+
+𝑃 oℎ % = 𝑐? {𝒁 $ 
+
+> %
+
+}, {(𝑋 +, 𝑛 +): 𝑡 ∈ 𝑊 %} q. 
+
+Now, if we assign a fractional weight of 𝑤 ∈ (0,1) to the gene expression component, the objective function takes the following form.        
+
+> 𝑐 &=𝑎𝑟𝑔 𝑚𝑎𝑥
+> '∈)
+> A 𝑤 𝑙𝑜𝑔 E𝑓G{𝒁 *
+> +}K ℎ += 𝑐MN + (1 − 𝑤)R 𝑙𝑜𝑔 G𝑓({𝑋 ,: 𝑡 ∈ 𝑊 +}|ℎ += 𝑐, {𝑛 ,: 𝑡 ∈ 𝑊 +})M + 𝑙𝑜𝑔(𝑃[ℎ += 𝑐])[\
+
+Derivation of the objective function along with the computational details are provided in Supplementary Notes. Unless stated otherwise, we set 𝑤 =
+
+0.50 , assigning equal weightage to both modalities. Finally, CNV states are assigned to chromosome arms based on posterior probabilities. Specifically, we first obtain the most likely ASCN ( 𝑐 7), and then convert it to the corresponding CNV state. For instance, configurations such as (1,2), (2,2), and (1,3) are classified as amplifications, while (0,0) and (0,1) are classified as deletions. 
+
+4.6 Assessment of SRT SNPs 
+
+The motivation for considering SNPs to identify CNVs is well established. Even though it appears intuitive that incorporating SNPs into the CNV-analysis of SRT data would be beneficial, a critical first step involves assessing the quality of the SNPs. Although multiple studies have assessed the quality of SNPs obtained from sc-RNAseq [20,21], to the best of our knowledge, there exists no such study aimed at SRT data. In line with our objective, we investigated the extent to which germline SNPs could be recovered from SRT datasets. Besides, it was imperative to quantify the signal-to-noise ratio in the derived SNP-set. 
+
+For the colon cancer study, we treated germline SNPs obtained from the scWGS data as ground truth to assess the quality of those obtained from the matched Slide-seqV2 data. We used bcftools [32] for variant 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+22 calling from scWGS, and restricted the calls to lie within the exonic regions of the genome (Additional details). The variants which were also present in a panel of common SNPs (minor allele frequency > 0.05) from phase 3 of the 1000 Genomes Project were designated as germline (Additional details, Supplementary Figure 3) [34]. We have referred this panel of SNPs as ‘known SNPs’ in this article for convenience. For the cSCC study, we analyzed samples from patient 4 and patient 6, following earlier publications [24,31]. The study also included WES data from the tumor and the adjacent normal skin. We obtained germline variants from the matched WES of normal skin using Strelka2 (Additional details) [33,55]. Then, variants, present also in the panel of known SNPs, were considered as ground truth while assessing the quality of germline SNPs obtained from the corresponding Visium samples (Supplementary Figure 3). In order to obtain germline SNPs from SRT samples, we selected widely used variant-callers from sc-RNAseq studies [9,10,36]. Specifically, we considered Strelka2, bcftools, and cellsnp-lite [35] (Additional details, (Supplementary Figure 3). It is worth noting that, to the best of our knowledge, cellsnp-lite is the only variant caller that had been used to obtain SNPs from SRT datasets without any quality-assessment [9,22]. Since, cellsnp-lite had the convenience of extracting location-level allele counts from a single bam file , we examined two approaches involving cellsnp-lite to obtain germline SNPs. In the first approach, we used the original SRT bam file as input. Then, SNPs with proportion of alternative allele counts within the range of [0.10, 0.90] over the set of benign locations were identified as germline heterozygous [9]. In the second approach, we used a subsetted bam file, retaining only the benign locations, as input. The criterion for identifying heterozygous SNPs remained unchanged. Unless mentioned otherwise, results from cellsnp-lite would refer to the first approach involving all the tissue locations. As opposed to cellsnp-lite, Strelka2 and bcftools did not readily provide the location-level allele counts from a single bam file. Thus, we used the bam file, having only benign locations, as input. We identified heterozygous variants for these two pipelines based on their default genotyping. The variant calls from SRT data were restricted within the exonic regions of the genome for fair assessment (Additional details). Lastly, we selected variants, present also in the panel of known SNPs, as candidates. Although only heterozygous SNPs were used in SPICE, we investigated the quality of germline homozygous SNPs for the purpose of completeness. We characterized a SNP by its location in the genome, and used precision (P), recall (R), F1 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+23 score, and concordance rate (C) as evaluation criteria. A true detection referred to a SNP that had been detected both in a SRT dataset and in the corresponding benchmark dataset. Precision measured the percentage of true detections among the SNPs called from a SRT sample, recall measured the percentage of true detections among the SNPs called from a benchmark dataset, and F1 score summarized precision and recall through the harmonic mean. Finally, the concordance rate measured the percentage of true detections where the alleles (reference and alternative) and the genotype (heterozygous/ homozygous) got matched. 
+
+4.7 Evaluation of SPICE 
+
+The colon cancer study [6] used matched slide-DNA-seq data to identify CNVs which were further validated based on matched scWGS data. The study reported four deletions (15p, 15q, 18p, and 18q) and six amplifications (1q, 7p, 7q, 8q, 20p, and 20q) where some amplifications (1q, 7p, 7q, 20p, and 20q) were subclonal in nature [6]. We used these reported CNVs as ground truth. For the cSCC study [30], a recent publication [31] analyzed the WES datasets from patient 4 and patient 6 for CNVs, and we used the corresponding results as ground truth for our research. Interestingly, no CNVs were detected in patient 4. On the other hand, several arm level CNVs were identified in patient 6. Specifically, nine deletions (3p, 4q, 5q, 10p, 10q, 13p, 13q, 21p, and 21q) and nine amplifications (1p, 3q, 8q, 9q, 11q, 14q, 17q, 20p, and 20q) were reported (Fig. S1 in [31]). We used precision (P), recall (R), and F1 score as evaluation criteria for datasets with known CNVs (colon cancer and patient 6). Precision measured the percentage of true CNVs among the detected CNVs and recall measured the percentage of true CNVs that were detected, among all the true CNVs. For patient 4, we considered the number of false detections as evaluation criterion. For each competing method, we used the malignant locations for CNV detection and counted all CNVs detected on each arm (Additional details). 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+24 
+
+# 5 Additional details 
+
+Application of SpatialPCA 
+
+We used SpatialPCA (version 1.3.0), as a part of the SPICE pipeline, to identify subclones within the malignant region of the tissue. The UMI count matrix and the coordinates were used as inputs to SpatialPCA. Following the tutorials and platform-specific guidelines, we applied the Louvain algorithm for the Slide-seqV2 sample, and the Walktrap algorithm for the Visium samples [28]. For the Slide-seqV2 sample, we considered findings from the original study [6] and set the desired number of clusters as 2. This resulted in two subclones as the malignant region was spread across two spatial domains. For the Visium samples, we examined two choices (2 and 3) as the desired number of clusters. In both cases, the distribution of spatial domains over the malignant region remained same, and as we increased the desired number of clusters from 2 to 3, the new cluster was contained within the benign region (Supplementary Figures 6 & 8). As a result, number of subclones remained unchanged. For the Visium dataset of patient 6, the malignant region was spread across two spatial domains, resulting in two subclones. On the other hand, all the malignant locations from the Visium dataset of patient 4 belonged to a single spatial domain. 
+
+Colon cancer Slide-seqV2 dataset 
+
+The colon cancer Slide-seqV2 dataset [6] had 16,270 genes and 18,288 locations where 12,736 locations were annotated as tumor and 5,552 locations were annotated as stroma. We obtained the annotations from the authors of a recent publication [49]. We used the locations from the stroma region as controls (benign locations). 
+
+cSCC Visium datasets 
+
+The patient 6 Visium dataset from the cSCC study [30] had 33,538 genes and 3,650 locations where 1,361 locations were annotated as tumor and 2,002 locations were annotated as non-tumor. The annotations were obtained from a recent study [49]. We treated the non-tumor locations as controls. The patient 4 visium dataset from the cSCC study [30] had 33,538 genes and 744 locations. We used the annotations shown in Supp. Fig. 18A of [56] and Fig. S3 of [31] to identify 155 malignant locations and 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+25 400 benign locations. We selected the first replicate for each of the two samples following existing publications [49,56]. 
+
+Colon cancer scWGS dataset 
+
+The colon cancer study [6] performed scWGS, in addition to Slide-seqV2, on the same sample. Briefly, nuclei were extracted from a 5 mm x 12 mm x 100 um colon cancer section, and protocols of 10X Chromium Single Cell DNA were followed for library generation and sequencing [6]. We analysed the bam file: ‘human_colon_cancer_3_scwgs_210402_02’ 
+
+which was shared by the authors of the original study [6]. For obtaining germline SNPs, that were used as gold standard, exons were specified using the Agilent BED file (SureSelect Human All Exon V6 r2; hg19). 
+
+cSCC WES datasets 
+
+The cSCC study included patient-matched whole-exome sequencing (WES) data from the tumor and the adjacent normal skin samples. In short, the Agilent V6 whole-exome capture kit (60 Mbp) was used, and the resulting libraries were sequenced on BGISEQ-500 using paired-end 100bp reads to achieve approximately 100x coverage for each tumor sample and 50x coverage for each normal skin sample [30]. The publicly available fastq files were downloaded from the European Nucleotide Archive (ENA) and were subjected to TrimGalore (version 0.6.7) for quality control [57]. The resulting fastq files were mapped to hg38 using the Burrows-Wheeler Aligner (BWA-MEM; version 0.7.17), and the duplicate reads were removed using samtools markdup (version 1.19.2). We used the same reference genome (hg38) that was used in Space Ranger for mapping the Visium samples. The variant callers were restricted to the exonic regions of the genome as per established guideline [57]. We specified the exonic regions through the Agilent target BED (SureSelect Human All Exon V6 r2; hg38) file. 
+
+Panel of known SNPs 
+
+Following standard practice [9,10,22], we used a list of common SNPs (minor allele frequency > 0.05) from phase 3 of the 1000 Genomes Project [58] for identifying germline SNPs from SRT data. The same list was also used to select the germline SNPs, used as ground truth, while assessing the quality of SRT SNPs. This list was downloaded from cellsnp-lite’s website [35]. We used the hg38 based list for the cSCC datasets, and the hg19 based list for the colon cancer datasets. This 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+26 selection was made in accordance with the reference genomes used to generate the corresponding bam files. 
+
+cellsnp-lite 
+
+cellsnp-lite (version 1.2.3) was used with minMAF=0 and minCOUNT= 2 to derive germline SNPs from SRT data [9]. We also used a list of common SNPs (minor allele frequency > 0.05) from phase 3 of the 1000 Genomes Project (-R option). We further retained SNPs located within the exonic regions for the quality assessment study. 
+
+Strelka2 
+
+We used the --exome option with WES bam files and the –rna option with SRT bam files (Strelka2 version 2.9.10). Additionally, the –callRegions option was used in both cases for restricting the variants to the target regions (BED file) of WES. The resulting vcf files were annotated using bcftools annotate and a list of common SNPs (minor allele frequency > 0.05) from phase 3 of the 1000 Genomes Project. Finally, we restricted our analysis to SNPs that passed the default filters (FILTER=PASS). We used the genotype labels (GT column in vcf) to identify heterozygous SNPs. 
+
+bcftools 
+
+For SRT, we used bcftools mpileup (version 1.19) with options: -Q 30 -A -x -Ou -I -R [36] whereas in case of scWGS, we used bcftools mpileup with --ignore-RG -R [34]. In both cases, the -R option was used so that the variants could be restricted to the exonic regions, specified through BED files. As before, the resulting vcf files were annotated based on a list of common SNPs (minor allele frequency > 0.05) from phase 3 of the 1000 Genomes Project using bcftools annotate. 
+
+CopyKAT 
+
+The benign spots were specified through the ‘norm.cell.names’ option (CopyKAT version 1.1.0). Since, CopyKAT does not explicitly call copy number events, we followed an established approach to infer the CNV state of each chromosome arm [9]. First, we computed average copy number intensities of each arm over the predicted aneuploid spots. Then, we used thresholds of -0.03 and 0.03 to identify deletions and amplifications respectively. 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+27 
+
+inferCNV 
+
+The benign spots were specified using the ‘ref_group_names’ option within CreateInfercnvObject(). For CNV calling we selected denoise=T, cutoff=0.1, cluster_by_groups=TRUE, analysis_mode=subclusters, HMM_report_by=subcluster, and HMM_type=i6 (version 1.26.0) [9]. 
+
+Numbat 
+
+We followed the tutorials and set the max_entropy as 0.8 (version 1.5.1). We used the benign locations to create the reference with aggregate_counts(). We first obtained the clone assignments of the locations (‘clone_opt’ column in clone_post_2.tsv). Then we mapped the segments with CNVs to chromosome arms (‘seg’ column in joint_post_2.tsv). Finally, for each clone, we recorded the CNVs detected in each arm. 
+
+CalicoST 
+
+We applied CalicoST (version 1.0.0) on the two Visium datasets. We followed the tutorial without the optional steps. We first mapped each genomic region (cnv_seglevel.tsv) to chromosome arms. Then, for each clone we recorded the CNVs identified on each arm. CalicoST was designed primarily for Visium samples. The colon cancer Slide-seqV2 dataset was too sparse for the pipeline. Additionally, it could not use location-wise annotations (https://github.com/raphael-group/CalicoST/issues/18) .
+
+Differential expression analysis and gene set enrichment analysis 
+
+For differential expression analysis, we conducted Wilcoxon rank sum test by using FindMarkers() from Seurat (v5). We declared a gene to be an upregulated gene if its adjusted p value was less than 0.05 and its log fold change was positive. Similarly, we declared a gene to be a downregulated gene if its adjusted p value was less than 0.05 and its log fold change was negative. We used fgsea (version 1.30.0) [59] with Hallmark gene sets linked to specific biological pathways [46] for gene set enrichment analysis (GSEA). Specifically, we used genes with positive log fold change as input to fgseaMultilevel(). 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+28 
+
+Data Availability 
+
+Publicly available Visium and WES data from the cSCC study [30] were obtained from Gene Expression Omnibus (GEO): GSE144240. The Slide-seqV2 and scWGS bam files from the colon cancer study [6] were shared by the authors of the original study [6]. The UMI count matrix, coordinates and location-wise annotations associated with the Slide-seqV2 dataset were shared by the authors of a recent publication [49]. 
+
+Code availability 
+
+The SPICE software code is publicly available at https://github.com/kzb193/SPICE. The source code is released under the GNU General Public License version 3. 
+
+Reference 
+
+1. Harbers L, Agostini F, Nicos M, Poddighe D, Bienko M, Crosetto N. Somatic Copy Number Alterations in Human Cancers: An Analysis of Publicly Available Data From The Cancer Genome Atlas. Front Oncol. 2021;11:700568. https://doi.org/10.3389/fonc.2021.700568 2. Veith T, Schultz A, Alahmari S, Beck R, Johnson J, Andor N. Mathematical Modeling of Clonal Interference by Density-Dependent Selection in Heterogeneous Cancer Cell Lines. Cells. 2023;12:1849. https://doi.org/10.3390/cells12141849 3. O’Malley DE, Raspin K, Melton PE, Burdon KP, Dickinson JL, FitzGerald LM. Acquired copy number variation in prostate tumours: a review of common somatic copy number alterations, how they are formed and their clinical utility. Br J Cancer. 2024;130:347–57. https://doi.org/10.1038/s41416-023-02485-7 4. Mamlouk S, Childs LH, Aust D, Heim D, Melching F, Oliveira C, et al. DNA copy number changes define spatial patterns of heterogeneity in colorectal cancer. Nat Commun. 2017;8:14093. https://doi.org/10.1038/ncomms14093 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+29 5. Mallory XF, Edrisi M, Navin N, Nakhleh L. Methods for copy number aberration detection from single-cell DNA-sequencing data. Genome Biol. 2020;21:208. https://doi.org/10.1186/s13059-020-02119-8 6. Zhao T, Chiang ZD, Morriss JW, LaFave LM, Murray EM, Del Priore I, et al. Spatial genomics enables multi-modal study of clonal heterogeneity in tissues. Nature. Nature Publishing Group UK London; 2022;601:85–91. 7. Gao R, Bai S, Henderson YC, Lin Y, Schalck A, Yan Y, et al. Delineating copy number and clonal substructure in human tumors from single-cell transcriptomes. Nat Biotechnol. Nature Publishing Group US New York; 2021;39:599–608. 8. inferCNV of the Trinity CTAT Project. 9. Gao T, Soldatov R, Sarkar H, Kurkiewicz A, Biederstedt E, Loh P-R, et al. Haplotype-aware analysis of somatic copy number variations from single-cell transcriptomes. Nat Biotechnol. Nature Publishing Group US New York; 2023;41:417–26. 10. Huang R, Huang X, Tong Y, Yan HYN, Leung SY, Stegle O, et al. Robust analysis of allele-specific copy number alterations from scRNA-seq data with XClone. Nat Commun. 2024;15:6684. https://doi.org/10.1038/s41467-024-51026-0 11. Serin Harmanci A, Harmanci AO, Zhou X. CaSpER identifies and visualizes CNV events by integrative analysis of single-cell or bulk RNA-sequencing data. Nat Commun. Nature Publishing Group UK London; 2020;11:89. 12. Flensburg C, Oshlack A, Majewski IJ. Detecting copy number alterations in RNA-Seq using SuperFreq. Gorodkin J, editor. Bioinformatics. 2021;37:4023–32. https://doi.org/10.1093/bioinformatics/btab440 13. Bařinka J, Hu Z, Wang L, Wheeler DA, Rahbarinia D, McLeod C, et al. RNAseqCNV: analysis of large-scale copy number variations from RNA-seq data. Leukemia. 2022;36:1492–8. https://doi.org/10.1038/s41375-022-01547-8 14. Chen X, Fang LT, Chen Z, Chen W, Wu H, Zhu B, et al. A benchmarking study of copy number variation inference methods using 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+30 single-cell RNA-sequencing data. Precis Clin Med. 2025;8:pbaf011. https://doi.org/10.1093/pcmedi/pbaf011 15. Schmid KT, Symeonidi A, Hlushchenko D, Richter ML, Tijhuis AE, Foijer F, et al. Benchmarking scRNA-seq copy number variation callers. Nat Commun. 2025;16:8777. https://doi.org/10.1038/s41467-025-62359-9 16. Song M, Ma S, Wang G, Wang Y, Yang Z, Xie B, et al. Benchmarking copy number aberrations inference tools using single-cell multi-omics datasets. Brief Bioinform. 2025;26:bbaf076. https://doi.org/10.1093/bib/bbaf076 17. Bai Z, Zhang D, Gao Y, Tao B, Zhang D, Bao S, et al. Spatially exploring RNA biology in archival formalin-fixed paraffin-embedded tissues. Cell. 2024;187:6760-6779.e24. https://doi.org/10.1016/j.cell.2024.09.001 18. Lucas C-HG, Mirchia K, Seo K, Najem H, Chen WC, Zakimi N, et al. Spatial genomic, biochemical and cellular mechanisms underlying meningioma heterogeneity and evolution. Nat Genet. 2024;56:1121–33. https://doi.org/10.1038/s41588-024-01747-1 19. Denisenko E, De Kock L, Tan A, Beasley AB, Beilin M, Jones ME, et al. Spatial transcriptomics reveals discrete tumour microenvironments and autocrine loops within ovarian cancer subclones. Nat Commun. 2024;15:2860. https://doi.org/10.1038/s41467-024-47271-y 20. Lin Y, Wang J, Wang K, Bai S, Thennavan A, Wei R, et al. Normal breast tissues harbour rare populations of aneuploid epithelial cells. Nature. 2024;636:663–70. https://doi.org/10.1038/s41586-024-08129-x 21. Zhang D, Segerstolpe Å, Slyper M, Waldman J, Murray E, Strasser R, et al. SlideCNA: spatial copy number alteration detection from Slide-seq-like spatial transcriptomics data. Genome Biol. 2025;26:112. https://doi.org/10.1186/s13059-025-03573-y 22. Ma C, Balaban M, Liu J, Chen S, Wilson MJ, Sun CH, et al. Inferring allele-specific copy number aberrations and tumor phylogeography from spatially resolved transcriptomics. Nat Methods. 2024;21:2239–47. https://doi.org/10.1038/s41592-024-02438-9 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+31 23. Elyanow R, Zeira R, Land M, Raphael BJ. STARCH: copy number and clone inference from spatial transcriptomics data. Phys Biol. IOP Publishing; 2021;18:035001. 24. Erickson A, He M, Berglund E, Marklund M, Mirzazadeh R, Schultz N, et al. Spatially resolved clonal copy number alterations in benign and malignant tissue. Nature. 2022;608:360–7. https://doi.org/10.1038/s41586-022-05023-2 25. Wu C-Y, Rong J, Sathe A, Hess PR, Lau BT, Grimes SM, et al. Cancer subclone detection based on DNA copy number in single-cell and spatial omic sequencing data. Nat Methods. 2025;22:1846–56. https://doi.org/10.1038/s41592-025-02773-5 26. Rodriques SG, Stickels RR, Goeva A, Martin CA, Murray E, Vanderburg CR, et al. Slide-seq: A scalable technology for measuring genome-wide expression at high spatial resolution. Science. 2019;363:1463–7. https://doi.org/10.1126/science.aaw1219 27. Stickels RR, Murray E, Kumar P, Li J, Marshall JL, Di Bella DJ, et al. Highly sensitive spatial transcriptomics at near-cellular resolution with Slide-seqV2. Nat Biotechnol. 2021;39:313–9. https://doi.org/10.1038/s41587-020-0739-1 28. Shang L, Zhou X. Spatially aware dimension reduction for spatial transcriptomics. Nat Commun. Nature Publishing Group UK London; 2022;13:7203. 29. Chen H, Bell JM, Zavala NA, Ji HP, Zhang NR. Allele-specific copy number profiling by next-generation DNA sequencing. Nucleic Acids Res. 2015;43:e23–e23. https://doi.org/10.1093/nar/gku1252 30. Ji AL, Rubin AJ, Thrane K, Jiang S, Reynolds DL, Meyers RM, et al. Multimodal analysis of composition and spatial architecture in human squamous cell carcinoma. Cell. Elsevier; 2020;182:497–514. 31. Chen L, Chang D, Tandukar B, Deivendran D, Pozniak J, Cruz-Pacheco N, et al. STmut: a framework for visualizing somatic alterations in spatial transcriptomics data of cancer. Genome Biol. Springer; 2023;24:273. 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+32 32. Danecek P, Bonfield JK, Liddle J, Marshall J, Ohan V, Pollard MO, et al. Twelve years of SAMtools and BCFtools. GigaScience. 2021;10:giab008. https://doi.org/10.1093/gigascience/giab008 33. Kim S, Scheffler K, Halpern AL, Bekritsky MA, Noh E, Källberg M, et al. Strelka2: fast and accurate calling of germline and somatic variants. Nat Methods. Nature Publishing Group US New York; 2018;15:591–4. 34. Zaccaria S, Raphael BJ. Characterizing allele- and haplotype-specific copy numbers in single cells with CHISEL. Nat Biotechnol. 2021;39:207– 14. https://doi.org/10.1038/s41587-020-0661-6 35. Huang X, Huang Y. Cellsnp-lite: an efficient tool for genotyping single cells. Bioinformatics. Oxford University Press; 2021;37:4569–71. 36. Liu F, Zhang Y, Zhang L, Li Z, Fang Q, Gao R, et al. Systematic comparative analysis of single-nucleotide variant detection methods from single-cell RNA sequencing data. Genome Biol. 2019;20:242. https://doi.org/10.1186/s13059-019-1863-4 37. Loh P-R, Danecek P, Palamara PF, Fuchsberger C, A Reshef Y, K Finucane H, et al. Reference-based phasing using the Haplotype Reference Consortium panel. Nat Genet. 2016;48:1443–8. https://doi.org/10.1038/ng.3679 38. Qiao C, Huang W, Chen J, Feng W, Zhang T, Wang Y, et al. IGF1-mediated HOXA13 overexpression promotes colorectal cancer metastasis through upregulating ACLY and IGF1R. Cell Death Dis. 2021;12:564. https://doi.org/10.1038/s41419-021-03833-2 39. Wang F, Dai C, Zhang L, Bing C, Qin J, Liu Y. Downregulation of Lgr6 inhibits proliferation and invasion and increases apoptosis in human colorectal cancer. Int J Mol Med. 2018; https://doi.org/10.3892/ijmm.2018.3633 40. Zhu C, Wang S, Du Y, Dai Y, Huai Q, Li X, et al. Tumor microenvironment-related gene selenium-binding protein 1 (SELENBP1) is associated with immunotherapy efficacy and survival in colorectal cancer. BMC Gastroenterol. 2022;22:437. https://doi.org/10.1186/s12876-022-02532-2 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+33 41. Zhan Y, Zheng L, Liu J, Hu D, Wang J, Liu K, et al. PLA2G4A promotes right-sided colorectal cancer progression by inducing CD39+γδ Treg polarization. JCI Insight. 2021;6:e148028. https://doi.org/10.1172/jci.insight.148028 42. Börding T, Janik T, Bischoff P, Morkel M, Sers C, Horst D. GPA33 expression in colorectal cancer can be induced by WNT inhibition and targeted by cellular therapy. Oncogene. 2025;44:30–41. https://doi.org/10.1038/s41388-024-03200-3 43. Jaiswal S, The S, Chang T-S, Shi J, Wang TD. Identification of tumor initiating cells and early marker genes in histologically normal colonic mucosa that lead to neoplastic transformation. Neoplasia. 2026;75:101300. https://doi.org/10.1016/j.neo.2026.101300 44. García-Cárdenas JM, Armendáriz-Castillo I, García-Cárdenas N, Pesantez-Coronel D, López-Cortés A, Indacochea A, et al. Data mining identifies novel RNA-binding proteins involved in colon and rectal carcinomas. Front Cell Dev Biol. 2023;11:1088057. https://doi.org/10.3389/fcell.2023.1088057 45. Iida T, Hirayama D, Minami N, Matsuura M, Wagatsuma K, Kawakami K, et al. Down-regulation of RalGTPase-Activating Protein Promotes Colitis-Associated Cancer via NLRP3 Inflammasome Activation. Cell Mol Gastroenterol Hepatol. 2020;9:277–93. https://doi.org/10.1016/j.jcmgh.2019.10.003 46. Liberzon A, Birger C, Thorvaldsdóttir H, Ghandi M, Mesirov JP, Tamayo P. The Molecular Signatures Database Hallmark Gene Set Collection. Cell Syst. 2015;1:417–25. https://doi.org/10.1016/j.cels.2015.12.004 47. Knuutila JS, Riihilä P, Nissinen L, Heiskanen L, Kallionpää RE, Pellinen T, et al. Cancer -associated fibroblast activation predicts progression, metastasis, and prognosis of cutaneous squamous cell carcinoma. Int J Cancer. 2024;155:1112–27. https://doi.org/10.1002/ijc.34957 48. González-González L, Alonso J. Periostin: A Matricellular Protein With Multiple Functions in Cancer Development and Progression. Front Oncol. 2018;8:225. https://doi.org/10.3389/fonc.2018.00225 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+34 49. Ru B, Huang J, Zhang Y, Aldape K, Jiang P. Estimation of cell lineages in tumors from spatial transcriptomics data. Nat Commun. Nature Publishing Group UK London; 2023;14:568. 50. Li H, Zhou J, Li Z, Chen S, Liao X, Zhang B, et al. A comprehensive benchmarking with practical guidelines for cellular deconvolution of spatial transcriptomics. Nat Commun. 2023;14:1548. https://doi.org/10.1038/s41467-023-37168-7 51. Hu Y, Xie M, Li Y, Rao M, Shen W, Luo C, et al. Benchmarking clustering, alignment, and integration methods for spatial transcriptomics. Genome Biol. 2024;25:212. https://doi.org/10.1186/s13059-024-03361-0 52. Patel AP, Tirosh I, Trombetta JJ, Shalek AK, Gillespie SM, Wakimoto H, et al. Single-cell RNA-seq highlights intratumoral heterogeneity in primary glioblastoma. Science. American Association for the Advancement of Science; 2014;344:1396–401. 53. Chen H, Jiang Y, Maxwell KN, Nathanson KL, Zhang N. Allele-specific copy number estimation by whole exome sequencing. Ann Appl Stat. NIH Public Access; 2017;11:1169. 54. Myers MA, Arnold BJ, Bansal V, Balaban M, Mullen KM, Zaccaria S, et al. HATCHet2: clone-and haplotype-specific copy number inference from bulk tumor sequencing data. Genome Biol. BioMed Central; 2024;25:1–28. 55. Chen J, Li X, Zhong H, Meng Y, Du H. Systematic comparison of germline variant calling pipelines cross multiple next-generation sequencers. Sci Rep. 2019;9:9345. https://doi.org/10.1038/s41598-019-45835-3 56. Zhao E, Stone MR, Ren X, Guenthoer J, Smythe KS, Pulliam T, et al. Spatial transcriptomics at subspot resolution with BayesSpace. Nat Biotechnol. Nature Publishing Group US New York; 2021;39:1375–84. 57. Verrou K-M, Pavlopoulos GA, Moulos P. Protocol for unbiased, consolidated variant calling from whole exome sequencing data. STAR Protoc. 2022;3:101418. https://doi.org/10.1016/j.xpro.2022.101418 58. The 1000 Genomes Project Consortium, Corresponding authors, Auton A, Abecasis GR, Steering committee, Altshuler DM, et al. A global 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+35 reference for human genetic variation. Nature. 2015;526:68–74. https://doi.org/10.1038/nature15393 59. Korotkevich G, Sukhov V, Budin N, Shpak B, Artyomov MN, Sergushichev A. Fast gene set enrichment analysis. biorxiv; 2016. https://doi.org/10.1101/060012 
+
+Acknowledgements 
+
+This study was supported by the National Institutes of Health (NIH) grants R01GM126553, R01HG011883, R01HG009124, and R01GM144960. 
+
+Author contributions 
+
+X.Z. conceived the idea and provided funding support. K.B. and X.Z. designed the experiments. K.B. developed the method and analyzed real data. K.B. and R.C.L. implemented the software. K.B., R.C.L., X.Z., and E.T.K. wrote the manuscript. All authors read and approved the final manuscript. 
+
+Competing interests 
+
+The authors declare no competing interests. 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+36 
+
+Figure 1. Schematic overview of SPICE. Upper panel : SPICE (sp atial inference of CNV events) is a probabilistic method that identifies genomic regions harboring somatic CNVs from SRT data of cancer tissues. SPICE takes four inputs: UMI count matrix, allele-count matrices for a set of heterozygous SNPs, coordinates of the tissue locations, and annotations categorizing each location as either benign (B) or malignant (M). In the first step, SPICE identifies potential subclones within the malignant region based on location-wise annotations and spatial domains derived using SpatialPCA, a spatially aware dimension reduction tool which builds a kernel matrix to explicitly model the spatial correlation structure. 
+
+Lower panel : For the gene expression component, a Gaussian mixture model is used for each subclone to represent the likelihood of normalized gene expression data under different CNV states. For the SNP component, a mixture of Binomial distributions is used for each subclone to identify CNV clusters based on ASCNs. Finally, the two modalities are combined in a joint likelihood to obtain posterior probabilities for CNV assignments. 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+37 
+
+Figure 2. Assessment of the quality of germline, autosomal, and bi-allelic SNPs called from SRT samples. A-B. Details on SNPs serving as ground truth. Total SNP count (A) and percentage of heterozygous SNPs (B). Strelka2 was used for the WES samples and bcftools was used for the scWGS sample. C-F . Details on SNPs obtained from SRT samples. Total SNP count (C), heterozygous SNP count (D), percentage of heterozygous SNPs (E), and concordance rates (F) . In ‘cellsnp-lite (B)’ the input bam file contained only the benign locations. G. F1 score, precision and recall (in percentages). Horizontally dotted lines mark 10 and 90. Legends are same as those for D-F .
+
+Colon: colon cancer study, P4: patient 4 from cSCC study, P6: patient 6 from cSCC study. 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+38 
+
+Figure 3. Analysis of colon cancer Slide-seqV2 dataset. A. H&E image of the tissue obtained from [49]. B-D. Scatter plot showing annotated locations (B) and spatial domains with number of clusters set as 2 (C). SPICE partitioned the malignant locations into two subclones (D). E. F1 score, precision and recall (in percentages) comparing true CNVs (deletions and amplifications) and identified CNVs. F-G .F1 score, precision and recall (in percentages) comparing true amplifications vs. identified amplifications (F) and true deletions vs. identified deletions (G). The legends are same as those in E. H. Top 10 enriched gene sets from GSEA in subclones identified by SPICE (left: subclone 1; right: subclone 2). The Hallmark gene sets linked to specific biological pathways were used. EMT: epithelial–mesenchymal transition. I-L . Examples of genes characterizing subclone 2. Differential expression analysis was performed between the two subclones, and DE genes were mapped to the CNV harboring regions successfully traced by SPICE. The plotted genes were upregulated in subclone 2 and had well-established roles in colorectal cancer biology. The normalized expressions were plotted (layer='data') using Seurat::FeaturePlot(). 
+
+> was not certified by peer review) is the author/funder. All rights reserved. No reuse allowed without permission. The copyright holder for this preprint (which this version posted July 4, 2026. ;https://doi.org/10.64898/2026.06.30.735508 doi: bioRxiv preprint
+
+39 
+
+Figure 4. Analysis of patient 6 Visium dataset. A. H&E image of the tissue. B-D. Scatter plot showing annotated locations (B) and spatial domains with number of clusters set as 2 (C). SPICE partitioned the malignant locations into two subclones (D). E. F1 score, precision and recall (in percentages) comparing true CNVs (deletions and amplifications) and identified CNVs. F-G . F1 score, precision and recall (in percentages) comparing true amplifications vs. identified amplifications (F) and true deletions vs. identified deletions (G). The legends are same as those in E. H. Dot plot showing examples of genes characterizing the two subclones. Differential expression analysis was performed, and DE genes were mapped to the CNV harboring regions successfully traced by SPICE (CDA, HES2, & EMC1 are on 1p. P3H2, ST6GAL1, & PCYT1A are on 3q. TMEM250, ARRDC1, & TMEM245 are on 9q. TPD52L2 is on 20q). POSTN (13q) showed reduced expression in subclone 2 where 13q had undergone deletion. The size of the dot encodes the percentage of locations within a class. I. Top 10 enriched gene sets from GSEA in the two subclones (left: subclone 1; right: subclone 2). The Hallmark gene sets linked to specific biological pathways were used. EMT: epithelial–mesenchymal transition.
