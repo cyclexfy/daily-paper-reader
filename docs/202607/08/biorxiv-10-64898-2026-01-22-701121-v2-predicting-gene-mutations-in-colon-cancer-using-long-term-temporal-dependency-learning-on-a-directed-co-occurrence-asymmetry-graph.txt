@@ -1,0 +1,682 @@
+Title: Predicting Gene Mutations in Colon Cancer Using Long-Term Temporal Dependency Learning on a Directed Co-Occurrence Asymmetry Graph
+
+URL Source: https://www.biorxiv.org/content/10.64898/2026.01.22.701121v2.full.pdf
+
+Number of Pages: 12
+
+Markdown Content:
+# Predicting Gene Mutations in Colon Cancer Using Long-Term Temporal Dependency Learning on a Directed Co-Occurrence Asymmetry Graph 
+
+## Collin Sumrell 1 Ȉ, Aleksandr Shishkin 1 Ȉ, Ekene Okeke 2, Alexander Zelikovsky 2 Ȉ,and Marmar R. Moussa 1,3,* Ȉ
+
+> 1
+
+School of Computer Science, University of Oklahoma, Norman, OK 73019, United States 
+
+> 2
+
+Department of Computer Science, Georgia State University, Atlanta, GA 30303, United States 
+
+> 3
+
+Stephenson School of Biomedical Engineering, University of Oklahoma, Norman, OK 73019, United States 
+
+> *
+
+Corresponding author. School of Computer Science and Stephenson School of Biomedical Engineering, University of Oklahoma, Norman, OK 73019, United States. Email: marmar.moussa@ou.edu 
+
+Abstract 
+
+Motivation: Colorectal tumorigenesis follows stepwise mutational progression patterns, but inferring dependencies from mutation data remains challenging. We propose a directed co-occurrence asymmetry graph to infer graph-derived mutational paths from 2,344 colon adenocarcinoma samples covering 23,858 mutated genes. 
+
+Results: We introduce a gene-conditioned shared Long Short-Term Memory (LSTM) model with attention to predict mutation status along inferred paths. The attention mechanism learns to weight informative predecessor mutations directly, while gene embeddings adapt the shared model to each target gene. We compare this model with standard per-gene LSTM and dilated Convolutional Neural Network (CNN) architectures. Graph-derived paths substantially improved precision and recall over the reproduced frequency-ordering baseline, with weighted paths performing best overall. The attention-based shared LSTM achieved competitive area under the ROC curve (AUC) and high recall, indicating that attention over predecessor mutations provides a useful representation for target-gene prediction. 
+
+Keywords: somatic mutation, colorectal cancer, cancer genomics, directed acyclic graph, long short-term memory 
+
+Code and data: github.com/moussa-lab/MutationPrediction 
+
+# 1 Introduction 
+
+Colorectal adenocarcinoma is an evolutionary process driven by the stepwise accumulation of somatic mutations. While most somatic mutations are passengers that do not confer a selective advantage, a subset of driver mutations promotes tumorigenesis and progression (Vogelstein et al. 
+
+2013). This process has often been modeled as a temporal sequence of events. For example, the Fearon-Vogelstein model proposes that colorectal adenocarcinoma typically begins with inactivation of APC , followed by mutations in 
+
+KRAS and TP53 (Fearon and Vogelstein 1990). Understand-ing these temporal dependencies is important because early drivers can shape tumor evolution, and mutations along the disease progression pathway influence patient prognosis. However, while well-studied genes like APC 
+
+display strong temporal signals, the relationships between less frequent mutations, both driver and passenger, remain poorly understood (Kumar et al. 2020). Previous studies have inferred a global gene order using frequency-based approaches and then used these orders to train deep learning models of cancer evolution. This strategy was applied by Auslander et al. (2019) using Long Short-Term Memory (LSTM) networks to learn mutational load and perform next-step prediction. Using a pseudotem-poral gene ranking based on mutational frequency ratios, the authors trained LSTMs to predict the mutational burden and the occurrence of future drivers with high accuracy. However, our attempt to reproduce the mutation-prediction component of Auslander et al. (2019) yielded recall and precision metrics below a random-guessing baseline. Because these mutation matrices are highly sparse, the prediction task is inherently class imbalanced: mutations are rare events, so frequently predicting no mutation can yield high accuracy while producing poor true positive rates. Another limitation of Auslander et al. (2019) was the reliance on a single global, frequency-based formula ordering of all genes detected in the study cohort. Furthermore, the study used a relatively limited number of colorectal cancer (CRC) samples for model training ( 𝑛 = 253 ). Despite the utility of a global sequential gene order, a single mutation can drive multiple downstream mutations simultaneously, creating a complex network of mutational dependencies. Indeed, in CRC, tumors often develop from a series of genetic changes described by two major 
+
+.CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint 2 Dependency Graph-Guided Mutation Prediction 
+
+pathways: the ‘conventional adenoma-carcinoma se-quence’, with mutations in APC considered a classic driver mutation (Jones et al. 2008); and a secondary, less known ‘alternative serrated pathway’, which in turn branches into various paths that are often driven by mutations in either 
+
+KRAS or BRAF and leading to different consensus molecular subtypes (Fessler et al. 2016; IJspeert et al. 2017) of the same disease. This network-like mutational complexity, together with the limitations of existing frequency-based orderings, mo-tivated a graph-based approach for inferring data-driven mutational orders. Rather than modeling tumorigenesis as a fixed linear sequence, we represent mutational progression as a directed acyclic graph (DAG). In this graph, genes are represented as vertices and asymmetric co-occurrence relationships are represented as directed edges, allowing the model to capture multiple potential evolutionary pathways. We further propose a prediction framework that com-bines graph pathway inference with attentive, gene-conditioned sequence modeling. We first construct adirected graph of gene relationships based on condi-tional probabilities observed in a large cohort of human colon cancer samples. We hypothesize that weighted and unweighted longest paths through this directed co-occurrence graph represent dominant potential evo-lutionary trajectories of the disease. Using the inferred paths, we introduce a shared LSTM with attention and learned gene embeddings for down-stream mutation prediction. Unlike independent per-gene models, this architecture pools training examples across target genes while conditioning each prediction on gene identity. Prior work has shown that attention can improve re-current sequence classification by emphasizing informative input positions (Shen and Lee 2016); here, attention allows the model to weight informative predecessor mutations directly rather than relying only on the final LSTM state. We compare this proposed model with conventional per-gene LSTM and dilated Convolutional Neural Network (CNN) architectures to evaluate whether the graph-derived paths provide useful predictive context. In our approach, each tumor is treated as a cross-sectional binary snapshot, and pseudotemporal ordering is inferred from inter-patient co-occurrence asymmetries. As a result, the inferred paths should be interpreted as population-level statistical ordering signals rather than patient-specific evolutionary timelines. We use sequence models as a predictive validation mechanism: for each target gene at position 𝑡 , the model evaluates whether that gene is mutated from the mutation states of genes inferred to occur earlier in the trajectory. The LSTM and dilated CNN models are used to evaluate whether the graph-derived ordering provides useful predictive context, not for graph or pathway inference. APC  
+
+> TP53
+> TTN
+> KRAS
+> SYNE1
+> MUC16
+> OBSCN
+> FAT4
+> PIK3CA
+> RYR1
+> FLG
+> LRP1B
+> DNAH5
+> RYR2
+> CSMD3
+> FAT3
+> ZFHX4
+> CSMD1
+> AHNAK2
+> USH2A
+
+0
+
+1
+
+> Mutation Status
+
+Samples (n=2344)  
+
+> Dataset Source
+> coad_cptac_2019 (n=106)
+> coad_cptac_gdc (n=104)
+> coad_silu_2022 (n=281)
+> coad_tcga_gdc (n=429)
+> coadread_cass_2020 (n=142)
+> coadread_dfci_2016 (n=619)
+> coadread_genentech (n=72)
+> coadread_tcga_pan_can_atlas_2018 (n=489)
+> coadread_tcga_pub (n=102)
+> Figure 1 Binary mutation statuses (
+
+𝑚 𝑖𝑘 ) for the 20 most frequently mu-tated genes across 2,344 samples. Rows correspond to genes sorted by overall mutational prevalence, while columns represent patient samples ordered using hierarchical clustering (Euclidean distance, average linkage) to show patterns in mutational burden and co-occurrence. Blue indicates the presence of a somatic mutation; light gray indicates the absence of a mutation. The color-coded annotation bar at the bottom identifies the originating dataset for each sample. 
+
+# 2 Materials and methods 
+
+# 2.1 Data preparation 
+
+Raw data from nine datasets were obtained through cBio-Portal (Cerami et al. 2012; Gao et al. 2013; de Bruijn et al. 
+
+2023), consolidated into one large cohort, and binarized into a matrix M representing the somatic mutation status of each gene. For gene 𝑖 in sample 𝑘 , the entry 𝑚 𝑖𝑘 was set to 1 if a mutation was detected and 0 otherwise. We retained only genes mutated at least once across the con-stituent datasets and dropped all others, resulting in 23,858 genes across 2,344 samples. The mutation distribution for the 20 most frequently mutated genes is shown in Figure 1. The constituent datasets of M were: • coad_cptac_2019 ( 𝑛 = 106 samples) (Vasaikar et al. 
+
+2019) • coad_cptac_gdc ( 𝑛 = 104 ) (Heath et al. 2021) • coad_silu_2022 ( 𝑛 = 281 ) (Roelands et al. 2023) • coad_tcga_gdc ( 𝑛 = 429 ) (Heath et al. 2021) • coadread_cass_2020 ( 𝑛 = 142 ) (Li et al. 2020) • coadread_dfci_2016 ( 𝑛 = 619 ) (Giannakis et al. 2016) • coadread_genentech ( 𝑛 = 72 ) (Seshagiri et al. 2012) • coadread_tcga_pan_can_atlas_2018 ( 𝑛 = 489 ) (Heath 
+
+et al. 2021) 
+
+.CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint Dependency Graph-Guided Mutation Prediction 3
+
+• coad_tcga_pub ( 𝑛 = 102 ) (Cancer Genome Atlas Net-work 2012) 
+
+2.1.1 Clustering vs. clinical stage 
+
+Of the 2,344 samples, 1,516 included American Joint Com-mittee on Cancer (AJCC) TNM staging information. TNM staging describes disease extent in terms of local primary tumor growth (T), regional lymph node involvement (N), and distant metastatic spread (M), with stages ranging from I for more localized disease to IV for the most advanced dis-ease (Amin et al. 2017). To test whether somatic mutation profiles reflect clinical stage and whether stage information should be incorporated into downstream modeling, we per-formed unsupervised clustering on the staged samples and compared the resulting groupings to AJCC stages using the adjusted Rand index (ARI) (Hubert and Arabie 1985). The analysis was conducted on both the full feature set (23,858 genes) and a filtered subset of genes mutated in at least 5% of samples (1,453 genes). We then applied four cluster-ing strategies: Jaccard distance hierarchical clustering with Ward linkage (Ward 1963) (𝑘 = 4) , Louvain community detection (Blondel et al. 2008) on a KNN graph (𝑘 = 15) 
+
+constructed in PCA-reduced space, Leiden community de-tection (Traag et al. 2019) on the same graph, and Ward hier-archical clustering in PCA space with 𝑘 chosen by silhouette score. The Pearson correlation between PC1 and tumor mu-tational burden was also computed. Additional exploratory analyses of filtered and unfiltered clustering results, as well as stage- and Louvain-stratified graph-derived prediction experiments, are provided in Supplementary Materials. 
+
+# 2.2 Graph construction 
+
+To model potential dependency relationships between mu-tations, we computed an asymmetric conditional probability metric for each pair of genes. We defined the probability of observing mutation 𝑖 given mutation 𝑗 as: 
+
+## 𝑃 (𝑖|𝑗) = count (𝑖 ∩ 𝑗) 
+
+count (𝑗) .
+
+We directed an edge from 𝑖 → 𝑗 , interpreted as muta-tion 𝑖 preceding mutation 𝑗 , when 𝑃 (𝑖|𝑗) > 𝑃 (𝑗|𝑖) . This condition means that samples with mutation 𝑗 usually also contain mutation 𝑖 , whereas mutation 𝑖 is more often ob-served without mutation 𝑗 ; in other words, 𝑗 tends to ap-pear only after 𝑖 has already occurred. Using the counts 
+
+## 𝑐 𝑎𝑏 , where 𝑎 indicates the absence/presence of mutation 𝑖 
+
+and 𝑏 indicates the absence/presence of mutation 𝑗 , these probabilities are 𝑃 (𝑖|𝑗) = 𝑐 11 
+
+> 𝑐 11 +𝑐 01
+
+, 𝑃 (𝑗|𝑖) = 𝑐 11 
+
+> 𝑐 11 +𝑐 10
+
+.Therefore, 𝑃 (𝑖|𝑗) > 𝑃 (𝑗|𝑖) corresponds to 𝑐 01 < 𝑐 10 :mutation 𝑗 rarely occurs without 𝑖 , while mutation 𝑖 more often occurs without 𝑗 .Edge weights 𝑤 𝑖𝑗 were assigned according to the magni-tude of the conditional probability asymmetry: 
+
+## 𝑤 𝑖𝑗 = |𝑃 (𝑖|𝑗) − 𝑃 (𝑗|𝑖)|. 
+
+To reduce noise, potential edges with weight 𝑤 𝑖𝑗 < 𝜖 were excluded from consideration (all reported results use 𝜖 = 0.02 ). To ensure consistency in ordering, we refined the graph into a directed acyclic graph (DAG) by removing the minimum set of edges required to break cycles, using the feedback arc set algorithm (Eades et al. 1993). This ap-proach minimizes the total weight of removed edges, pre-serving the strongest inferred dependencies while eliminat-ing logical contradictions in the pathway structure. 
+
+# 2.3 Bootstrap consensus graph construction 
+
+As an alternative to the primary graph construction approach, we also explored a bootstrap aggregation procedure to assess a consensus graph. In this approach, 200 bootstrap datasets were generated from the COAD training cohort used by Auslander et al. (2019), rather than from the full curated mutation matrix M. A directed graph was constructed from each of those datasets using the conditional probability and asymmetry framework described above, with edges below a probability threshold of 0.05 excluded. After processing all bootstrap datasets, edges were aggregated into a consensus edge list recording each edge’s frequency 𝑓 𝑖𝑗 , defined as the number of bootstrap datasets in which the edge appeared, and its mean weight ̄𝑤 𝑖𝑗 across those datasets. Rather than applying the feedback arc set algorithm to enforce acyclicity, we identified the minimum frequency threshold 𝑇 min such that retaining only the edges appearing in at least 𝑇 min 
+
+bootstrap datasets produced a valid DAG. 
+
+# 2.4 Pathway inference 
+
+We hypothesized that dominant evolutionary trajectories would correspond to longest paths within a DAG. To that end, we computed two longest paths for each graph. The first, an unweighted longest path, maximized the number of vertices in the path. The second, a weighted longest path, was computed by identifying the sequence of vertices that maximized the total edge weight, ∑ 𝑤 𝑖𝑗 , or total mean edge weight, ∑̄ 𝑤 𝑖𝑗 , through the graph. We focused on these two paths because they capture distinct properties of the DAG. They do not exhaust the possible trajectories in the graph, but provide two interpretable candidates for evaluating whether graph-derived mutation orders support downstream prediction. 
+
+# 2.5 Prediction task formulation 
+
+We formulated mutation-status prediction as a sequence modeling task. For each target gene, indexed by its pseu-dotemporal position 𝑡 within the inferred longest path, we constructed a predictive model that estimates the condi-tional probability 𝑃 (𝑦 𝑡 = 1| x<𝑡 ). Here, 𝑦 𝑡 ∈ {0, 1} in-dicates the mutation status of the target gene, and x<𝑡 rep-resents the observed mutation history preceding 𝑡 . 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint 4Dependency Graph-Guided Mutation Prediction
+
+The definition of x<𝑡 determines the scope of the biolog-ical information available to the model. We compare two distinct formulations of this input context to test different hypotheses: 1. Path-only context: The input history x<𝑡 is restricted to genes in the longest path that precede 𝑡 . This assumes that the longest path captures the primary mutational tra-jectory and treats off-path mutations as extraneous infor-mation for the prediction task. 2. Full topological context: The input history x<𝑡 is expanded to include all genes that appear before 𝑡 
+
+in the global topological ordering of the DAG. This strategy assumes that, although the longest path represents a primary mutational trajectory, off-path genes may still provide conditional information about tumor development before mutation 𝑡 .
+
+# 2.6 Machine learning dataset partitions 
+
+For the primary graph-derived and bootstrap-path predic-tion experiments, models were trained using the curated mutation matrix M described above. For each random seed, patient samples were randomly partitioned into an 80% training set and a 20% independent test set. The test set was held out from model fitting and threshold selection and was only used for final performance evalua-tion. Within the training set, a validation subset was used for decision-threshold tuning, selecting the threshold for each target gene that maximized F1-score on validation predictions. Reported metrics were computed on the independent 20% test set and summarized across 15 random seeds. 
+
+# 2.7 Model architectures 
+
+We implemented three long-range sequence modeling ar-chitectures to capture dependencies within the mutational sequences: 
+
+2.7.1 Long Short-Term Memory (LSTM) 
+
+The first model was a recurrent neural network (RNN) using LSTM units (Hochreiter and Schmidhuber 1997). The net-work used a single LSTM layer with 𝑑 = 5 units to capture long-term dependencies in the sparse mutational data. The LSTM dynamics are defined as: 
+
+f𝜏 = 𝜎 ( W𝑓 𝑥 𝜏 + U𝑓 h𝜏−1 + b𝑓 )
+
+i𝜏 = 𝜎 ( W𝑖 𝑥 𝜏 + U𝑖 h𝜏−1 + b𝑖 )
+
+o𝜏 = 𝜎 ( W𝑜 𝑥 𝜏 + U𝑜 h𝜏−1 + b𝑜 )̃ 
+
+c𝜏 = tanh (W𝑐 𝑥 𝜏 + U𝑐 h𝜏−1 + b𝑐 )
+
+c𝜏 = f𝜏 ⊙ c𝜏−1 + i𝜏 ⊙̃ c𝜏 
+
+h𝜏 = o𝜏 ⊙ tanh (c𝜏 )
+
+In these equations, 𝜏 indexes the position within the input history x<𝑡 for a given target gene 𝑡 , and 𝑥 𝜏 ∈ {0, 1} 
+
+is the scalar mutation status at position 𝜏 . The matrices 
+
+W ∈ ℝ 𝑑×1 are input weights that project the scalar in-put into the hidden dimension 𝑑 ; the matrices U ∈ ℝ 𝑑×𝑑 
+
+are recurrent weights that operate on the previous hidden state h𝜏−1 ; and b ∈ ℝ 𝑑 are bias vectors. Each parameter is subscripted by its corresponding gate and learned dur-ing training. The symbol 𝜎 denotes the sigmoid activation function, which outputs values in the range (0, 1) , while 
+
+tanh is the hyperbolic tangent function. The information flow is regulated by three distinct gates: the forget gate f𝜏 ,which determines the extent to which the previous cell state 
+
+c𝜏−1 is retained; the input gate i𝜏 , which controls how much of the candidate cell state ̃ c𝜏 is integrated into the current cell state c𝜏 ; and the output gate o𝜏 , which filters the cell state to create the hidden/output state h𝜏 . The operator ⊙
+
+represents the Hadamard product. This architecture allows the model to selectively include or forget information about mutation patterns across its input sequence. 
+
+2.7.2 Dilated Convolutional Neural Network (CNN) 
+
+As an alternative architecture, we implemented a dilated one-dimensional Convolutional Neural Network (CNN). While LSTMs use gated memory to retain information over long spans, dilated CNNs expand their receptive field through dilation, allowing them to incorporate information from distant positions in the sequence without recurrence. Whereas LSTMs address vanishing gradients through gated additive memory updates, dilated CNNs avoid recurrent multiplication through time by using feed-forward paths with short gradient routes. Unlike RNNs, which process sequences step by step, CNNs can process input histories in parallel and can learn hierarchical sequence features through increasing dilation rates. The architecture consisted of seven one-dimensional convolutional layers with 4 filters, a kernel size of 3, and dilation rates of 1, 2, 4, 8, 16, 32, and 64. 
+
+2.7.3 Shared LSTM with Attention and Gene Embeddings 
+
+The per-gene LSTM and dilated CNN architectures train an independent model for each target gene 𝑡 in the longest path. While this allows each model to specialize to a tar-get gene, it limits each model to fewer than 1,900 training samples under the 80/20 split. Additionally, genes early in the topological order have very short input sequences 
+
+x<𝑡 , sometimes with only one or two predecessors, provid-ing minimal signal for an independent model. To address these limitations, we propose a shared LSTM architecture in which a single model is trained across all target genes, outlined in Figure 2. The shared model takes two inputs. The first is the predecessor mutation history x<𝑡 ∈ {0, 1} 𝑇 , where 𝑇 is the number of real predecessor genes available for target gene 𝑡 . Because |x<𝑡 | varies across target genes, this history is right-padded to a common length 𝑇 max before being passed to the model. We denote the padded input as ̃
+
+x<𝑡 ∈ {−1, 0, 1} 𝑇 max , where −1 is a sentinel value used    
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint Dependency Graph-Guided Mutation Prediction 5
+> Figure 2 Shared Long Short-Term Memory (LSTM) with attention and gene embeddings for graph-derived mutation prediction. For a given sample, the mutation history preceding target position
+
+𝑡 is extracted as x<𝑡 and right-padded with the sentinel value −1 to form the padded input ̃ x<𝑡 . A binary mask distinguishes real predecessor positions from padded positions, so masked entries are ignored by the LSTM encoder and excluded from attention pooling. The LSTM produces hidden states h𝜏 for the real input positions, which are scored and normalized into attention weights. The resulting context vector    
+
+> zis concatenated with a learned target gene embedding v𝑔 and passed through a dense sigmoid layer to estimate the probability that the target gene is mutated.
+
+only to mark padded positions. A masking mechanism excludes these sentinel positions from downstream LSTM and attention computations. The second input is an integer gene identifier 𝑔 ∈ {0, … , 𝐾 − 1} , indicating which of the 𝐾 target genes is being predicted. The padded input ̃ x<𝑡 is passed through a masking mech-anism and then processed by a single LSTM layer with 16 units, producing a hidden state h𝜏 at each position of the original history x<𝑡 , where 𝜏 = 1, … , | x<𝑡 |. The LSTM dynamics follow the same gating equations defined above. Rather than using only the final hidden state h|x<𝑡 |,which compresses the predecessor history into a fixed-dimensional representation, we apply an attention pooling mechanism that learns a weighted combination over all positions in x<𝑡 (Yang et al. 2016). For each position 𝜏 , a scalar attention score is computed: 
+
+## 𝑠 𝜏 = tanh (w⊤h𝜏 + 𝑏) 
+
+where w ∈ ℝ 𝑑 and 𝑏 ∈ ℝ are learnable parameters. Each hidden state is scored independently, producing a learned measure of how informative that position is for the predic-tion task. Scores at padded positions are set to −∞ prior to normalization so that they receive zero weight. The scores are normalized via softmax to obtain attention weights: 
+
+## 𝛼 𝜏 = exp (𝑠 𝜏 )∑|x<𝑡 |𝜏 ′=1 exp (𝑠 𝜏 ′ )
+
+The context vector is then the weighted sum of hidden states: 
+
+z =
+
+|x<𝑡 |
+
+## ∑
+
+𝜏=1 
+
+## 𝛼 𝜏 h𝜏 ∈ ℝ 𝑑 
+
+This allows the model to weight informative predecessor positions directly, reducing reliance on the final hidden state as the sole summary of the sequence. In parallel, the gene identifier 𝑔 is passed through a learned embedding layer that maps each of the 𝐾 target genes into a dense vector v𝑔 ∈ ℝ 𝑑 𝑒 , where 𝑑 𝑒 = 8 . These embeddings are initialized randomly and updated during 
+
+.CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint 6 Dependency Graph-Guided Mutation Prediction 
+
+training, allowing the model to learn latent representations of gene identity and gene-specific predictive structure. The context vector and gene embedding are concate-nated and passed through a dropout layer (𝑝 = 0.3) 
+
+followed by a single dense unit with sigmoid activation to produce the estimated conditional probability. Training is performed over all pooled gene–sample pairs from all target genes simultaneously, providing approximately 𝐾 times as many training examples as any single per-gene model. This pooled training, combined with the gene embedding, allows the shared encoder to learn general patterns in upstream mutation structure while the embedding provides gene-specific adaptation. 
+
+# 2.8 Training and optimization 
+
+Given the sparsity of somatic mutations, the datasets are in-herently class imbalanced, with mutations representing rare positive events. To mitigate this, models were trained using binary focal cross-entropy loss (Lin et al. 2017). This loss function down-weights easy negatives and focuses learn-ing on hard examples. We optimized the network parame-ters using the Adam optimizer (Kingma and Ba 2017) for 10 epochs. A batch size of 27 was used on the base LSTM and dilated CNN models, matching Auslander et al. (2019), while a batch size of 256 was used on the shared LSTM with attention due to the increased model complexity. Neural network training is stochastic because of random weight initialization and data shuffling. To assess the con-sistency of our results, we repeated training and evalua-tion across 15 independent random seeds using the data partitioning procedure described above. This allowed the reported performance metrics to reflect variations across data splits and initialization states. For the primary graph-derived experiments, the co-occurrence graph was inferred once from the full mutation matrix M, and the resulting weighted and unweighted paths were held fixed across all 15 random seeds. We used this design so that each seed evaluated the same candidate mutational order and prediction tasks, meaning variation across seeds reflects model initialization and train/test partitioning rather than changes in the inferred graph itself. Re-inferring a new graph for each random split would produce different paths across seeds, making the resulting performance estimates less directly comparable. 
+
+# 2.9 Evaluation 
+
+2.9.1 Metrics 
+
+We evaluated mutation-prediction performance using standard binary classification metrics calculated from the confusion matrix: recall, the ability of the model to identify true mutations; precision, which measures the proportion of predicted mutations that were actually mutated; F1-score, the harmonic mean of precision and recall; and area under the ROC curve (AUC), a threshold-independent measure of the model’s ability to rank positive samples above negative ones. 
+
+2.9.2 Thresholding 
+
+To convert predicted probabilities into binary class labels, we employed two strategies. The first strategy used a fixed threshold of 0.5: predicted probabilities in [0.5, 1] were la-beled as mutations, and probabilities in [0, 0.5) were la-beled as non-mutations. The second approach tuned this threshold separately for each model. For each gene 𝑡 , we performed a grid search from 0.25 to 0.95 on the valida-tion subset of the training data to select the threshold that maximized the F1-score for that target gene. The selected threshold was then applied to the independent test set. Op-timizing F1-score balances missed mutations and false pos-itives. In contrast, recall can be increased trivially by low-ering the threshold, while precision can often be increased by raising the threshold and making fewer positive predic-tions. We report results for both fixed and tuned/adaptive strategies across all considered paths and models. 
+
+# 3 Results 
+
+# 3.1 Clusters and stages 
+
+No clustering method recovered AJCC stage from the mutation data. On the full gene set, Jaccard hierarchi-cal clustering, fixed at four clusters, produced a highly imbalanced result where the largest cluster contained 82% of samples, with Stage II dominant in all but one cluster (ARI = −0.009 ). Louvain and Leiden community detection identified 12 and 15 communities respectively, each with a stage distribution similar to that of the full sample set (Louvain ARI = 0.005, Leiden ARI = 0.005). Ward hierarchical clustering in PCA space selected eight clusters via silhouette score, though ARI was still rather poor at -0.013. Filtering to the set of genes mutated in 
+
+## ≥ 5% of samples did not improve these results. The first principal component was near-perfectly correlated with tumor mutational burden (Pearson 𝑟 = 0.999 
+
+unfiltered, 𝑟 = 0.974 filtered), which confirms that the dominant axis of variation reflects mutational load instead of stage-specific or molecular patterns. 
+
+# 3.2 Baselines 
+
+To establish a comparative baseline, we replicated the mutation sequence modeling experiment from Auslander 
+
+et al. (2019). We trained LSTM models using the training cohort defined in their study and evaluated performance on the dataset from Giannakis et al. (2016) using the same fixed global gene ordering. These replicated results (Tab. 1) provide a baseline for evaluating the proposed graph-derived ordering strategies. Because the dataset is heavily imbalanced toward non-mutated labels, a random Bernoulli classifier matched to the empirical class distribu-tion would achieve an expected accuracy of approximately  
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint Dependency Graph-Guided Mutation Prediction 7
+
+0.96 but a precision equal to the mutation prevalence, approximately 0.02. This highlights the inadequacy of accuracy, and accuracy-like metrics, under extreme class imbalance.  
+
+> Table 1 Baseline confusion matrix and metrics
+
+Predicted Actual Positive Negative Total 
+
+Positive 438 147,956 148,394 Negative 1,133 7,478,410 7,479,543 Total 1,571 7,626,366 7,627,937 Recall 0.003 Precision 0.279 Accuracy 0.980 F1-score 0.006 
+
+# 3.3 Inference of evolutionary trajectories 
+
+To map the dependency structure of colorectal adenocar-cinoma, we reconstructed the mutational landscape as a directed acyclic graph and identified dominant evolu-tionary trajectories using both unweighted and weighted path-finding algorithms. The resulting graph, shown in part in Figure 3, shows that maximizing sequence length (unweighted) and maximizing cumulative edge weight (weighted) yield distinct evolutionary hypotheses. This divergence is illustrated in Figure 4, which contrasts the prevalence-heavy profile of the unweighted path with the profile of the weighted path. We then evaluated these inferred trajectories through downstream mutation prediction. 
+
+# 3.4 Predictive performance of sequence models 
+
+We used the inferred paths to train LSTM models, dilated CNN models, and shared LSTM models with attention and gene embeddings to predict the presence of a mutation at gene 𝑡 , given the patient’s prior mutational history x<𝑡 . Ta-ble 2 summarizes predictive performance across path con-struction strategies for the standard LSTM architecture. Despite excluding TP53 , the weighted longest path outperformed the unweighted approach across most metrics. The weighted model achieved a maximum AUC of 0.914, compared to 0.902 for the unweighted model. This suggests that the weighted sequence, despite omitting a canonical driver, provides a stronger predictive signal than the unweighted chain. Several graph-derived configura-tions improved precision over the reproduced baseline of 0.279, particularly under fixed-threshold evaluation. When comparing architectures, the LSTM and dilated CNN achieved broadly comparable performance; dilated CNN results are reported in Table 3. Dilated CNN achieved competitive recall on the tuned full-context path (0.747 vs 0.749 for LSTM), though it showed lower recall (0.329 vs 0.441) in the fixed threshold, full-context configuration. In addition, both architectures identified the fixed-threshold, full-context models as having the highest precision among the tested configurations, suggesting broad agreement across evaluation metrics. The proposed shared LSTM with attention and gene em-beddings followed the same overall trends as the simpler models. Compared with the standard LSTM, the shared LSTM showed lower recall but similar precision under fixed-threshold evaluation. Under tuned-threshold evaluation, re-call was higher than that of the standard LSTM (0.804 on the weighted, full-context, tuned configuration vs. 0.749 on the same configuration for standard LSTM), though pre-cision is often comparable or lower. Although the shared attention model did not uniformly outperform the standard LSTM across all metrics, it achieved competitive AUC and high recall while providing a single gene-conditioned model across all targets. 
+
+# 3.5 Impact of context and thresholding 
+
+Incorporating off-path information from the background topological order improved predictive performance. Mod-els trained with full topological context, which includes all predecessor genes in the DAG rather than only genes in the longest path, achieved the highest performance. Specifically, under the weighted strategy, adding full context improved the F1-score from 0.539 to 0.556 and the recall from 0.699 to 0.749 (Table 2). This suggests that off-path mutations contain information that can refine prediction of downstream mutational states. Threshold tuning was also important for handling the in-herent class imbalance of somatic mutation data. Standard fixed thresholds (0.5) frequently failed to capture the mi-nority positive class. Tuning the decision threshold to max-imize F1-score on a validation set substantially improved recall, reaching 0.749 for the weighted, full-context LSTM configuration. However, this gain in recall came with a trade-off in preci-sion compared with fixed-threshold evaluation (e.g., drop-ping from 0.576 to 0.443 in the weighted, full context con-figuration). This reduction occurs because optimizing for F1-score in sparse datasets requires lowering the decision boundary to capture rare mutational events. Although this increases the false positive rate, the substantial recovery in recall may justify the reduction in precision for mutation screening tasks. 
+
+# 3.6 Bootstrapping results 
+
+For the bootstrap consensus graph, we obtained both weighted and unweighted longest paths. These paths were then used to train models with the standard LSTM archi-tecture; evaluation metrics for those models are reported 
+
+> .CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint
+
+8 Dependency Graph-Guided Mutation Prediction ABCA5 
+
+ABCB11 
+
+ABCC6P1 
+
+ABITRAMP1 
+
+AKR1B1 
+
+AMPD1 
+
+ANK3 
+
+APC 
+
+ARPC3 
+
+CHCT1 
+
+CTD−2139B15.2 
+
+DLGAP1−AS1 
+
+DNAI3 
+
+DUOX1 
+
+ELP1 
+
+FAM217B 
+
+FAT4 
+
+FBXW7 
+
+GSTT1 
+
+IL2RA 
+
+ITPR2 
+
+MEGF8 
+
+MMRN1 
+
+MUC16 
+
+MYO15A 
+
+NCOR2 
+
+PCLO 
+
+PDZD9 
+
+PLAC8L1 
+
+RP11−385D13.1 
+
+RYR1 
+
+SDHAP3 
+
+SEC31A 
+
+SIPA1L1 
+
+SMURF2P1 
+
+SNORD115−15 
+
+TP53 
+
+TRAV38−1 
+
+VPS13A 
+
+ZFHX3 
+
+ZFHX4 
+
+ZNF564 
+
+ABRAXAS1 
+
+ADA2 
+
+ADGRV1 
+
+AK6 
+
+ARNTL 
+
+BMPR2 
+
+BRAF 
+
+C8orf34 
+
+CAPRIN2 
+
+CCDC30 
+
+CEP131 
+
+CFAP43 
+
+CLUL1 
+
+CNTNAP5 
+
+CSMD3 
+
+DNAH3 
+
+DOP1A 
+
+ECPAS ERICH6 
+
+FYB2 
+
+GUCY2C−AS1 
+
+ICA1L 
+
+IFNA14 
+
+KNL1 
+
+KRAS 
+
+LINC01553 
+
+MAP10 
+
+MARS1 
+
+MYH11 
+
+MYH13 
+
+NAV1 
+
+NEB 
+
+OBSCN 
+
+PDE6C 
+
+PIK3CA 
+
+PLEC 
+
+PRKDC 
+
+RNF213 
+
+SCN8A 
+
+SMCR8 
+
+SPART−AS1 
+
+SYCN 
+
+SYCP1 
+
+TPT1P8 
+
+TTN 
+
+TULP4 
+
+UTP4 
+
+ZBBX 
+
+ZNF224 
+
+ZNF529 
+
+ZNF585A 
+
+Gene Type Both Unweighted Path Weighted Path Interaction Type Background Unweighted Path Weighted Path 
+
+Figure 3 Weighted and unweighted longest mutational paths. The directed acyclic graph (DAG) is arranged using a Sugiyama layout to reflect topological order (Sugiyama et al. 1981), with earlier inferred mutational events at the top and later inferred events at the bottom. Nodes and edges are colored by their inclusion in the computed longest paths. Green indicates genes identified by both the weighted and unweighted paths; orange denotes the unweighted longest path, maximizing vertex count; and blue denotes the weighted longest path, maximizing the cumulative edge weight. 
+
+.CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint Dependency Graph-Guided Mutation Prediction 9APC 
+
+> TP53
+> KRAS
+> MUC16
+> FAT4
+> PIK3CA
+> RYR1
+> CSMD3
+> ZFHX4
+> NEB
+> FBXW7
+> BRAF
+> ZFHX3
+> RNF213
+> DNAH3
+> ANK3
+> PRKDC
+> MYO15A
+> MEGF8
+> NCOR2
+
+## Unweighted Longest Path 
+
+Samples (n=2344) 
+
+> APC
+> TTN
+> MUC16
+> OBSCN
+> PCLO
+> PLEC
+> BRAF
+> BMPR2
+> ITPR2
+> ABCA5
+> ABCB11
+> ADGRV1
+> DOP1A
+> CFAP43
+> FYB2
+> DNAI3
+> ABRAXAS1
+> TPT1P8
+> LINC01553
+> GUCY2C-AS1
+
+## Weighted Longest Path 
+
+## 0
+
+## 1
+
+> Mutation Status
+
+Samples (n=2344) 
+
+Dataset Source 
+
+> coad_cptac_2019 (n=106)
+> coad_cptac_gdc (n=104)
+> coad_silu_2022 (n=281)
+> coad_tcga_gdc (n=429)
+> coadread_cass_2020 (n=142)
+> coadread_dfci_2016 (n=619)
+> coadread_genentech (n=72)
+> coadread_tcga_pan_can_atlas_2018 (n=489)
+> coadread_tcga_pub (n=102)
+
+Figure 4 Binary mutation statuses ( 𝑚 𝑖𝑘 ) for the genes comprising the inferred unweighted (left) and weighted (right) longest paths across the 2,344 samples. Rows correspond to the first 20 genes included in each trajectory, while columns represent patient samples ordered using hierarchical clustering (Euclidean distance, average linkage). Blue indicates the presence of a mutation, and light gray indicates the absence of a mutation. The color-coded annotation bar at the bottom of each heatmap identifies the originating dataset for each sample. 
+
+Table 2 Performance metrics (mean ± SD over 𝑛 = 15 random seeds) for LSTM models using fixed (0.5) and tuned thresholds across contexts and path strategies. 
+
+Configuration Recall Precision AUC F1-score 
+
+Unweighted Longest Path 
+
+Path-only (Fixed) 0.201 ± 0.018 0.608 ± 0.027 0.902 ± 0.003 0.302 ± 0.019 Path-only (Tuned) 0.643 ± 0.029 0.383 ± 0.015 0.902 ± 0.003 0.479 ± 0.014 Full context (Fixed) 0.265 ± 0.020 0.604 ± 0.020 0.897 ± 0.002 0.368 ± 0.019 Full context (Tuned) 0.646 ± 0.016 0.399 ± 0.029 0.897 ± 0.002 0.493 ± 0.023 
+
+Weighted Longest Path 
+
+Path-only (Fixed) 0.314 ± 0.025 0.552 ± 0.023 0.914 ± 0.004 0.400 ± 0.025 Path-only (Tuned) 0.699 ± 0.027 0.439 ± 0.022 0.914 ± 0.004 0.539 ± 0.014 Full context (Fixed) 0.441 ± 0.021 0.576 ± 0.018 0.914 ± 0.005 0.499 ± 0.016 Full context (Tuned) 0.749 ± 0.028 0.443 ± 0.020 0.914 ± 0.005 0.556 ± 0.016 
+
+Note: AUC is threshold-independent; each AUC value applies to both the fixed- and tuned-threshold rows for the same context. Bold values indicate the best mean performance within each metric column. 
+
+in Table 5. Unlike primary graph results, the unweighted bootstrap path performed slightly better than the weighted path on most metrics. In addition, full topological context did not improve performance relative to the path-only context. The lower performance of the bootstrap consensus paths compared with the primary graph-derived paths suggests that using a smaller data cohort for graph inference reduces the predictive quality of the resulting order, but the above-baseline performance indicates that the signal is not entirely dependent on constructing the graph from the full matrix. 
+
+# 4 Discussion 
+
+The unweighted longest path derived from the primary graph construction method recovered several established colorectal cancer drivers, including APC , TP53 , KRAS , and 
+
+BRAF , among its early vertices and contained 75 genes in total. However, the inferred ordering deviated from standard linear progression models, with TP53 appearing 
+
+.CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint 10 Dependency Graph-Guided Mutation Prediction   
+
+> Table 3 Performance metrics (mean
+
+± SD over 𝑛 = 15 random seeds) for dilated CNN models using fixed (0.5) and tuned thresholds across contexts. 
+
+Configuration Recall Precision AUC F1-score 
+
+Unweighted Longest Path 
+
+Path-only (Fixed) 0.148 ± 0.050 0.541 ± 0.059 0.851 ± 0.034 0.227 ± 0.062 Path-only (Tuned) 0.608 ± 0.042 0.292 ± 0.019 0.851 ± 0.034 0.393 ± 0.017 Full context (Fixed) 0.225 ± 0.049 0.484 ± 0.101 0.860 ± 0.035 0.304 ± 0.058 Full context (Tuned) 0.632 ± 0.040 0.282 ± 0.037 0.860 ± 0.035 0.388 ± 0.033 
+
+Weighted Longest Path 
+
+Path-only (Fixed) 0.337 ± 0.081 0.485 ± 0.067 0.859 ± 0.074 0.391 ± 0.061 Path-only (Tuned) 0.691 ± 0.085 0.362 ± 0.024 0.859 ± 0.074 0.473 ± 0.031 
+
+Full context (Fixed) 0.329 ± 0.107 0.539 ± 0.085 0.893 ± 0.019 0.391 ± 0.091 Full context (Tuned) 0.747 ± 0.031 0.327 ± 0.051 0.893 ± 0.019 0.452 ± 0.052   
+
+> Note: AUC is threshold-independent; each AUC value applies to both the fixed- and tuned-threshold rows for the same context. Bold values indicate the best mean performance within each metric column.
+> Table 4 Performance metrics (mean
+
+± SD over 𝑛 = 15 random seeds) for shared LSTM models with attention using fixed (0.5) and tuned thresholds across contexts and path strategies. 
+
+Configuration Recall Precision AUC F1-score 
+
+Unweighted Longest Path 
+
+Path-only (Fixed) 0.174 ± 0.023 0.632 ± 0.027 0.905 ± 0.003 0.272 ± 0.029 Path-only (Tuned) 0.676 ± 0.036 0.354 ± 0.012 0.905 ± 0.003 0.464 ± 0.010 Full context (Fixed) 0.222 ± 0.031 0.642 ± 0.015 0.913 ± 0.003 0.329 ± 0.034 Full context (Tuned) 0.676 ± 0.030 0.382 ± 0.016 0.913 ± 0.003 0.488 ± 0.014 
+
+Weighted Longest Path 
+
+Path-only (Fixed) 0.195 ± 0.014 0.544 ± 0.026 0.912 ± 0.003 0.287 ± 0.016 Path-only (Tuned) 0.751 ± 0.029 0.397 ± 0.019 0.912 ± 0.003 0.518 ± 0.013 Full context (Fixed) 0.326 ± 0.041 0.577 ± 0.023 0.919 ± 0.003 0.415 ± 0.036 Full context (Tuned) 0.804 ± 0.015 0.392 ± 0.017 0.919 ± 0.003 0.526 ± 0.016   
+
+> Note: AUC is threshold-independent; each AUC value applies to both the fixed- and tuned-threshold rows for the same context. Bold values indicate the best mean performance within each metric column.
+> Table 5 Performance metrics (mean
+
+± SD over 𝑛 = 15 random seeds) for the standard LSTM architecture on the bootstrap consensus paths using fixed (0.5) and tuned thresholds across contexts and path strategies. 
+
+Configuration Recall Precision AUC F1-score 
+
+Unweighted Longest Path 
+
+Path-only (Fixed) 0.192 ± 0.016 0.592 ± 0.018 0.840 ± 0.005 0.289 ± 0.020 Path-only (Tuned) 0.580 ± 0.025 0.362 ± 0.017 0.840 ± 0.005 0.445 ± 0.017 Full context (Fixed) 0.201 ± 0.013 0.586 ± 0.021 0.836 ± 0.005 0.299 ± 0.017 Full context (Tuned) 0.580 ± 0.024 0.365 ± 0.017 0.836 ± 0.005 0.448 ± 0.017 Weighted Longest Path 
+
+Path-only (Fixed) 0.154 ± 0.016 0.610 ± 0.025 0.836 ± 0.005 0.246 ± 0.021 Path-only (Tuned) 0.563 ± 0.028 0.363 ± 0.016 0.836 ± 0.005 0.441 ± 0.017 Full context (Fixed) 0.164 ± 0.016 0.606 ± 0.027 0.831 ± 0.005 0.258 ± 0.022 Full context (Tuned) 0.561 ± 0.026 0.365 ± 0.017 0.831 ± 0.005 0.442 ± 0.017 
+
+> Note: AUC is threshold-independent; each AUC value applies to both the fixed- and tuned-threshold rows for the same context. Bold values indicate the best mean performance within each metric column.
+
+before KRAS in the sequence APC → TP53 → KRAS 
+
+(Vogelstein et al. 2013). This suggests that while the unweighted approach captures high-prevalence drivers, maximizing path length may favor placing high-degree vertices earlier in the path to extend the chain. In contrast, the weighted longest path optimized the strength of conditional dependencies rather than the number of vertices, and included 22 genes. Notably, this probabilistic trajectory excluded TP53 . Rather than forcing a route through all canonical drivers, the weighted algorithm favored a statistically cohesive chain of interac-tions with stronger pairwise asymmetry. This distinction is consistent with the idea that colorectal tumorigenesis follows a preferred but not strictly fixed order, and that the 
+
+.CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint Dependency Graph-Guided Mutation Prediction 11 
+
+accumulation of key alterations may be as important as their exact sequence (Fearon and Vogelstein 1990). Notably, both paths start with APC , a canonical initiating driver of the adenoma–carcinoma sequence. Both paths also identify BRAF early, consistent with its known role as a colorectal cancer driver. However, the inferred paths may also reflect gene length and mutational opportunity, since long genes such as TTN are more likely to accumulate mu-tations. This is an important limitation of co-occurrence-based inference and suggests that future graph construc-tion should account for gene length, background mutation rate, or sample-level mutational burden. The paths obtained from the bootstrap consensus graph showed broadly similar trends. The unweighted bootstrap path contained 158 genes and included APC , TP53 , KRAS ,and BRAF , while the weighted bootstrap path contained 153 genes and again excluded TP53 . These results suggest that several core ordering signals are recoverable even when the graph is inferred from a smaller cohort. The shared LSTM with attention and gene embeddings represents the main predictive architecture proposed in this study. Compared with the standard LSTM and dilated CNN, which train separate models for each target gene, the shared attention model pools information across all target genes while conditioning each prediction on alearned gene embedding. This design is well suited to sparse mutation matrices because many target genes have few positive examples, making independent per-gene models data-limited. Although this architecture did not dominate every metric, its competitive AUC and high recall demonstrate its promise. Several limitations should be noted. First, a key assump-tion of this pseudotemporal approach is that inter-patient heterogeneity contains information about different points along mutational progression. The availability of AJCC Stage I–IV samples provides some amount of coverage across disease extent. However, our clinical-stage analysis showed that mutation profiles did not cluster by AJCC stage, while the dominant axis of variation was strongly associated with mutational burden. As such, the inferred ordering likely reflects mutation accumu-lation and co-occurrence structure more than clinical stage progression. Consistent with this interpretation, supplementary stratified analyses showed that stage- and Louvain-specific graph-derived models gave mixed results. The fixed-graph design also affects how the predic-tive results should be interpreted. Holding the primary graph-derived paths constant across random seeds made the seed-level comparisons consistent, since each run evaluated the same target genes and predecessor histories. However, this design does not test how stable the inferred graph would be if it were reconstructed within each training split. The bootstrap consensus analysis provides a partial check by evaluating paths from the smaller COAD cohort used by Auslander et al. (2019); these paths performed worse than the primary graph-derived paths but remained above the reproduced baseline. This difference may reflect the smaller cohort used for graph inference, the bootstrap aggregation procedure, the frequency-thresholding strat-egy used to obtain a DAG, or a combination of these factors. Future work should directly evaluate graph stability with training-split specific inference. In conclusion, this study demonstrates the potential of combining graph-based mutational ordering with long-term sequence models for mutation prediction in colon cancer. Future work should evaluate additional branching paths from the co-occurrence asymmetry graph and further validate inferred gene orders using long-term learning models. 
+
+# Author contributions 
+
+Collin Sumrell (Conceptualization [supporting], Software [lead], Methodology [supporting], Formal analysis [equal], Investigation [equal], Data curation [equal], Validation [equal], Visualization [lead], Writing-original draft [equal], Writing-review & editing [equal]), Aleksandr Shishkin (Data curation [supporting], Writing-review & editing [supporting]), Ekene Okeke (Software [supporting], For-mal analysis [supporting]), Alexander Zelikovsky (Formal analysis [supporting], Investigation [supporting], Supervi-sion [supporting]), Marmar R. Moussa (Conceptualization [lead], Methodology [lead], Formal analysis [equal], Inves-tigation [equal], Project administration [lead], Software [supporting], Validation [equal], Writing-original draft [equal], Writing-review & editing [equal], Supervision [lead], Funding acquisition [lead]) 
+
+# Supplementary material 
+
+Supplementary material is available as a separate file ac-companying this manuscript. 
+
+# Conflict of interests 
+
+None declared. 
+
+# Funding 
+
+This work was supported by the National Science Foun-dation [NSF-2341725, NSF-2443386]; National Institutes of Health [NIH-K25CA270079]; and the University of Oklahoma Big Idea Challenge 2.0 award (BIC2.0). Research reported in this publication was also supported in part by the National Institute of General Medical Sciences of the National Institutes of Health under Award Number P20GM162339. 
+
+# Data availability 
+
+The data and code underlying this study are available at github.com/moussa-lab/MutationPrediction. 
+
+.CC-BY-NC-ND 4.0 International license available under a was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is made The copyright holder for this preprint (which this version posted July 6, 2026. ;https://doi.org/10.64898/2026.01.22.701121 doi: bioRxiv preprint 12 Dependency Graph-Guided Mutation Prediction 
+
+# References 
+
+M. B. Amin, S. B. Edge, F. L. Greene, et al., editors. AJCC Cancer Staging Manual . Springer, New York, 8th edition, 2017. N. Auslander, Y. I. Wolf, and E. V. Koonin. In silico learning of tumor evolution through mutational time series. Proceedings of the National Academy of Sciences , 116(19):9501–9510, 2019. doi: 10.1073/pnas.1901695116 .V. D. Blondel, J.-L. Guillaume, R. Lambiotte, and E. Lefebvre. Fast unfolding of communities in large networks. Journal of Statistical Mechanics: Theory and Experiment , 2008(10): P10008, oct 2008. doi: 10.1088/1742-5468/2008/10/P10008 .Cancer Genome Atlas Network. Comprehensive molecular characterization of human colon and rectal cancer. Na-ture , 487(7407):330–337, July 2012. ISSN 1476-4687. doi: 
+
+10.1038/nature11252 .E. Cerami, J. Gao, U. Dogrusoz, et al. The cBio cancer genomics portal: an open platform for exploring multidi-mensional cancer genomics data. Cancer Discovery , 2(5): 401–404, 2012. I. de Bruijn, R. Kundra, B. Mastrogiacomo, et al. Analysis and visualization of longitudinal genomic and clinical data from the aacr project genie biopharma collaborative in cbio-portal. Cancer Research , 83(23):3861–3867, 2023. ISSN 1538-7445. doi: 10.1158/0008-5472.can-23-0816 . URL http: //dx.doi.org/10.1158/0008-5472.CAN-23-0816 .P. Eades, X. Lin, and W. Smyth. A fast and effective heuristic for the feedback arc set problem. Information Processing Letters , 47(6):319–323, 1993. ISSN 0020-0190. doi: 10.1016/ 0020-0190(93)90079-O .E. R. Fearon and B. Vogelstein. A genetic model for colorectal tumorigenesis. Cell , 61(5):759–767, 1990. ISSN 0092-8674. doi: 10.1016/0092-8674(90)90186-I .E. Fessler, J. Drost, S. R. van Hooff, et al. Tgf 𝛽 signaling directs serrated adenomas to the mesenchymal colorectal cancer subtype. EMBO molecular medicine , 8(7):745–760, 2016. J. Gao, B. A. Aksoy, U. Dogrusoz, et al. Integrative analysis of complex cancer genomics and clinical profiles using the cbioportal. Science Signaling , 6(269), Apr. 2013. ISSN 1937-9145. doi: 10.1126/scisignal.2004088 . URL http://dx.doi. org/10.1126/scisignal.2004088 .M. Giannakis, X. J. Mu, S. A. Shukla, et al. Genomic corre-lates of immune-cell infiltrates in colorectal carcinoma. Cell Reports , 15(4):857–865, Apr. 2016. ISSN 2211-1247. doi: 
+
+10.1016/j.celrep.2016.03.075 .A. P. Heath, V. Ferretti, S. Agrawal, et al. The NCI Genomic Data Commons. Nature Genetics , 53(3):257–262, Feb. 2021. ISSN 1546-1718. doi: 10.1038/s41588-021-00791-5 .S. Hochreiter and J. Schmidhuber. Long short-term memory. 
+
+Neural Computation , 9(8):1735–1780, 1997. L. Hubert and P. Arabie. Comparing partitions. Journal of Classification , 2(1):193–218, Dec 1985. ISSN 1432-1343. doi: 
+
+10.1007/BF01908075 .J. IJspeert, R. Bevan, C. Senore, et al. Detection rate of ser-rated polyps and serrated polyposis syndrome in colorectal cancer screening cohorts: a European overview. Gut , 66(7): 1225–1232, 2017. S. Jones, W.-d. Chen, G. Parmigiani, et al. Comparative le-sion sequencing provides insights into tumor evolution. Pro-ceedings of the National Academy of Sciences , 105(11): 4283–4288, 2008. D. P. Kingma and J. Ba. Adam: A method for stochastic opti-mization. 2017. URL https://arxiv.org/abs/1412.6980 .S. Kumar, J. Warrell, S. Li, P. D. McGillivray, W. Meyerson, L. Salichos, A. Harmanci, A. Martinez-Fundichely, C. W. Chan, M. M. Nielsen, et al. Passenger mutations in more than 2,500 cancer genomes: overall molecular functional impact and consequences. Cell , 180(5):915–927, 2020. C. Li, Y.-D. Sun, G.-Y. Yu, et al. Integrated omics of metastatic colorectal cancer. Cancer Cell , 38(5):734–747.e9, Nov. 2020. ISSN 1535-6108. doi: 10.1016/j.ccell.2020.08.002 .T. Lin, P. Goyal, R. B. Girshick, K. He, and P. Dollár. Focal loss for dense object detection. CoRR , abs/1708.02002, 2017. URL 
+
+http://arxiv.org/abs/1708.02002 .J. Roelands, P. J. K. Kuppen, E. I. Ahmed, et al. An integrated tumor, immune and microbiome atlas of colon cancer. Na-ture Medicine , 29(5):1273–1286, May 2023. ISSN 1546-170X. doi: 10.1038/s41591-023-02324-5 .S. Seshagiri, E. W. Stawiski, S. Durinck, et al. Recurrent R-spondin fusions in colon cancer. Nature , 488(7413):660– 664, Aug. 2012. ISSN 1476-4687. doi: 10.1038/nature11282 .S. Shen and H. Lee. Neural Attention Models for Sequence Classification: Analysis and Application to Key Term Extrac-tion and Dialogue Act Detection. In Interspeech 2016 , pages 2716–2720, 2016. doi: 10.21437/Interspeech.2016-1359 .K. Sugiyama, S. Tagawa, and M. Toda. Methods for visual understanding of hierarchical system structures. IEEE Trans-actions on Systems, Man, and Cybernetics , 11(2):109–125, 1981. doi: 10.1109/TSMC.1981.4308636 .V. A. Traag, L. Waltman, and N. J. van Eck. From Louvain to Leiden: guaranteeing well-connected communities. Scien-tific Reports , 9(1):5233, Mar 2019. ISSN 2045-2322. doi: 
+
+10.1038/s41598-019-41695-z .S. Vasaikar, C. Huang, X. Wang, et al. Proteogenomic analysis of human colon cancer reveals new therapeutic opportuni-ties. Cell , 177(4):1035–1049.e19, 2019. ISSN 0092-8674. doi: 
+
+10.1016/j.cell.2019.03.030 .B. Vogelstein, N. Papadopoulos, V. E. Velculescu, et al. Cancer genome landscapes. Science , 339(6127):1546–1558, 2013. doi: 10.1126/science.1235122 .J. H. Ward. Hierarchical grouping to optimize an objective function. Journal of the American Statistical Association , 58 (301):236–244, 1963. doi: 10.1080/01621459.1963.10500845 .Z. Yang, D. Yang, C. Dyer, et al. Hierarchical attention networks for document classification. In K. Knight, A. Nenkova, and O. Rambow, editors, Proceedings of the 2016 Conference of the North American Chapter of the Association for Compu-tational Linguistics: Human Language Technologies , pages 1480–1489, San Diego, California, June 2016. Association for Computational Linguistics. doi: 10.18653/v1/N16-1174 .

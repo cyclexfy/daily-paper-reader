@@ -1,0 +1,903 @@
+Title: 2607.06019v1.pdf
+
+URL Source: https://arxiv.org/pdf/2607.06019v1
+
+Published Time: Wed, 08 Jul 2026 00:44:06 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+† These authors contributed equally. 
+
+# KOAL: Knowledge -Driven Prostate Cancer Grading 
+
+# wi th Ordinal -Aware Learning 
+
+Zheng Guo 1†, Jiaqi Cui 1†, Haocheng Xiong 1, Jize Han 2, Bo Liu 1, Qianwen Zhang 3(),
+
+Rui Chen 4(), and Yan Wang 1() 
+
+> 1
+
+School of Computer Science , Sichuan University, China 
+
+wangyanscu@hotmail.com  
+
+> 2
+
+China Mobile (Suzhou) Software Technology Company Limited, China  
+
+> 3
+
+Shanghai Changhai Hospital, Naval Medical University, China  
+
+> 4
+
+Renji Hospital, Shanghai Jiao Tong University School of Medicine, China 
+
+drchenrui@foxmail.com 
+
+Abstract.  Non -invasive prediction of Gleason Grade Group (GGG)  in p rostate 
+
+cancer using multiparametric MRI (mpMRI) is clinically  vital  for reducing un-
+
+necessary biopsies.  Existing  GGG prediction  methods face  two major  limitations .
+
+First,  they often overlook  non -image  information critical for GGG prediction, 
+
+including  age, p rostate -specific  antigen (PSA) , and  expert priors embedded in 
+
+radiology reports . Second,  they tend to oversimplify GGG as flat categorical la-
+
+bels, failing to account for  its intrinsic hierarchy of primary and secondary 
+
+Gleason patterns . To  this end , we propose  a novel  Knowledge -Driven  Ordinal -
+
+Aware  Learning (KOAL) framework  with three  synergistic modules . Specifi-
+
+cally , t he Clinical -Context Modulation (CCM) module  uses clinical variables 
+
+(e.g., age and PSA) to dynamically modulate discriminative image representa-
+
+tions . The  Knowledge -Guided Prototype Alignment (KGPA) module leverages 
+
+an LL M to  extract group -specific  expert  knowledge from  training  radiology  re-
+
+ports  and  clinical guidelines , producing  offline  semantic anchors  describing 
+
+grade -specific  radiological findings  without requiring patient -specific reports at 
+
+inference . Through  prototype contrastive alignment, patient -specific mpMRI 
+
+representations  are  matched  with these anchors to promote pathology -aligned 
+
+representation learning.  The Hierarchical Ordinal -aware Constraints (HOC) 
+
+module decouples primary and secondary Gleason pattern prediction and maps 
+
+their probabilistic outputs to GGG via a Differentiable Bio -logic Mapping Layer 
+
+(DBML),  ensuring pathological grading consistency . Experiments on  public PI -
+
+CAI and  in -house  dataset s demonstrate that KOAL  outperforms  state -of -the -art 
+
+methods . Code  is available at : https://github.com/Gother -GZ/KOAL .
+
+Keywords:  Prostate Cancer; Gleason Grading Prediction; Multi -modal Learn-
+
+ing; Ordinal Regression; Knowledge -Driven Learning. 
+
+## 1 Introduction 
+
+Prostate cancer (PCa) is one of the most prevalent malignancies in men worldwide  [1].
+
+In clinical practice , tumor aggressiveness is central  to  diagnosis and treatment , and  is 2 Z. Guo et al. 
+
+usually  evaluated  using  the  Gleason grading system  [2]. This system assigns grade s to 
+
+the  dominant (i.e., primary)  and the  next -most frequent  (i.e., secondary) pattern s,  which 
+
+together form  the  Gleason  score ( e.g.,  3+3 to 5 +5) [ 2].  Given the  established  association 
+
+between  Gleason s core and patient prognosis, the International Society of Urological 
+
+Pathology (ISUP)  further  introduce d a simplified grading system , i.e.,  the Gleason 
+
+Grade Group  (GGG, ranging from 1 to 5)  [3].  However,  as a pathological gold standard, 
+
+obtaining  GGG  typically  necessitates invasive biopsy  or  surgical resection , which is 
+
+associated  with  procedure -related complications  [4]. Moreover , inconsistenc ies  often 
+
+exist between  biopsy -based GGG  and whole -mount pathological analysis  [5]. There-
+
+fore,  reliable  non -invasive  GGG prediction  is highly desirable  for  reducing  unnecessary 
+
+biopsies and supporting clinical decision -making. 
+
+In clinic , multiparametric Magnetic Resonance Imaging (mpMRI), including T2 -
+
+weighted imaging (T2),  diffusion -weighted  imaging (DWI), and  apparent  diffusion  co-
+
+efficient (ADC), has been widely adopted  for  non -invasive prostate cancer  assessment 
+
+[6,7].  Nevertheless,  accurate prediction of histopathological GGG from  mpMRI re-
+
+mains challenging due to  intra -tumor heterogeneity, inter -observer variability, and sub-
+
+tle imaging -pathology correlat ions  [8].  Early studies primarily employed radiomics -
+
+based approaches [ 9,10 ,11 ], which focused on extracting handcrafted features from 
+
+mpMRI to establish a mapping between imaging phenotypes and GGG grading. How-
+
+ever, these methods  often require  precise lesion segmentation and expert -defined fea-
+
+ture engineering, which are labor -intensive  and  exhibit limited generalization capabili-
+
+ties across different centers.  More recently,  deep learning (DL)  techniques  have  been 
+
+explored  to improve  GGG prediction [ 12 ,13 ,14 ,15 ].  In addition,  given the  inherent or-
+
+dinal nature of GGG (1 -5), several  studies  have  explored modeling ordinal relationships 
+
+among grade groups.  In this vein , X u et al.  [16 ] proposed a Poisson  ordinal  network  for 
+
+Gleason group estimation  on MRI to improve consistency and robustness .
+
+Despite  their  improvements,  existing  methods  still face two key limitations . First, 
+
+these  approaches primarily rely on  imag e-only mpMRI inputs for  GGG  prediction . This 
+
+paradigm , however,  often  overlooks valuable expert knowledge conveyed in radiology 
+
+reports , which  reflect  radiologists ’ case -by -case assessments  that are difficult to infer 
+
+from imag es  alone . In addition, clinical  variables  such as age and  prostate -specific  an-
+
+tigen (PSA) , which are  well -established risk indicators for prostate cancer  [20 ], are not 
+
+involved, leading to compromised prediction accuracy . Second, e xisting methods either 
+
+model GGG as flat categorical label s or, at best, as a single ordinal variable . Although 
+
+these  formulations  recognize  the  ordinal nature  of GGG, they treat it as an indivisible 
+
+entity and  fail to account for  its intrinsic compositional  structure, defined by  primary 
+
+and secondary Gleason patterns.  As both patterns are  ordinal , ignoring this  fine -grained 
+
+pattern -level structure  results  in an overly coarse modeling of disease severity. 
+
+Motivated  to tackle  these limitations , we propose a  Knowledge -Driven  Ordinal -
+
+Aware  Learning (KOAL) framework for  GGG prediction  in prostate cancer . KOAL 
+
+consists of three synergistic  components , i.e.,  a Clinical -Context Modulation  (CCM) 
+
+module, a  Knowledge -Guided Prototype Alignment  (KGPA) m odule , and a  Hierar-
+
+chical  Ordinal -aware Constraint s (HOC)  module . Specifically,  the CCM module  uses 
+
+clinical  variables  (e.g., PSA and age)  to condition  a cross -attention  mechanism , dynam-
+
+ically modulating imag e representations  for patient -specific discrimination . Moreover, Knowledge -Driven Ordinal -Aware Prostate Cancer Grading 3
+
+the KGPA module leverages a  large language model (LLM)  to extract  grade  group –
+
+specific knowledge  from  a large corpus of  radiology reports . This process constructs  a
+
+group -level  knowledge bank  that captures radiologists ’ population -level priors . From 
+
+these priors , semantic anchors are derived to  describe the radiological findings  of  each 
+
+grade group . Through prototype contrastive alignment, patient -specific  mpMRI  repre-
+
+sentations  are aligned with these  semantic  anchors, promoting pathology -aligned rep-
+
+resentation  learning . In addition, to model the fine -grained  ordinal structure of GGG, 
+
+HOC decouples  the GGG score  prediction into primary and secondary Gleason patterns 
+
+prediction,  and  then  maps their probabilistic outputs to the final GGG via a Differenti-
+
+able Bio -logic Mapping Layer (DBML)  based on  ISUP -defined combinatorial rules, 
+
+thereby  enforcing predictions consistent with clinical grading logic . Through the above 
+
+designs, KOAL  effectively  exploits the potential of heterogeneous imag ing  (i.e., 
+
+mpMRI ) and non -imag ing  information (i.e. , radiology reports and clinical variables )
+
+with  fine -grained ordinal supervision  for  improved GGG prediction. 
+
+The main contributions of this paper are summarized as follows . (1) We propose 
+
+KOAL,  the first  knowledge -driven ordinal -aware learning framework that  integrate s
+
+heterogeneous mpMRI, radiology reports, and clinical variable s for GGG prediction in 
+
+prostate cancer.  (2)  The KGPA module  leverages  an LLM to  extract grade -group –spe-
+
+cific knowledge  from radiology reports  and  deriv es semantic anchors to align patient -
+
+specific mpMRI with population -level radiological priors.  (3)  The H OC  module de-
+
+couples primary and secondary Gleason patterns , mapping  them to  the final  GGG  using 
+
+the  DBML,  thereby  enforcing compositional ordinal constraints consistent with clinical 
+
+grading.  (4) Extensive experiments on  the  public PI -CAI dataset and an in -house da-
+
+taset  demonstrate that  KOAL  outperforms existing state -of -the -art  approaches .
+
+## 2 Methodology 
+
+The KOAL framework is illustrated in Fig.  1. It  leverages  three core modules, i.e., the 
+
+Clinical -Context Modulation (CCM)  module , the Knowledge -Guided Prototype Align-
+
+ment (KGPA)  module , and the  Hierarchical Ordinal -aware Constraints (HOC)  module ,
+
+to integrate mpMRI , clinical variables, and radiology reports  to  improve non -invasive 
+
+GGG prediction.  The d etails  of each module  are described  in the following subsections .
+
+2.1  Clinical Context Modulation (CCM) 
+
+In clinical practice , doctors  consider both mpMRI and clinical variables  when assessing 
+
+tumor aggressiveness and estimating Gleason grade . However, existing methods strug-
+
+gle to integrate mpMRI modalities with distinct focuses (i.e., anatomical structures 
+
+from T2 and functional characteristics from DWI/ADC)  and  to  fuse imaging  with clin-
+
+ical variables. This results in suboptimal feature representation s and limited prediction 
+
+accuracy. As shown in Fig. 1(a), the CCM module tackles this challenge by combining 
+
+channel -wise early fusion with  clinically  guided feature recalibration. 
+
+MpMRI  Image  Encoding . To exploit the complementarity  of  mp MRI, we adopt a 
+
+channel -wise early fusion strategy.  Let  𝑺  = {𝑰 𝑚  ∈ ℝ𝐷 ×𝐻 ×𝑊 }𝑚 ∈𝑀  denote  a set of spa-4 Z. Guo et al. 
+
+tially aligned  mpMRI  volumes , w here  𝑀  = {𝑇 2, 𝐴𝐷𝐶 , 𝐷𝑊𝐼 }. First, we  stack  these  vol-
+
+umes  along the channel dimension to  form  𝑿  ∈ ℝ3×𝐷 ×𝐻 ×𝑊  . Then,  a 3D ResNet -50 
+
+backbone  ℬ(·) [21 ] extract s visual feature maps  𝑭 𝑣  = ℬ(𝑿 ). We further apply Global 
+
+Average Pooling (GAP) and a projection head to obtain a pooled visual embedding 
+
+𝒇 𝑣  = 𝒫 𝑚𝑎𝑝 (GAP (𝑭 𝑣  )) ∈ ℝ𝑑 , where  𝒫 𝑚𝑎𝑝 (·) denotes  an additional  mapping  layer for 
+
+reduction and normalization  operations. 
+
+Clinical  Variables Encoding.  Given  a set  of clinical variables  𝒄  ∈ ℝ𝐿 , where  𝐿  is the 
+
+length of the set,  we  employ  a non -linear semantic mapping network  𝛷 𝑐 (∙) to  transform 
+
+𝒄  into a context -rich semantic embedding  𝒇 𝑐 . This transformation is achieved  through 
+
+layer normalization  LN (·) and multi -layer perceptron projection  𝒫 𝑚𝑙𝑝 (·), formulated as 
+
+𝒇 𝑐  = 𝛷 𝑐 (𝒄 ) = 𝒫 𝑚𝑙𝑝  (𝛿 (𝐿𝑁 (𝒄 ))) ∈ ℝ𝑑  , where  𝛿  denotes the GELU activation func-
+
+tion.  This mapping projects  𝒇 𝑐  into  a shared  semantic  space  with  the  image  feature  𝒇 𝑣 
+
+for subsequent  cross -modal interaction .
+
+Adaptive Cross -Modal Attention  (ACMA) . To  refine  image  representations  using 
+
+clinical  variables , we develop the ACMA  mechanism . Concretely , we  treat  𝒇 𝑐  as  the 
+
+query  𝑸 𝑐  ∈ ℝ1×𝑑  , and  flatten  𝑭 𝑣  into  𝑁  token features  to form  the  key  𝑲 𝑣  ∈ ℝ𝑁 ×𝑑  and 
+
+value  𝑽 𝑣  ∈ ℝ𝑁 ×𝑑 . The clinical -guided context  𝒛  is  computed as :
+
+𝒛  = 𝒜 (𝒇 𝑐 , 𝑭 𝑣  ) = Softmax (𝑸 𝑐 𝑲 𝑣 ⊤/√𝑑 )𝑉 𝑣 , (1)
+
+where  the  Softmax  operation  is applied over the  𝑁  token s. To avoid over -reliance on 
+
+clinical variables, we  further  introduce an adaptive gating unit to balance the original 
+
+and clinical -modulated features , as follows :
+
+𝒛 ̂ = LN (𝐺  ⨀ 𝒛  + (1 − 𝐺 ) ⨀ 𝒇 𝑣 ), 𝐺  = 𝜎 (𝑾 𝐺  [𝒇 𝑣 ‖𝒛 ]), (2)
+
+where  𝐺  ∈ ℝ𝑑  is a channel -wise gating vector and  𝑊 𝐺  ∈ ℝ𝑑 ×2𝑑  is  a learnable  matrix .
+
+⊙ denotes element -wise multiplication,  [·‖ ·] represents  concatenation,  and  𝜎 (⋅) is the 
+
+Fig.  1. Overview of the proposed KOAL framework. The architecture consists of three synergis-
+
+tic modules, including (a) Clinical -Context Modulation (CCM); (b) Knowledge -Guided Proto -
+
+type Alignment (KGPA); and (c) Hierarchical  Ordinal -aware  Constraints (HOC). (b) Knowledge -Guided Prototype Alignment (KGPA) (a) Clinical -Context Modulation (CCM) 
+
+(c) Hierarchical Ordinal -aware Constraints (HOC) 
+
+> Channel -wise stacking ( ) B ( ) c v
+
+Fcf……
+
+> Adaptive Cross -Modal Attention
+> Q
+> K
+> V
+> … …
+
+[ ]vf zz
+
+> Adaptive Gate
+
+ˆz……ˆzPSA Age Patient_ID 
+
+> 12.4 68 XX820341
+> 4.8 54 XX559120
+> 15.6 72 XX773092
+> 9.2 61 XX104853
+> 7.5 59 XX664219
+> 21.3 77 XX338704
+> 3.9 52 XX902156
+> 11.1 66 XX445012
+> 8.2 57 XX665233
+> Training
+> radiology
+> reports
+> Clinical
+> guidelines
+> Offline LLM Summarizer 1
+
+T
+
+> GGG1: … 2
+
+T
+
+> GGG2: … 3
+
+T
+
+> GGG3: … 4
+
+T
+
+> GGG4: … 5
+
+T
+
+> GGG5: …
+> Phenotype
+> Text of GGG k
+> BioBERT k
+
+T1−1GGG 1 2 3 4 5
+
+…
+
+…
+
+…koke[ ]k ke o
+
+> Map & Normalize
+
+…ke
+
+> Projection Head proj
+
+v2 2v p 1 1v p 3 3v p 5 5v p 4 4v p 2v1v3v5v4v2p1p3p5p4pLinear FWkpSoftmax ( ) pH Softmax ( ) sH 3 4 53 4 5align ˆ py
+
+> Ground Truth
+> Primary
+> Secondary
+
+ˆsypysypspat 543
+
+> 3
+> 4
+> 5
+
+56.7 2.7 4.0 
+
+1.9 19.4 6.5 
+
+2.7 5.2 0.9 543
+
+3
+
+4
+
+5       
+
+> GGG3 GGG4 GGG5
+> GGG1 GGG2 GGG4
+> GGG4 GGG5 GGG5
+> Secondary Pattern
+> Primary  Pattern
+> Frozen mapping
+
+JGGG1 GGG2 GGG3 GGG4 GGG5 1.9 19.4 56.7 11.9 10.1 ggg ord 
+
+> GAP… v
+
+fADC DWI T2W Knowledge -Driven Ordinal -Aware Prostate Cancer Grading 5
+
+sigmoid function.  The resulting  𝒛 ̂ not only encodes the anatomical and functional in-
+
+formation in mpMRI but also incorporates common ly used  clinical risk factors  such as 
+
+PSA and age , thereby serving as a robust multimodal basis for subsequent knowledge 
+
+learning and GGG prediction. 
+
+2.2  Knowledge -Guided Prototype Alignment  (KGPA) 
+
+Although the recalibrated representation  𝒛 ̂ incorporates  multi -modal cues, optimizing 
+
+it only with categorical supervision still treats  the  GGG  grades  as flat and independent 
+
+classes, overlooking  their  intrinsic severity order ( GGG  ∈ {1,2,3,4,5}). As a result, the 
+
+learned embeddings may become scattered and overlap across  adjacent  grades. To ad-
+
+dress this, KGPA  leverages  radiology  reports to  construct grade -specific semantic an-
+
+chors  𝒫  = {𝒑 𝑘 }𝑘 =1 
+
+> 𝐾
+
+with  𝐾  = 5. These anchors act as report -driven prototypes to reg-
+
+ularize the latent feature space and promote ordinal -consistent representations. 
+
+LLM -based Expert Knowledge  Extraction . To incorporate expert  knowledge  from 
+
+radiology reports and clinical guidelines, we  use  an LLM  (i.e.,  GPT -5.1)  as an offline 
+
+knowledge  extractor . Specifically,  we prompt the LLM to aggregate and summarize 
+
+recurrent radiological findings from a large corpus of  mpMRI  reports for each grade 
+
+group, producing a standardized  population -level  phenotype description  𝑇 𝑘  for  the  𝑘 -
+
+th  grade group . To improve clinical validity and consistency, established clinical guide-
+
+lines are incorporated into the prompt as structural constraints ( e.g., a unified template 
+
+specifying required fields and terminology ). The resulting descriptions provide a clini-
+
+cally grounded semantic basis for  constructing  ordinal prototype s.
+
+Ordinal -Aware Learnable Prototypes . To bridge  report -derived  general  knowledge 
+
+with  patient -specific  mpMRI , we  design  a learnable  prototype  bank  𝑬  = {𝒆 𝑘  ∈
+
+ℝ𝑑 𝑒𝑚𝑏  }𝑘 =1 
+
+> 𝐾
+
+, where each  prototype  𝒆 𝑘  is  initialized  from the  embedd ing of  𝑇 𝑘  and is sub-
+
+sequently  refined  during training.  To  encode  the natural progression  of disease severity 
+
+in GGG (from 1 to 5) , we  assign each grade an ordinal positional embedding  𝒐 𝑘  ∈
+
+ℝ𝒅 𝒐𝒓𝒅  , within the range  [-1, 1].  The  ordinal -aware representation  𝒆 ̃ 𝑘  is computed  as :
+
+𝒆 ̃ 𝑘  = 𝑾 𝐹 [𝒆 𝑘 ‖𝒐 𝑘 ] ∈ ℝ𝑑  , 𝒑 𝑘  = 𝛷 𝑝𝑟𝑜 (𝒆 ̃ 𝑘 ) ‖𝛷 𝑝𝑟𝑜 (𝒆 ̃ 𝑘 )‖2
+
+⁄ ∈ ℝ𝑑  , (3)
+
+where  𝒆 ̃ 𝑘  is the fused prototype representation,  𝑾 𝐹  is a learnable linear projection 
+
+layer, and  𝛷 𝑝𝑟𝑜 (·) is a mapping network.  As training progresses , these anchors are re-
+
+fined via  the following  prototype  contrastive alignment and gradually evolve into 
+
+grade -specific centers in the embedding space. 
+
+Prototype Contrastive Alignment.  To align patient -specific  features  𝒛 ̂ from CCM 
+
+with the  knowledge  anchors,  we  adopt the  prototype  contrastive  loss  ℒ𝑎𝑙𝑖𝑔𝑛  as follows: 
+
+ℒ𝑎𝑙𝑖𝑔𝑛  = −log  exp (〈𝒗 𝑝𝑟𝑜𝑗 , 𝒑 𝑦 〉 𝜏 ⁄ )
+
+∑ exp (〈𝒗 𝑝𝑟𝑜𝑗 , 𝒑 𝑘 〉 𝜏 ⁄ )𝐾 
+
+> 𝑘 =1
+
+, (4)
+
+where  𝒗 𝑝𝑟𝑜𝑗  represents the projected features of  𝒛 ̂ , 𝑦  ∈ {1, … , 𝐾 } is the ground -truth la-
+
+bel  (thus  𝒑 𝑦  denotes the corresponding positive anchor) . This  constraint  encourages an 
+
+ordinal topology  in the feature space, thereby  faithfully  mirroring  the  progression  of 
+
+cancer  severity , ranging from  mild  (GGG=1)  to advanced pathological  stages 
+
+(GGG=5). 6 Z. Guo et al. 
+
+2.3  Hierarchical Ordinal -aware  Constraints  (HOC) 
+
+Pattern  Decoupling and Prediction . The  GGG is defined by the combination of pri-
+
+mary and secondary Gleason patterns  according to  ISUP standards . Inspired by this, t he 
+
+HOC module transforms  conventional  flat classification  of GGG  into a  hierarchical 
+
+learning  process.  To achieve this, we first decouple GGG prediction into  primary  and 
+
+secondary pattern prediction using  a dual -stream  network.  Given  𝒛 ̂ from CCM,  the 
+
+dual -stream  network employs  two independent  pattern prediction layers , denoted as 
+
+𝐻 𝑝 (·) and  𝐻 𝑠  (·), to predict the probability distributions of the primary  pattern  𝑦 ̂𝑝  and 
+
+the  secondary pattern  𝑦 ̂𝑠 , respectively , as follows: 
+
+𝑦 ̂𝑝  = Softmax  (𝐻 𝑝 (𝒛 ̂ )), 𝑦 ̂𝑠  = Softmax (𝐻 𝑠  (𝒛 ̂ )), (5)
+
+This  process encourages  the  model  to learn discriminative  and fine -grained  visual 
+
+cues  related  to  the  dominant  and  subordinate  pathological  patterns , rather than  simply 
+
+memorizing global labels. 
+
+Differentiable Bio -logic Mapping  (DBML) . DBML  map s the decoupled predictions 
+
+to the final GGG  distribution . We  first compute the  joint  probability  matrix  𝑱  ∈ ℝ3×3
+
+as  𝑱  = 𝑦 ̂𝑝  ⨂ 𝑦 ̂𝑠 , where  ⨂ signifies the outer product. E ach element  𝑱 𝑖𝑗  corresponds to 
+
+the joint probability of  the  primary pattern  𝑖  and  the  secondary pattern  𝑗  (where  𝑖 , 𝑗  ∈
+
+{3,4,5}).  Subsequently,  we calculate the  GGG distribution  as  𝑦 ̂𝑔𝑔𝑔  = vec (𝑱 ) · 𝑾 𝑚  ,
+
+where  𝑾 𝑚  is a frozen sparse matrix encoding the ISUP mapping logic. This differen-
+
+tiable  operation  enables end -to -end structured learning by propagating gradients from 
+
+the final GGG supervision back to  the decoupled  pattern predictors  in the  dual -stream 
+
+network , thus accurately reflecting  the clinical  grading process .
+
+Hierarchical  Ordinal Loss . To supervise the  ordinal  and  hierarchical  prediction of 
+
+GGG, we develop the h ierarchical  ordinal  loss , which consists of a  pattern -level  loss 
+
+ℒ𝑝𝑎𝑡 , a  grade -level  loss  ℒ𝑔𝑔𝑔 , and a  composite ordinal  loss  ℒ𝑜𝑟𝑑  . Specifically, the  pat-
+
+tern -level  loss aims to  provide fine -grained supervision for the decoupled primary and 
+
+secondary Gleason pattern predictions , formulated as: 
+
+ℒ𝑝𝑎𝑡  = 𝐶𝐸 (𝑦 ̂𝑝 , 𝑦 𝑝 ) + 𝐶𝐸 (𝑦 ̂𝑠 , 𝑦 𝑠  ), (6)
+
+where  𝐶𝐸 (·) represents the  cross -entropy  loss .
+
+The  grade -level  loss  applies an ordinal -sensitive regression loss  [22 ] to  supervise  the 
+
+final prediction  of GGG score as: 
+
+ℒ𝑔𝑔𝑔  = − 1
+
+𝐾  − 1 ∑[𝕀 (𝑦  > 𝑗 ) log  𝜎 (𝑓 𝑗 ) + (1 − 𝕀 (𝑦  > 𝑗 ))log (1 − 𝜎 (𝑓 𝑗 ))]
+
+> 𝐾 −1
+> 𝑗 =1
+
+, (7)
+
+where  𝐾  denotes the number of Grade Groups,  𝑦  ∈ {1, … , 𝐾 } is the ground -truth GGG 
+
+label,  𝑗  indexes the  𝐾  − 1 ordinal thresholds, and  𝜎 (⋅) is the sigmoid function. 
+
+The  composite ordinal  loss is adopted to adaptively  penalize rank violations  as: 
+
+ℒ𝑜𝑟𝑑  = 1
+
+(𝐾  − 1)2 ∑ 𝑦 ̂𝑔𝑔𝑔 [𝑘 ] ∙
+
+> 𝐾
+> 𝑘 =1
+
+(𝑘  − 𝑦 )2, (8)
+
+where  𝑦 ̂𝑔𝑔𝑔 [𝑘 ] denotes the predicted probability on grade  𝑘 . Notably, t he quadratic 
+
+term  (𝑘  − 𝑦 )2 makes the penalty distance -aware, assigning larger costs to farther rank 
+
+errors (e.g.,  |𝑘  − 𝑦 | = 4 incurs 16 times  the penalty of  |𝑘  − 𝑦 | = 1). 
+
+Finally, the total objective is  the weighted sum of the above losses, formulated as :Knowledge -Driven Ordinal -Aware Prostate Cancer Grading 7
+
+ℒ𝑡𝑜𝑡𝑎𝑙  = ℒ𝑝𝑎𝑡  + 𝜆 𝑔𝑔𝑔 ℒ𝑔𝑔𝑔  + 𝜆 𝑜𝑟𝑑  ℒ𝑜𝑟𝑑  + 𝜆 𝑎𝑙𝑖𝑔𝑛  ℒ𝑎𝑙𝑖𝑔𝑛 . (9)
+
+where  𝜆 𝑔𝑔𝑔 , 𝜆 𝑜𝑟𝑑  , and  𝜆 𝑎𝑙𝑖𝑔𝑛  are the hyperparameters to balance these terms. 
+
+## 3 Experiments and Results 
+
+3.1  Experimental Settings 
+
+Datasets . We trained and evaluated  KOAL  on a  public PI -CAI dataset [ 23 ] of 643  pa-
+
+tients  and an in -house dataset of 1002 patients.  For each patient, we collected mpMRI 
+
+sequences , crucial  clinical  variables , and  ground truth GGG scores  with primary and 
+
+secondary Gleason  patterns . All MRI sequences  were resampled to  20 ×320 ×320  and 
+
+cropped into  20 ×96 ×96  tumor -centered volumes to reduce  background redundancy. 
+
+Evaluation Metrics . We employ the Quadratic Weighted Kappa (QWK) as the primary 
+
+evaluation metric.  We also  report  the o verall Accuracy (ACC) and  the  Area Under the 
+
+Curve  (AUC) metrics to evaluate  discriminative capability across  different  grades. 
+
+Implementation Details . All experiments were implemented  in  PyTorch on a  RTX 
+
+4090 GPU (24GB) . The model was trained for 200 epochs  (batch size 16 ) using  the 
+
+AdamW  optimizer  with an initial learning rate of 1e -4. The hyper -parameters  𝜆 𝐺𝐺𝐺  ,
+
+𝜆 𝑜𝑟𝑑  , and  𝜆 𝑎𝑙𝑖𝑔𝑛  in Eq. (9)  are empirically set to 1.0, 0.5, and 0.1, respectively. 
+
+3.2  Comparison with State -of -the -Art Methods 
+
+To validate our effectiveness, we compare KOAL with (1) image -only methods, in-
+
+cluding PON [ 16 ], CORAL [ 22 ],  AOR -DR  [24 ], and SupCon [ 25 ]; and (2) multi -modal 
+
+methods, including HyperFusion [ 9], PPAL [ 19 ], DSPA -MIL [ 26 ], XCoOp [ 18 ], and 
+
+DAFT [ 17 ]. The results are  presented  in Table 1 and Fig. 2. 
+
+Quantitative Results.  On PI -CAI, KOAL achieves the highest QWK (88.99%) and 
+
+ACC (81.63%), alongside a 91.93%  AUC . DAFT ranks second in QWK/ACC, while 
+
+PPAL obtains a marginally higher AUC. To evaluate model robustness against clinical 
+
+heterogeneity, we further validate on an In -House dataset with greater inter -patient var-
+
+Table  1. Quantitative comparison with nine state -of -the -art methods on the public PI -CAI da-
+
+taset and the private In -House dataset. I: Imaging modality (mpMRI ); T: Tabular clinical varia-
+
+bles (e.g., PSA, age). The best results are highlighted in  bold , and the second -best are  underlined .                                                                                        
+
+> Methods MPI -CAI In -House
+> ITQWK(%) AUC(%) ACC(%) QWK(%) AUC(%) ACC(%)
+> PON [ 16 ]√65.42 76.62 47.42 62.60 68.31 51.66
+> CORAL [ 22 ]√77.06 84.18 56.70 60.11 73.23 42.38
+> AOR -DR [ 24 ]√74.05 81.81 57.14 65.80 80.57 56.70
+> SupCon [25 ]√79.70 89.42 72.16 67.20 83.92 64.12
+> HyperFusion [9]√√82.66 83.82 60.82 77.96 62.96 59.60
+> PPAL [ 19 ]√√82.64 92.07 69.41 64 .62 82 .44 57 .25
+> DSPA -MIL [ 26 ]√√76.19 85.61 70.10 53.49 76.70 52.98
+> XCoOp [ 18 ]√√78.78 88.90 71.13 75.93 86.18 67.91
+> DAFT [ 17 ]√√83.28 91.32 75.26 79.17 89.42 70.99
+> KOAL (Ours) √√88.99 91.93 81.63 88.19 89.38 75.38
+
+8 Z. Guo et al. 
+
+iability.  While baseline performances decline substantially on this dataset (e.g., PPAL’s 
+
+QWK decreases from 82.64% to 64.62%), KOAL maintains robust performance, yield-
+
+ing 88.19% QWK, 75.38% ACC, and 89.38% AUC. These results underscore KOAL ’s
+
+superior generalizability for clinical GGG prediction across varying data distributions. 
+
+3.3  Ablation Stud y
+
+We conduct ablation studies on PI -CAI and the In -House datasets. As shown in Table 
+
+2, the mpMRI -only baseline performs the worst. C CM  module  yields substantial gains 
+
+(↑10.27% QWK on PI -CAI;  ↑12.82% on In -House).  KGPA  module  further boosts per-
+
+formance and derives report -derived semantic anchors to align patient -specific mpMRI 
+
+representations.  While standard ordinal loss (without primary/secondary decoupling) 
+
+highlights the benefit of ordinal supervision, integrating the HOC module achieves op-
+
+timal results, confirming the advantage of explicitly modeling the intrinsic composi-
+
+tional order of prim ary and secondary Gleason patterns in GGG prediction. 
+
+## 4 Conclusion 
+
+In this paper, we propose KOAL, a novel knowledge -driven and ordinal -aware frame-
+
+work  for non -invasive GGG prediction using mpMRI, clinical variables, and radiology 
+
+reports. Specifically, we introduce t he CCM module , which modulates mpMRI repre-
+
+Table  2. Ablation study on the PI -CAI dataset and the In -House dataset. M: M pMRI (Baseline); 
+
+C:  CCM  module ; K:  KGPA  module ; H: HOC  module ; O: standard ordinal loss treating GGG as 
+
+a single ordered label (without primary/secondary decoupling) .                                                   
+
+> Variants PI -CAI In -House
+> MCKOHQWK(%) AUC(%) ACC(%) QWK(%) AUC(%) ACC(%)
+> √65.51 77.09 39.80 56.07 72.5 142.38
+> √√75 .78 78.78 44.90 68.89 82.06 58.28
+> √√√83.67 88.29 68.37 74.17 83.46 57.62
+> √√√√85.04 89.83 74.23 84.60 84.74 68.90
+> √√√√88.99 91.93 81.63 88.19 89.38 75.38
+
+Fig.  2. Comparison of ROC curves between KOAL and competing methods on PI -CAI dataset. Knowledge -Driven Ordinal -Aware Prostate Cancer Grading 9
+
+sentations based on patient -specific clinical variables . Meanwhile, t he KGPA module 
+
+leverages semantic anchors extracted from radiology reports by a  LLM  to align with 
+
+the image representations . Finally, t he HOC module models  the  hierarchical structure 
+
+of GGG  via pattern decoupling and DBML mapping.  Experimental results  on two pros-
+
+tate cancer datasets  validate that our method achieves state -of -the -art  performance,  sug-
+
+gesting that KOAL is a promising tool for non -invasive prostate cancer assessment .
+
+## References 
+
+1.  Sung, H., Ferlay, J., Siegel, R.L., et al.: Global cancer statistics 2020: GLOBOCAN esti-
+
+mates of incidence and mortality worldwide for 36 cancers in 185 countries. CA Cancer J. 
+
+Clin. 71(3), 209 –249 (2021). 
+
+2.  Gleason, D.F., Mellinger, G.T.: Prediction of prognosis for prostatic adenocarcinoma by 
+
+combined histological grading and clinical staging. J. Urol. 111(1), 58 –64 (1974). 
+
+3.  Epstein, J.I., Egevad, L., Amin, M.B., et al.: The 2014 International Society of Urological 
+
+Pathology (ISUP) Consensus Conference on Gleason grading of prostatic carcinoma: Defi-
+
+nition of grading patterns and proposal for a new grading system. Am. J. Surg.  Pathol. 40(2), 
+
+244 –252 (2016). 
+
+4.  Loeb, S., Vellekoop , A., Ahmed, H.U., et al.: Systematic review of complications of prostate 
+
+biopsy. Eur. Urol. 64(6), 876 –892 (2013). 
+
+5.  Epstein, J.I., Feng, Z., Trock, B.J., et al.: Upgrading and downgrading of prostate cancer 
+
+from biopsy to radical prostatectomy: incidence and predictive factors using the modified 
+
+Gleason grading system and factoring in tertiary grades. Eur. Urol. 61(5),  1019 –1024 
+
+(2012). 
+
+6.  Cornford, P., van den Bergh, R.C.N., Briers, E., et al.: EAU -EANM -ESTRO -ESUR -ISUP -
+
+SIOG guidelines on prostate cancer —2024 update. Part I: Screening, diagnosis, and local 
+
+treatment with curative intent. Eur. Urol. 86(2), 148 –163 (2024). 
+
+7.  Ahmed, H.U., El -Shater Bosaily, A., Brown, L.C., et al.: Diagnostic accuracy of multi -par-
+
+ametric MRI and TRUS biopsy in prostate cancer (PROMIS): A paired validating confirm-
+
+atory study. Lancet 389(10071), 815 –822 (2017). 
+
+8.  Li, Y., Daho, M.E.H., Conze, P.H., et al.: A review of deep learning -based information fu-
+
+sion techniques for multimodal medical image classification. Comput. Biol. Med. 177, 
+
+108635 (2024). 
+
+9.  Fehr, D., Veeraraghavan, H., Wibmer, A., et al.: Automatic classification of prostate cancer 
+
+Gleason scores from multiparametric magnetic resonance images. Proc. Natl. Acad. Sci. U. 
+
+S. A. 112(46), E6265 –E6273 (2015). 
+
+10.  Chaddad , A., Niazi, T., Probst, S., et al.: Predicting Gleason score of prostate cancer patients 
+
+using radiomic analysis. Front. Oncol. 8, 630 (2018). 
+
+11.  Lomer, N.B., Ashoobi, M.A., Ahmadzadeh, A.M., et al.: MRI -based radiomics for predict-
+
+ing prostate cancer grade groups: A systematic review and meta -analysis of diagnostic test 
+
+accuracy studies. Acad. Radiol. 32(6), 3429 –3452 (2025). 
+
+12.  Cao, R., Mohammadian Bajgiran, A., Afshari Mirak, S., et al.: Joint prostate cancer detec-
+
+tion and Gleason score prediction in mp -MRI via FocalNet. IEEE Trans. Med. Imaging 
+
+38(11), 2496 –2506 (2019). 
+
+13.  Santhirasekaram, A., Winkler, M., Rockall, A., et al.: Robust prostate disease classification 
+
+using transformers with discrete representations. Int. J. Comput. Assist. Radiol. Surg. 20(1), 
+
+11 –20 (2025). 10 Z. Guo et al. 
+
+14.  Zhao, L., Bao, J., Wang, X., et al.: Detecting adverse pathology of prostate cancer with a 
+
+deep learning approach based on a 3D Swin -Transformer model and biparametric MRI: A 
+
+multicenter retrospective study. J. Magn. Reson . Imaging 59(6), 2101 –2112 (2024). 
+
+15.  Shao, L., Liu, Z., Liu, J., et al.: Patient -level grading prediction of prostate cancer from mp -
+
+MRI via GMINet. Comput. Biol. Med. 150, 106168 (2022). 
+
+16.  Xu, Y., Wang, Y., Shen, Z., et al.: Poisson ordinal network for Gleason group estimation 
+
+using bi -parametric MRI. In: Linguraru, M.G., et al. (eds.) MICCAI 2024. LNCS, vol. 
+
+15005, pp. 564 –574. Springer, Cham (2024). 
+
+17.  Pö lsterl, S., Wolf, T.N., Wachinger , C.: Combining 3D image and tabular data via the dy-
+
+namic affine feature map transform. In: de Bruijne, M., et al. (eds.) MICCAI 2021. LNCS, 
+
+vol. 12905, pp. 688 –698. Springer, Cham (2021). 
+
+18.  Bie, Y., Luo, L., Chen, Z., Chen, H.: XCoOp: explainable prompt learning for computer -
+
+aided diagnosis via concept -guided context optimization. In: Linguraru, M.G., et al. (eds.) 
+
+MICCAI 2024. LNCS, vol. 15012, pp. 773 –783. Springer, Cham (2024). 
+
+19.  Diao, Y., Fang, H., Yu, H., Wang, Y., Tao, Y., Huang, Z., Yeo, S.Y., Xu, Y.: Prior -guided 
+
+prototype aggregation learning for Alzheimer ’s disease diagnosis. In: (eds.) MICCAI 
+
+2025. LNCS, vol. 15974, pp. 483 –492. Springer, Cham (2025). 
+
+20.  Kovac, E., Carlsson, S.V., Lilja, H., Hugosson, J., Kattan, M.W., Holmberg, E., Stephenson, 
+
+A.J.: Association of baseline prostate -specific antigen level with long -term diagnosis of clin-
+
+ically significant prostate cancer among patients aged 55 to 60 years:  A secondary analysis 
+
+of a cohort in the Prostate, Lung, Colorectal, and Ovarian (PLCO) Cancer Screening Trial. 
+
+JAMA Netw Open 3(1), e1919284 (2020). 
+
+21.  Hara, K., Kataoka, H., Satoh, Y.: Can spatiotemporal 3D CNNs retrace the history of 2D 
+
+CNNs and ImageNet? In: Proceedings of the IEEE/CVF Conference on Computer Vision 
+
+and Pattern Recognition (CVPR 2018), pp. 6546 –6555 (2018). 
+
+22.  Cao, W., Mirjalili, V., Raschka, S.: Rank consistent ordinal regression for neural networks 
+
+with application to age estimation. Pattern Recognit. Lett. 140, 325 –331 (2020). 
+
+23.  Saha, A., Bosma, J.S., Twilt , J.J., et al.: Artificial intelligence and radiologists in prostate 
+
+cancer detection on MRI (PI -CAI): An international, paired, non -inferiority, confirmatory 
+
+study. Lancet Oncol. 25(7), 879 –887 (2024). 
+
+24.  Yu, Q., Zhou, W., Liu, H., et al.: Parameterized diffusion optimization enabled autoregres-
+
+sive ordinal regression for diabetic retinopathy grading. In: MICCAI 2025. LNCS, vol. 
+
+15974, pp. 450 –460. Springer, Cham (2025). 
+
+25.  Khosla, P., Teterwak , P., Wang, C., et al.: Supervised contrastive learning. In: Advances in 
+
+Neural Information Processing Systems (NeurIPS), vol. 33, pp. 18661 –18673 (2020). 
+
+26.  Hao, X., et al.: Dual Selective Gleason Pattern -Aware Multiple Instance Learning for Grade 
+
+Group Prediction in Histopathology Images. In: MICCAI 2025. LNCS, vol. 15974, pp. 187 –
+
+196. Springer, Cham (2025).
