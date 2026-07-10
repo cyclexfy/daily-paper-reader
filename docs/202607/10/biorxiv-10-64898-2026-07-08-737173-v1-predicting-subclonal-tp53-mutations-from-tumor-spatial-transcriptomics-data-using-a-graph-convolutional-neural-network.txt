@@ -1,0 +1,2128 @@
+Title: Predicting subclonal TP53 mutations from tumor spatial transcriptomics data using a graph convolutional neural network
+
+URL Source: https://www.biorxiv.org/content/10.64898/2026.07.08.737173v1.full.pdf
+
+Number of Pages: 44
+
+Markdown Content:
+1
+
+Predicting subclonal  TP53  mutations from tumor spatial transcriptomics data using a 1
+
+graph convolutional neural network .2
+
+Tom Luijts 1,2 ,† , Sofie Hoogstoel 1,2 ,† , Eden Pappaert 1,2 , Ellen De Meester 3, Filip van 3
+
+Nieuwerburgh 3, Evelien Van Hamme 4, Sofie De Schepper 5, Wouter Willaert 1,2,6 , Anne Vral 1,2 ,4
+
+Isabelle Hoorens 2,5 , Jimmy Van den Eynden 1,2 *
+
+5 
+
+> 1
+
+Department of Human Structure and Repair, Ghent University, Ghent, Belgium. 6 
+
+> 2
+
+Cancer Research Institute Ghent, Ghent, Belgium. 7 
+
+> 3
+
+NXTGNT, Ghent University, Ghent, Belgium 8 
+
+> 4
+
+VIB Spatial Catalyst, Belgium 9 
+
+> 5
+
+Department of Dermatology, University Hospital Ghent ; Belgium 10  
+
+> 6
+
+Department of Gastrointestinal Surgery, Ghent University Hospital, Ghent, Belgium 11 
+
+12  
+
+> †
+
+Equal contribution 13 
+
+* Corresponding author (JVdE) 14 
+
+E-mail:  jimmy.vandeneynden@ugent.be  (JVdE) 15 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+2
+
+# Abstract 16 
+
+Spatial transcriptomics (ST) has revolutionized our understanding of tumor biology but 17 
+
+inherently lacks information on the upstream somatic driver mutations. We developed  a18 
+
+spatially -aware  graph  convolutional neural network  (MuT -GCNN)  that infers  TP53  clones 19 
+
+directly from ST  data.  MuT -GCNN was trained  on  virtual ST slides  with clones  simulated from 20 
+
+a large collection of  existing  RNA and  matched  DNA sequencing data.  The model  is  highly 21 
+
+performant with precision and recall values exceeding 9 5% in  most  analysed  cancer types.  It 22 
+
+is sensitive  for  single hit mutations and is primarily informed by the expression of p53 signalling 23 
+
+genes in cancer cells.  After  demonstrat ing  th e potential  of the model  on  publicly  available 24 
+
+squamous cell carcinoma  (SCC)  data , a direct  validat ion was performed  using ST and 25 
+
+matched  DNA sequencing  from  serial slices obtained from 4  cutaneous  SCC samples. With 26 
+
+the  increasing availability of ST data and upcoming ST atlases, MuT -GCNN  can  unveil  the 27 
+
+location of  (sub) clonal alterations in  TP53 , the most frequently mutated gene in human cancer. 28 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+3
+
+# Introduction 29 
+
+Spatial transcriptomics (ST) has successfully integrated the microscopic and 30 
+
+transcriptomic information layers, providing a more holistic understanding of tissue properties. 31 
+
+Systematic analyses of whole -transcriptome ST data derived from sequence -based 32 
+
+technologies (e.g.,  Visium  (HD ),  Slide -Seq (V2)  or  Stereo -Seq ) provided new insights in the 33 
+
+tumor  and its  microenvironment including paracrine signa lling , tumor -immune interactions and 34 
+
+cellular subpopulations and niches  (1 –3) .35 
+
+While an increasing amount of these tumor ST data are being made publicly available, 36 
+
+resulting in secondary discoveries  (4 –6) , they inherently lack key information on the upstream 37 
+
+genomic events that are driving the tumor. Copy number alterations (CNAs) can still be 38 
+
+inferred from ST data by combining genomic information with gene expression changes  (7,8) .39 
+
+However, this is not possible for single nucleotide variants (SNVs). 40 
+
+It was previously suggested that  mutations  in canonical cancer driver genes such as 41 
+
+TP53  and  Ras  pathway  oncogenes  (KRAS, HRAS  and  NRAS ) can be predicted using 42 
+
+machine learning models applied on bulk transcriptomics data  (9,10) . However, to our 43 
+
+knowledge, such prediction models have not been created on ST data. Given the (sub)clonal 44 
+
+nature of cells carrying driver mutations, neighboring spots on an ST slide have a higher 45 
+
+probability to carry the same mutation and we hypothesize that the incorporation of this spatial 46 
+
+information vastly increases the prediction accuracy. 47 
+
+We focused on the p53  protein  encod ed by the  TP53  gene . TP53  is located on 48 
+
+chromosome 17p13.1 and  is mutated in about half of all tumors and one of the best -studied 49 
+
+tumor suppressor genes  (11 –13) . It’s a  transcription factor central in the regulation of  cellular 50 
+
+response to DNA damage and stress, playing a crucial role in regulating cell cycle arrest, DNA 51 
+
+damage repair and apoptosis  (14 –16) . The activity of  p53  is tightly regulated, primarily through 52 
+
+its negative regulator  Mdm 2, an E3 ubiquitin ligase that targets p53 for degradation and 53 
+
+controls its stability under normal conditions  (17 –19) . Functional p53 is crucial for genomic 54 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+4
+
+stability  (20,21)  and because of these versatility of functions it is considered the guardian of 55 
+
+the genome  (22) . TP53  mutations are often correlated with poor prognosis and aggressive 56 
+
+tumor characteristics  (23 –25) . Somatic mutations in related  genes have been shown to result 57 
+
+in downstream phenotypic consequences that resemble those caused by mutated  TP53 . Such 58 
+
+TP53 -like alterations are referred to as phenocopies and include alterations in  MDM2 , MDM4 ,59 
+
+PPM1D  or  USP28  (10,26 –31) .60 
+
+To predict  TP53  mutations in ST data, we developed MuT -GCNN (Mutant TP53 -Graph 61 
+
+Convolutional Neural Network), a graph convolutional neural network (GCNN) that inherently 62 
+
+models the spatial relation between neighboring spots. We demonstrate that the model 63 
+
+accurately predicts simulated  TP53  subclones and  has  superior  performance  compared to 64 
+
+non -spatial  approaches . Furthermore, we show that MuT -GCNN generalizes across cancer 65 
+
+types and independent datasets and captures biologically meaningful transcriptional programs 66 
+
+associated with  TP53  dysfunction.  Finally , we validated the predicted TP53 mutations using 67 
+
+ST and  matched  DNA sequencing on sequential sections obtained from 4 cutaneous 68 
+
+squamous cell carcinoma (cSCC) samples.  Together, these results highlight the potential of 69 
+
+MuT -GCNN as a  methodological  framework for spatially resolving somatic  TP53  mutations 70 
+
+from transcriptomic data in the absence of direct spatial genomic  profiles .71 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+5
+
+# Results 72 
+
+MuT -GCNN is trained on simulated spatial transcriptomics slides 73 
+
+Training a deep learning model to predict somatic mutations from ST data would require the 74 
+
+availability of matched ST and spatially resolved genomics reference data. As spatial 75 
+
+genomics technologies are still in their infancy  (7,32) , such training data are not (yet) available. 76 
+
+To overcome this problem, we opted to train the model on  virtual  ST slides,  generated from 77 
+
+matched bulk DNA and RNA sequencing data . Bulk RNA -seq data were downloaded from 78 
+
+The Cancer Genome Atlas (TCGA) along with the mutation status of the  TP53  gene (n = 6563; 79 
+
+samples with both expression and mutation data).  Subjects  were randomly grouped in  a80 
+
+training (70%) and test  cohort  (30%). After simulating 7  TP53  subclones on an  in -silico 81 
+
+generated virtual  ST slide,  cancer type -specific  TCGA training data were randomly assigned 82 
+
+to ST spots  while  considering  TP53  mutation status . Finally, the grid of spots was converted 83 
+
+to an undirected graph by connecting each spot to its  neighbouring  spots to form edges 84 
+
+(connections) and nodes (spots) . These graphs were used to train  a graph convolutional 85 
+
+neural network (GCNN) followed by a multilayer perceptron (MLP)  for binary classification of 86 
+
+each node  (Fig. 1) .87 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+6
+
+88 
+
+Figure  1: Overview of MuT -GCNN training process on simulated ST slides . Input data consist of a 89 
+
+gene expression matrix containing FPKM normalized count values and a binary mutation matrix 90 
+
+containing the mutation status of each gene in each sample. Data were derived from the cancer genome 91 
+
+atlas (TCGA) and were randomly split in  training (70%) and testing (30%) samples. Mutation status was 92 
+
+used to assign each sample to a random spatial location on a virtual spatial transcriptomics (ST) slide 93 
+
+containing simulated TP53 clones. A graph can then be generated which connects each spot on the ST 94 
+
+slide to its 8 neighbouring spots, resulting in an adjacency matrix (A) and a gene expression matrix (X). 95 
+
+MuT -GCNN passes both A and X through two graph convolutional layers, along the connections defined 96 
+
+in matrix A. The output of the final grap h convolutional layer is passed through a feed -forward multilayer 97 
+
+perceptron with four hidden layers, resulting in the prediction of the spatial location of TP53 mutant 98 
+
+spots. 99 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+7
+
+MuT -GCNN accurately predicts single and double hit  TP53  mutations in different 100 
+
+cancer types 101 
+
+The prediction accuracy of the trained model was determined using the test data (n =  1979). 102 
+
+For each  individual  cancer type  as well as the mixed, pan -cancer dataset,  100  ST  test  slides 103 
+
+were simulated and fed to the model for  binary  prediction  of each spot  (TP53  mutated or wild -104 
+
+type). The model accurately predicted  TP53  mutation status for the pan -cancer datasets 105 
+
+(precision  0.9 65 ; recall  0.9 71; Fig.  2a-b) as well as the 12 individually  analysed  TCGA cancer 106 
+
+types (median precision  0. 96 8; median recall  0. 96 1). Recall was lowest for SKCM  (0.85 6)107 
+
+while STAD  had the lowest precision value  (0.89 4; Fig. 2b) .108 
+
+If these predictions are indeed  TP53  mutation specific, one would expect better prediction 109 
+
+accuracies for more damaging mutations (e.g.,  frameshift  or nonsense  mutations). T o test this 110 
+
+hypothesis, we simulated 100 ST slides with  a single clone containing  only  samples with  one 111 
+
+specific  type of  TP53  mutation. Given the relatively low number of samples in each  mutation 112 
+
+category , we  only  performed this analysis on the pan -cancer level. Higher  recall values  were 113 
+
+found for  truncating mutations  (median  0.91 9) than for missense mutations (median  0.89 2; P114 
+
+= 7.19e -3; one -sided  Mann -Whitney  U test ), confirming our hypothesis. As expected,  recall 115 
+
+values  were near zero for silent mutations (median  0; Fig.  2c). 116 
+
+TP53  is generally known as a haploinsufficient tumor suppressor gene  (11) , implying a dosage 117 
+
+effect with larger expected downstream expression alterations when both alleles are affected 118 
+
+(double hits) as compared to single allele alterations (single hits). To determine the sensitivity 119 
+
+of the MuT -GCNN model to different allele number alterations, we grouped  TP53  mutated 120 
+
+samples in single and dual hits based on their  TP53  copy number state, with  TP53  mutations 121 
+
+in copy number neutral samples considered as single hits and in hemizygously deleted 122 
+
+samples as double hits. Using the 100 ST slide pan -cancer approach, MuT -GCNN accurately 123 
+
+detected samples with a single hit (median  recall  0.81 1). Interestingly, the  prediction score 124 
+
+was significantly higher in samples with a double hit (median  recall  0.94 6, P = 6.75 e-22 , one -125 
+
+sided  Mann -Whitney  U test). In contrast, samples that were hemizygously  TP53  deleted in the 126 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+8
+
+absence of an SNV were not detected by the model (median  recall  0. 04 1; Fig. 2d ).  In addition, 127 
+
+clones with single hit high -impact  missense  mutations (PolyPhen score >0.91; median recall 128 
+
+= 0.8 38 ) were significantly better predicted than single hit low -impact clones (PolyPhen score 129 
+
+< 0.45; median recall = 0.7 30; P =  4.63 e-8; one -sided  Mann -Whitney  U test)  (33) . For double -130 
+
+hit samples, the difference between high - and low -impact groups was less pronounced 131 
+
+(median  recall  = 0.9 46  for both groups ; P = 1 .28e -2; one -sided  Mann -Whitney  U test ; Fig.  2e ). 132 
+
+133 
+
+Figure  2: MuT -GCNN TP53 mutation prediction accuracies in different cancer types and for 134 
+
+different mutation types.  a Example of a simulated ST slide and corresponding MuT -GCNN 135 
+
+prediction.  b Radar plot showing precision and recall values of the TCGA cancer types used to train 136 
+
+and test MuT -GCNN, including a pan -cancer category (PAN) that refers to ST slide simulations 137 
+
+co ntaining mixed cancer types as spots. Abbreviations are defined in Supplementary Table 1.  c-e Box 138 
+
+plots comparing recall values for 100 simulated clones containing specific mutation types and/or 139 
+
+genomic events. Double hits are defined as samples containing a TP53 mutation in combination with a 140 
+
+copy number loss. High/low impact TP53 mutations were defined by their PolyPhen -II score (i.e., >0.91 141 
+
+and <0.45, respectively) (33). Box plots represent median values and lower or upper quartiles with 142 
+
+whiskers extend ing to 1.5 times the interquartile range. A one -sided Wilcoxon signed -rank test was 143 
+
+used to test pairwise differences between groups. 144 
+
+Spatial information is essential for the accuracy of the MuT -GCNN model 145 
+
+To assess the added value of the spatial information to the prediction, we tested  two  additional, 146 
+
+spatial -agnostic models. The first model is similar to the MuT -GCNN model but with an 147 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+9
+
+unconnected graph as input, implying the removal of any spatial context. As expected, this 148 
+
+unconnected GCNN model performed worse than the MuT -GCNN model (AUC 0.8 97 versus 149 
+
+0. 998 ; P = 1. 6e-174 ; paired t -test;  Fig.  3). Secondly, we also trained a generalized linear model 150 
+
+(GLM) to predict  TP53  mutation status from RNA -seq. While such a GLM lacks the inherent 151 
+
+capability to include spatial data, it has been previously shown to be effective in predicting 152 
+
+TP53  mutations from  bulk  RNA -seq  (10) . The GLM was trained and  tested  on the same TCGA 153 
+
+samples  as MuT -GCNN, without simulating a spatial relationship between the samples. While 154 
+
+this model performed surprisingly better than the unconnected GCNN model (AUC = 0.9 36 ;155 
+
+Fig 3 ), predictions were still less accurate than the MuT -GCNN model  (P = 9.61e -202 ; one -156 
+
+sample  t-test) . As expected from spatial -agnostic models, these lower accuracies were 157 
+
+caused by isolated false positive and false negative spots on the ST slide  (Fig 3a) . The 158 
+
+improved performance over the non -spatial models illustrates the necessity to use spatial 159 
+
+relationships to achieve coherent predictions in ST data. 160 
+
+161 
+
+Figure  3: Comparison of TP53 mutation prediction accuracies between models with and without 162 
+
+spatial information . 100 virtual ST slides containing TP53 clones were simulated and predicted using 163 
+
+MuT -GCNN and 2 non -spatial models: unconnected graph GCNN and a generalized linear model 164 
+
+(GLM).  a Representative example of a simulated ST slide and the corresponding mutation  probabilities 165 
+
+of the three models, as indicated.  b Receiver Operating Characteristic (ROC) curves comparing the 166 
+
+performance of the three different models. 167 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+10 
+
+MuT -GCNN predicts  TP53  mutation status using cancer cell -specific gene 168 
+
+expression changes. 169 
+
+To test whether the model can be generalized to other data sources, we predicted  TP53 170 
+
+mutation status using cell line RNA -seq data from the Cancer Cell Line  Encyclopedia  (CCLE) 171 
+
+(34) . After employing the same  virtual  ST slide simulation process as described higher, MuT -172 
+
+GCNN identified  TP53  mutated cell lines and recreated the simulated spatial pattern with an 173 
+
+performance  similar to the weaker performing TCGA cancer types (precision =  0.9 01, recall = 174 
+
+0.  916 ; Suppl. Fig. 1a -c). 175 
+
+The generalizability of the model to cancer cells lines implies that MuT -GCNN learns cell -176 
+
+specific gene expression changes, rather than  tumor microenvironment (TME)  related 177 
+
+alterations. The cancer cell  specificity was further confirmed by the weaker performance of 178 
+
+the model on  virtual  slides with data from tumors with low purity (< 10 th  percentile; median 179 
+
+recall  = 0. 703 ) compared to  those with  high purity (>90 th  percentile ; median  recall  = 0.8 92 ; P180 
+
+= 4.2 1e-25 ; one -sided  Mann -Whitney  U test;  Suppl.  Fig  1d ). 181 
+
+p53 -related genes and pathways have the strongest influence on MuT -GCNN 182 
+
+predictions 183 
+
+To gain insights in the decision making process of MuT -GCNN, we employed 2 explainable 184 
+
+AI methods. 185 
+
+Firstly,  we applied the guided backpropagation method  (35)  implemented in Captum library 186 
+
+(36)  to identify which individual features influence the MuT -GCNN predictions. This method 187 
+
+calculates attribution values for each feature reflecting its local importance during inference. 188 
+
+The  MDM2  gene, encoding the  p53 degrader  Mmd 2, was the feature with the highest absolute 189 
+
+attribution values across all spots in all TCGA test datasets (mean attribution = 0.0025). Out 190 
+
+of the top 25 genes, 21 were direct p53 targets  (37 –43)  (Fig 4 a; Suppl. Fig 1a). When solely 191 
+
+focussing on  TP53  mutant spots,  CDKN2A  consistently showed the strongest positive 192 
+
+attribution, while  MDM2  exhibited the most negative attribution (i.e., strongest contribution on 193 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+11 
+
+TP53  wild -type spots), which are in line with their known opposite effects on p53 signalling 194 
+
+(44) . A KEGG pathway ranked gene set enrichment analysis (GSEA), using attribution scores 195 
+
+as the ranking metric, identified the p53 signa lling pathway as the most significantly enriched 196 
+
+pathway (NES = 1.88, FDR = 6.4e -8;  Fig 4b -c). 197 
+
+198 
+
+Figure  4: Analysis of genes and pathways explaining the MuT -GCNN predictions . a Bar plots 199 
+
+showing feature attribution scores as calculated using guided -backpropagation. Top 25 genes are 200 
+
+shown and ranked based on scores. Effect of p53 regulators contained in the top 25 is shown next to 201 
+
+the legend.  b Dot plot showing normalized enrichment scores (NES) and corresponding p values for 202 
+
+the different pathways as indicated.  c Running score plot for the KEGG p53 signalling pathway (45). 203 
+
+As a second approach,  we aimed to determine which gene sets and/or pathways had the most 204 
+
+influence on the prediction accuracy, using Kyoto Encyclopedia of Genes and Genomes 205 
+
+(KEGG) pathway gene sets  (45) . For each pathway, the model performance on the TCGA 206 
+
+test dataset was evaluated after removing the involved genes from the datasets (i.e., turning 207 
+
+expression values to 0). The resulting AUC value was then compared to an average baseline 208 
+
+AUC, which was calculated by randomly removing the same number of input genes (100 209 
+
+iterations). Using this approach, we identified genes involved in the  Cell cycl e ( Δ AUC  -1.89e -210 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+12 
+
+3) and  p53 Signalling pathway  (Δ AUC  -1.76e -3) and  Pathways in cancer  (Δ AUC  -1.21e -3) 211 
+
+as the top 3 contributors to the model performance ( Suppl.  Fig . 2b). 212 
+
+While both explainable AI  methods  clearly prioritized p53 -related genes and pathways, the 213 
+
+absolute drop in performance of MuT -GCCN was very modest after their remova l (Suppl. Fig. 214 
+
+2b ). This indicates a high level of model  robustness , which is  further demonstrated by the fact 215 
+
+that  12000  random  features  (i.e.,  92% of the 13013  model input features ) can be removed 216 
+
+without a substantial drop in  predictive performance  (Suppl. Fig 2c ).  These results suggest 217 
+
+that even for highly sparse data, which is often the case for many ST technologies  (46) , the 218 
+
+model will still perform well. 219 
+
+MuT -GCNN identifies  mutant  TP53  subclones  in previously published 220 
+
+squamous cell carcinoma  ST data 221 
+
+Our results demonstrate that MuT -GCNN accurately identifies  TP53  mutated clones in  virtual 222 
+
+ST data. To test  its  applicability on real ST data, we downloaded published  Visium  V2  data 223 
+
+from  cutaneous  squamous cell carcinoma ( cSCC; n =  8; Suppl. Fig . 3a) (2,47)  and  oral  SCC 224 
+
+(oSCC; n =  12; Suppl. Fig.  3b) (3) , cancer types that are known for their high  TP53  mutation 225 
+
+rate  (76%  for oSCC and up to 95% for cSCC ) (48,49) . Additionally, we used negative control 226 
+
+data obtained from normal skin (n = 12 ; Suppl. Fig.  4a-g) and atopic dermatitis (AD; n = 7; 227 
+
+Suppl. Fig. 4h -s) samples  (50) . As expected, MuT -GCNN identified  TP53  clones  (defined as 228 
+
+minimal 2 adjacent spots with a MuT -GCNN score above 0.5)  in the majority of oSCC  (8/12; 229 
+
+66 .7%)  and cSCC ( 6/8; 75% ) slides , but not in normal  skin epithelium  (1/12 ; 8.3%; Suppl. Fig 230 
+
+4c) or AD ( 2/7;  28 .6%; Suppl. Fig  4o,s ) samples. The small  clones , with lower probabilities, 231 
+
+that were detected in  normal skin and  AD could indicate the presence of non -tumoral  TP53 232 
+
+clones that have previously been reported in about 5% of aged normal skin epithelium  (51,52) .233 
+
+In the cSCC data we observed a striking similarity between the previously identified tumor -234 
+
+specific keratinocytes (TSKs) and the MuT -GCNN prediction  score  (Spearman ρ  = 0.5 2; P <235 
+
+2.2e -16 ; Suppl. Fig.  5). These TSKs were characterized by a distinct expression profile, linked 236 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+13 
+
+to  the  downregulation of apoptotic and terminal differentiation genes  and upregulation of 237 
+
+extracellular matrix and cell motility genes .238 
+
+Validation of MuT -GCNN predictions in DNA obtained from cSCC sections 239 
+
+The previous analyses demonstrate the applicability of MuT -GCNN on ST data. However, the 240 
+
+lack of  directly matching  DNA sequencing data  of  the spatially profiled slices limits its 241 
+
+validation potential. Therefore we aimed to collect such matched data by serially sectioning 242 
+
+10  μm slices from  four  cSCC samples. These samples were taken  ex vivo  upon surgical  tumor 243 
+
+resection  in  two  skin cancer patients. For each tumor, one sample was taken from the tumor 244 
+
+core (TC) and another from the tumor edge (TE). These samples are further referred to as 245 
+
+TC1, TC2, TE1 and TE2 (number referring to cSCC patient ; Fig. 5a). 246 
+
+After dermatopathological confirmation of the cSCC diagnosis, the first section was spatially 247 
+
+profiled using the  Visium V2  ST platform.  As expected, clearly defined tumor cells, 248 
+
+keratinocytes and fibroblasts could be defined based on their expression profiles (UMAP 249 
+
+analysis ) and spatial clustering (Fig. 5b).  The TE1 sample  suffered from  excessive tissue 250 
+
+tearing and the lack of a clearly defined tumor region on the H&E image . In the  three  remaining 251 
+
+samples, MuT -GCNN demonstrated a clear  TP53  signal in the tumor regions. Interestingly, 252 
+
+the epidermis adjacent to the tumor was  TP53 -negative in TC1 but positive in TE2  (Fig . 5b).253 
+
+DNA from  four  adjacent  sections was isolated and pooled for deep whole -exome sequencing 254 
+
+(WES; average sequencing depth 403x).  Mutation calling from WES data with GATK Mutect2 255 
+
+(53)  identified 2159 (TC1),  808 (TE1),  3327 (TC2) and 4073 (TE2) somatic coding single 256 
+
+nucleotide variants (SNVs; Fig . 5c ). As expected the majority of these mutations had a UV 257 
+
+mutational signature SBS7  (54 –56)  complemented by age -related clock -like signature SBS5 258 
+
+(57)  (Suppl.  Fig . 6a). In the excluded sample, TE1,  only 808 mutations were detected, of which 259 
+
+only 172 were shared with TC1, further suggesting excessively low tumor purity of TE1  (Fig. 260 
+
+5c) . TC2 and TE2 shared 2842 mutations. In line with the MuT -GCNN prediction, we confirmed 261 
+
+the presence of a  TP53  mutation in each tumor ( TP53  c.672G>A  in TC1;  TP53  c.e10+1G>T 262 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+14 
+
+in TC2 and TE2 ; Fig.  5d -e). Both mutations were annotated as splice site mutations with high 263 
+
+predicted probability of splicing disruption (Δ > 0.90 as calculated using SpliceAI)  (58) .264 
+
+Interestingly, the variant allele frequency (VAF) of  these  TP53  mutations  was close to the 265 
+
+expected clonal VAF  that was calculated based on the  MuT -GCNN predicted  TP53  mutant 266 
+
+area,  further confirming the validity of MuT -GCNN  predictions  (Suppl.  Fig.  6b -e). 267 
+
+Two additional  TP53  missense mutations  with low VAF  were detected  in  TE2  but not in TC2 268 
+
+(TP53  c.856G>A and  TP53  c.844C>T) , suggesting a peritumoral epidermal origin, as 269 
+
+predicted by MuT -GCNN (Fig.  5b ). Similar to the other mutations, a striking similarity was 270 
+
+observed between the MuT -GCNN based expected VAF  (VAF = 0.025)  and the observed 271 
+
+VAF s (VAF = 0.025 and 0.022;  Fig.  5e; Suppl. Fig.  6e ). The results strongly suggest that both 272 
+
+mutations indeed originate from the peritumoral epidermis. Interestingly, upon further 273 
+
+dermatopathological examination, this epidermis was diagnosed as actinic keratosis, a 274 
+
+premalignant skin lesion that has been previously described to be  TP53  mutated  (59 –61) .275 
+
+In addition to the identified  TP53  point mutations, copy number calling from WES data with 276 
+
+ASCAT  and from  Visium  data with  inferCNV  identified a loss  of chromosome arm 17p  for  the 277 
+
+tumor regions from TC2 and TE2 samples, but not in TC1  and  TE1 samples suggesting a dual 278 
+
+hit in patient 2, but not in patient 1 ( Suppl.  Fig.  7). 279 
+
+280 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+15 
+
+281 
+
+Figure  5: MuT -GCNN predictions and exome sequencing validation of TP53 mutations in 282 
+
+spatially profiled cSCC samples . a Tumor edge (TE) and tumor core (TC) samples were obtained 283 
+
+from two cSCC tumors. DNA from slices 1 to 5 was pooled and sequenced, the subsequent 6th slide 284 
+
+was spatially profiled using the Visium ST platform, as indicated. b Hematoxylin and eosin staining 285 
+
+(H&E), UMAP Leiden clusters (89) and corresponding spatial plots (annotated based on the main cell 286 
+
+type), MuT -GCNN predictions for the four samples as indicated. c Heatmap showing the mutation 287 
+
+burden for each sample and the overlap between the identified mutations. d Variant allele frequency 288 
+
+(VAF) distribution of both tumors with TC and TE samples indicated in blue and red as indicated. 289 
+
+Expected VAF calculated from predicted TP53 mutated area is indicated, colors correspond to Suppl. 290 
+
+Fig. 6c -e.291 
+
+292 
+
+# Discussion 293 
+
+Spatial transcriptomics (ST) is revolutionizing our understanding of tumor biology but 294 
+
+inherently lacks information on the upstream somatic driver mutations. We developed a 295 
+
+spatially -aware graph convolutional neural network (MuT -GCNN) that  identifies (sub)clonal 296 
+
+mutations in  TP53 , the most frequently mutated gene in human cancer  (11,13) .297 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+16 
+
+In the absence of large collections of spatial genomics  reference  datasets , we  trained MuT -298 
+
+GCNN  on  in silico  generated,  virtual ST slide s with simulated  TP53  clones  using bulk tumor 299 
+
+sequencing data from TCGA . Virtual slide s were designed following the default  Visium  layout 300 
+
+(65 x 65 spots) and were  generated  by  randomly assigning  (bulk)  cancer type -specific  gene 301 
+
+expression data from  TP53  mutated and wild -type samples to  corresponding  spot s. This 302 
+
+methodology implies placing  heterogeneous  expression  data  from different patients and 303 
+
+tumors in close spatial proximity. While this approach affect s the realism of the spatial context 304 
+
+in the training data,  the incorporation of the spatial  context  during MuT -GCNN training implied 305 
+
+that each spot considered the expression information of 24 neighbouring spots (two 306 
+
+convolutional layers), which  is expected to remove any variation that was not related to  TP53 307 
+
+mutation status, the  only  common spatial context denominator.  This likely explains the good 308 
+
+generalizability across different cancer types and independent datasets. 309 
+
+The added value of the spatial context  to  the model’s performance  was  further demonstrated 310 
+
+by the superior prediction accuracy of MuT -GCNN as compared to two non -spatial models 311 
+
+(i.e., unconnected GCNN and GLM) . Surprisingly, the unconnected GCNN model performed 312 
+
+worse than  the  GLM, showing that the GCNN architecture alone does not provide any intrinsic 313 
+
+advantage.  These results suggest that , while classical linear models are a better alternative 314 
+
+for mutation predictions in the absence of any spatial context,  GCNN s have the potential to 315 
+
+improve performance without relying on post -processing  spatial  clustering steps , in line with 316 
+
+their popularity  for deep learning on spatial transcriptomics  (62) .317 
+
+A key challenge when developing any novel machine learning approach is the “black box” 318 
+
+phenomenon, i.e. does MuT -GCNN indeed predict the expected  TP53  mutations or is the 319 
+
+performance explained and/or biased by hidden, correlated variables? To address this 320 
+
+challenge, w e demonstrated the  TP53  specificity using  three  orthogonal approaches : at the 321 
+
+genomic, cellular and the molecular layer.  Firstly, when evaluating the model on simulated 322 
+
+slides  that were homogenous for prespecified  mutation types, the best recall values were 323 
+
+observed for high impact mutations, which are expected to have the largest impact on the 324 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+17 
+
+TP53 -specific expression signals. Recall was near -0 for silent mutations,  further  excluding the 325 
+
+possibility  that related genomic variables such as tumor mutation burden or mutational 326 
+
+signatures confounded our results. Similarly,  samples with double hit mutations  (T53  copy 327 
+
+number  loss in combination with a  TP53  mutation)  had  higher recall values than  samples with 328 
+
+a single hit , in line with the expected gene dosage effect of  TP53 , which is known as a 329 
+
+haploinsufficient tumor suppressor gene  (63) . Interestingly, while recall was high ( median 330 
+
+recall 0.81 ) for single hit  SNV  mutations, we demonstrated that the model was largely 331 
+
+insensitive to hemizygous deletions in the absence of  TP53  mutations  (median recall 0.04) .332 
+
+Secondly, when MuT -GCNN was evaluated on virtual slides generated using independent cell 333 
+
+line data  (34) , the accuracy only dropped slightly. Apart from demonstrating the generalizability 334 
+
+of our model, this suggests that the model learned  TP53  mutation status from cancer  cell -335 
+
+specific  expression  signals, rather than alterations in the TME, which have been linked to 336 
+
+TP53  mutations previously  (64 –66) . The c ell  specificity was further confirmed by the better 337 
+
+performance in tumors with high purity (high cellularity).  Thirdly , two  explainable AI 338 
+
+approaches  pointed to  a key role of  TP53  signal ling genes and pathways in determining the 339 
+
+model ’s predictions. Of note , the guided backpropagation approach indicated that  Mdm 2,340 
+
+which is known as a primary negative regulator of p53  (17 –19,67) , was the most informative 341 
+
+feature for the model. Overall,  21 out of  the  25 most informative features were genes directly 342 
+
+involved in  TP53  signalling  (37 –43) .343 
+
+Despite the top contribution of these  TP53  signalling genes and pathways, their absolute 344 
+
+contribution was rather modest. This is likely explained by the  many existing  gene co -345 
+
+expression networks  (68,69) , with many correlated genes having the potential to provide 346 
+
+similar information to the model. This was also suggested by the robustness of MuT -GCNN to 347 
+
+sparsity of  the input data. Indeed, random removal of genes from the input, even at very large 348 
+
+scales, affected the performance  only marginally . This robustness to random sparsity is a 349 
+
+desirable property  as  real ST data are sparse by nature. Taken together these results suggest 350 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+18 
+
+that MuT -GCNN relies on a broad set of biologically meaningful signals rather than a small set 351 
+
+of dominant genes for its prediction of  TP53  mutation status. 352 
+
+MuT -GC NN was validated using an indirect approach on available data and a direct approach 353 
+
+on  newly generated ST with matched DNA sequencing data. Firstly , when applying MuT -354 
+
+GCNN on  previously published  non -tumoral (normal skin and  AD ) and tumoral (c SCC  and 355 
+
+oSCC) ST  datasets,  mutation frequencies were in line with expected frequencies from 356 
+
+sequencing studies. Interestingly, when applying MuT -GCNN on the  cSCC ST samples , MuT -357 
+
+GCNN predictions strongly correlate d with  the cluster of  tumor -specific keratinocytes  that were 358 
+
+identified by the authors of the original study  (2) . While the data don’t allow us to distinguish 359 
+
+between actual subclonal  TP53  mutations  versus  a strongly altered  TP53  signal ling pathway 360 
+
+due to other reasons , it does demonstrate how the model can result in novel biological 361 
+
+findings. 362 
+
+We also validated MuT -GCNN directly  using a serial slicing protocol on  two  samples from  two 363 
+
+cSCC tumors, with one section being spatially profiled with the  Visium  ST platform and 364 
+
+adjacent serial sections being (bulk) DNA sequenced.  Clonal  TP53  mutations were predicted 365 
+
+in both tumors and confirmed by the DNA sequencing and the predicted variant allele 366 
+
+frequency from the MuT -GCNN signal was close to the observed frequency, strongly 367 
+
+supporting the identical spatial location of predicted and observed mutations. Unexpectedly, 368 
+
+TP53  mutations were also found in  the  adjacent  epidermal  skin to one of the tumors. DNA 369 
+
+sequencing confirmed the presence of  two  missense mutations  in this epidermal skin , again 370 
+
+with matching observed and expected variant allele frequencies. Interestingly , the adjacent 371 
+
+skin was pathologically diagnosed as actinic keratosis, a well -known premalignant skin lesion 372 
+
+(70,71) .373 
+
+Training a GCNN using the virtual ST slide approach suggested here is in principle possible 374 
+
+for any mutated gene of interest. The main limitation is the availability of sufficient and 375 
+
+balanced numbers of wild -type and mutated samples.  TP53  is an ideal gene for several 376 
+
+reasons. Firstly, its high overall mutation frequency ( 40.55%  in our dataset) allows for a 377 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+19 
+
+perfectly balanced training dataset. Additionally, it is also a transcription factor, resulting in 378 
+
+direct downstream gene expression alterations that are expected to result in optimal model 379 
+
+performance. 380 
+
+MuT -GCNN was developed for the default  Visium  layout it is applicable to data derived from 381 
+
+any whole -transcriptome ST platform (e.g.,  Visium  HD), as long as the sequencing depth per 382 
+
+spot is sufficient. When this is not the case , we suggest merging expression data from 383 
+
+neighbouring spots as a preprocessing step before applying MuT -GCNN. While this will 384 
+
+reduce the spatial resolution, this is rarely a problem when evaluating multicellular subclonal 385 
+
+alterations. 386 
+
+In conclusion MuT -GCNN is a generalizable and validated GCNN t hat  potentiates the reliable 387 
+
+spatial prediction of  TP53  mutated cancer cells  in any  ST data set of interest . Adding this 388 
+
+hidden genomic information layer has the potential to result in novel biological findings related 389 
+
+to the role of  TP53  in carcinogenesis and/or can assist in identifying subclonal tumor regions 390 
+
+for targeted microdissection. 391 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+20 
+
+# Methods 392 
+
+TCGA and CCLE data collection 393 
+
+The GDC Data Portal was queried to obtain the download manifest for all open access RNA -394 
+
+seq count files generated from solid tissue samples with the  STAR  aligner  by the TCGA 395 
+
+consortium  (72) . With this manifest, the files were downloaded with the GDC Data Transfer 396 
+
+Tool ( https://github.com/NCI -GDC/gdc -client ). From these files, the column containing the 397 
+
+unstranded  transcripts per million (TPM) counts was extracted for all protein -coding genes. 398 
+
+Expression data for mitochondrial genes were excluded due to their order -of -magnitude 399 
+
+difference compared to mRNA levels originating from nuclear DNA. Next, for all the 400 
+
+downloaded TCGA samples, the mutation annotation format (MAF) file  ID ’s were collected in 401 
+
+a manifest from the GDC Data Portal and downloaded with the GDC Data Transfer Tool. The 402 
+
+maf files contain mutation data that can be used to classify samples into the  TP53 -mutated 403 
+
+and  TP53 -wild -type categories. Mutations annotated as  silent , intron , 5’ or 3’ UTR  or  3’ or 5’ 404 
+
+Flank  were all considered as wild -type. Additionally, TCGA copy -number data, generated with 405 
+
+GISTIC2  (73) , were downloaded with the  Analyses.CopyNumber.Genes.Thresholded 406 
+
+function included with the  FirebrowseR  R package ( https://github.com/mxxdxxx/FirebrowseR ). 407 
+
+Hemizygous (loss of heterozygosity) and homozygous deletions of TP53 were defined as 408 
+
+copy -number alterations listed as  -1 and  -2, respectively. TCGA samples with a homozygous 409 
+
+deletion of  TP53  considered as ‘mutated’. 410 
+
+Cell line mRNA -seq counts were obtained from the DepMap portal  release 22Q2 411 
+
+(https://depmap.org/portal ; CCLE_expression_full.csv ) (74,75) . The Log2 -transformed TPM 412 
+
+expression counts were back -transformed as to obtain raw TMP counts. Additionally, the  TP53 413 
+
+mutations were obtained from the corresponding  mutation  file provided on the DepMap portal 414 
+
+(CCLE_mutations.csv)  and underwent the same filtering steps as the TCGA mutations. Both 415 
+
+datasets (TCGA and CCLE) were filtered to include only the genes present in both and then 416 
+
+transformed with the natural logarithm to stabilize the variance. Ultimately, RNA -seq  data for 417 
+
+1406 CCLE cell lines was used in this study. 418 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+21 
+
+13013 genes were selected to be retained in both datasets, and all following datasets used 419 
+
+with MuT -GCNN. This is the intersect of genes profiled in TCGA, CCLE and 10X  Visium  v2, 420 
+
+i.e., all relevant datasets for this project. 421 
+
+In -silico  simulation of spatial transcriptomics 422 
+
+The TCGA dataset was further filtered down to contain only cancer types with sufficient 423 
+
+representable data present. The cut -off was set at a minimum of 250 samples and a  TP53 424 
+
+mutated/wild -type ratio within the interval of [0.1;0.9] for avoid large class imbalances. The 425 
+
+remaining dataset consisted of mutation and expression data for 6563 samples from  12  TCGA 426 
+
+solid cancer types: BLCA, HNSC, STAD, COAD, BRCA, LIHC, SKCM, PRAD, LUAD, LUSC, 427 
+
+LGG and UCEC. This dataset was split into a training and validation set with a 70/30 random 428 
+
+split at patient level using the  train_test_split  function implemented in  sci -kit learn  v1.8.0  (76) .429 
+
+Splitting at patient level made sure samples from the same patient would end up in the same 430 
+
+split to not confound the validation dataset with linked data in the training dataset. Next, the 431 
+
+RobustScaler  scaler was fitted using the TCGA training dataset  (76) . This fitted scaler was 432 
+
+used to scale all datasets. 433 
+
+A grid of data points was generated, matching the dimensions of a 10X Genomics  Visium  V2 434 
+
+slide, resulting in a 65x65 grid with a total of 4225 spots. In each simulated slide, 7  TP53 435 
+
+mutant subclones were modelled by overlaying virtual circles over the grid. The radius of these 436 
+
+circles was randomly chosen span between 6 and 8 spots wide for the training dataset and 5 437 
+
+and 12 for the test dataset.  These d ifferent size intervals were chosen between training and 438 
+
+test to check if the model didn’t learn the size of the circles.  TP53 -mutated samples were 439 
+
+randomly assigned to spots falling within these circles. Normal tissue and  TP53  wild -type 440 
+
+samples were randomly assigned to spots outside the circles. Neighbouring spots are 441 
+
+connected to build a grid -shaped undirected, unweighted graph  used as input for the  graph 442 
+
+neural network. Such grid s were  generated for each cancer type within TCGA with over 250 443 
+
+samples and between 10% and 90%  TP53 -mutated samples. Since  no  cancer type ha s more 444 
+
+than 4225 samples available (i.e., the number of spots on a 6.5 x 6.5mm  Visium  V2 capture 445 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+22 
+
+area), some oversampling of the dataset is to be expected  to fill each  grid. Regardless, to 446 
+
+assure each sample is represented on the slide, the random assignment of bulk tissue to grid 447 
+
+spots is done in a sequential loop. During each iteration, each sample is assigned only once. 448 
+
+If, after all samples are assigned, there are still unoccupied grid spots, the sampling sequence 449 
+
+is scrambled before the assignment process resumes. For the CCLE data, grid s are  simulated 450 
+
+using all samples. 451 
+
+Design and training  of the graph convolutional network 452 
+
+A graph convolutional neural network (GCNN) is a neural network designed to operate on 453 
+
+graph -structured data. It can aggregate and transform information from a node’s features, its 454 
+
+neighbours and the connections between them to learn representations. MuT -GCNN is tuned 455 
+
+to perform node prediction. The GCNN is made up of  two  subsequent graph convolution 456 
+
+layers, implemented in  Pytorch Geometric  as  GCNConv  (77) . The first  GCNConv  layer 457 
+
+receives a matrix of gene expression values for each spatial location or spot, as well as the 458 
+
+expression value matrix  associated with the surrounding spots. These surrounding locations 459 
+
+are defined  in  the adjacency matrix  (A) . The values  of A were  set to zero  for the unconnected 460 
+
+GCNN. The second  GCNConv  layer performs another convolution sequentially. This output is 461 
+
+passed to a multilayer perceptron (MLP) consisting of  five  subsequent layers, steadily 462 
+
+reducing the data dimensionality to a single prediction value which undergoes a sigmoid 463 
+
+transformation. The output of each layer in the model is transformed by a  rectified linear unit 464 
+
+(ReLu ) activation function. The model contains  three  dropout layers with a dropout rate of 465 
+
+50%, 20% and 50% respectively placed between the  GCNConv  layers and the first  three  MLP 466 
+
+layers. 467 
+
+The model was trained for 70 epochs while monitoring the loss of the training dataset. 468 
+
+Historically, an epoch is defined as one entire passing of the training data through the 469 
+
+algorithm.  In this context,  the  classical definition of an  epoch  should be  adapted , as  most 470 
+
+samples are reused multiple times to create one simulated ST slide.  Thus, w e define one 471 
+
+epoch  as one entire passing of all simulated ST slides through the GCNN. The order of slides 472 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+23 
+
+passing through the model is random. This means the model encounters each TCGA sample 473 
+
+multiple times in each epoch. Each time, the sample will have different neighbours, which 474 
+
+changes the context. Eventually, the model obtained in the final epoch had the lowest average 475 
+
+loss score on the validation slides and was chosen as the final trained model to be used for 476 
+
+further analyses. An ideal cutoff of 0.5 was identified by computing the mean misclassification 477 
+
+error (MSE) across cutoff values in increments of 0.01 on all validation data, and selecting the 478 
+
+cutoff at which the MSE was minimized. Every prediction value above this cutoff ought to be 479 
+
+considered as a  TP53  mutated spot, while  TP53  wild -type spots would result in a score lower 480 
+
+than the cutoff. The fact that the optimal cutoff value is equal to 0.5 is coincidental. 481 
+
+MuT -GCNN performance evaluation 482 
+
+Since the assignment of mutated clones to the  simulated ST  slide is random, 100 different 483 
+
+slides  with random clone layouts were simulated  to evaluate model performance . Across these 484 
+
+slides, p recision and recall values were calculated. This was done separately  using (I) 485 
+
+validation samples from  each  included  TCGA cancer type , (II) all TCGA validation samples 486 
+
+(pan -cancer ) and  (III)  the CCLE data. To evaluate the impact of  spatial connections on model 487 
+
+performance,  unconnected ST slides were generated from the same  100  pan -cancer  ST 488 
+
+simulations,  with edge connections  set as an empty list .489 
+
+To evaluate the impact of specific mutation types on model prediction, 65x65 ST simulations 490 
+
+were generated with the a single central clone with 7 spot diameter. This clone was  occupied 491 
+
+by spots containing  TCGA validation samples  with  a specific mutation type. Recall values for 492 
+
+only the clonal spots were calculated. This was repeated 100 times for each mutation type. 493 
+
+TCGA purity estimates 494 
+
+Purity estimates  of TCGA samples  were  obtained  using the mean purity estimation s from 5 495 
+
+different methods  (78) . Missing (NaN) values were disregarded.  Samples above the 90 th 
+
+496 
+
+percentile were classified as  high -purity , samples below the 10 th  percentile were classified as 497 
+
+low -purity .498 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+24 
+
+GLM 499 
+
+An elastic net penalized logistic regression model was fitted to the TCGA data to compare 500 
+
+performance against the GCNN.  The same data used to train and validate MuT -GCNN was 501 
+
+used to train and validate th is  GLM. The  RobustScaler  scaling was not applied and no ST 502 
+
+slides were simulated as the GLM doesn’t use spatial information.  First, the optimal lambda 503 
+
+value was determined through 10 -fold cross -validation using the  cv.glmnet  function (glmnet 504 
+
+4.1 -8 R package) with an alpha value of 0.2. Next, the lambda value from the fold which 505 
+
+produced the lowest mean cross -validated error ( lambda.min ) was provided to fit the final GLM 506 
+
+to with the training data using the  glmnet  R function from the same glmnet R package  (79 –507 
+
+81) . On the validation dataset, the ROC curve and AUC value was determined to evaluate the 508 
+
+performance.  One -sample Mann -Whitney U test was performed to check if the AUC value 509 
+
+differed from the  distribution of  AUC value s obtained with  MuT -GCNN  pan -cancer validation 510 
+
+virtual slides .511 
+
+Public  Spatial Transcriptomics datasets 512 
+
+For all real ST data used, raw count tables and supplement information, such as images, were 513 
+
+downloaded from the databases listed in their accompanying publication. These datasets were 514 
+
+loaded into a R Seurat object and normalised with  NormalizeData  with  LogNormalize 515 
+
+normalization  method and  scale.factor  set to 1e6.  ALRA  v0.0.0.9000  (82)  was used to lower 516 
+
+the data sparsity by imputing missing count values. Next, the ALRA count matrix was batch 517 
+
+corrected using  ComBat  (83) , from the  sva  R package v3.50.0 with the full TCGA dataset as 518 
+
+reference batch. This means the TCGA dataset remains unaltered while the ST count matrix 519 
+
+is collectively batch corrected. Finally, the batch corrected count matrix was scaled and 520 
+
+centered using  RobustScaler  function , implemented in the  sklearn  python package  and  fitted 521 
+
+on the TCGA training dataset. After defining the connections between neighboring spots to 522 
+
+generate the graph structure, the data is ready as input to MuT -GCNN. Our in -house 523 
+
+generated ST experiments were processed the same way starting from the 10X Genomics 524 
+
+SpaceRanger  output. 525 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+25 
+
+MuT -GCNN prediction values for each cSCC ST slide were correlated using the spearman 526 
+
+correlation method to the gene expression programs from a gene set characterizing tumor -527 
+
+specific keratinocytes (TSK). The gene expression program values were calculated with 528 
+
+Seurat (v5.5.0)  AddModuleScore  with default parameters  (84,85) . TSK Correlations were only 529 
+
+computed for cSCC ST samples because this expression signature is specific for cSCC  (86) .530 
+
+Guided backpropagation 531 
+
+Feature attribution scores  for individual genes  were calculated using the  guided 532 
+
+backpropagation method  (35)  from  the  Captum  library  (36)  as implemented in the  explain 533 
+
+module of  Pytorch geometric  (87,88) . By the design of the graph convolutional neural network, 534 
+
+nodes more than  two  connections away can’t influence the node on which the model is 535 
+
+generating a prediction. Thus, to save  computation  time and memory, only the local, 536 
+
+reachable, neighbourhood was considered for each node , after confirming that the inclusion 537 
+
+of farther nodes don’t influence the attribution scores  five  different central nodes . For each 538 
+
+node in the test dataset, guided backpropagation was applied to obtain feature attribution 539 
+
+scores. These were averaged across all nodes of a simulated ST slide. Across all positive and 540 
+
+negative nodes separately to obtain attribution scores specific to both prediction categories. 541 
+
+Absolute values were taken to rank the features according to importance for the values that 542 
+
+were averaged across all nodes. This ranking was further used in the  following  robustness 543 
+
+analysis .544 
+
+Gene set enrichtment  analysis 545 
+
+The curated human Kyoto Encyclopedia of Genes and Genomes (KEGG) pathway gene sets 546 
+
+were obtained  (45)  against which ranked gene set enrichtment analysis (GSEA) was 547 
+
+performed using the  gseKEGG  function from  clusterProfiler  v4.14.0 in R.  pAdjustMethod  was 548 
+
+set to ‘fdr’. 549 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+26 
+
+Feature ablation analyses 550 
+
+The curated human Kyoto Encyclopedia of Genes and Genomes (KEGG) pathway gene sets 551 
+
+were obtained  (45) . For each KEGG pathway gene set, the corresponding inputs for MuT -552 
+
+GCNN were set to zero for each cancer type in the test dataset and the AUC of the prediction 553 
+
+result was recorded. To compare, a random set of genes with equal size as the KEGG pathway 554 
+
+gene set was also removed from the input (i.e., set to zero). This process was bootstrapped 555 
+
+100x and the average AUC value was taken. The impact of KEGG pathway gene set removal 556 
+
+was then defined as the AUC difference between random removal and KEGG pathway gene 557 
+
+set removal, averaged across all TCGA cancer types in the test dataset. 558 
+
+To estimate the network robustness, random genes were dropped from the input of the TCGA 559 
+
+test dataset by setting the expression value of the gene to 0 for each spot on the simulated 560 
+
+slide. The number of genes varied from 0 to 13000 in steps of 1000. This operation was 561 
+
+repeated 100 times, and the average AUC value was calculated across those repetitions. This 562 
+
+was compared for both an input graph with and without connections between the nodes. 563 
+
+Additionally, genes were stepwise (0 to 13000 in steps of 1000) removed from the input 564 
+
+according to their rank based on attribution score. The AUC value after removal was noted 565 
+
+and compared to random removal of genes. 566 
+
+Spatial transcriptomics 567 
+
+To validate MuT -GCNN predictions, cSCC tumor samples  together with some of the 568 
+
+surrounding normal tissue was resected  from  two  different patients at the Ghent University 569 
+
+Hospital, Belgium.  The collection and use of human study samples were approved by the 570 
+
+Ethics Committee of Ghent University Hospital (approval number B6702023000083). All 571 
+
+patients provided written informed consent.  Samples  from the tumor core and tumor edge 572 
+
+region  were taken using 6mm biopsy needles, fixated in 10% NBF and subsequently 573 
+
+processed into FFPE blocks. 574 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+27 
+
+These FFPE sample blocks underwent a parallel sectioning protocol using the HistoCore 575 
+
+Multicut  microtome (Leica Biosystems). First sections were taken with a thickness of 10μm 576 
+
+and consecutively used for RNA QC (4 sections) and DNA sequencing (see next). The next 577 
+
+suitable section with a thickness of 5μm was used for spatial transcriptomics with 10X 578 
+
+Genomics FFPE  Visium  v2.0 platform, using the 10X Genomics  Visium  CytAssist for FFPE 579 
+
+protocol and  Visium  CytAssist Spatial Gene Expression Slide v2 (6.5mm).  10X Genomics 580 
+
+SpaceRanger  was used to process the spatial sequencing data. Some spots outside the tissue 581 
+
+region remained in the data after the  SpaceRanger  pipeline. These were manually removed 582 
+
+by manual inspection and selection using the 10X Genomics  Loupe Browser . Finally, the data 583 
+
+was loaded as a Seurat  object in R to perform basic QC by checking for outliers in the number 584 
+
+of features and reads per spot. Spots with less than 100 different features were excluded. This 585 
+
+amounted to the removal of 8 spots across all 4 ST slides.  Data preprocessing for MuT -GCNN 586 
+
+prediction was performed as discussed earlier. 587 
+
+UMAP Clustering 588 
+
+UMAP -based clusters were determined using  Leiden  algorithm implemented in  FindClusters 589 
+
+function from Seurat (v5.5.0) in R  (85,89) . The  resolution  parameter was optimized to resolve 590 
+
+distinct cell populations corresponding to histologically defined skin compartments, including 591 
+
+tumor cells, fibroblasts and keratinocytes. For TC1 and TE2, the resolution was set at 0.15, 592 
+
+whereas  for  samples  TE1  and  TC1,  a resolution  value of  0.1  was applied .593 
+
+Spatial copy -number analysis 594 
+
+Copy -number calling on spatial transcriptomics was performed with  inferCNV  of the Trinity 595 
+
+CTAT Project v 1.20.0 ( https://github.com/broadinstitute/inferCNV ).  Spots  belonging to UMAP 596 
+
+clusters determined to be fibroblasts or keratinocytes  were chosen as the reference spots. 597 
+
+The remaining spots  mapping to the tumor UMAP cluster  were chosen as the observation. 598 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+28 
+
+DNA sequencing  and read alignment 599 
+
+The  cSCC tumor  samples underwent paired -end  whole -exome sequencing (150bp read 600 
+
+length) at the NXTGNT, a Ghent University core facility. For this experiment,  four  subsequent 601 
+
+sections were obtained prior to the ST section. These were pooled and DNA was extracted 602 
+
+using the QIAamp® DNA FFPE Tissue Kit and Deparaffinization Solution. Sequencing was 603 
+
+performed on the AVITI24 sequencer by Element Biosciences following the Trinity library 604 
+
+preparation protocol for whole -exome sequencing using the Twist Whole -exome 2.0 panel 605 
+
+from Twist Biosciences.  The resulting fastq files were processed following the GATK best 606 
+
+practices workflow for short somatic variant discovery  (53,90,91) . First, the sequencing data 607 
+
+was aligned to the UCSC hg38 human reference genome  (92)  using BWA -mem2  (93)  for 608 
+
+each sequencing run separately. Read groups were assigned following the GATK 609 
+
+recommendations  (94) . Next, the aligned BAM files for each run were merged per sample 610 
+
+using  SAMtools  (95) . PCR duplicates were marked with  GATK MarkDuplicates . Base Quality 611 
+
+Score Recalibration (BQSR) is a preprocessing step to detect systematic errors in base quality 612 
+
+scores. This step was performed with the GATK tools  BaseRecalibrator  and  ApplyBQSR . The 613 
+
+af -only -gnomad.hg38.vcf.gz  file, provided by the GATK Resource Bundle  (96) , was used in 614 
+
+the  --known -site argument of BaseRecalibrator. 615 
+
+Somatic variant calling 616 
+
+GATK  Mutect2  was used  for short variant discovery in tumor -only mode, as no normal samples 617 
+
+were available.  The  --callable -depth  argument  was set to 20, the same Gnomad  (97)  af -only -618 
+
+gnomad.hg38.vcf.gz  file was used for the  --germline -resource option and 619 
+
+1000g_pon.hg38.vcf.gz , also provided in the GATK Recourse Bundle, was used for the  --620 
+
+panel -of -normals option.  Resulting variants were filtered using GATK  FilterMutectCalls 621 
+
+following the Best Practices recommendations. 622 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+29 
+
+Functional annotation 623 
+
+Finally, functional annotations were performed with GATK  Funcotator . All  TP53  mutations 624 
+
+were uploaded to the  SpliceAI  website (Dec 14 2025 version) for functional evaluation  (58) .625 
+
+All settings were kept default.  SpliceAI  Delta scores were noted. 626 
+
+Whole -exome sequencing copy -number analysis 627 
+
+Copy -number analysis on the WES data was performed with  ASCAT  v3.2.0  using the workflow 628 
+
+for high -throughput sequencing (HTS) WES data without matched normal sample  (98) . The 629 
+
+Gamma  parameter was set to 1. 630 
+
+Mutational signatures 631 
+
+The trinucleotide profile for each tumor was matched against known mutational signatures 632 
+
+from COSMIC v3. 3 using the  R implementation of  SigProfilerAssignment R v1.1.3  for exome 633 
+
+sequencing data . Artifact_signatures , Lymphoid_signatures , AA_signatures  and 634 
+
+Colibactin_signatures  signature groups were excluded. Otherwise, default parameters were 635 
+
+used. 636 
+
+Expected  allele frequency  calculations 637 
+
+For samples with  TP53  mutations identified in the WES data (TC1, TC2 and TE2) the expected 638 
+
+allele frequency  (AF)  was calculated for the MuT -GCNN -predicted  TP53  mutant regions.  First 639 
+
+an image of the prediction was opened in Inkscape. A shape was manually drawn around the 640 
+
+predicted  TP53  mutant region. The  surface area of  this shape  was  calculated using the 641 
+
+Inkscape path measurement function . The same operation was performed to delineate the 642 
+
+surface area of the full tissue slide. The expected AF was calculated as: 643 
+
+𝐴𝐹  = 𝑀 
+
+2𝑆 
+
+644 
+
+With  M the surface area of the  TP53  mutant region and  S the total tissue area. Both units are 645 
+
+pixels squared (px²) .646 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+30 
+
+Data and code availability 647 
+
+Raw data and code are available after reasonable request. 648 
+
+649 
+
+.CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint 31 
+
+# References 650 
+
+1.  Siaw JT, Merseburger P, Borenäs M, Jansson C, Karlsson J, Claeys A, et al. Spatial 651 
+
+transcriptomics exploration of the primary neuroblastoma microenvironment in archived FFPE 652 
+
+samples unveils novel paracrine interactions. J Pathol. 2025;267(2):181 –95. 653 
+
+doi:10.1002/path.6457 654 
+
+2.  Ji AL, Rubin AJ, Thrane K, Jiang S, Reynolds DL, Meyers RM, et al. Multimodal 655 
+
+Analysis of Composition and Spatial Architecture in Human Squamous Cell Carcinoma. Cell. 656 
+
+2020 Jul;182(2):497 -514.e22. doi:10.1016/j.cell.2020.05.039 PubMed PMID: 32579974; 657 
+
+PubMed Central PMCID: PMC7391009. 658 
+
+3.  Arora R, Cao C, Kumar M, Sinha S, Chanda A, McNeil R, et al. Spatial transcriptomics 659 
+
+reveals distinct and conserved tumor core and edge architectures that predict survival and 660 
+
+targeted therapy response. Nature Communications. 2023 Dec 1;14(1). doi:10.1038/s41467 -661 
+
+023 -40271 -4 PubMed PMID: 37596273. 662 
+
+4.  Jiménez -Santos MJ, García -Martín S, Rubio -Fernández M, Gómez -López G, Al -663 
+
+Shahrour F. Spatial transcriptomics in breast cancer reveals tumour microenvironment -driven 664 
+
+drug responses and clonal therapeutic heterogeneity. NAR Cancer. 2024 Oct 3;6(4):zcae046. 665 
+
+doi:10.1093/narcan/zcae046 666 
+
+5.  Li L, Li Q, Liu J, Wang Y, Ma Y, Tang L, et al. Integrated single -cell and spatial 667 
+
+transcriptomics combined with whole -exome sequencing reveal key hub genes and epithelial 668 
+
+heterogeneity in bladder cancer. Front Oncol. 15:1748105. doi:10.3389/fonc.2025.1748105 669 
+
+PubMed PMID: 41669266; PubMed Central PMCID: PMC12883401. 670 
+
+6.  Cai X, Yang J, Guo Y, Yu Y, Zheng C, Dai X. Re -analysis of single cell and spatial 671 
+
+transcriptomics data reveals B cell landscape in gastric cancer microenvironment and its 672 
+
+potential crosstalk with tumor cells for clinical prognosis. J Transl Med. 2024 Aug 30;22(1):807. 673 
+
+doi:10.1186/s12967 -024 -05606 -9674 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+32 
+
+7.  Erickson A, He M, Berglund E, Marklund M, Mirzazadeh R, Schultz N, et al. Spatially 675 
+
+resolved clonal copy number alterations in benign and malignant tissue. Nature. 2022 676 
+
+Aug;608(7922):360 –7. doi:10.1038/s41586 -022 -05023 -2677 
+
+8.  Elyanow R, Zeira R, Land M, Raphael BJ. STARCH: Copy number and clone inference 678 
+
+from spatial transcriptomics data. Phys Biol. 2021 Mar 9;18(3):035001. doi:10.1088/1478 -679 
+
+3975/abbe99 PubMed PMID: 33022659; PubMed Central PMCID: PMC9876615. 680 
+
+9.  Way GP, Sanchez -Vega F, La K, Armenia J, Chatila WK, Luna A, et al. Machine 681 
+
+Learning Detects Pan -cancer Ras Pathway Activation in The Cancer Genome Atlas. Cell 682 
+
+Reports. 2018 Apr 3;23(1):172 -180.e3. doi:10.1016/j.celrep.2018.03.046 PubMed PMID: 683 
+
+29617658. 684 
+
+10.  Fito -Lopez B, Salvadores M, Alvarez MM, Supek F. Prevalence, causes and impact of 685 
+
+TP53 -loss phenocopying events in human tumors. BMC Biology. 2023 Dec 1;21(1). 686 
+
+doi:10.1186/s12915 -023 -01595 -1 PubMed PMID: 37095494. 687 
+
+11.  Donehower LA, Soussi T, Korkut A, Liu Y, Schultz A, Cardenas M, et al. Integrated 688 
+
+Analysis of TP53 Gene and Pathway Alterations in The Cancer Genome Atlas. Cell Rep. 2019 689 
+
+Jul 30;28(5):1370 -1384.e5. doi:10.1016/j.celrep.2019.07.001 PubMed PMID: 31365877; 690 
+
+PubMed Central PMCID: PMC7546539. 691 
+
+12.  Kandoth C, McLellan MD, Vandin F, Ye K, Niu B, Lu C, et al.  Mutational landscape and 692 
+
+significance across 12 major cancer types. Nature. 2013 Oct;502(7471):333 –9. 693 
+
+doi:10.1038/nature12634 694 
+
+13.  Hollstein M, Sidransky D, Vogelstein B, Harris CC. p53 Mutations in Human Cancers. 695 
+
+Science. 1991 Jul 5;253(5015):49 –53. doi:10.1126/science.1905840 696 
+
+14.  Muller PAJ, Vousden KH, Norman JC. p53 and its mutants in tumor cell migration and 697 
+
+invasion. Journal of Cell Biology. 2011 Jan 24;192(2):209 –18. doi:10.1083/jcb.201009059 698 
+
+PubMed PMID: 21263025. 699 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+33 
+
+15.  Riley T, Sontag E, Chen P, Levine A. Transcriptional control of human p53 -regulated 700 
+
+genes. Nat Rev Mol Cell Biol. 2008 May;9(5):402 –12. doi:10.1038/nrm2395 701 
+
+16.  Beckerman R, Prives C. Transcriptional Regulation by P53. Cold Spring Harb Perspect 702 
+
+Biol. 2010 Jan 8;2(8):a000935. doi:10.1101/cshperspect.a000935 PubMed PMID: 20679336. 703 
+
+17.  Haupt Y, Maya R, Kazaz A, Oren M. Mdm2 promotes the rapid degradation of p53. 704 
+
+Nature. 1997 May;387(6630):296 –9. doi:10.1038/387296a0 705 
+
+18.  Kubbutat MHG, Jones SN, Vousden KH. Regulation of p53 stability by Mdm2. Nature. 706 
+
+1997 May;387(6630):299 –303. doi:10.1038/387299a0 707 
+
+19.  Honda R, Tanaka H, Yasuda H. Oncoprotein MDM2 is a ubiquitin ligase E3 for tumor 708 
+
+suppressor p53. FEBS Letters. 1997;420(1):25 –7. doi:10.1016/S0014 -5793(97)01480 -4709 
+
+20.  Ciriello G, Miller ML, Aksoy BA, Senbabaoglu Y, Schultz N, Sander C. Emerging 710 
+
+landscape of oncogenic signatures across human cancers. Nature Genetics. 2013 Oct 711 
+
+1;45(10):1127 –33. doi:10.1038/ng.2762 712 
+
+21.  Knijnenburg TA, Wang L, Zimmermann MT, Chambwe N, Gao GF, Cherniack AD, et 713 
+
+al. Genomic and Molecular Landscape of DNA Damage Repair Deficiency across The Cancer 714 
+
+Genome Atlas. Cell Reports. 2018 Apr 3;23(1):239 -254.e6. doi:10.1016/j.celrep.2018.03.076 715 
+
+PubMed PMID: 29617664. 716 
+
+22.  Lane DP. Cancer. p53, guardian of the genome. Nature. 1992 Jul 2;358(6381):15 –6. 717 
+
+doi:10.1038/358015a0 PubMed PMID: 1614522. 718 
+
+23.  Stengel A, Kern W, Haferlach T, Meggendorfer M, Fasan A, Haferlach C. The impact 719 
+
+of TP53 mutations and TP53 deletions on survival varies between AML, ALL, MDS and CLL: 720 
+
+an analysis of 3307 cases. Leukemia. 2017 Mar 1;31(3):705 –11. doi:10.1038/leu.2016.263 721 
+
+24.  Hassin O, Nataraj NB, Shreberk -Shaked M, Aylon Y, Yaeger R, Fontemaggi G, et al. 722 
+
+Different hotspot p53 mutants exert distinct phenotypes and predict outcome of colorectal 723 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+34 
+
+cancer patients. Nature Communications. 2022 May 19;13(1):2800. doi:10.1038/s41467 -022 -724 
+
+30481 -7725 
+
+25.  Priestley P, Baber J, Lolkema MP, Steeghs N, de Bruijn E, Shale C, et al. Pan -cancer 726 
+
+whole -genome analyses of metastatic solid tumours. Nature. 2019 Nov 7;575(7781):210 –6. 727 
+
+doi:10.1038/s41586 -019 -1689 -y PubMed PMID: 31645765. 728 
+
+26.  Woodfield SE, Shi Y, Patel RH, Chen Z, Shah AP, Srivastava RK, et al. MDM4 729 
+
+inhibition: a novel therapeutic strategy to reactivate p53 in hepatoblastoma. Sci Rep. 2021 730 
+
+Feb 3;11(1):2967. doi:10.1038/s41598 -021 -82542 -4731 
+
+27.  Barboza JA, Iwakuma T, Terzian T, El -Naggar AK, Lozano G. Mdm2 and Mdm4 Loss 732 
+
+Regulates Distinct p53 Activities. Mol Cancer Res. 2008 Jun 1;6(6):947 –54. 733 
+
+doi:10.1158/1541 -7786.MCR -07 -2079 734 
+
+28.  Li Q, Lozano G. Molecular Pathways: Targeting Mdm2 and Mdm4 in Cancer Therapy. 735 
+
+Clin Cancer Res. 2013 Jan 2;19(1):34 –41. doi:10.1158/1078 -0432.CCR -12 -0053 736 
+
+29.  Bulavin DV, Demidov ON, Saito S, Kauraniemi P, Phillips C, Amundson SA, et al. 737 
+
+Amplification of PPM1D in human tumors abrogates p53 tumor -suppressor activity. Nat Genet. 738 
+
+2002 Jun;31(2):210 –5. doi:10.1038/ng894 739 
+
+30.  Milosevic J, Fransson S, Gulyas M, Olsen TK, Gallo -Oller G, Treis D, et al. High 740 
+
+Expression of PPM1D Induces Tumors Phenotypically Similar to TP53 Loss -of -Function 741 
+
+Mutations in Mice. Cancers. 2021 Jan;13(21):5493. doi:10.3390/cancers13215493 742 
+
+31.  Kleiblova P, Shaltiel IA, Benada J, evčík J, Pecháčková S, Pohlreich P, et al. Gain -of -743 
+
+function mutations of PPM1D/Wip1 impair the p53 -dependent G1 checkpoint. J Cell Biol. 2013 744 
+
+May 6;201(4):511 –21. doi:10.1083/jcb.201210031 745 
+
+32.  Lomakin A, Svedlund J, Strell C, Gataric M, Shmatko A, Rukhovich G, et al. Spatial 746 
+
+genomics maps the structure, nature and evolution of cancer clones. Nature. 2022 747 
+
+Nov;611(7936):594 –602. doi:10.1038/s41586 -022 -05425 -2748 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+35 
+
+33.  Adzhubei I, Jordan DM, Sunyaev SR. Predicting functional effect of human missense 749 
+
+mutations using PolyPhen -2. Current protocols in human genetics. 2013 Jan;Chapter 750 
+
+7:Unit7.20 -Unit7.20. doi:10.1002/0471142905.hg0720s76 PubMed PMID: 23315928. 751 
+
+34.  Barretina J, Caponigro G, Stransky N, Venkatesan K, Margolin AA, Kim S, et al. The 752 
+
+Cancer Cell Line Encyclopedia enables predictive modelling of anticancer drug sensitivity. 753 
+
+Nature. 2012 Mar;483(7391):603 –7. doi:10.1038/nature11003 754 
+
+35.  Springenberg JT, Dosovitskiy A, Brox T, Riedmiller M. Striving for Simplicity: The All 755 
+
+Convolutional Net [Internet]. arXiv; 2015 [cited 2026 Feb 24]. Available from: 756 
+
+http://arxiv.org/abs/1412.6806 doi:10.48550/arXiv.1412.6806 757 
+
+36.  Kokhlikyan N, Miglani V, Martin M, Wang E, Alsallakh B, Reynolds J, et al. Captum: A 758 
+
+unified and generic model interpretability library for PyTorch. 2020. 759 
+
+37.  Fischer M. Census and evaluation of p53 target genes. Oncogene. 2017 760 
+
+Jul;36(28):3943 –56. doi:10.1038/onc.2016.502 761 
+
+38.  Isaac R, Goldstein I, Furth N, Zilber N, Streim S, Boura -Halfon S, et al. TM7SF3, a 762 
+
+novel p53 -regulated homeostatic factor, attenuates cellular stress and the subsequent 763 
+
+induction of the unfolded protein response. Cell Death Differ. 2017 Jan;24(1):132 –43. 764 
+
+doi:10.1038/cdd.2016.108 765 
+
+39.  Kawase T, Ohki R, Shibata T, Tsutsumi S, Kamimura N, Inazawa J, et al. PH Domain -766 
+
+Only Protein PHLDA3 Is a p53 -Regulated Repressor of Akt. Cell. 2009 Feb 6;136(3):535 –50. 767 
+
+doi:10.1016/j.cell.2008.12.002 768 
+
+40.  Bornstein C, Brosh R, Molchadsky A, Madar S, Kogan -Sakin I, Goldstein I, et al. 769 
+
+SPATA18, a Spermatogenesis -Associated Gene, Is a Novel Transcriptional Target of p53 and 770 
+
+p63. Molecular and Cellular Biology. 2011 Apr 1;31(8):1679 –89. doi:10.1128/MCB.01072 -10 771 
+
+PubMed PMID: 21300779. 772 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+36 
+
+41.  Stott FJ, Bates S, James MC, McConnell BB, Starborg M, Brookes S, et al. The 773 
+
+alternative product from the human CDKN2A locus, p14ARF, participates in a regulatory 774 
+
+feedback loop with p53 and MDM2. EMBO J. 1998 Sep 1;17(17):5001 –14. 775 
+
+doi:10.1093/emboj/17.17.5001 776 
+
+42.  He H, Sun Y. Ribosomal protein S27L is a direct p53 target that regulates apoptosis. 777 
+
+Oncogene. 2007 Apr 26;26(19):2707 –16. doi:10.1038/sj.onc.1210073 PubMed PMID: 778 
+
+17057733. 779 
+
+43.  Tanikawa C, Ri C, Kumar V, Nakamura Y, Matsuda K. Crosstalk of EDA -A2/XEDAR in 780 
+
+the p53 Signaling Pathway. Mol Cancer Res. 2010 Jun 1;8(6):855 –63. doi:10.1158/1541 -781 
+
+7786.MCR -09 -0484 782 
+
+44.  Stott FJ, Bates S, James MC, McConnell BB, Starborg M, Brookes S, et al. The 783 
+
+alternative product from the human CDKN2A locus, p14ARF, participates in a regulatory 784 
+
+feedback loop with p53 and MDM2. EMBO J. 1998 Sep 1;17(17):5001 –14. 785 
+
+doi:10.1093/emboj/17.17.5001 786 
+
+45.  Kanehisa M, Goto S. KEGG: kyoto encyclopedia of genes and genomes. Nucleic Acids 787 
+
+Res. 2000 Jan 1;28(1):27 –30. doi:10.1093/nar/28.1.27 PubMed PMID: 10592173; PubMed 788 
+
+Central PMCID: PMC102409. 789 
+
+46.  Zhao P, Zhu J, Ma Y, Zhou X. Modeling zero inflation is not necessary for spatial 790 
+
+transcriptomics. Genome Biol. 2022 May 18;23(1):118. doi:10.1186/s13059 -022 -02684 -0791 
+
+47.  Abalo X, Thrane K, Ji AL, Mirzazadeh R, Khavari P, Lundeberg J. Human squamous 792 
+
+cell carcinoma, Visium [Internet]. Mendeley Data; 2021 [cited 2024 Mar 20]. Available from: 793 
+
+https://data.mendeley.com/datasets/2bh5fchcv6/1 doi:10.17632/2bh5fchcv6.1 794 
+
+48.  Pickering CR, Zhou JH, Lee JJ, Drummond JA, Peng SA, Saade RE, et al. Mutational 795 
+
+landscape of aggressive cutaneous squamous cell carcinoma. Clinical Cancer Research. 796 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+37 
+
+2014 Dec 15;20(24):6582 –92. doi:10.1158/1078 -0432.CCR -14 -1768 PubMed PMID: 797 
+
+25303977. 798 
+
+49.  Lawrence MS, Sougnez C, Lichtenstein L, Cibulskis K, Lander E, Gabriel SB, et al. 799 
+
+Comprehensive genomic characterization of head and neck squamous cell carcinomas. 800 
+
+Nature. 2015 Jan 1;517(7536):576 –82. doi:10.1038/nature14129 801 
+
+50.  Mitamura Y, Reiger M, Kim J, Xiao Y, Zhakparov D, Tan G, et al.  Spatial 802 
+
+transcriptomics combined with single -cell RNA -sequencing unravels the complex 803 
+
+inflammatory cell network in atopic dermatitis. Allergy: European Journal of Allergy and Clinical 804 
+
+Immunology. 2023 Aug 1;78(8):2215 –31. doi:10.1111/all.15781 PubMed PMID: 37312623. 805 
+
+51.  Martincorena I, Roshan A, Gerstung M, Ellis P, Van Loo P, McLaren S, et al. High 806 
+
+burden and pervasive positive selection of somatic mutations in normal human skin. Science. 807 
+
+2015;348(6237):880 –6. doi:10.1126/science.aaa6806 PubMed PMID: 25999502. 808 
+
+52.  Luijts T, Elliott K, Siaw JT, Van de Velde J, Beyls E, Claeys A, et al. A clinically 809 
+
+annotated post -mortem approach to study multi -organ somatic mutational clonality in normal 810 
+
+tissues. Scientific Reports. 2022 Jun 20;12(1):10322. doi:10.1038/s41598 -022 -14240 -8811 
+
+53.  Van der Auwera GA, O’Connor BD. Genomics in the Cloud. O’REILLY; 2020. 812 
+
+54.  Hayward NK, Wilmott JS, Waddell N, Johansson PA, Field MA, Nones K, et al. Whole -813 
+
+genome landscapes of major melanoma subtypes. Nature. 2017;545(7653):175 –80. 814 
+
+doi:10.1038/nature22071 815 
+
+55.  Saini N, Roberts SA, Klimczak LJ, Chan K, Grimm SA, Dai S, et al. The Impact of 816 
+
+Environmental and Endogenous Damage on Somatic Mutation Load in Human Skin 817 
+
+Fibroblasts. PLOS Genetics. 2016 Oct 27;12(10):e1006385. 818 
+
+doi:10.1371/journal.pgen.1006385 819 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+38 
+
+56.  Nik -Zainal S, Kucab JE, Morganella S, Glodzik D, Alexandrov LB, Arlt VM, et al. The 820 
+
+genome as a record of environmental exposure. Mutagenesis. 2015 Nov 1;30(6):763 –70. 821 
+
+doi:10.1093/mutage/gev073 822 
+
+57.  Alexandrov LB, Nik -Zainal S, Wedge DC, Aparicio SAJR, Behjati S, Biankin AV, et al. 823 
+
+Signatures of mutational processes in human cancer. Nature. 2013;500(7463):415 –21. 824 
+
+doi:10.1038/nature12477 PubMed PMID: 23945592. 825 
+
+58.  Jaganathan K, Kyriazopoulou Panagiotopoulou S, McRae JF, Darbandi SF, Knowles 826 
+
+D, Li YI, et al. Predicting Splicing from Primary Sequence with Deep Learning. Cell. 2019 Jan 827 
+
+24;176(3):535 -548.e24. doi:10.1016/j.cell.2018.12.015 828 
+
+59.  Albibas AA, Rose -Zerilli MJJ, Lai C, Pengelly RJ, Lockett GA, Theaker J, et al. 829 
+
+Subclonal Evolution of Cancer -Related Gene Mutations in p53 Immunopositive Patches in 830 
+
+Human Skin. Journal of Investigative Dermatology. 2018 Jan 1;138(1):189 –98. 831 
+
+doi:10.1016/j.jid.2017.07.844 832 
+
+60.  Kim YS, Shin S, Jung SH, Park YM, Park GS, Lee SH, et al. Genomic Progression of 833 
+
+Precancerous Actinic Keratosis to Squamous Cell Carcinoma. Journal of Investigative 834 
+
+Dermatology. 2022 Mar 1;142(3, Part A):528 -538.e8. doi:10.1016/j.jid.2021.07.172 835 
+
+61.  Nelson MA, Einspahr JG, Alberts DS, Balfour CA, Wymer JA, Welch KL, et al.  Analysis 836 
+
+of the  p53  gene in human precancerous actinic keratosis lesions and squamous cell cancers. 837 
+
+Cancer Letters. 1994 Sep 30;85(1):23 –9. doi:10.1016/0304 -3835(94)90234 -8838 
+
+62.  Liu T, Fang ZY, Zhang Z, Yu Y, Li M, Yin MZ.  A comprehensive overview of graph 839 
+
+neural network -based approaches to clustering for spatial transcriptomics. Computational and 840 
+
+Structural Biotechnology Journal. 2024 Dec 1;23:106 –28. doi:10.1016/j.csbj.2023.11.055 841 
+
+63.  Inoue K, Fry EA. Haploinsufficient tumor suppressor genes. Adv Med Biol. 842 
+
+2017;118:83 –122. PubMed PMID: 28680740; PubMed Central PMCID: PMC5494974. 843 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+39 
+
+64.  Asl ER, Rostamzadeh D, Duijf PHG, Mafi S, Mansoori B, Barati S, et al. Mutant P53 in 844 
+
+the formation and progression of the tumor microenvironment: Friend or foe.  Life Sciences. 845 
+
+2023 Feb 15;315:121361. doi:10.1016/j.lfs.2022.121361 846 
+
+65.  Dong X, Li C, Deng C, Liu J, Li D, Zhou T, et al.  Regulated secretion of mutant p53 847 
+
+negatively affects T lymphocytes in the tumor microenvironment.  Oncogene. 2024 848 
+
+Jan;43(2):92 –105. doi:10.1038/s41388 -023 -02886 -1849 
+
+66.  Capaci V, Bascetta L, Fantuz M, Beznoussenko GV, Sommaggio R, Cancila V, et al. 850 
+
+Mutant p53 induces Golgi tubulo -vesiculation driving a prometastatic secretome. Nat 851 
+
+Commun. 2020 Aug 7;11(1):3945. doi:10.1038/s41467 -020 -17596 -5852 
+
+67.  Momand J, Zambetti GP, Olson DC, George D, Levine AJ. The mdm -2 oncogene 853 
+
+product forms a complex with the p53 protein and inhibits p53 -mediated transactivation. Cell. 854 
+
+1992 Jun 26;69(7):1237 –45. doi:10.1016/0092 -8674(92)90644 -R855 
+
+68.  Schäfer J, Strimmer K. An empirical Bayes approach to inferring large -scale gene 856 
+
+association networks. Bioinformatics. 2005 Mar 15;21(6):754 –64. 857 
+
+doi:10.1093/bioinformatics/bti062 858 
+
+69.  Stuart JM, Segal E, Koller D, Kim SK. A Gene -Coexpression Network for Global 859 
+
+Discovery of Conserved Genetic Modules. Science. 2003 Oct 10;302(5643):249 –55. 860 
+
+doi:10.1126/science.1087447 861 
+
+70.  Thomson J, Bewicke -Copley F, Anene CA, Gulati A, Nagano A, Purdie K, et al. The 862 
+
+genomic landscape of actinic keratosis. J Invest Dermatol. 2021 Jul;141(7):1664 -1674.e7. 863 
+
+doi:10.1016/j.jid.2020.12.024 PubMed PMID: 33482222; PubMed Central PMCID: 864 
+
+PMC8221374. 865 
+
+71.  Criscione VD, Weinstock MA, Naylor MF, Luque C, Eide MJ, Bingham SF, et al. Actinic 866 
+
+keratoses. Cancer. 2009;115(11):2523 –30. doi:10.1002/cncr.24284 867 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+40 
+
+72.  Weinstein JN, Collisson EA, Mills GB, Shaw KRM, Ozenberger BA, Ellrott K, et al. The 868 
+
+cancer genome atlas pan -cancer analysis project. Nature Genetics. 2013;45(10):1113 –20. 869 
+
+doi:10.1038/ng.2764 870 
+
+73.  Mermel CH, Schumacher SE, Hill B, Meyerson ML, Beroukhim R, Getz G. GISTIC2.0 871 
+
+facilitates sensitive and confident localization of the targets of focal somatic copy -number 872 
+
+alteration in human cancers. Genome Biology. 2011 Apr 28;12(4):R41. doi:10.1186/gb -2011 -873 
+
+12 -4-r41 874 
+
+74.  DepMap B. DepMap 22Q2 Public [Internet]. 2022. Available from: 875 
+
+https://figshare.com/articles/dataset/DepMap_22Q2_Public/19700056 876 
+
+doi:10.6084/m9.figshare.19700056.v2 877 
+
+75.  Ghandi M, Huang FW, Jané -Valbuena J, Kryukov GV, Lo CC, McDonald ER, et al. 878 
+
+Next -generation characterization of the Cancer Cell Line Encyclopedia. Nature. 2019 May 879 
+
+1;569(7757):503 –8. doi:10.1038/s41586 -019 -1186 -3880 
+
+76.  Pedregosa F, Varoquaux G, Gramfort A, Michel V, Thirion B, Grisel O, et al. Scikit -881 
+
+learn: Machine Learning in Python. Journal of Machine Learning Research. 2011;12:2825 –882 
+
+30. 883 
+
+77.  Fey M, Lenssen JE. Fast Graph Representation Learning with PyTorch Geometric 884 
+
+[Internet]. arXiv; 2019 [cited 2026 Jul 1]. Available from: http://arxiv.org/abs/1903.02428 885 
+
+doi:10.48550/arXiv.1903.02428 886 
+
+78.  Aran D, Sirota M, Butte AJ. Systematic pan -cancer analysis of tumour purity. Nat 887 
+
+Commun. 2015 Dec 4;6(1):8971. doi:10.1038/ncomms9971 888 
+
+79.  Tay JK, Narasimhan B, Hastie T. Elastic Net Regularization Paths for All Generalized 889 
+
+Linear Models. Journal of Statistical Software. 2023;106(1):1 –31. doi:10.18637/jss.v106.i01 890 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+41 
+
+80.  Simon N, Friedman JH, Hastie T, Tibshirani R. Regularization Paths for Cox’s 891 
+
+Proportional Hazards Model via Coordinate Descent. Journal of Statistical Software. 892 
+
+2011;39(5):1 –13. doi:10.18637/jss.v039.i05 893 
+
+81.  Friedman JH, Hastie T, Tibshirani R. Regularization Paths for Generalized Linear 894 
+
+Models via Coordinate Descent. Journal of Statistical Software. 2010;33(1):1 –22. 895 
+
+doi:10.18637/jss.v033.i01 896 
+
+82.  Linderman GC, Zhao J, Kluger Y. Zero -preserving imputation of scRNA -seq data using 897 
+
+low -rank approximation. bioRxiv. 2018 Jan 1;397588. doi:10.1101/397588 898 
+
+83.  Johnson WE, Li C, Rabinovic A. Adjusting batch effects in microarray expression data 899 
+
+using empirical Bayes methods. Biostatistics. 2007 Jan;8(1):118 –27. 900 
+
+doi:10.1093/biostatistics/kxj037 PubMed PMID: 16632515. 901 
+
+84.  Tirosh I, Izar B, Prakadan SM, Wadsworth MH, Treacy D, Trombetta JJ, et al. 902 
+
+Dissecting the multicellular ecosystem of metastatic melanoma by single -cell RNA -seq. 903 
+
+Science. 2016 Apr 8;352(6282):189. doi:10.1126/science.aad0501 904 
+
+85.  Hao Y, Stuart T, Kowalski MH, Choudhary S, Hoffman P, Hartman A, et al. Dictionary 905 
+
+learning for integrative, multimodal and scalable single -cell analysis. Nat Biotechnol. 2024. p. 906 
+
+293 –304. doi:10.1038/s41587 -023 -01767 -y907 
+
+86.  Ji AL, Rubin AJ, Thrane K, Jiang S, Reynolds DL, Meyers RM, et al. Multimodal 908 
+
+Analysis of Composition and Spatial Architecture in Human Squamous Cell Carcinoma. 909 
+
+Journal of Cleaner Production. 2020. doi:10.1016/j.cell.2020.05.039 PubMed PMID: 910 
+
+32579974. 911 
+
+87.  Amara K, Ying R, Zhang Z, Han Z, Shan Y, Brandes U, et al. GraphFramEx: Towards 912 
+
+Systematic Evaluation of Explainability Methods for Graph Neural Networks [Internet]. arXiv; 913 
+
+2024 [cited 2026 Jan 14]. Available from: http://arxiv.org/abs/2206.09677 914 
+
+doi:10.48550/arXiv.2206.09677 915 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+42 
+
+88.  Fey M, Sunil J, Nitta A, Puri R, Shah M, Stojanovič B, et al. PyG 2.0: Scalable Learning 916 
+
+on Real World Graphs [Internet]. arXiv; 2025 [cited 2026 Feb 27]. Available from: 917 
+
+http://arxiv.org/abs/2507.16991 doi:10.48550/arXiv.2507.16991 918 
+
+89.  Traag VA, Waltman L, van Eck NJ. From Louvain to Leiden: guaranteeing well -919 
+
+connected communities. Sci Rep. 2019 Mar 26;9(1):5233. doi:10.1038/s41598 -019 -41695 -z920 
+
+90.  GATK [Internet]. 2024 [cited 2026 Feb 28]. Somatic short variant discovery (SNVs + 921 
+
+Indels). Available from: https://gatk.broadinstitute.org/hc/en -us/articles/360035894731 -922 
+
+Somatic -short -variant -discovery -SNVs -Indels 923 
+
+91.  DePristo MA, Banks E, Poplin R, Garimella KV, Maguire JR, Hartl C, et al.  A framework 924 
+
+for variation discovery and genotyping using next -generation DNA sequencing data. Nat 925 
+
+Genet. 2011 May;43(5):491 –8. doi:10.1038/ng.806 926 
+
+92.  Casper J, Speir ML, Raney BJ, Perez G, Nassar LR, Lee CM, et al. The UCSC 927 
+
+Genome Browser database: 2026 update. Nucleic Acids Res. 2026 Jan 6;54(D1):D1331 –5. 928 
+
+doi:10.1093/nar/gkaf1250 929 
+
+93.  Vasimuddin M, Misra S, Li H, Aluru S. Efficient Architecture -Aware Acceleration of 930 
+
+BWA -MEM for Multicore Systems. In: 2019 IEEE International Parallel and Distributed 931 
+
+Processing Symposium (IPDPS). 2019. p. 314 –24. doi:10.1109/IPDPS.2019.00041 932 
+
+94.  GATK [Internet]. 2024 [cited 2026 Feb 28]. Read groups. Available from: 933 
+
+https://gatk.broadinstitute.org/hc/en -us/articles/360035890671 -Read -groups 934 
+
+95.  Li H, Handsaker B, Wysoker A, Fennell T, Ruan J, Homer N, et al. The Sequence 935 
+
+Alignment/Map format and SAMtools. Bioinformatics. 2009 Aug 15;25(16):2078 –9. 936 
+
+doi:10.1093/bioinformatics/btp352 PubMed PMID: 19505943; PubMed Central PMCID: 937 
+
+PMC2723002. 938 
+
+96.  GATK [Internet]. 2026 [cited 2026 Feb 28]. Resource bundle. Available from: 939 
+
+https://gatk.broadinstitute.org/hc/en -us/articles/360035890811 -Resource -bundle 940 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+43 
+
+97.  Chen S, Francioli LC, Goodrich JK, Collins RL, Kanai M, Wang Q, et al. A genomic 941 
+
+mutational constraint map using variation in 76,156 human genomes. Nature. 2024 942 
+
+Jan;625(7993):92 –100. doi:10.1038/s41586 -023 -06045 -0943 
+
+98.  Van Loo P, Nordgard SH, Lingjærde OC, Russnes HG, Rye IH, Sun W, et al. Allele -944 
+
+specific copy number analysis of tumors. Proceedings of the National Academy of Sciences. 945 
+
+2010 Sep 28;107(39):16910. doi:10.1073/pnas.1009843107 946 
+
+99.  Alexandrov LB, Kim J, Haradhvala NJ, Huang MN, Tian Ng AW, Wu Y, et al. The 947 
+
+repertoire of mutational signatures in human cancer. Nature. 2020 Feb 6;578(7793):94 –101. 948 
+
+doi:10.1038/s41586 -020 -1943 -3 PubMed PMID: 32025018. 949 
+
+950 
+
+> .CC-BY-NC-ND 4.0 International license made available under a (which was not certified by peer review) is the author/funder, who has granted bioRxiv a license to display the preprint in perpetuity. It is The copyright holder for this preprint this version posted July 9, 2026. ;https://doi.org/10.64898/2026.07.08.737173 doi: bioRxiv preprint
+
+44 
+
+# Acknowledgements 951 
+
+This work was supported by the Kom op tegen Kanker (Stand up to Cancer), the Flemish 952 
+
+cancer society (TL;  STI.VLK.2022.0002.01 ), Research Foundation  – Flanders  FWO  (TL; 953 
+
+FWO.3F0.2022.0045.01 and JVdE; FWO.OPR.2025.0043.01 ) and Cancer Research Institute 954 
+
+Ghent (IH, JVdE; partnership grant) .955 
+
+# Author contributions 956 
+
+J.V.d.E  and T.L.  designed the study  and drafted the manuscript . T.L.  programmed the model, 957 
+
+performed the  (bio )informatics analys es.  I.H.  was responsible  for  medical  diagnosis,  inclusion 958 
+
+and supervised  sampling  of the skin cancer patients . S.H . was responsible for DNA extraction, 959 
+
+concentration measurements and integrity  checks . S.D.H. and E.P. performed pathological 960 
+
+inspection of the histology images.  E.D.M and F.v.N.  performed the whole -exome sequencing. 961 
+
+E.V.H performed the spatial transcriptomics  experiment .962 
+
+# Additional information 963 
+
+The author(s) declare no competing interests. 964
