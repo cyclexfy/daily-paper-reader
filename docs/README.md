@@ -6,35 +6,46 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-10
-- 运行时间：2026-07-10 21:39:27 UTC
+- 最新运行日期：2026-07-11
+- 运行时间：2026-07-11 21:22:55 UTC
 - 运行状态：成功
-- 本次总论文数：5
-- 精读区：2
-- 速读区：3
+- 本次总论文数：8
+- 精读区：3
+- 速读区：5
 
 ### 今日简报（AI）
-今日共推荐5篇论文，精读2篇高分研究涉及ISUP分级预训练与多模态肺癌生存预测。最值得关注多源MAE预训练提升医学图像分析性能，以及CT-CLIP融合影像与文本的生存预测方法。下一步可探索预训练基础模型在更多临床多模态场景下的迁移应用。
-- 详情：[/202607/10/README](/202607/10/README)
+今日精读3篇、速读5篇，聚焦结直肠癌表型发现与多模态肺癌生存预测两大方向。  
+最值得看9.0分的《Classpose drives...》探索临床级全切片图像的结直肠癌表型，以及8.0分的《CT-CLIP》利用多模态表示提升肺癌生存预测。  
+建议普通读者后续关注多模态表征与空间病理特征的融合，有望提高癌症诊断的临床实用性。
+- 详情：[/202607/11/README](/202607/11/README)
 
 ### 精读区论文标签
-1. [ProsMAE: Multi-Source MAE Pretraining for ISUP Grade Classification](/202607/10/2607.08162v1-prosmae-multi-source-mae-pretraining-for-isup-grade-classification)  
+1. [Classpose drives the discovery of colorectal cancer phenotypes in clinical grade whole slide images](/202607/11/biorxiv-10-64898-2025-12-18-695211-v2-classpose-drives-the-discovery-of-colorectal-cancer-phenotypes-in-clinical-grade-whole-slide-images)  
    标签：评分：9.0/10、query:cpath
-   evidence：多源MAE预训练用于基于WSI的前列腺癌分级
-2. [CT-CLIP Representations for Multimodal Lung Cancer Survival Prediction](/202607/10/2607.08503v1-ct-clip-representations-for-multimodal-lung-cancer-survival-prediction)  
-   标签：评分：9.0/10、query:cpath
-   evidence：利用CT-CLIP基础模型进行多模态肺癌生存预测
+   evidence：结直肠癌，全切片图像，细胞表型分析，深度学习
+2. [CT-CLIP Representations for Multimodal Lung Cancer Survival Prediction](/202607/11/2607.08503v1-ct-clip-representations-for-multimodal-lung-cancer-survival-prediction)  
+   标签：评分：8.0/10、query:cpath
+   evidence：多模态生存预测，肺癌，CT-CLIP
+3. [When Structured Sparse Autoencoders Learn Consistent Concepts Across Modalities](/202607/11/2607.08605v1-when-structured-sparse-autoencoders-learn-consistent-concepts-across-modalities)  
+   标签：评分：8.0/10、query:cpath
+   evidence：使用结构化稀疏自编码器学习视觉-语言模型中一致概念的方法
 
 ### 速读区论文标签
-1. [Foundation Model RNAGAN Enhances Biomedical Insight of Nasopharyngeal Carcinoma Metastasis](/202607/10/biorxiv-10-64898-2026-07-02-736240-v1-foundation-model-rnagan-enhances-biomedical-insight-of-nasopharyngeal-carcinoma-metastasis)  
+1. [ContiStain: Cross-Domain Relation-Preserving Distillation for Continual Multi-Domain Virtual IHC Staining](/202607/11/2607.03851v1-contistain-cross-domain-relation-preserving-distillation-for-continual-multi-domain-virtual-ihc-staining)  
    标签：评分：7.0/10、query:cpath
-   evidence：基础模型RNAGAN应用于鼻咽癌研究
-2. [HPR-SAM: Hierarchical Probabilistic Representation Learning for Prompt-free SAM-based Medical Image Segmentation](/202607/10/2607.06972v1-hpr-sam-hierarchical-probabilistic-representation-learning-for-prompt-free-sam-based-medical-image-segmentation)  
+   evidence：虚拟IHC染色，全切片图像，持续学习
+2. [Token-Based Dual-view Fusion and Adaptation of Large Vision Models for Breast Cancer Classification](/202607/11/2607.06309v1-token-based-dual-view-fusion-and-adaptation-of-large-vision-models-for-breast-cancer-classification)  
+   标签：评分：7.0/10、query:cpath
+   evidence：乳腺癌分类，双视图融合，视觉Transformer
+3. [LoCA: Spatially-Aware Low-Rank Convolutional Adaptation of Vision Foundation Models](/202607/11/2607.06918v1-loca-spatially-aware-low-rank-convolutional-adaptation-of-vision-foundation-models)  
+   标签：评分：7.0/10、query:cpath
+   evidence：视觉基础模型的参数高效微调
+4. [AI-enabled Spatial Profiling of Circulating Tumor-Immune Ecosystems Predicts Patient Outcomes Across Cancers](/202607/11/biorxiv-10-64898-2026-07-02-736133-v1-ai-enabled-spatial-profiling-of-circulating-tumor-immune-ecosystems-predicts-patient-outcomes-across-cancers)  
+   标签：评分：7.0/10、query:cpath
+   evidence：基于AI的循环肿瘤-免疫生态系统空间分析用于癌症预后
+5. [VCDP: Variation-Conditioned Distributional Proxy Learning for Semi-Supervised Medical Image Segmentation](/202607/11/2607.07416v1-vcdp-variation-conditioned-distributional-proxy-learning-for-semi-supervised-medical-image-segmentation)  
    标签：评分：6.0/10、query:cpath
-   evidence：基于SAM的无提示医学图像分割用于自动分割
-3. [Predicting subclonal TP53 mutations from tumor spatial transcriptomics data using a graph convolutional neural network](/202607/10/biorxiv-10-64898-2026-07-08-737173-v1-predicting-subclonal-tp53-mutations-from-tumor-spatial-transcriptomics-data-using-a-graph-convolutional-neural-network)  
-   标签：评分：6.0/10、query:cpath
-   evidence：从空间转录组数据预测癌症TP53突变
+   evidence：半监督医学图像分割方法，可迁移至全切片图像分析
 
 
 <div class="dpr-home-promo-card">
