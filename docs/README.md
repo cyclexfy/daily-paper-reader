@@ -6,46 +6,40 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-11
-- 运行时间：2026-07-11 21:22:55 UTC
+- 最新运行日期：2026-07-12
+- 运行时间：2026-07-12 20:48:07 UTC
 - 运行状态：成功
-- 本次总论文数：8
-- 精读区：3
-- 速读区：5
+- 本次总论文数：6
+- 精读区：2
+- 速读区：4
 
 ### 今日简报（AI）
-今日精读3篇、速读5篇，聚焦结直肠癌表型发现与多模态肺癌生存预测两大方向。  
-最值得看9.0分的《Classpose drives...》探索临床级全切片图像的结直肠癌表型，以及8.0分的《CT-CLIP》利用多模态表示提升肺癌生存预测。  
-建议普通读者后续关注多模态表征与空间病理特征的融合，有望提高癌症诊断的临床实用性。
-- 详情：[/202607/11/README](/202607/11/README)
+今日聚焦开放词汇检测与3D细胞交互分析，精读两篇高价值论文。  
+最值得关注的方向：视觉标记化结合向量数据库检索实现零样本检测；3D超细胞图用于前列腺癌风险精准分层。  
+建议进一步探索向量检索增强的视觉模型，或关注医学图像分析中的拓扑与图表示方法。
+- 详情：[/202607/12/README](/202607/12/README)
 
 ### 精读区论文标签
-1. [Classpose drives the discovery of colorectal cancer phenotypes in clinical grade whole slide images](/202607/11/biorxiv-10-64898-2025-12-18-695211-v2-classpose-drives-the-discovery-of-colorectal-cancer-phenotypes-in-clinical-grade-whole-slide-images)  
-   标签：评分：9.0/10、query:cpath
-   evidence：结直肠癌，全切片图像，细胞表型分析，深度学习
-2. [CT-CLIP Representations for Multimodal Lung Cancer Survival Prediction](/202607/11/2607.08503v1-ct-clip-representations-for-multimodal-lung-cancer-survival-prediction)  
+1. [VocaDet: Sample-Driven Open-Vocabulary Object Detection and Segmentation via Visual Tokenization and Vector Database Retrieval](/202607/12/2607.08541v1-vocadet-sample-driven-open-vocabulary-object-detection-and-segmentation-via-visual-tokenization-and-vector-database-retrieval)  
    标签：评分：8.0/10、query:cpath
-   evidence：多模态生存预测，肺癌，CT-CLIP
-3. [When Structured Sparse Autoencoders Learn Consistent Concepts Across Modalities](/202607/11/2607.08605v1-when-structured-sparse-autoencoders-learn-consistent-concepts-across-modalities)  
+   evidence：基于视觉令牌化和检索的样本驱动开放词汇检测
+2. [Scalable 3D cell-interaction analysis via supercell graphs for prostate cancer risk stratification](/202607/12/biorxiv-10-64898-2026-07-07-736891-v1-scalable-3d-cell-interaction-analysis-via-supercell-graphs-for-prostate-cancer-risk-stratification)  
    标签：评分：8.0/10、query:cpath
-   evidence：使用结构化稀疏自编码器学习视觉-语言模型中一致概念的方法
+   evidence：3D超细胞图分析用于前列腺癌风险分层
 
 ### 速读区论文标签
-1. [ContiStain: Cross-Domain Relation-Preserving Distillation for Continual Multi-Domain Virtual IHC Staining](/202607/11/2607.03851v1-contistain-cross-domain-relation-preserving-distillation-for-continual-multi-domain-virtual-ihc-staining)  
+1. [Topology-Driven Transferability Estimation for 3D Medical Vision Foundation Models](/202607/12/2607.04199v1-topology-driven-transferability-estimation-for-3d-medical-vision-foundation-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：虚拟IHC染色，全切片图像，持续学习
-2. [Token-Based Dual-view Fusion and Adaptation of Large Vision Models for Breast Cancer Classification](/202607/11/2607.06309v1-token-based-dual-view-fusion-and-adaptation-of-large-vision-models-for-breast-cancer-classification)  
+   evidence：医学影像基础模型迁移性估计方法
+2. [DriftST: One-Step Generative Inference of Spatial Transcriptomics from H\&E Histology](/202607/12/2607.04740v1-driftst-one-step-generative-inference-of-spatial-transcriptomics-from-he-histology)  
    标签：评分：7.0/10、query:cpath
-   evidence：乳腺癌分类，双视图融合，视觉Transformer
-3. [LoCA: Spatially-Aware Low-Rank Convolutional Adaptation of Vision Foundation Models](/202607/11/2607.06918v1-loca-spatially-aware-low-rank-convolutional-adaptation-of-vision-foundation-models)  
+   evidence：从H&E组织学生成空间转录组，衔接组织学与分子数据，属于计算病理学
+3. [MedPMC: A Systematic Framework for Scaling High-Fidelity Medical Multimodal Data for Foundation Models](/202607/12/2607.07673v1-medpmc-a-systematic-framework-for-scaling-high-fidelity-medical-multimodal-data-for-foundation-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉基础模型的参数高效微调
-4. [AI-enabled Spatial Profiling of Circulating Tumor-Immune Ecosystems Predicts Patient Outcomes Across Cancers](/202607/11/biorxiv-10-64898-2026-07-02-736133-v1-ai-enabled-spatial-profiling-of-circulating-tumor-immune-ecosystems-predicts-patient-outcomes-across-cancers)  
-   标签：评分：7.0/10、query:cpath
-   evidence：基于AI的循环肿瘤-免疫生态系统空间分析用于癌症预后
-5. [VCDP: Variation-Conditioned Distributional Proxy Learning for Semi-Supervised Medical Image Segmentation](/202607/11/2607.07416v1-vcdp-variation-conditioned-distributional-proxy-learning-for-semi-supervised-medical-image-segmentation)  
+   evidence：为医疗基础模型生成可扩展的多模态数据
+4. [TestMate: Test-Time Domain Adaptation Aided by Lightweight Vision Foundation Model](/202607/12/2607.03810v1-testmate-test-time-domain-adaptation-aided-by-lightweight-vision-foundation-model)  
    标签：评分：6.0/10、query:cpath
-   evidence：半监督医学图像分割方法，可迁移至全切片图像分析
+   evidence：利用轻量级视觉基础模型进行域适应
 
 
 <div class="dpr-home-promo-card">
