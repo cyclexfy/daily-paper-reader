@@ -6,50 +6,41 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-15
-- 运行时间：2026-07-15 21:03:28 UTC
+- 最新运行日期：2026-07-16
+- 运行时间：2026-07-16 21:02:18 UTC
 - 运行状态：成功
-- 本次总论文数：10
-- 精读区：6
+- 本次总论文数：7
+- 精读区：3
 - 速读区：4
 
 ### 今日简报（AI）
-今日日报聚焦病理学基础模型与多模态基准数据泄露审计。最值得关注的是全能型病理基础模型ALICE和结直肠癌分级新数据集CRC-HGD。建议优先精读ALICE论文及数据泄露审计文章，警惕基准测试中的信息污染。
-- 详情：[/202607/15/README](/202607/15/README)
+今日推荐7篇论文，精读3篇，速读4篇，聚焦医学多模态与病理AI。值得关注的方向是联邦学习统一异构多模态医学影像（FM$^2$, 9.0分）和原型AI分诊3D病理（8.0分）。建议优先阅读这两篇精读论文，了解多模态融合与可解释性分诊的前沿进展。
+- 详情：[/202607/16/README](/202607/16/README)
 
 ### 精读区论文标签
-1. [ALICE: Learning a General-Purpose Pathology Foundation Model from Vision, Vision-Language, and Slide-Level Experts](/202607/15/2607.09526v1-alice-learning-a-general-purpose-pathology-foundation-model-from-vision-vision-language-and-slide-level-experts)  
-   标签：评分：10.0/10、query:cpath
-   evidence：通过从视觉、视觉语言和切片级专家蒸馏得到通用病理基础模型
-2. [Auditing Data Leakage in Whole-Slide Image Multimodal Benchmarks](/202607/15/2607.12278v1-auditing-data-leakage-in-whole-slide-image-multimodal-benchmarks)  
+1. [FM$^2$: Unified Federated Foundation Models for Heterogeneous Multimodal Medical Imaging](/202607/16/2607.13386v1-fm2-unified-federated-foundation-models-for-heterogeneous-multimodal-medical-imaging)  
    标签：评分：9.0/10、query:cpath
-   evidence：审计病理学中全切片图像多模态基准的数据泄漏，涉及视觉语言模型
-3. [Demonstration of the common dual-channel feature decoupling characteristic of front-door mediation causal inference methods in whole-slice image classification](/202607/15/2607.12376v1-demonstration-of-the-common-dual-channel-feature-decoupling-characteristic-of-front-door-mediation-causal-inference-methods-in-whole-slice-image-classification)  
-   标签：评分：9.0/10、query:cpath
-   evidence：直接针对基于MIL的全切片图像分类，提出因果推断特征解耦的通用特性
-4. [CGRL: Concept-Guided Pruning and Representation Learning for Whole-Slide Image Classification](/202607/15/2607.12556v1-cgrl-concept-guided-pruning-and-representation-learning-for-whole-slide-image-classification)  
-   标签：评分：9.0/10、query:cpath
-   evidence：提出概念引导剪枝与表示学习进行弱监督全切片图像分类使用多实例学习
-5. [AI-enabled reconstruction of 3D spatial multi-omics at single-cell resolution](/202607/15/biorxiv-10-64898-2026-07-09-737490-v1-ai-enabled-reconstruction-of-3d-spatial-multi-omics-at-single-cell-resolution)  
-   标签：评分：9.0/10、query:cpath
-   evidence：整合组织学图像和多组学数据进行3D空间重建，多模态学习
-6. [MAGE: Color-Invariant and Spatial Knowledge Distillation for Gastric Neoplasm Classification](/202607/15/2607.12663v1-mage-color-invariant-and-spatial-knowledge-distillation-for-gastric-neoplasm-classification)  
+   evidence：提出统一联邦基础模型用于医学影像
+2. [Prototype-based AI triage for 3D pathology](/202607/16/biorxiv-10-64898-2026-07-09-737559-v1-prototype-based-ai-triage-for-3d-pathology)  
    标签：评分：8.0/10、query:cpath
-   evidence：胃肿瘤分类用于癌症诊断
+   evidence：基于原型的AI分诊用于3D病理
+3. [Spatial Topology Reveals Biologically Distinct Recurrent Motifs in Colorectal Cancer](/202607/16/biorxiv-10-64898-2026-07-09-737584-v1-spatial-topology-reveals-biologically-distinct-recurrent-motifs-in-colorectal-cancer)  
+   标签：评分：8.0/10、query:cpath
+   evidence：结直肠癌空间转录组分析
 
 ### 速读区论文标签
-1. [CRC-HGD: A Histopathological Image Dataset for Grading Colorectal Cancer](/202607/15/2607.12750v1-crc-hgd-a-histopathological-image-dataset-for-grading-colorectal-cancer)  
-   标签：评分：8.0/10、query:cpath
-   evidence：结直肠癌组织病理图像数据集用于癌症分级支持诊断研究
-2. [Generative Augmentation of Raman Spectra for Glioma Classification](/202607/15/2607.10196v1-generative-augmentation-of-raman-spectra-for-glioma-classification)  
+1. [BiLoG-Net: A Bi-Context Location-Guided Network for Breast Mass Segmentation and Malignancy Classification in Mammography](/202607/16/2607.10188v1-bilog-net-a-bi-context-location-guided-network-for-breast-mass-segmentation-and-malignancy-classification-in-mammography)  
    标签：评分：7.0/10、query:cpath
-   evidence：胶质瘤分类，直接面向癌症诊断
-3. [UniMedSeg: Unified In-Context Learning for Multi-Paradigm 2D/3D Medical Image Segmentation](/202607/15/2607.12896v1-unimedseg-unified-in-context-learning-for-multi-paradigm-2d3d-medical-image-segmentation)  
+   evidence：乳腺肿块分割与恶性分类
+2. [C-Norm: Cell-Distribution Normalization Enables Precision Recognition of Medical-Cell Image](/202607/16/2607.13116v1-c-norm-cell-distribution-normalization-enables-precision-recognition-of-medical-cell-image)  
    标签：评分：7.0/10、query:cpath
-   evidence：统一基础模型支持多种范式医学图像分割
-4. [FEATMAP: Targeted Correction of Acquisition Signatures Harmonizes Medical Foundation Model Embeddings and Enables Robust Task Generalization](/202607/15/biorxiv-10-64898-2026-07-02-736184-v1-featmap-targeted-correction-of-acquisition-signatures-harmonizes-medical-foundation-model-embeddings-and-enables-robust-task-generalization)  
+   evidence：宫颈癌筛查细胞分布归一化
+3. [Multimodal Assessment of Pancreatic Cancer Resectability Using Deep Learning](/202607/16/2607.13826v1-multimodal-assessment-of-pancreatic-cancer-resectability-using-deep-learning)  
+   标签：评分：7.0/10、query:cpath
+   evidence：深度学习用于胰腺癌可切除性评估（癌症诊断）
+4. [Controllable Generation of Diverse Dermatological Imagery for Fair and Efficient Malignancy Classification](/202607/16/2607.12987v1-controllable-generation-of-diverse-dermatological-imagery-for-fair-and-efficient-malignancy-classification)  
    标签：评分：6.0/10、query:cpath
-   evidence：医学基础模型嵌入校正去除采集签名提升泛化能力
+   evidence：可控生成皮肤病图像用于恶性肿瘤分类
 
 
 <div class="dpr-home-promo-card">
