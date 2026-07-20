@@ -6,40 +6,37 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-19
-- 运行时间：2026-07-19 21:04:36 UTC
+- 最新运行日期：2026-07-20
+- 运行时间：2026-07-20 21:32:00 UTC
 - 运行状态：成功
-- 本次总论文数：6
-- 精读区：1
-- 速读区：5
+- 本次总论文数：5
+- 精读区：2
+- 速读区：3
 
 ### 今日简报（AI）
-今日阅读6篇论文，重点精读跨图像比较推理框架（8分），速读3篇医学影像处理论文。  
-最值得关注的是《CoRe》提出的跨图像比较推理设计，以及《CFR-Net》中的医学图像异常检测协作特征精炼方法。  
-建议优先精读《CoRe》理解跨图推理思路，再结合医学影像论文验证其临床应用潜力。
-- 详情：[/202607/19/README](/202607/19/README)
+1) 今日精读聚焦跨模态信息量化与乳腺病变检测引导学习，速读涵盖多模态建模和AI捷径学习。
+2) 最值得关注：时空轨迹相关性量化组织形态与空间转录组共享信息（9.0分），以及区域视觉语言模型提升乳腺X线病变分类（8.0分）。
+3) 建议优先尝试将跨模态整合技术应用于自身研究，同时警惕乳腺AI中的数据集来源捷径学习陷阱。
+- 详情：[/202607/20/README](/202607/20/README)
 
 ### 精读区论文标签
-1. [CoRe: A Comprehensive Framework for Cross-Image Comparative Reasoning in Vision-Language Models](/202607/19/2607.12786v1-core-a-comprehensive-framework-for-cross-image-comparative-reasoning-in-vision-language-models)  
+1. [Quantifying Cross-Modal Shared Information Between Histomorphology and Spatial Transcriptomics via Spatiotemporal Trajectory Correlation](/202607/20/biorxiv-10-64898-2026-07-13-738201-v1-quantifying-cross-modal-shared-information-between-histomorphology-and-spatial-transcriptomics-via-spatiotemporal-trajectory-correlation)  
+   标签：评分：9.0/10、query:cpath
+   evidence：组织形态学与空间转录组学跨模态整合
+2. [Region-Grounded Vision-Language Learning for Detection-Guided Mammographic Lesion Classification](/202607/20/2607.15615v1-region-grounded-vision-language-learning-for-detection-guided-mammographic-lesion-classification)  
    标签：评分：8.0/10、query:cpath
-   evidence：提出了一个针对视觉语言模型中跨图像比较推理的框架，直接与视觉语言模型需求相关
+   evidence：使用视觉语言模型进行病变分类
 
 ### 速读区论文标签
-1. [Learning Anatomy-Grounded CT Vision-Language Representations with Organ-Hierarchical Report Knowledge](/202607/19/2607.10953v1-learning-anatomy-grounded-ct-vision-language-representations-with-organ-hierarchical-report-knowledge)  
+1. [Multimodal Empirical Bayes Variational Autoencoders for Joint Longitudinal and Time-to-Event Modeling](/202607/20/2607.13984v1-multimodal-empirical-bayes-variational-autoencoders-for-joint-longitudinal-and-time-to-event-modeling)  
+   标签：评分：7.0/10、query:cpath
+   evidence：通过多模态VAE整合纵向肿瘤测量和遗传协变量
+2. [Dataset-Origin Signatures and Shortcut Learning in Screening Mammography AI: A Cross-Dataset Case Study](/202607/20/2607.15416v1-dataset-origin-signatures-and-shortcut-learning-in-screening-mammography-ai-a-cross-dataset-case-study)  
+   标签：评分：7.0/10、query:cpath
+   evidence：使用视觉语言模型（Mammo-CLIP）进行乳腺X线AI研究
+3. [Coupled Cell-Intrinsic and Microenvironmental Heterogeneity Drives Divergent Trajectories in Castration-Resistant Prostate Cancer](/202607/20/biorxiv-10-64898-2026-07-16-738502-v1-coupled-cell-intrinsic-and-microenvironmental-heterogeneity-drives-divergent-trajectories-in-castration-resistant-prostate-cancer)  
    标签：评分：6.0/10、query:cpath
-   evidence：基于器官层级知识的CT视觉-语言预训练
-2. [CFR-Net:Collaborative Feature Refnement Network for Medical Image Anomaly Detection](/202607/19/2607.11509v1-cfr-netcollaborative-feature-refnement-network-for-medical-image-anomaly-detection)  
-   标签：评分：6.0/10、query:cpath
-   evidence：医学图像异常检测方法可应用于病理学
-3. [Active Learning for Efficient Annotation of Surgical Videos with Weak Supervision](/202607/19/2607.13237v1-active-learning-for-efficient-annotation-of-surgical-videos-with-weak-supervision)  
-   标签：评分：6.0/10、query:cpath
-   evidence：弱监督结合基础模型进行视频标注
-4. [U-shaped Multi-granularity Learning for Vision-Language Models](/202607/19/2607.14966v1-u-shaped-multi-granularity-learning-for-vision-language-models)  
-   标签：评分：6.0/10、query:cpath
-   evidence：视觉-语言模型提示学习；多粒度
-5. [Epigenetic profile drives accurate survival prediction in breast cancer via a multi-omics machine learning model](/202607/19/biorxiv-10-1101-2025-07-31-667894-v6-epigenetic-profile-drives-accurate-survival-prediction-in-breast-cancer-via-a-multi-omics-machine-learning-model)  
-   标签：评分：6.0/10、query:cpath
-   evidence：多组学整合用于癌症生存预测
+   evidence：整合基因组数据与机器学习预测前列腺癌预后
 
 
 <div class="dpr-home-promo-card">
