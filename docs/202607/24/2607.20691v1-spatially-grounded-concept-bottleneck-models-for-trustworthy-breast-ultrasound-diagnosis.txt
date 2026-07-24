@@ -1,0 +1,259 @@
+Title: Spatially Grounded Concept Bottleneck Models for Trustworthy Breast Ultrasound Diagnosis
+
+URL Source: https://arxiv.org/pdf/2607.20691v1
+
+Published Time: Fri, 24 Jul 2026 00:19:08 GMT
+
+Number of Pages: 6
+
+Markdown Content:
+Accepted to the Workshop on Data Quality Aware, High-Performance, and Trustworthy AI Systems for Healthcare at IEEE/ACM CHASE 2026 
+
+# Spatially Grounded Concept Bottleneck Models for Trustworthy Breast Ultrasound Diagnosis 
+
+Moshiur Rahman Tonmoy ∗, Dunren Che †, Haitham Y. Adarbah ‡, and Afzel Noore §
+
+Department of Electrical Engineering and Computer Science, Texas A&M University–Kingsville (TAMUK), Kingsville, TX 78363, USA 
+
+∗Moshiur_Rahman.Tonmoy@students.tamuk.edu , †Dunren.Che@tamuk.edu 
+
+‡Haitham.Adarbah@tamuk.edu , §Afzel.Noore@tamuk.edu 
+
+Abstract —Concept Bottleneck Models provide interpretable-by-design predictions by mediating diagnosis through human-understandable concepts, but in medical imaging, their trust-worthiness is often limited by the quality and granularity of available supervision. In particular, predicted concept activations can be driven by irrelevant regions, leading to spatially unfaithful explanations. We study a data-centric spatially grounded Concept Bottleneck Model (SG-CBM) that leverages coarse lesion delin-eations as weak supervision to encourage anatomically plausible concept evidence. For breast ultrasound, we derive two clinically motivated zones from each lesion mask: (i) an in-lesion region of interest for morphology-related concepts and (ii) a posterior acoustic band for posterior phenomena. We train concept maps using a grouped spatial grounding objective and preserve se-mantic faithfulness with a linear bottleneck classifier. Across five-fold stratified group cross-validation, the proposed SG-CBM improves diagnostic AUROC and concept macro-AUROC while markedly increasing spatial alignment of concept evidence. We also perform a Train-corrupt/Test-clean annotation-quality stress test to quantify the impact of supervision quality on diagnosis and spatial faithfulness. Overall, the results underscore the need for data-quality-aware supervision design and systematic trustworthiness validation for deployable healthcare AI systems. 
+
+Index Terms —data-centric AI, data quality, trustworthy AI, concept bottleneck models, spatial grounding, breast ultrasound, BI-RADS, explainable AI 
+
+I. I NTRODUCTION 
+
+Recent advances in deep learning (DL) and computer vi-sion have significantly improved medical imaging analysis, enabling automated detection, segmentation, and classification of breast lesions [1]. Despite these advances, the black-box nature of many DL models raises concerns about reliability, transparency, and clinical trustworthiness [2]. In safety-critical settings such as healthcare, clinicians must understand why a model reaches a particular decision. Two related notions address this need: explainability and interpretability . Although often used interchangeably, they describe different forms of model transparency [3]. Explainability typically refers to post-hoc techniques that interpret model outputs after training, such as saliency maps or heatmaps [4]. While such explainable AI (XAI) approaches provide insights into model behavior, they do not guarantee that predictions rely on clinically relevant evidence. Models may still exhibit the so-called Clever Hans behavior, achieving high accuracy while relying on spurious correlations, artifacts, or background cues rather than true lesion characteristics [5], [6]. This undermines generalizability and limits clinical adoption. Interpretability, in contrast, refers to ante-hoc transparency, where the model structure and decision process are inher-ently understandable. Concept Bottleneck Models (CBMs) [7] provide such an interpretable-by-design framework by me-diating predictions through human-understandable concepts. In a CBM, the model first predicts clinical concepts and then derives the final diagnosis solely from these predictions, enabling structured explanations. For example, Bunnell et al. [8] integrate BI-RADS (Breast Imaging-Reporting and Data System) descriptors within a concept bottleneck layered on a Mask R-CNN backbone to produce interpretable malignancy predictions from breast ultrasound. Other studies also incor-porate BI-RADS descriptors in DL pipelines; for instance, Zhang et al. [9] proposed BI-RADS-NET, a multitask learning framework that predicts descriptors alongside diagnosis, while Carrilero-Mardones et al. [10] introduced a joint detection-description-classification pipeline using breast ultrasound and BI-RADS descriptors. Although these approaches enhance interpretability, the absence of a bottleneck layer means pre-dictions are not strictly mediated by BI-RADS descriptors. Beyond model choice, healthcare AI trustworthiness is constrained by the quality, granularity, and consistency of its data and supervision signals. In breast ultrasound, concept annotations (e.g., BI-RADS descriptors) are typically pro-vided at the lesion level, and the lesion delineation may be available or obtainable [11], while pixel-level annotations that localize each concept are rarely available. This supervision-granularity mismatch becomes particularly salient for CBMs: although diagnosis is mediated by predicted concepts, the concept predictors may still lack spatial grounding, predicting the correct concepts while allowing activations to attend to irrelevant regions, artifacts, or dataset biases and yielding spatially unfaithful explanations, limiting trust and auditability [12], [13]. In principle, pixel-level concept annotations could enforce spatial grounding, but such fine-grained supervision is costly and seldom feasible in practice. Prior work shows that weakly supervised learning can leverage coarse annotations in breast ultrasound while im-proving lesion localization and diagnostic reliability [14], [15]. Motivated by this, we propose SG-CBM , a spatially grounded CBM for trustworthy breast ultrasound diagnosis. 
+
+© Owner/Author 2026. This is the author’s version of the work. It is posted here for your personal use. Not for redistribution. The definitive Version of Record will be published in Proceedings of the IEEE/ACM CHASE 2026 arXiv:2607.20691v1 [cs.CV] 22 Jul 2026 During training, predicted concept maps are guided by a grouped weak spatial supervision objective that encourages each concept to activate within clinically appropriate re-gions while suppressing responses elsewhere. We define two clinically motivated spatial zones: (i) an in-lesion region-of-interest (ROI) corresponding to the lesion area, suitable for morphology-related concepts such as shape and margin, and (ii) a posterior acoustic band beneath the lesion that captures posterior enhancement or shadowing phenomena. These zones reflect radiological reasoning while avoiding pixel-level concept annotations. Importantly, we view this zone-based supervision as a form of task-driven data quality assurance: rather than only optimizing predictive accuracy, we enforce that the evidence supporting each concept arises from anatomically plausible regions. This enables more reliable trustworthiness validation because concept explanations can be audited both semantically, by assessing which concepts are present, and spatially, by assessing where the supporting evidence is located. As a result, the learned concept representations remain structurally faithful and spatially aligned with clinically rel-evant regions. The main contributions of this work can be summarized as:  
+
+> •
+
+We introduce SG-CBM, a zone-aware spatial grounding framework for CBMs in ultrasound.  
+
+> •
+
+We propose a lesion-based weak supervision strategy that enables spatial grounding without pixel-level concept annotations.  
+
+> •
+
+We perform a structured evaluation across diagnosis, concept prediction, and spatial grounding.  
+
+> •
+
+We further study supervision data quality via a Train-corrupt/Test-clean annotation-quality stress test, quantify-ing how training-time mask degradation affects diagnostic performance, concept quality, and spatial faithfulness. II. M ETHODOLOGY 
+
+We employ lesion delineation as a coarse supervision signal to derive clinically motivated zones and impose a task-driven data quality assurance constraint that aligns concept evidence with these zones during training. Specifically, we treat off-zone activation as an evidence-quality violation and penalize it through separation and mass concentration losses. This yields a data-centric mechanism to improve the reliability of concept-based explanations without requiring concept-specific dense spatial labels. Let D = {(xi, y i, c i, m i)}Ni=1 denote a breast ul-trasound dataset containing grayscale images x ∈ R224 ×224 ×1,diagnosis labels y ∈ { 0, 1}, K = 16 binary clinical concepts 
+
+c ∈ { 0, 1}K , and lesion masks m ∈ { 0, 1}224 ×224 . Images are replicated to three channels and processed by an ImageNet-pretrained EfficientNet-B2 backbone. An intermediate feature tensor F ∈ RC×Hc×Wc (14 × 14 × 112 ) is mapped to K = 16 
+
+concept maps S = gϕ(F ) via a 1 × 1 convolution. Scalar con-cept logits ˆsk are obtained using top-25% average pooling over each map, producing sigmoid concept probabilities ˆp = σ(ˆ s).Diagnosis is predicted solely from the concept vector using a EfficientNet-B2 
+
+> Concept
+> Map
+> (C 1,C 2...C 16 )
+> Concept Logits
+> Feature
+> Map
+> 224×224 ×3
+> 224×224 ×1
+> ROI Zones
+> GT Mask
+> Input
+> Classifier
+> (Benign/Malignant)
+> Training
+> Objective
+> Fig. 1. High-level architecture of SG-CBM. The ROI zone (red) and posterior band (blue) are derived from the ground-truth lesion mask and used to provide weak spatial supervision through the grounding loss.
+
+linear classifier ˆy = hψ (ˆ p). Figure 1 illustrates the high-level workflow of the SG-CBM framework. 
+
+A. Spatial grounding zones 
+
+Spatial supervision is derived from the lesion mask m, and the two anatomical zones are defined as follows: 
+
+a) ROI Zone (ZROI ): The lesion region provides anatural anatomical prior for morphology-related concepts. To reduce sensitivity to minor boundary errors and to com-pensate for resolution mismatch between image-space masks and lower-resolution concept maps, the ZROI is obtained by dilating the m using max-pooling with kernel size 5 for 1
+
+iteration. 
+
+b) Posterior Band ( ZP OST ): Posterior acoustic phenom-ena typically manifest directly beneath a lesion; however, supervising the entire region below the lesion can introduce noisy supervision, since deeper tissue often contains irrelevant structures and imaging patterns. Moreover, posterior acoustic features are not consistently present or visually salient in all malignant ultrasound scans, but for simplicity, we assume that a posterior band may be informative across cases in this work. We therefore define a size-adaptive posterior band immediately beneath the lesion to provide a more stable spatial prior for posterior concepts. For each image column u, let vmax (u)
+
+denote the lowest lesion pixel. The posterior band extends vertically below this boundary: 
+
+ZPOST (v, u ) = 
+
+(
+
+1 v ∈ [ vmax (u) + 1 , v max (u) + Hb ]0 otherwise .
+
+(1) The band height is defined adaptively from lesion size: 
+
+Hb = min( Hmax , max( Hmin , ⌈α h bbox ⌉)) , where hbbox is the lesion bounding-box height. We set α = 1 .0, Hmin = 10 ,and Hmax = 50 pixels. Next, both zones are resized to concept-map resolution: 
+
+˜ZROI , ˜ZPOST ∈ { 0, 1}Hc×Wc . ROI-related concepts (shape, margin, echo pattern) are grouped to ˜ZROI , while posterior acoustic concepts are assigned to ˜ZPOST .
+
+B. Training objective 
+
+Concept prediction is supervised using weighted BCE, and diagnosis is supervised with focal loss [16]. To enforce spatial faithfulness as an evidence quality constraint, concept activations A = σ(S) are encouraged to concentrate within their assigned zones. For a zone mask ˜Z, define the average activation inside and outside the zone: 
+
+μin (k) = 
+
+P Ak ˜Z
+
+P ˜Z + ϵ ; μout (k) = 
+
+P Ak(1 − ˜Z)
+
+P(1 − ˜Z) + ϵ . (2) We use a separation loss encouraging higher activation inside the target zone: 
+
+Lsep = 1
+
+|K| 
+
+X
+
+> k∈K
+
+max  0, δ − (μin (k) − μout (k)) , (3) and a mass concentration loss, encouraging most activation mass to lie inside the zone: 
+
+Lmass = 1
+
+|K| 
+
+X
+
+> k∈K
+
+1 −
+
+P Ak ˜Z
+
+P Ak + ϵ
+
+!
+
+. (4) The zone loss is: 
+
+Lzone = λsep Lsep + λmass Lmass , (5) with λsep = λmass = 1 , ϵ = 10 −6, and margin δ = 10% . Next, instead of uniform averaging across zones, we weigh each zone by its concept count so that each concept contributes comparably. Let nROI and nPOST denote the number of concepts in each group: 
+
+Lgrounding = nROI 
+
+nROI + nPOST 
+
+LROI zone + nPOST 
+
+nROI + nPOST 
+
+LPOST zone 
+
+(6) The final training objective is: 
+
+L = λcLconcept + λy Lcls + λsLgrounding , (7) with λc = 1 , λy = 1 , and λs = 2 .III. E XPERIMENTS AND RESULTS 
+
+A. Testbed and Evaluation 
+
+We treat breast ultrasound diagnosis on the BrEaST dataset [17], [18] as a case study demonstrating how supervision gran-ularity and mask-derived priors influence trustworthy concept evidence. The dataset provides grayscale breast ultrasound images with lesion masks and BI-RADS descriptors. Images and masks are resized to 224 × 224 . From the BI-RADS annotations, we curate K = 16 binary clinical concepts grouped into ˜ZROI (shape, margin, echogenicity descriptors) and ˜ZPOST (enhancement, shadowing). Evaluation uses 5-fold stratified group cross-validation. The best checkpoint is selected by validation AUROC, and results are reported as mean ± standard deviation (std) across folds. Training uses AdamW with cosine learning-rate scheduling. We first train the concept head and classifier for 10 epochs with the backbone being frozen, followed by 100 epochs of end-to-end training with spatial grounding enabled. Data augmentation includes horizontal flipping, brightness/contrast adjustment, Gaussian noise, and random rotations ( ±15 ◦). We evaluate SG-CBM along three complementary axes: (i) 
+
+clinical utility (diagnostic fidelity), (ii) semantic interpretabil-ity (concept quality), and (iii) spatial faithfulness (whether concept evidence lies within predefined clinically meaningful zones). For quantifying spatial grounding, we utilize and present three zone-based metrics:  
+
+> •
+
+Energy-in-Zone: 
+
+Energy( k) = 
+
+PNi=1 Ak(i) ˜Z(i)
+
+PNi=1 Ak(i) + ϵ (8) It measures the fraction of activation mass within the zone; therefore, higher values indicate that the model’s spatial evidence for concept k is concentrated in the ex-pected anatomical region, supporting clinically plausible reasoning.  
+
+> •
+
+Hit@1: 
+
+Hit@1( k) = ˜Z
+
+
+
+arg max   
+
+> i∈{ 1,...,N }
+
+Ak(i)
+
+
+
+(9) This verifies whether the model’s strongest spatial evi-dence for the concept is located in the clinically relevant zone, which is important for assessing whether the most decisive evidence is spatially meaningful.  
+
+> •
+
+Top-5% Overlap: extends Hit@1 by measuring the frac-tion of the top 5% activated pixels located within the zone, instead of checking only the single most activated pixel. High overlap suggests that the model’s strongest evidence is consistently localized to the expected anatom-ical region rather than isolated or spurious pixels. Metrics are computed per concept and averaged across concept groups and folds for reporting. 
+
+B. Results a) Clinical utility, concept quality, and spatial faith-fulness: Table I compares a standard CNN classifier (EfficientNet-B2), a vanilla CBM, and the SG-CBM in terms of diagnostic performance, concept prediction, and spatial grounding. Introducing a concept bottleneck slightly reduces diagnostic performance compared to the end-to-end CNN (AUROC 0.869 vs. 0.874 ). However, adding spatial ground-ing improves performance beyond both baselines: SG-CBM achieves the highest AUROC ( 0.892 ) and accuracy ( 0.802 ), while also improving concept prediction quality (concept AU-ROC 0.771 vs. 0.741 for vanilla CBM). This suggests that the zone-aware weak supervision not only improves explanation quality but can also regularize concept representations. Grounding metrics show a large improvement in localiza-tion. Without spatial supervision, CBM exhibits weak align-ment with the lesion region (ROI Energy 0.149 ). SG-CBM substantially increases activation concentration within target zones, achieving ROI Energy 0.815 and Hit@1 0.915 , while also improving posterior localization (Energy 0.585 , Top-5% 
+
+0.567 ). Figure 2 provides qualitative comparisons of concept TABLE I COMPARISON OF PREDICTIVE PERFORMANCE , CONCEPT QUALITY , AND SPATIAL GROUNDING . Vanilla CBM DENOTES A CBM WITHOUT SPATIAL GROUNDING . C ONCEPT QUALITY IS MEASURED USING MACRO AUROC OVER 16 CONCEPTS . G ROUNDING QUALITY IS EVALUATED USING 
+
+ENERGY -IN -Z ONE , H IT @1, AND TOP K O VERLAP FOR ˜ZROI AND ˜ZPOST . V ALUES ARE MEAN ± STD OVER 5 FOLDS .
+
+Model Diagnosis Concepts Grounding Accuracy AUROC AUROC Energy Hit@1 Top-5% Overlap ROI Post ROI Post ROI Post EfficientNet-B2 0.751 ± 0.064 0.874 ± 0.023 – – – – – – –Vanilla CBM 0.746 ± 0.030 0.869 ± 0.040 0.741 ± 0.037 0.149 ± 0.023 0.099 ± 0.020 0.211 ± 0.043 0.091 ± 0.011 0.171 ± 0.029 0.096 ± 0.017 
+
+SG-CBM 0.802 ± 0.034 0.892 ± 0.012 0.771 ± 0.023 0.815 ± 0.071 0.585 ± 0.165 0.915 ± 0.046 0.661 ± 0.178 0.689 ± 0.052 0.567 ± 0.103 echo:  heterogeneous=1.00  (GT 1)         
+
+> post: shadowing=0.99 (GT 1)
+> shape: irregular=0.92 (GT 1)
+> margin: indistinct=0.54 (GT 1)
+> echo: hypoechoic=0.26 (GT 0)
+
+Input GT Annotation Zones (ROI/Post) Vanilla CBM SG-CBM echo:  heterogeneous=0.99  (GT 1)                           
+
+> post: shadowing=0.98 (GT 1)
+> shape: irregular=0.90 (GT 1)
+> margin: indistinct=0.80 (GT 1)
+> echo: isoechoic=0.05 (GT 0) 1.0 0.8 0.6 0.4 0.2 0.0 margin: circumscribed=1.00 (GT 1)
+> post: enhancement=1.00 (GT 1)
+> shape: oval=1.00 (GT 1)
+> echo: heterogeneous=1.00 (GT 1)
+> echo: complex cystic solid=0.03 (GT 0) margin: circumscribed=0.99 (GT 1)
+> shape: oval=0.98 (GT 1)
+> echo: heterogeneous=0.97 (GT 1)
+> post: enhancement=0.96 (GT 1)
+> margin: indistinct=0.07 (GT 0) 1.0 0.8 0.6 0.4 0.2 0.0
+
+Fig. 2. Qualitative comparison of spatial grounding, illustrating the averaged sigmoid activations of ROI and posterior-related concepts on the rightmost 2 panels. SG-CBM exhibits stronger spatial concentration within anatomically consistent regions, consistent with the quantitative grounding metrics. TABLE II PERFORMANCE UNDER TRAINING -TIME MASK EROSION (T RAIN -CORRUPT /T EST -CLEAN ). M ODELS ARE TRAINED WITH ERODED LESION MASKS 
+
+(KERNEL K) USED TO DERIVE GROUNDING ZONES ; ALL EVALUATION METRICS (INCLUDING GROUNDING ) ARE COMPUTED USING ZONES DERIVED FROM THE CLEAN MASKS . V ALUES ARE MEAN ±STD OVER 5 FOLDS .
+
+Erosion Quality Diagnosis Concepts Grounding 
+
+K Dice AUROC AUROC Energy Hit@1 Top-5% Overlap ROI Post ROI Post ROI Post - 1.000 ± 0.000 0.892 ± 0.012 0.771 ± 0.023 0.815 ± 0.071 0.585 ± 0.165 0.915 ± 0.046 0.661 ± 0.178 0.689 ± 0.052 0.567 ± 0.103 
+
+3 0.937 ± 0.002 0.853 ± 0.028 0.768 ± 0.006 0.876 ± 0.088 0.690 ± 0.139 0.935 ± 0.055 0.782 ± 0.122 0.646 ± 0.052 0.624 ± 0.077 
+
+5 0.870 ± 0.004 0.878 ± 0.028 0.764 ± 0.015 0.877 ± 0.071 0.679 ± 0.151 0.934 ± 0.055 0.738 ± 0.175 0.633 ± 0.065 0.590 ± 0.092 
+
+7 0.798 ± 0.006 0.869 ± 0.036 0.767 ± 0.027 0.879 ± 0.045 0.673 ± 0.074 0.929 ± 0.046 0.764 ± 0.100 0.597 ± 0.069 0.573 ± 0.073 
+
+9 0.721 ± 0.008 0.878 ± 0.046 0.764 ± 0.014 0.863 ± 0.061 0.644 ± 0.105 0.935 ± 0.049 0.705 ± 0.093 0.571 ± 0.069 0.543 ± 0.059 
+
+11 0.643 ± 0.010 0.856 ± 0.034 0.751 ± 0.010 0.841 ± 0.075 0.574 ± 0.080 0.931 ± 0.038 0.588 ± 0.101 0.552 ± 0.049 0.507 ± 0.071 
+
+activations. Vanilla CBM produces dispersed activations that often fall outside clinically relevant regions or are not strongly activated inside the zones. In contrast, SG-CBM concentrates responses within the lesion ROI and posterior band, consis-tent with the quantitative grounding metrics. Overall, SG-CBM improves diagnostic performance, concept prediction, and spatial localization simultaneously, demonstrating that weak spatial supervision can guide concept evidence toward anatomically plausible regions without requiring pixel-level concept annotations. 
+
+b) Supervision quality assessment: A key premise of SG-CBM is that lesion delineation provides coarse but action-able supervision for spatially grounding concept evidence. In clinical practice, however, delineations may vary in quality due to annotator variability or automated segmentation errors, making supervision quality a relevant data quality factor for trustworthy AI systems. To quantify how supervision quality impacts downstream behavior in our context, we perform a Train-corrupt/Test-clean annotation-quality stress test (Ta-ble II) in which the training masks are progressively degraded using binary morphological erosion : for each severity level, we shrink the lesion region by removing boundary pixels via a k × k sliding-window operation (single iteration), yielding systematically smaller masks (quantified by Dice score). Dur-ing evaluation, grounding is computed using zones derived from the clean masks (Test-clean) to avoid self-consistency bias in zone-based grounding metrics and to isolate the effect of training-time supervision quality. Interestingly, Table II shows a non-monotonic sensitivity to mask quality: mild-to-moderate erosion (Dice ≈ 0.94 –0.80) generally preserves concept AUROC and diagnostic AUROC while improving several grounding indicators (e.g., ROI Energy increases from 
+
+0.815 to 0.876 –0.879 , and posterior grounding improves for 
+
+K = 3 − 5). This suggests that slightly tighter lesion cues can act as a strong regularizer, reducing activation spill and encouraging concept evidence to concentrate in clinically plausible regions. In contrast, under severe erosion (Dice 
+
+≈≤ 0.70 , K = 9 − 11 ), both diagnostic AUROC and grounding decline, indicating a supervision-quality threshold beyond which spatial constraints can become mis-specified and reduce spatial faithfulness. IV. D ISCUSSION & F UTURE DIRECTIONS 
+
+SG-CBM shows that adding anatomically motivated weak spatial supervision to a CBM can improve both explanation quality and predictive behavior. Compared with a vanilla CBM, SG-CBM yields large gains in spatial faithfulness across grounding metrics and improves diagnostic AUROC (0.869 → 0.892 ), suggesting that evidence-alignment con-straints can regularize concept learning and discourage reliance on background artifacts. From a data-quality perspective, SG-CBM operationalizes task-driven data quality assurance by enforcing an evidence quality requirement: when pixel-level concept annotations are unavailable, coarse lesion delineations provide a practical supervision signal to improve the auditability of learned con-cept evidence. Our Train-corrupt/Test-clean annotation-quality stress test further serves as a data quality assessment method-ology, demonstrating how supervision quality influences both spatial faithfulness and diagnostic behavior, and highlighting the need to characterize annotation quality when developing trustworthy healthcare AI systems. A key design choice is the use of a posterior band, rather than a posterior region extending to the bottom of the image. In practice, a full posterior region introduces noisy supervision, as deeper tissue areas often lack meaningful acoustic patterns. Restricting supervision to a size-adaptive band immediately beneath the lesion provides more stable guidance and directs the model toward clinically plausible posterior effects. In this sense, the posterior band functions as a simple denoising mechanism, constraining the grounding signal to regions most likely to exhibit posterior acoustic phenomena while reduc-ing the influence of irrelevant background. This is impor-tant for both trustworthiness and robustness under imperfect annotations. However, we rely on heuristic design and do not explicitly incorporate ultrasound physics in defining the posterior band. Future work should investigate physics-aware posterior modeling and uncertainty-aware zone construction, particularly for small lesions and for cases where posterior phenomena are absent or ambiguous. From the clinical perspective, SG-CBM provides explana-tions that more closely match radiologic reasoning by link-ing diagnostic decisions to recognizable BI-RADS attributes and localizing their evidence within anatomically plausible regions. However, we assume access to radiologists’ annotated lesion masks, which may introduce an additional dependency. Nonetheless, our grounding mechanisms are robust to mild-to-moderate annotation variability, and foundation models such as Segment Anything (SAM) [19] and subsequent medical imaging adaptations show promise for automated segmentation [11], although integrating reliable automatic segmentation into clinical workflows remains an open challenge. A promising future direction is to integrate radiologist-in-the-loop data quality control under limited annotation budgets. For exam-ple, Active Learning (AL)-based approaches [20] could help prioritize review cases where the model exhibits low spatial faithfulness, high predictive uncertainty, prompting efficient expert correction of lesion cues (e.g., rapid mask refinement) and/or targeted concept verification. This would operationalize task-driven data quality assurance in a clinically realistic way, where comprehensive expert labeling is costly. Our findings in the supervision quality test (Table II) motivate treating automatic segmentation as a data quality component of the pipeline, as downstream trustworthiness depends not only on the diagnostic model but also on the reliability of the delineations used to derive zone supervision. Incorporating segmentation quality estimation (and falling back to human review when uncertainty is high) should therefore be an important systems-level direction. While SG-CBM shows that predefined anatomical zones can effectively guide concept localization, this design inherently encodes spatial priors that may bias evaluation. Specifically, activation within a zone indicates spatial alignment of evidence and should be interpreted alongside, rather than as a sub-stitute for, semantic concept correctness [13]. Disentangling spatial plausibility from clinical validity requires dedicated studies that pair zone-based grounding with probes of se-mantic faithfulness. Furthermore, the mechanistic interaction between the concept bottleneck structure and zone supervision (i.e., how grounding reshapes individual concept representa-tions and their downstream contributions) remains an open question requiring representational analysis. Finally, clinical trustworthiness ultimately requires human validation; a user study with radiologists would directly assess whether spatial grounding accelerates and strengthens expert review beyond proxy metrics. Our findings support a structured trustworthiness valida-tion protocol that jointly reports clinical utility, semantic interpretability, and spatial faithfulness, thereby mitigating over-reliance on accuracy alone and promoting transparent evaluation in safety-critical clinical settings. Future work should extend this framework to larger, multi-center cohorts to assess robustness and generalization under acquisition and population shifts, as well as to other imaging domains where coarse anatomical cues provide useful spatial priors. In addi-tion, subgroup-level analyses remain necessary to determine whether concept prediction and grounding quality vary across patient demographics, devices, or clinical sites, and whether systematic differences in annotation fidelity may affect fairness and real-world trustworthiness. V. C ONCLUSION 
+
+We present a spatially grounded concept bottleneck ap-proach for breast ultrasound diagnosis that enhances the spatial grounding of concepts, a core dimension of model trust-worthiness, through task-driven evidence quality assurance. Experiments show that spatial grounding improves both spatial faithfulness and predictive performance, producing more au-ditable, clinically aligned explanations. To quantify the impact of supervision quality, we further conducted a stress test and found that grounding and diagnostic behavior are robust to realistic mask variations, but degrade under severe corruption, revealing a quality threshold beyond which weak supervision becomes mis-specified. Overall, these results highlight that data quality and supervision design are central determinants of healthcare AI performance and trustworthiness, and motivate the development of more robust clinical AI systems. REFERENCES [1] R. Wang, Z. Wang, Y. Xiao, X. Liu, G. Tan, and J. Liu, “Application of deep learning on automated breast ultrasound: Current developments, challenges, and opportunities,” Meta-Radiology , vol. 3, no. 2, p. 100138, 2025. [Online]. Available: https://www.sciencedirect. com/science/article/pii/S2950162825000062 [2] H. Kondylakis, R. Osuala, X. Puig-Bosch, N. Lazrak, O. Diaz, K. Kushibar, I. Chouvarda, S. Charalambous, M. P. Starmans, S. Colantonio, N. Tachos, S. Joshi, H. C. Woodruff, Z. Salahuddin, G. Tsakou, S. Auss´ o, L. C. Alberich, N. Papanikolaou, P. Lambin, K. Marias, M. Tsiknakis, D. I. Fotiadis, L. Mart´ ı-Bonmat´ ı, and K. Lekadir, “A review of methods for trustworthy ai in medical imaging: The future-ai guidelines,” IEEE Journal of Biomedical and Health Informatics , vol. 30, no. 3, pp. 2299–2315, 2026. [Online]. Available: https://doi.org/10.1109/JBHI.2025.3614546 [3] C. O. Retzlaff, A. Angerschmid, A. Saranti, D. Schneeberger, R. R¨ ottger, H. M¨ uller, and A. Holzinger, “Post-hoc vs ante-hoc explanations: xai design guidelines for data scientists,” Cognitive Systems Research , vol. 86, p. 101243, 2024. [Online]. Available: https://www.sciencedirect.com/science/article/pii/S1389041724000378 [4] M. R. Tonmoy, M. A. Shams, M. A. Adnan, M. Mridha, M. Safran, S. Alfarhood, and D. Che, “X-brain: Explainable recognition of brain tumors using robust deep attention cnn,” Biomedical Signal Processing and Control , vol. 100, p. 106988, 2025. [Online]. Available: https://www.sciencedirect.com/science/article/pii/S1746809424010462 [5] Y. Mustafa and T. Luo, “Unmasking dementia detection by masking input gradients: A jsm approach to model interpretability and precision,” in Advances in Knowledge Discovery and Data Mining , D.-N. Yang, X. Xie, V. S. Tseng, J. Pei, J.-W. Huang, and J. C.-W. Lin, Eds. Singapore: Springer Nature Singapore, 2024, pp. 75–90. [6] C. Vasquez-Venegas, C. Wu, S. Sundar, R. Proa, F. J. Beloy, J. R. Medina, M. Mcnichol, K. Parvataneni, N. Kurtzman, F. Mirshawka 
+
+et al. , “Detecting and mitigating the clever hans effect in medical imaging: a scoping review,” Journal of Imaging Informatics in Medicine , vol. 38, no. 4, pp. 2563–2579, 2025. [Online]. Available: https://doi.org/10.1007/s10278-024-01335-z [7] P. W. Koh, T. Nguyen, Y. S. Tang, S. Mussmann, E. Pierson, B. Kim, and P. Liang, “Concept bottleneck models,” in Proceedings of the 37th International Conference on Machine Learning , ser. Proceedings of Machine Learning Research, H. D. III and A. Singh, Eds., vol. 119. PMLR, 13–18 Jul 2020, pp. 5338–5348. [Online]. Available: https://proceedings.mlr.press/v119/koh20a.html [8] A. Bunnell, Y. Glaser, D. Valdez, T. Wolfgruber, A. Altamirano, C. Zamora Gonz´ alez, B. Y. Hernandez, P. Sadowski, and J. A. Shepherd, “ Learning a Clinically-Relevant Concept Bottleneck for Lesion Detec-tion in Breast Ultrasound ,” in proceedings of Medical Image Computing and Computer Assisted Intervention – MICCAI 2024 , vol. LNCS 15003. Springer Nature Switzerland, October 2024. [9] B. Zhang, A. Vakanski, and M. Xian, “Bi-rads-net: An explainable multi-task learning approach for cancer diagnosis in breast ultrasound images,” in 2021 IEEE 31st International Workshop on Machine Learning for Signal Processing (MLSP) , 2021, pp. 1–6. [10] M. Carrilero-Mardones, M. Parras-Jurado, A. Nogales, J. P´ erez-Mart´ ın, and F. J. D´ ıez, “Deep learning for describing breast ultrasound images with bi-rads terms,” Journal of Imaging Informatics in Medicine ,vol. 37, no. 6, pp. 2940–2954, Dec 2024. [Online]. Available: https://doi.org/10.1007/s10278-024-01155-1 [11] M. Ali, T. Wu, H. Hu, Q. Luo, D. Xu, W. Zheng, N. Jin, C. Yang, and J. Yao, “A review of the segment anything model (sam) for medical image analysis: Accomplishments and perspectives,” Computerized Medical Imaging and Graphics , vol. 119, p. 102473, 2025. [Online]. Available: https://www.sciencedirect.com/ science/article/pii/S0895611124001502 [12] Q. Huang, J. Song, J. Hu, H. Zhang, Y. Wang, and M. Song, “On the concept trustworthiness in concept bottleneck models,” 
+
+Proceedings of the AAAI Conference on Artificial Intelligence ,vol. 38, no. 19, pp. 21 161–21 168, Mar. 2024. [Online]. Available: https://ojs.aaai.org/index.php/AAAI/article/view/30109 [13] P. Knab, D. Steinmann, C. Bartelt, K. Kersting, B. Schiele, T. Seidl, U. Schlegel, and W. Stammer, “What’s in the bottle? a survey and roadmap of concept bottleneck models,” Transactions on Machine Learning Research , 2026. [Online]. Available: https: //openreview.net/forum?id=IF5vnqxBEW [14] X. Wen, H. Tu, B. Zhao, W. Zhou, Z. Yang, and L. Li, “Identification of benign and malignant breast nodules on ultrasound: comparison of multiple deep learning models and model interpretation,” Frontiers in Oncology , vol. Volume 15 -2025, 2025. [Online]. Available: https://www.frontiersin.org/journals/ oncology/articles/10.3389/fonc.2025.1517278 [15] J. Wang, L. Qiao, S. Zhou, J. Zhou, J. Wang, J. Li, S. Ying, C. Chang, and J. Shi, “Weakly supervised lesion detection and diagnosis for breast cancers with partially annotated ultrasound images,” IEEE Transactions on Medical Imaging , vol. 43, no. 7, pp. 2509–2521, 2024. [16] T.-Y. Lin, P. Goyal, R. Girshick, K. He, and P. Dollar, “Focal loss for dense object detection,” in Proceedings of the IEEE International Conference on Computer Vision (ICCV) , Oct 2017. [17] A. Pawłowska, A. ´Cwierz-Pie´ nkowska, A. Domalik, D. Jagu´ s, P. Kasprzak, R. Matkowski, Ł. Fura, A. Nowicki, and N. ˙Zołek, “Curated benchmark dataset for ultrasound based breast lesion analysis,” 
+
+Scientific Data , vol. 11, no. 1, p. 148, Jan 2024. [Online]. Available: https://doi.org/10.1038/s41597-024-02984-z [18] A. Pawłowska, A. ´Cwierz-Pie´ nkowska, A. Domalik, D. Jagu´ s, P. Kasprzak, R. Matkowski, Ł. Fura, A. Nowicki, and N. Zolek, “A curated benchmark dataset for ultrasound based breast lesion analysis (breast-lesions-usg) (version 1) [dataset],” The Cancer Imaging Archive ,2024. [Online]. Available: https://doi.org/10.7937/9WKK-Q141 [19] N. Carion, L. Gustafson, Y.-T. Hu, S. Debnath, R. Hu, D. Suris, C. Ryali, K. V. Alwala, H. Khedr, A. Huang, J. Lei, T. Ma, B. Guo, A. Kalla, M. Marks, J. Greer, M. Wang, P. Sun, R. R¨ adle, T. Afouras, E. Mavroudi, K. Xu, T.-H. Wu, Y. Zhou, L. Momeni, R. Hazra, S. Ding, S. Vaze, F. Porcher, F. Li, S. Li, A. Kamath, H. K. Cheng, P. Doll´ ar, N. Ravi, K. Saenko, P. Zhang, and C. Feichtenhofer, “Sam 3: Segment anything with concepts,” 2025. [Online]. Available: https://arxiv.org/abs/2511.16719 [20] H. Wang, Q. Jin, S. Li, S. Liu, M. Wang, and Z. Song, “A comprehensive survey on deep active learning in medical image analysis,” Medical Image Analysis , vol. 95, p. 103201, 2024. [Online]. Available: https://www.sciencedirect.com/science/article/pii/S1361841524001269
