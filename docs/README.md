@@ -6,34 +6,41 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-26
-- 运行时间：2026-07-26 21:05:45 UTC
+- 最新运行日期：2026-07-27
+- 运行时间：2026-07-27 21:27:01 UTC
 - 运行状态：成功
-- 本次总论文数：4
-- 精读区：2
-- 速读区：2
+- 本次总论文数：6
+- 精读区：0
+- 速读区：6
 
 ### 今日简报（AI）
-今日日报聚焦放射基因组学与医学影像AI，精读两篇高分论文，速读空间蛋白质组学与伤口分类研究。  
-最值得关注的是《Foundation-model-guided radiogenomic discovery》提出用基础模型连接癌症基因组与影像（9.0分），以及《Sparse Concept Channels》在冻结3D CT编码器中提取稀疏概念通道（8.0分）。  
-建议优先精读这两篇，了解如何将多模态基础模型应用于临床影像-基因组关联分析，为后续研究提供新范式。
-- 详情：[/202607/26/README](/202607/26/README)
+今日速读6篇论文，聚焦医疗报告生成与多模态预训练，无精读。  
+重点关注《TextSLIP》与《Scaling Native Multimodal Pre-Training》两篇7分工作，分别探索自监督CLIP和原生多模态扩展。  
+下一步建议优先阅读这两篇论文，深入理解自监督多模态在医疗报告生成中的潜力。
+- 详情：[/202607/27/README](/202607/27/README)
 
 ### 精读区论文标签
-1. [Foundation-model-guided radiogenomic discovery linking cancer genomes to cancer scans](/202607/26/2607.20583v1-foundation-model-guided-radiogenomic-discovery-linking-cancer-genomes-to-cancer-scans)  
-   标签：评分：9.0/10、query:cpath
-   evidence：使用Evo-2基础模型进行放射基因组学发现
-2. [Sparse Concept Channels in Frozen 3D CT Vision Encoders](/202607/26/2607.20993v1-sparse-concept-channels-in-frozen-3d-ct-vision-encoders)  
-   标签：评分：8.0/10、query:cpath
-   evidence：冻结3D CT视觉语言模型中的稀疏概念通道
+- 本次无精读推荐。
 
 ### 速读区论文标签
-1. [SPgen: Proteome-wide Spatial Proteomics generation using multi-modality foundation models](/202607/26/biorxiv-10-64898-2026-07-16-739037-v1-spgen-proteome-wide-spatial-proteomics-generation-using-multi-modality-foundation-models)  
+1. [TextSLIP: Text Self-Supervised CLIP for Medical Report Generation](/202607/27/2607.21970v1-textslip-text-self-supervised-clip-for-medical-report-generation)  
    标签：评分：7.0/10、query:cpath
-   evidence：用于空间蛋白质组学预测的多模态基础模型
-2. [In-Context Learning for Wound Classification with Small Multimodal Language Models](/202607/26/2607.18819v1-in-context-learning-for-wound-classification-with-small-multimodal-language-models)  
+   evidence：用于医学报告生成的视觉语言预训练，加入了文本自监督
+2. [Scaling Native Multimodal Pre-Training From Scratch](/202607/27/2607.22043v1-scaling-native-multimodal-pre-training-from-scratch)  
+   标签：评分：7.0/10、query:cpath
+   evidence：原生多模态预训练用于视觉语言模型
+3. [DobicVLM: Aligning Chest X-Ray Report Generation with Clinically-Grounded Programmatic Rewards via Group Relative Policy Optimization](/202607/27/2607.18988v1-dobicvlm-aligning-chest-x-ray-report-generation-with-clinically-grounded-programmatic-rewards-via-group-relative-policy-optimization)  
    标签：评分：6.0/10、query:cpath
-   evidence：使用小多模态语言模型进行伤口图像分类
+   evidence：应用于医学影像的视觉语言模型
+4. [Robust Activation Map Rectification for Weakly Supervised Volumetric Segmentation: Temporal Coherence as a Free Lunch](/202607/27/2607.19877v1-robust-activation-map-rectification-for-weakly-supervised-volumetric-segmentation-temporal-coherence-as-a-free-lunch)  
+   标签：评分：6.0/10、query:cpath
+   evidence：针对体积数据的弱监督分割方法
+5. [DINOde: Continuous Vision-Text Alignment for Open-Vocabulary Semantic Segmentation](/202607/27/2607.21371v1-dinode-continuous-vision-text-alignment-for-open-vocabulary-semantic-segmentation)  
+   标签：评分：6.0/10、query:cpath
+   evidence：通过连续视觉-文本对齐实现开放词汇分割
+6. [Medical-Checklist: Assessing the Comprehension of Medical Images by Multimodal Models](/202607/27/2607.21998v1-medical-checklist-assessing-the-comprehension-of-medical-images-by-multimodal-models)  
+   标签：评分：6.0/10、query:cpath
+   evidence：医学图像多模态理解基准
 
 
 <div class="dpr-home-promo-card">
