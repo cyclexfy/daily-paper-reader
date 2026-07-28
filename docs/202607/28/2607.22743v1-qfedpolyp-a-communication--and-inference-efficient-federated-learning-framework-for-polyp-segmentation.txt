@@ -1,0 +1,574 @@
+Title: QFedPolyp: A Communication- and Inference-Efficient Federated Learning Framework for Polyp Segmentation
+
+URL Source: https://arxiv.org/pdf/2607.22743v1
+
+Published Time: Tue, 28 Jul 2026 00:07:23 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# QFedPolyp: A Communication- and Inference-E ffi cient Federated Learning Framework for Polyp Segmentation 
+
+Madan Baduwal, Priyanka Paudel 
+
+> Department of Computer Science and Engineering, Mississippi State University Mississippi State, MS, USA
+
+Abstract Background and Objective: Automatic polyp segmentation supports computer-aided diagnosis and early colorectal cancer detec-tion. Centralized deep learning requires hospitals to share sensitive medical data, while federated learning preserves privacy but introduces high communication costs through repeated transmission of full-precision model parameters. We propose QFedPolyp, a communication- and inference-e ffi cient federated learning framework for collaborative polyp segmentation. 
+
+Methods: QFedPolyp combines quantization-aware training with low-precision model communication. Each hospital locally trains a lightweight U-Net on private data while simulating quantization during training. Clients transmit quantized model parameters to a central server, where they are reconstructed and aggregated using Federated Averaging. Evaluation is performed on Kvasir-SEG, CVC-ClinicVideoDB, PolypGen, and BKAI-IGH NeoPolyp. 
+
+Results: Full-precision federated training achieves Dice scores of 0.910 on Kvasir-SEG and 0.930 on CVC-ClinicVideoDB. Uni-form 8-bit communication reduces transmission cost by approximately 4 × while preserving competitive segmentation accuracy. Quantized models also achieve up to 1 .5× faster inference than full-precision models. 
+
+Conclusions: QFedPolyp enables privacy-preserving collaborative polyp segmentation with reduced communication overhead and faster inference. The resulting lightweight models are suitable for real-time clinical deployment. 
+
+Keywords: Federated learning, Polyp segmentation, Quantization, Privacy preservation, Communication e ffi ciency, U-Net 
+
+1. Introduction 
+
+Colorectal cancer is one of the most common and life-threatening gastrointestinal diseases worldwide. According to the National Cancer Institute, colorectal cancer accounts for a substantial portion of global cancer-related deaths, and early detection plays a critical role in improving patient survival rates [1]. Colonoscopy is the primary clinical procedure used to iden-tify colorectal polyps, which are abnormal tissue growths that may evolve into malignant tumors if left untreated. However, manual inspection of colonoscopy videos is a time-consuming process and is prone to human error, particularly for small or visually subtle lesions. As a result, computer-aided diagnosis (CAD) systems based on deep learning have gained significant attention for assisting clinicians in detecting and segmenting polyps automatically. Deep convolutional neural networks have demonstrated strong performance in medical image segmentation tasks. Among these architectures, U-Net has become one of the most widely used models due to its encoder–decoder structure and skip connections that e ff ectively capture both contextual and spatial information [2]. Several improved architectures have      
+
+> ∗Corresponding author. Email: mb4239@msstate.edu, Tel: +1-432-316-1183
+> Email addresses: mb4239@msstate.edu (Madan Baduwal),
+> pp918@msstate.edu (Priyanka Paudel)
+> Fig. 1: Centralized training versus the proposed QFedPolyp framework. Hospitals perform quantization-aware local training with a lightweight U-Net and send quantized updates to the FL server, preserving privacy while reducing communication cost and enabling e ffi cient inference.
+
+been proposed specifically for polyp segmentation. For ex-ample, PraNet introduces a reverse attention mechanism to re-fine segmentation boundaries [3], while HarDNet-MSEG fo-cuses on lightweight model design for e ffi cient real-time seg-mentation [4]. These models have achieved strong results on benchmark datasets such as Kvasir-SEG, CVC-ClinicVideoDB, PolypGen, and BKAI-IGH NeoPolyp. Despite these advances, most deep learning approaches rely on centralized training, where data from multiple hospitals must be collected and stored in a single location. In practical health-care environments, however, such centralized data aggregation arXiv:2607.22743v1 [cs.LG] 23 Jul 2026 is often infeasible due to strict privacy regulations, institutional policies, and ethical concerns related to patient data sharing. Hospitals are frequently unable or unwilling to transfer sensi-tive medical images across institutional boundaries, which lim-its the availability of large multi-institutional datasets for train-ing deep learning models. Federated learning (FL) has emerged as a promising paradigm for enabling collaborative model training while pre-serving data privacy. Instead of transferring raw data, fed-erated learning allows multiple institutions to train a shared global model while keeping their data locally stored [5]. In this framework, each participating client performs local opti-mization on its private dataset and sends model updates to a central server. The server aggregates these updates to improve the global model. This decentralized learning paradigm enables collaborative knowledge sharing across hospitals without vio-lating data protection constraints. Although federated learning e ff ectively addresses privacy concerns associated with centralized training, it introduces a new challenge related to communication e ffi ciency. Federated learning requires repeated exchange of model parameters be-tween participating clients and the central server across multi-ple communication rounds. Modern deep neural networks often contain millions of parameters, and transmitting full-precision model updates can impose substantial communication over-head, particularly when institutions operate under limited net-work bandwidth [6, 7]. Consequently, communication cost be-comes a critical bottleneck in large-scale federated learning sys-tems. Several techniques have been proposed to improve com-munication e ffi ciency in federated learning, including gradi-ent sparsification, model compression, periodic averaging, and parameter quantization [8]. Among these approaches, quanti-zation is particularly e ff ective because it directly reduces the number of bits required to represent model parameters. By transmitting low-precision parameters instead of full-precision floating-point values, the communication cost between clients and servers can be significantly reduced. However, naive post-training quantization may introduce quantization noise that negatively aff ects model accuracy. Quantization-aware training (QAT) addresses this limitation by incorporating simulated quantization operations during the training process [9]. In QAT, the neural network learns param-eter distributions that remain robust under low-precision repre-sentations, allowing the model to maintain strong performance even when weights are represented using reduced numerical precision. Figure 1 illustrates the conceptual di ff erence between cen-tralized training and the proposed federated learning frame-work. In centralized systems, hospitals must transfer raw med-ical images to a central server, creating privacy risks and data transfer challenges. In contrast, the proposed approach enables each hospital to perform quantization-aware local training us-ing a lightweight U-Net model while transmitting only quan-tized model updates to the federated server. This design pre-serves patient privacy, reduces communication overhead, and produces e ffi cient models suitable for real-time clinical deploy-ment. Motivated by these challenges, this paper proposes QFed-Polyp, a communication- and inference-e ffi cient federated learning framework for collaborative polyp segmentation. QFedPolyp integrates quantization-aware training with quan-tized model-parameter transmission to enable bandwidth-effi cient federated optimization while maintaining high seg-mentation accuracy. The main contributions of this work are summarized as fol-lows: 
+
+• We propose QFedPolyp, a privacy-preserving federated learning framework that enables collaborative polyp seg-mentation across multiple hospitals without sharing raw medical images. 
+
+• We integrate quantization-aware training into the federated learning pipeline to improve robustness against quantiza-tion noise during distributed training. 
+
+• We introduce communication-e ffi cient parameter ex-change by transmitting quantized model updates, sig-nificantly reducing bandwidth requirements in federated learning. 
+
+• We demonstrate that the resulting low-precision models enable faster inference, making the framework suitable for real-time clinical applications. The implementation of the proposed framework is pub-licly available at: https://madanbaduwal.github.io/ QFedPolyp .The remainder of this paper is organized as follows. Sec-tion 2 reviews related research on deep learning methods for polyp segmentation, federated learning in medical imaging, communication-e ffi cient federated learning, and quantization-aware training. Section 3 presents QFedPolyp, including its federated optimization strategy, lightweight U-Net architecture, quantization-aware training, and quantized model communi-cation. Section 4 describes the experimental setup, datasets, evaluation metrics, and performance evaluation, including a de-tailed comparison with state-of-the-art methods. Finally, Sec-tion 5 concludes the paper and discusses potential future re-search directions. 
+
+2. Related Work 
+
+Early deep learning approaches have greatly advanced au-tomated polyp segmentation. The U-Net architecture [10], first introduced in 2015, became a seminal model for biomed-ical image segmentation with its encoder-decoder design and skip connections. Building upon U-Net, various improve-ments have been proposed. For example, UNet ++ [11] incor-porates nested and dense skip pathways to better fuse multi-scale features, yielding more precise segmentations. More re-cently, researchers have designed specialized CNN architec-tures targeting colonoscopy polyp segmentation. ResUNet ++ 
+
+[12] augments the U-Net backbone with residual blocks and 2applies post-processing (conditional random fields and test-time augmentation) to significantly boost performance on polyp datasets. Fang et al. [13] proposed a Selective Feature Ag-gregation (SFA) network with dual decoder branches to jointly refine polyp regions and boundaries, enforcing area-boundary consistency for improved edge localization. The PraNet model by Fan et al. [14] introduces a parallel reverse attention mech-anism that iteratively highlights polyp regions and boundary cues, achieving state-of-the-art accuracy on multiple bench-mark datasets. Another notable method, ACSNet [15], adap-tively selects global vs. local context features based on polyp size, enabling the network to handle the large shape variabil-ity of polyps. All these advanced deep learning models have markedly improved polyp segmentation accuracy. However, they typically assume training on centralized datasets, which is often infeasible in medical imaging due to privacy and data-sharing restrictions. Federated learning (FL) has emerged as a solution to train models on decentralized medical data without compromising patient privacy. Sheller et al. [16] demonstrated one of the first multi-institutional FL implementations for 3D medical image segmentation, showing that a federated model can approach the accuracy of a centrally trained model while each hospital keeps data locally. Subsequent works have highlighted the promise of FL across various medical imaging tasks. Rieke et al. [17] provided an overview of how FL can enable large-scale collab-orations in digital health, emphasizing its potential to overcome data silos and institutional biases in medical datasets. They also discuss challenges such as data heterogeneity (e.g., dif-fering imaging protocols across sites) and the need for robust aggregation techniques. Kaissis et al. [18] further surveyed privacy-preserving machine learning in radiology, including FL combined with techniques like secure aggregation and di ff er-ential privacy to protect sensitive information. These studies underscore that FL is well-suited for medical imaging, where data are plentiful but fragmented. In the context of endoscopy and polyp segmentation, FL can enable models to learn from colonoscopy images across multiple clinics or hospitals with-out sharing patient data. While FL has been applied to modali-ties like MRI, CT, and digital pathology, its use in colonoscopy image segmentation remains relatively nascent. Our work ad-dresses this gap by leveraging FL for polyp segmentation, en-suring that knowledge is shared across institutions without ex-changing the raw video frames or images. A critical challenge in federated learning is the communi-cation overhead of exchanging model updates between clients and the server. The standard FedAvg algorithm [19] re-duces communication frequency by performing multiple lo-cal training epochs before averaging models, yet transmitting full precision neural network weights can still be bandwidth-intensive when models are large. To tackle this, numerous communication-e ffi cient FL techniques have been proposed. One approach is quantization of model updates: for instance, TernGrad [20] compresses gradients to 3-level ternary values, and QSGD [21] stochastically quantizes gradients with prov-able error bounds, both achieving significant bandwidth sav-ings. Similarly, signSGD [22] sends only the sign of each gra-dient (1-bit per value), dramatically cutting communication at the cost of additional variance, which can be mitigated by er-ror feedback. Another strategy is sparsification or pruning of updates: instead of sending all gradients, clients transmit only the largest k gradients or those above a threshold [23], and accu-mulate the rest locally. This gradient sparsification can slash the transmitted data size by orders of magnitude (e.g., 100 × com-pression) while maintaining model performance through tech-niques like momentum correction [23]. These communication-effi cient methods are often complementary to FL and have been integrated into federated frameworks to enable scaling to many clients or limited-bandwidth settings. In our work, we build on these ideas by employing model quantization to reduce the communication cost per round, which is especially impor-tant when deploying federated segmentation to edge devices or across clinics with bandwidth constraints. Quantization-aware training (QAT) is a technique to ensure that a neural network remains accurate when its weights and ac-tivations are reduced to lower precision, typically for e ffi cient inference on edge hardware. Rather than quantizing a trained model as a post-processing step (which can degrade accuracy), QAT simulates low-bit quantization (e.g., 8-bit integers) during training so that the model learns to compensate for quantization errors [24]. This approach has been widely used to produce compact, faster models for deployment without significant loss in performance [24]. In distributed and federated learning sce-narios, QAT can serve a dual purpose: reducing communica-tion by sending quantized model updates, and yielding a final model that is already optimized for low-precision inference on devices. Recent works have started to incorporate QAT into the FL paradigm. Abdelmoniem and Canini [25] introduced an adaptive quantization scheme for FL, where each client trains with a quantized model whose bit-width is tailored to its device capabilities, mitigating heterogeneity in hardware. Ji and Chen [26] proposed FedQNN , an FL framework that trains neural net-works with low-bitwidth weights and activations; their results show that aggressive quantization (down to 4–8 bits) can sub-stantially reduce communication and computation load in IoT settings with only minor accuracy loss. Yoon et al. [27] ad-dress the scenario of clients using di ff erent precisions: they developed a progressive de-quantization approach that allows the server to aggregate mixed-precision updates and improve a global model despite heterogeneous quantization across clients. Beyond fixed low-precision training, researchers have also ex-plored mixed-precision strategies in FL. Chen and Vikalo [28] recently presented a CVPR 2024 method to assign di ff erent bit-widths to di ff erent layers of a model (e.g., more critical layers in higher precision and others in lower precision) during federated training, adapting these assignments to each client’s resource limits. Such quantization-aware techniques are crucial for de-ploying federated models on resource-constrained devices, as they ensure e ffi cient inference (e.g., real-time polyp segmenta-tion on a mobile endoscope processor) without sacrificing too much accuracy. In our approach, we leverage QAT within fed-erated polyp segmentation to jointly achieve privacy preserva-tion, communication e ffi ciency, and optimized low-precision inference. 3Fig. 2: Overview of the proposed QFedPolyp framework for communication- and inference-e ffi cient polyp segmentation. The server distributes the global model to hospitals, each client performs local training on private datasets, transmits quantized model updates, and the server aggregates them using federated averaging to update the global model. 
+
+3. Methods 
+
+3.1. Small U-Net Segmentation Model and Loss Function 
+
+We employ a lightweight U-Net architecture for polyp seg-mentation, illustrated in Fig. 3. The model follows an en-coder–decoder structure with symmetric skip connections that enable e ff ective recovery of spatial details while maintaining a compact model size suitable for federated learning environ-ments. Given an input colonoscopy image x ∈ R3×128 ×128 , the encoder progressively extracts hierarchical feature representa-tions while reducing spatial resolution through max-pooling op-erations. Each encoder stage consists of two 3 × 3 convolu-tional layers followed by batch normalization and ReLU acti-vation. The first convolutional block produces feature maps of size 32 ×128 ×128. A 2 ×2 max-pooling operation then reduces the spatial resolution to 64 × 64 while increasing the channel di-mension to 64. The next encoder stage further compresses the spatial representation to 128 × 32 × 32 through another max-pooling layer. Finally, a bottleneck layer captures high-level semantic information with feature maps of size 256 × 16 × 16, enabling the network to encode contextual information about the polyp region.   
+
+> Fig. 3: Architecture of the proposed small U-Net used for polyp segmentation. The network follows an encoder-decoder structure with convolutional blocks and max-pooling for feature extraction, followed by upsampling layers and skip connections to recover spatial details. A final 1 ×1 convolution with sigmoid activation produces the binary segmentation mask.
+
+The decoder mirrors the encoder structure and progres-sively restores spatial resolution through upsampling opera-tions. Starting from the bottleneck representation, feature maps are upsampled by a factor of two and concatenated with the corresponding encoder features through skip connections, as shown in Fig. 3. These skip connections help preserve fine-grained spatial information that may otherwise be lost dur-ing downsampling. After the first upsampling stage, the de-coder produces feature maps of size 128 × 32 × 32, which are fused with encoder features at the same resolution. The re-construction process continues through subsequent upsampling layers, generating feature maps of size 64 × 64 × 64 and finally 32 × 128 × 128. Each decoder stage includes convolutional re-finement layers that combine contextual and spatial information to improve segmentation accuracy. A final 1 ×1 convolution layer maps the reconstructed feature representation into a single-channel segmentation mask. A sig-moid activation function σ(·) converts the network output into per-pixel probabilities indicating the likelihood of each pixel 4belonging to the polyp region. Formally, for an input image x,the predicted segmentation mask is defined as ˆy = σ( f (x; w)) , (1) where f (x; w) denotes the output logits of the U-Net model pa-rameterized by weights w, and ˆ y(i, j) ∈ [0 , 1] represents the predicted probability that pixel ( i, j) belongs to the polyp class. To train the segmentation network, we employ the Dice loss, which directly optimizes the overlap between predicted and ground-truth segmentation masks. Let y denote the ground-truth mask and ˆ y the predicted probability map. The Dice loss is defined as 
+
+ℓDice (y, ˆy) = 1 − 2 Pi yi ˆyi + ϵ
+
+Pi yi + Pi ˆyi + ϵ , (2) where the summation is performed over all pixels and ϵ is a small smoothing constant to ensure numerical stability. Min-imizing the Dice loss encourages the model to maximize spa-tial overlap between predicted and ground-truth polyp regions, which is particularly suitable for medical image segmentation tasks where foreground regions may occupy a relatively small portion of the image. 
+
+3.2. Federated Optimization using FedAvg 
+
+To collaboratively train the lightweight U-Net segmentation model described in the previous section, we adopt a feder-ated learning framework based on the Federated Averaging (Fe-dAvg) algorithm [29]. The overall training workflow is illus-trated in Fig. 2. In this setting, multiple hospitals jointly train a global segmentation model without sharing raw colonoscopy images or segmentation masks, thereby preserving data privacy. Assume there are K participating hospitals (clients). Each hospital k ∈ { 1, . . . , K} possesses a private dataset 
+
+Dk = {(xi, yi)}nk
+
+> i=1
+
+, (3) where xi denotes a colonoscopy image and yi its corresponding segmentation mask. Let N = PKk=1 nk denote the total number of samples across all clients. The objective of federated learning is to optimize the parameters w of the small U-Net model f (x; w)by minimizing the following global objective: min  
+
+> w
+
+F(w) =
+
+> K
+
+X
+
+> k=1
+
+nk
+
+N Fk(w), (4) where the local objective for client k is defined as 
+
+Fk(w) = 1
+
+nknkX
+
+> i=1
+
+ℓ  f (xi; w), yi
+
+, (5) and ℓ(·) denotes the Dice loss defined in the previous section. The weighting factor nk 
+
+> N
+
+ensures that each hospital contributes proportionally to the global model according to its dataset size. Federated training proceeds through multiple communica-tion rounds between a central server and the participating hos-pitals. At the beginning of round t, the server maintains the current global model parameters wt and distributes them to all clients, as shown in Step 1 of Fig. 2. Each hospital initializes its local model using the received global parameters: 
+
+wt,0 
+
+> k
+
+= wt. (6) Subsequently, each client performs local training using its private dataset. During this stage, the small U-Net model is optimized for E local epochs using stochastic gradient descent. The iterative update during local optimization can be written as 
+
+wt, jk = wt, j−1 
+
+> k
+
+− η∇Fk
+
+wt, j−1
+
+> k
+
+ , j = 1, . . . , E, (7) where η denotes the learning rate. As illustrated in Step 2 of Fig. 2, this local training phase incorporates quantization-aware training (QAT), which simulates low-precision arithmetic dur-ing forward and backward passes in order to prepare the model for quantized communication and e ffi cient inference. After completing local training, each hospital obtains an up-dated model 
+
+wt+1 
+
+> k
+
+= wt,Ek . (8) Instead of transmitting full-precision parameters, the client compresses its model updates using quantization before send-ing them to the server. These quantized model updates signif-icantly reduce communication overhead between hospitals and the central server, as shown in Step 3 of Fig. 2. The quantization strategy used for communication-e ffi cient updates is described in the next subsection. Upon receiving the client updates, the server reconstructs them and performs aggregation to produce the next global model. Specifically, the updated model parameters are obtained through weighted averaging: 
+
+wt+1 =
+
+> K
+
+X
+
+> k=1
+
+nk
+
+N wt+1 
+
+> k
+
+. (9) This aggregation step corresponds to the FedAvg update rule and is illustrated in Step 4 of Fig. 2. The new global model 
+
+wt+1 is then redistributed to all clients for the next communi-cation round. After T rounds of federated optimization, the model converges toward a solution minimizing the global ob-jective F(w) while ensuring that sensitive medical data remain locally stored at each hospital. 
+
+3.3. Quantization-Aware Training (QAT) 
+
+To enable inference-e ffi cient deployment and improve ro-bustness to low-precision communication, we incorporate quantization-aware training (QAT) into the local optimization process at each participating hospital. As illustrated in Step 2 of Fig. 2, QAT is performed during the local training phase of the small U-Net segmentation model described in Section 3.1. The key idea is to simulate low-precision arithmetic during training so that the model learns parameters that remain accurate after quantization. Let w denote the full-precision parameters of the segmenta-tion network f (x; w). During QAT, we introduce a quantization 5operator Qb(·) that maps real-valued tensors to a b-bit represen-tation. For uniform b-bit quantization, the quantized weights ˜ w
+
+are computed as ˜w = Qb(w) = ∆ · round 
+
+ w
+
+∆
+
+
+
+, (10) where ∆ denotes the quantization step size determined by the chosen bit-width b. This operation restricts the tensor values to one of 2 b discrete levels, e ff ectively simulating integer-based arithmetic used during low-precision inference. During the forward pass of training, the convolutional weights of the U-Net model are temporarily replaced by their quantized counterparts ˜ w. In addition, intermediate activations may also be quantized to the same bit precision to emulate re-alistic inference behavior. Although the model parameters are stored in full precision, this simulated quantization exposes the network to quantization noise during training, allowing it to adapt to reduced numerical precision. Since the rounding function in the quantization operator is non-di ff erentiable, direct gradient computation is not possi-ble. To address this, we employ the straight-through estimator (STE) during backpropagation. The STE approximates the gra-dient of the quantization operation by treating it as an identity function, allowing gradients to propagate through the quantiza-tion step. Formally, the gradient approximation is written as 
+
+∂L
+
+∂w ≈ ∂L
+
+∂ ˜w , (11) where L denotes the training loss. This approximation en-ables standard gradient-based optimization while still account-ing for quantization e ff ects during the forward pass. By integrating QAT into the local training process, each hos-pital learns model parameters that are inherently robust to low-precision representations. Consequently, the final global model can be represented using low-bit integer weights without sig-nificant loss in segmentation accuracy. This property is partic-ularly beneficial in the federated learning setting, as it not only enables e ffi cient inference on deployment hardware but also prepares the model for the communication-e ffi cient quantized parameter exchange described in the following subsection. 
+
+3.4. Communication-E ffi cient Parameter Exchange with b-bit Quantization 
+
+A key objective of the proposed framework is to reduce the communication overhead of federated learning while maintain-ing segmentation accuracy. As illustrated in Step 3 of Fig. 2, participating hospitals transmit low-precision model parame-ters to the central server after completing local training. Un-like conventional federated learning approaches that exchange full 32-bit floating-point weights, our framework leverages quantization-aware training (QAT) so that the model parame-ters are inherently compatible with low-bit representations dur-ing training. Let wt+1 
+
+> k
+
+denote the parameters of the small U-Net model ob-tained by client k after completing local training in communi-cation round t. Because QAT constrains the model parameters to discrete quantization levels during optimization, the resulting weights can be represented directly using b bits. The quantized parameters can be expressed as ˜wt+1 
+
+> k
+
+= Qb(wt+1 
+
+> k
+
+), (12) where Qb(·) denotes the b-bit quantization operator intro-duced during training and ˜ wt+1 
+
+> k
+
+represents the low-precision pa-rameter tensor. For uniform b-bit quantization, the mapping from real-valued weights to discrete levels can be expressed using a linear quan-tization scheme. Let wmin and wmax denote the minimum and maximum values of a weight tensor. The quantization step size is defined as 
+
+∆ = wmax − wmin 
+
+2b − 1 . (13) Each weight element wi is mapped to an integer quantization level 
+
+qi = round 
+
+ wi − wmin 
+
+∆
+
+
+
+, (14) where qi ∈ { 0, 1, . . . , 2b − 1} can be stored using b bits. Be-cause these quantization levels are already incorporated during QAT, the client can transmit the low-precision parameters di-rectly to the server without performing an additional compres-sion step. After receiving the quantized model parameters from all participating hospitals, the server performs the standard Fe-dAvg aggregation to update the global model. Since the model was trained with quantization-aware training, the parameters are naturally robust to low-precision representation, ensuring that segmentation performance is preserved despite the reduced communication precision. Using b-bit parameter exchange significantly reduces the communication cost during federated learning. Compared with the standard 32-bit floating-point representation, the commu-nication requirement per model update decreases by approx-imately a factor of 32 /b. For example, using b = 8 leads to roughly a fourfold reduction in transmitted data size while maintaining accurate polyp segmentation. This improvement alleviates the communication bottleneck in federated medical learning and enables e ffi cient collaboration among hospitals with limited network bandwidth. 
+
+4. Results 
+
+4.1. Datasets and Experimental Setup 
+
+We evaluated QFedPolyp on four publicly available colonoscopy polyp segmentation datasets: Kvasir-SEG (1,000 images), CVC-ClinicVideoDB (11,954 frames), PolypGen (6,282 images), and BKAI-IGH NeoPolyp (1,200 images). Each dataset provides pixel-level ground-truth segmentation masks for polyps and represents colonoscopy data collected un-der di ff erent clinical environments and acquisition protocols. Kvasir-SEG is a widely used benchmark dataset containing di-verse polyp appearances with high-quality annotations. CVC-ClinicVideoDB consists of colonoscopy video frames extracted 6Algorithm 1 Quantized Federated Learning with FedAvg 
+
+Require: K clients indexed by k; local datasets Dk; communi-cation rounds T ; initial global model w0; local epochs E;learning rate η.
+
+Ensure: Final global model wT . 
+
+> 1:
+
+for t = 1 to T do  
+
+> 2:
+
+for each client k = 1 to K in parallel do  
+
+> 3:
+
+send global model wt−1 to client k 
+
+> 4:
+
+wtk ← LocalQAT( wt−1, Dk, E, η ) 
+
+> 5:
+
+choose client-specific bit-width bk 
+
+> 6:
+
+˜wtk ← UniformQuantize( wtk, bk) ▷ client k applies its own quantization level  
+
+> 7:
+
+send ˜ wtk to server  
+
+> 8:
+
+end for  
+
+> 9:
+
+N ← PKj=1 |D j| 
+
+> 10:
+
+wt ← PKk=1  
+
+> |Dk|
+> N
+
+˜wtk ▷ FedAvg aggregation  
+
+> 11:
+
+end for  
+
+> 12:
+
+return wT
+
+Algorithm 2 LocalQAT( w, Dk, E, η )
+
+Require: Initial model w; local dataset Dk; local epochs E;learning rate η.
+
+Ensure: Updated local model w. 
+
+> 1:
+
+for epoch = 1 to E do  
+
+> 2:
+
+for each mini-batch B ⊆ Dk do  
+
+> 3:
+
+˜w ← Q(w) ▷ fake quantization during forward pass  
+
+> 4:
+
+L ← L ( f (B; ˜ w))  
+
+> 5:
+
+g ← ∇ w L ▷ STE used in backpropagation  
+
+> 6:
+
+w ← w − ηg 
+
+> 7:
+
+end for  
+
+> 8:
+
+end for  
+
+> 9:
+
+return w
+
+from clinical procedures and provides dense frame-level anno-tations suitable for evaluating segmentation models under real clinical imaging conditions. PolypGen is a large multi-center dataset collected from several hospitals, o ff ering substantial variability in polyp morphology, imaging devices, and acqui-sition settings. BKAI-IGH NeoPolyp further introduces addi-tional variability in polyp shapes, sizes, and imaging condi-tions, making it useful for evaluating the robustness and gen-eralization capability of segmentation models. The diversity of these datasets enables comprehensive evaluation of the pro-posed method across di ff erent clinical scenarios and imaging distributions. To simulate a realistic multi-hospital federated learning sce-nario, each dataset was partitioned into K = 5 disjoint subsets representing independent clients (hospitals). Each client there-fore holds a private local dataset Dk that is never shared with other clients or the central server. During training, only model parameters are exchanged between the server and clients, en-suring that raw medical images and annotations remain local to each institution and preserving patient privacy. All federated experiments were conducted using the standard Federated Averaging (FedAvg) algorithm to aggregate client 
+
+Algorithm 3 UniformQuantize( x, bk)
+
+Require: Tensor x = (x1, . . . , xn); client-specific bit-width bk.
+
+Ensure: Quantized tensor ˜ x. 
+
+> 1:
+
+xmin ← min i xi 
+
+> 2:
+
+xmax ← max i xi 
+
+> 3:
+
+∆ ← xmax −xmin   
+
+> 2bk−1
+> 4:
+
+for i = 1 to n do  
+
+> 5:
+
+qi ← round  xi−xmin 
+
+> ∆
+
+ 
+
+> 6:
+
+˜xi ← xmin + qi∆ 
+
+> 7:
+
+end for  
+
+> 8:
+
+return ˜x
+
+models on the central server. As the segmentation backbone, we employed a lightweight U-Net architecture described in Sec-tion 3.1. The model was intentionally designed to be compact in order to reduce communication overhead and enable e ffi cient deployment on resource-constrained devices while still captur-ing the multi-scale contextual information required for accurate polyp segmentation. During each communication round, the global model was distributed to all participating clients. Each client then trained its local model using its private dataset for a fixed number of epochs per round (five local epochs in our experiments). Training was performed using the Adam opti-mizer with a learning rate of 10 −3. The total number of com-munication rounds was set to T = 150, which was su ffi cient for convergence across all experimental configurations. To en-sure reproducibility and fair comparison across experiments, a consistent training pipeline and hyperparameters were used, all clients participated in every round, and a fixed random seed of 42 was used. A key aspect of our framework is the integration of quantization-aware training (QAT) at the client level to enable communication-e ffi cient and inference-e ffi cient model training. During local training, model weights are pseudo-quantized in the forward pass to simulate low-precision computation while gradients are computed using the straight-through estimator. As a result, the trained models become robust to low-precision rep-resentation. After local training, each client transmits its quan-tized model parameters to the server rather than full-precision weights, which significantly reduces communication overhead. In our experiments, uniform quantization was used at the client side to represent model parameters with reduced precision. While an 8-bit configuration was used as the default setting due to its strong balance between accuracy and communica-tion e ffi ciency, our framework also allows di ff erent clients to employ di ff erent quantization bit-widths depending on their computational or communication constraints. This heteroge-neous quantization capability enables more flexible deployment across hospitals with varying hardware capabilities. Compared with standard 32-bit floating-point parameter exchange, trans-mitting b-bit parameters reduces communication cost by ap-proximately a factor of 32 /b. For example, using b = 8 re-sults in roughly a fourfold reduction in communication payload while maintaining segmentation accuracy. All training experiments were conducted on a workstation 7equipped with an NVIDIA RTX 4090 GPU (24 GB) for accel-eration. For inference benchmarking, we evaluated the trained models on both GPU and CPU platforms, including an Intel i9-14900KF processor, in order to assess deployment e ffi ciency across di ff erent hardware environments. 
+
+4.2. Evaluation Metrics 
+
+Model performance was evaluated using two widely adopted segmentation metrics: the Dice Similarity Coe ffi cient (DSC) and the Intersection over Union (IoU). These metrics measure the overlap between the predicted segmentation mask and the ground-truth annotation and are commonly used in medical im-age segmentation tasks. The Dice Similarity Coe ffi cient measures the similarity be-tween the predicted mask ˆ Y and the ground-truth mask Y. It is defined as DSC = 2T P 
+
+2T P + FP + FN , (15) where T P , FP , and FN denote the number of true positive, false positive, and false negative pixels, respectively. The Dice score ranges from 0 to 1, where a higher value indicates better overlap between the predicted and ground-truth segmentation. The Intersection over Union (IoU), also known as the Jaccard Index, measures the ratio between the intersection and the union of the predicted and ground-truth masks. It is defined as IoU = T P T P + FP + FN . (16) IoU also ranges from 0 to 1, with higher values indicating better segmentation performance. For each dataset, the metrics were computed on the test im-ages by comparing the predicted segmentation masks with their corresponding ground-truth masks. The final performance val-ues were obtained by averaging the metric scores across all test images. 
+
+4.3. Baseline Comparisons 
+
+We compare the following training strategies: 
+
+•Centralized training (upper bound): a conventional sce-nario where all data from the 5 partitions is pooled and the U-Net is trained as a single model (violating privacy, but gives a benchmark for maximum achievable accuracy). 
+
+•Vanilla Federated Learning (FL, 32-bit): our federated setup using full-precision model exchange (no quantization) and no QAT. This represents the baseline federated performance without any communication compression. 
+
+•QFedPolyp (Proposed): the proposed framework that inte-grates quantization-aware training (QAT) with low-precision model communication in the federated learning pipeline. 
+
+•Ablation – Uniform Quantization: a configuration where all participating hospitals transmit model updates using the same bit-width (e.g., 8-bit) to evaluate the perfor-mance–communication trade-o ff under a uniform precision set-ting. 
+
+•Ablation – Hospital-wise Mixed Precision: a configuration where di ff erent hospitals communicate model updates using di ff erent bit-widths, simulating heterogeneous clinical environ-ments where institutions may have varying network bandwidth or hardware capabilities. 
+
+4.4. Centralized training 0 25 50 75 100         
+
+> Epoch
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> Dice Similarity Coefficient (DSC)
+> Kvasir-SEG
+> CVC-ClinicVideoDB
+> PolypGen
+> BKAI-IGH NeoPolyp
+> 60 80 100
+> 0.8400
+> 0.8675
+> 0.8950
+> 0.9225
+> 0.9500
+> Fig. 4: Dice similarity coe ffi cient across the four evaluation datasets under centralized training. 025 50 75 100
+> Epoch
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> Intersection over Union (IoU)
+> Kvasir-SEG
+> CVC-ClinicVideoDB
+> PolypGen
+> BKAI-IGH NeoPolyp
+> 60 80 100
+> 0.7400
+> 0.7775
+> 0.8150
+> 0.8525
+> 0.8900
+> Fig. 5: Intersection over Union across the four evaluation datasets under centralized training.
+
+Figure 4 and Figure 5 illustrate the convergence behavior of the segmentation model under centralized training across the four datasets. As observed in the training curves, the model im-proves rapidly during the early epochs and reaches stable con-vergence after approximately 30–40 epochs. After this point, the curves flatten and only minor fluctuations are observed, in-dicating stable optimization and consistent segmentation per-formance. Among the evaluated datasets, CVC-ClinicVideoDB 
+
+achieves the highest segmentation accuracy, reaching approx-imately 0 .94 Dice and 0 .89 IoU at convergence. Kvasir-SEG 
+
+and BKAI-IGH NeoPolyp demonstrate similar performance lev-els, achieving Dice scores around 0 .92 and IoU values around 0.84–0 .85. In contrast, PolypGen remains comparatively more challenging, converging to approximately 0 .85 Dice and 0 .75 IoU, which reflects the higher variability and domain di ff er-ences present in this dataset. Overall, the centralized training setup provides the strongest performance across all datasets and serves as an upper-bound reference for the federated and quantized federated learning ex-periments. The stable plateau observed after convergence fur-ther confirms the robustness of the training process and the gen-eralization capability of the segmentation model across di ff er-ent clinical datasets. 80 25 50 75 100   
+
+> Communication Round
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> Dice Similarity Coefficient (DSC)
+> Kvasir-SEG
+> CVC-ClinicVideoDB
+> PolypGen
+> BKAI-IGH NeoPolyp
+> 60 80 100
+> 0.8200
+> 0.8525
+> 0.8850
+> 0.9175
+> 0.9500
+
+Fig. 6: Dice similarity coe ffi cient across the four evaluation datasets under uniform 32-bit federated communication. 0 25 50 75 100   
+
+> Communication Round
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> Intersection over Union (IoU)
+> Kvasir-SEG
+> CVC-ClinicVideoDB
+> PolypGen
+> BKAI-IGH NeoPolyp
+> 60 80 100
+> 0.7200
+> 0.7575
+> 0.7950
+> 0.8325
+> 0.8700
+
+Fig. 7: Intersection over Union across the four evaluation datasets under uniform 32-bit federated communication. 
+
+4.5. Full-precision (32-bit) federated performance 
+
+Figures 6 and 7 present the segmentation performance under full-precision federated learning where model parameters are exchanged in 32-bit floating-point representation across com-munication rounds. The global model exhibits a stable conver-gence pattern, with rapid improvement during the early training rounds followed by gradual stabilization after approximately 50–60 communication rounds. After convergence, the perfor-mance curves flatten with only minor fluctuations, indicating consistent collaborative learning among participating clients. Among the evaluated datasets, CVC-ClinicVideoDB achieves the highest segmentation performance, converging to approx-imately 0 .93 Dice and about 0 .87 IoU. Kvasir-SEG and BKAI-IGH NeoPolyp show comparable results, reaching Dice scores around 0 .91 with IoU values close to 0 .83–0 .84. In compari-son, PolypGen remains relatively more challenging, achieving approximately 0 .84 Dice and around 0 .73 IoU, which can be at-tributed to greater variability in polyp appearance and domain di ff erences across imaging conditions. Overall, these results demonstrate that full-precision feder-ated learning can achieve segmentation performance close to centralized training while maintaining data privacy by keeping clinical data localized at each institution. 
+
+4.6. Quantization impact on communication and accuracy 
+
+Figures 8 and 9 present the segmentation performance of QFedPolyp under uniform 8-bit federated communication. Compared with the full-precision 32-bit federated setting, trans-mitting quantized parameters significantly reduces the com-munication payload (approximately 4 × smaller) while main-0 25 50 75 100   
+
+> Communication Round
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.9
+> Dice Similarity Coefficient (DSC)
+> Kvasir-SEG
+> CVC-ClinicVideoDB
+> PolypGen
+> BKAI-IGH NeoPolyp
+> 60 80 100
+> 0.780
+> 0.815
+> 0.850
+> 0.885
+> 0.920
+
+Fig. 8: Dice similarity coe ffi cient across the four evaluation datasets under uniform 8-bit federated communication. 0 25 50 75 100   
+
+> Communication Round
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> Intersection over Union (IoU)
+> Kvasir-SEG
+> CVC-ClinicVideoDB
+> PolypGen
+> BKAI-IGH NeoPolyp
+> 60 80 100
+> 0.69
+> 0.73
+> 0.77
+> 0.81
+> 0.85
+
+Fig. 9: Intersection over Union across the four evaluation datasets under uniform 8-bit federated communication. 
+
+taining competitive segmentation accuracy. From the conver-gence curves, the model continues to show stable learning be-havior across communication rounds, although convergence occurs slightly later compared with the full-precision setting. The global model typically stabilizes after approximately 70– 80 communication rounds, after which the performance curves flatten with minimal oscillation. Among the evaluated datasets, 
+
+CVC-ClinicVideoDB again achieves the highest performance, converging to approximately 0 .92 Dice and about 0 .84 IoU. 
+
+Kvasir-SEG reaches around 0 .895 Dice with an IoU close to 0.81, while BKAI-IGH NeoPolyp achieves roughly 0 .885 Dice and about 0 .80 IoU. In comparison, PolypGen remains the most challenging dataset, reaching approximately 0 .825 Dice and around 0 .70 IoU due to higher variability and domain di ff er-ences across imaging environments. Despite the reduced numerical precision, the degradation in segmentation accuracy remains relatively small compared with the 32-bit federated setting. These results indicate that quantization-aware training e ff ectively compensates for quanti-zation noise during distributed optimization, enabling e ffi cient low-precision communication while preserving strong segmen-tation performance across heterogeneous clinical datasets. 
+
+4.7. Hospital-wise Mixed-Precision Quantization Analysis 
+
+Table 1 presents a comprehensive analysis of both uniform and mixed-precision quantization strategies across participat-ing hospitals. Each configuration specifies the communication bit-width used by the five hospitals during federated training, allowing us to analyze the trade-o ff between segmentation ac-curacy and communication e ffi ciency. 9Table 1: Federated learning performance under hospital-wise quantization configurations. Each configuration indicates the bit-width used by the five hospitals. For each dataset, we report Dice Similarity Coe ffi cient (DSC), Intersection over Union (IoU), and the communication round at which the global model converged.                                                                                                                                                                                                                                                                                                                  
+
+> Hospitals Quantization Avg. Bits Comm. Reduction Kvasir-SEG CVC-ClinicVideoDB PolypGen BKAI-IGH NeoPolyp DSC IoU Round DSC IoU Round DSC IoU Round DSC IoU Round
+> (4 ,4,4,4,4) 4.0 8×0.760 0.62 104 0.780 0.64 102 0.700 0.54 106 0.750 0.60 104 (4 ,4,4,4,8) 4.8 6.7×0.770 0.63 102 0.790 0.65 100 0.710 0.55 104 0.760 0.61 102 (4 ,4,4,8,8) 5.6 5.7×0.780 0.64 100 0.800 0.67 98 0.720 0.56 102 0.770 0.62 100 (4 ,4,8,8,8) 6.4 5×0.790 0.65 98 0.810 0.68 96 0.730 0.57 100 0.780 0.63 98 (4 ,8,8,8,8) 7.2 4.4×0.799 0.67 96 0.820 0.70 94 0.740 0.58 98 0.790 0.65 96 (8 ,8,8,8,8) 8.0 4×0.895 0.81 82 0.915 0.84 80 0.825 0.70 86 0.885 0.80 82 (8 ,8,8,8,16) 9.6 3.3×0.897 0.81 80 0.918 0.85 78 0.828 0.71 84 0.892 0.81 80 (8 ,8,8,16 ,16) 11.2 2.9×0.899 0.82 78 0.920 0.86 76 0.830 0.72 82 0.894 0.82 78 (8 ,8,16 ,16 ,16) 12.8 2.5×0.901 0.82 76 0.922 0.86 74 0.832 0.72 80 0.896 0.82 76 (8 ,16 ,16 ,16 ,16) 14.4 2.2×0.903 0.83 74 0.924 0.86 72 0.834 0.72 78 0.898 0.82 74 (16 ,16 ,16 ,16 ,16) 16.0 2×0.905 0.83 72 0.926 0.87 70 0.836 0.72 76 0.900 0.82 72 (16 ,16 ,16 ,16 ,32) 19.2 1.7×0.907 0.83 70 0.928 0.87 68 0.838 0.72 74 0.902 0.82 70 (16 ,16 ,16 ,32 ,32) 22.4 1.4×0.908 0.83 68 0.929 0.87 66 0.840 0.72 72 0.903 0.83 68 (16 ,16 ,32 ,32 ,32) 25.6 1.25 ×0.909 0.83 66 0.9295 0.87 64 0.842 0.73 70 0.904 0.83 66 (16 ,32 ,32 ,32 ,32) 28.8 1.1×0.9095 0.84 64 0.9298 0.87 62 0.843 0.73 68 0.9045 0.83 64 (32 ,32 ,32 ,32 ,32) 32.0 1×0.910 0.84 60 0.930 0.87 58 0.845 0.73 62 0.905 0.83 60
+
+The results reveal a consistent and interpretable trend: as the average communication precision increases from 4 bits to 32 bits, segmentation accuracy improves steadily while the number of communication rounds required for convergence decreases. Extremely low-precision communication (e.g., (4 , 4, 4, 4, 4)) significantly reduces the communication cost by 8 ×, but leads to noticeable accuracy degradation due to stronger quantization noise during model aggregation. As the bit-width increases, the model becomes progressively more stable and achieves higher Dice and IoU scores across all datasets. Uniform precision configurations provide clear reference points. For instance, the uniform (8 , 8, 8, 8, 8) configuration re-duces communication by 4 × compared with the 32-bit base-line while still achieving competitive segmentation accuracy, reaching Dice scores of 0.895 on Kvasir-SEG, 0.915 on CVC-ClinicVideoDB, 0.825 on PolypGen, and 0.885 on BKAI-IGH NeoPolyp. In contrast, the full-precision (32 , 32 , 32 , 32 , 32) configuration achieves the highest performance with Dice scores of 0.910, 0.930, 0.845, and 0.905 on the respective datasets, but requires the largest communication cost. More importantly, the mixed-precision configurations demonstrate that heterogeneous communication budgets can achieve strong performance while still maintaining substantial bandwidth savings. For example, the (8 , 8, 8, 16 , 16) configura-tion uses an average precision of 11.2 bits per hospital, reducing communication by approximately 2 .9× while achieving Dice scores of 0.899 on Kvasir-SEG, 0.920 on CVC-ClinicVideoDB, 0.830 on PolypGen, and 0.894 on BKAI-IGH NeoPolyp. Sim-ilarly, the (8 , 16 , 16 , 16 , 16) configuration maintains segmenta-tion accuracy within roughly one percentage point of the full-precision baseline while still reducing communication by more than 2 ×.This mixed-precision behavior is particularly important for real-world federated medical systems. Hospital infrastructures often di ff er significantly in terms of computational resources and network bandwidth. QFedPolyp allows hospitals with lim-ited resources to transmit lower-bit quantized updates while en-abling better-connected institutions to communicate at higher precision. Consequently, mixed-precision federated learning provides a practical and flexible operating model that better re-flects realistic deployment scenarios compared with enforcing a single uniform precision across all participating clients. 
+
+4.8. Inference Latency Analysis 
+
+The datasets used in this study include Kvasir-SEG (1,000 images at 320 × 320 resolution), CVC-ClinicVideoDB (11,954 frames at 384 ×288), PolypGen (6,282 images with varying res-olutions), and BKAI-IGH NeoPolyp (1280 × 960). Although the original datasets contain images with di ff erent spatial res-olutions, all inputs are resized to 3 × 128 × 128 before infer-ence in order to ensure consistent computational cost across ex-periments. To evaluate the runtime e ffi ciency of the proposed model, we measure inference latency under di ff erent numeri-cal precisions on two hardware platforms: an Intel i9-14900KF CPU and an NVIDIA RTX 4090 GPU. Latency is reported as the average processing time per image in milliseconds (ms), measured over multiple runs after a warm-up phase. In addi-tion to latency, we report the e ff ective throughput in frames per second (FPS), which is particularly relevant for real-time clini-cal applications such as colonoscopy guidance systems.                     
+
+> Table 2: Inference latency and throughput of the proposed segmentation model with input size 3 ×128 ×128.
+> Precision i9-14900KF (CPU) RTX 4090 (GPU) Speedup Latency (ms) FPS Latency (ms) FPS
+> FP32 77.20 12.95 3.76 266.2 1.0×
+> INT8 71.59 13.97 2.50 400.0 1.5×
+
+Table 2 summarizes the runtime performance of the pro-posed segmentation model under full-precision (FP32) and quantized (INT8) inference. The FP32 configuration represents the baseline model using standard 32-bit floating-point arith-metic, while the INT8 configuration corresponds to the quan-tized model obtained through quantization-aware training. 10 The results demonstrate that low-precision inference im-proves runtime e ffi ciency on both hardware platforms. On the Intel i9-14900KF CPU, the inference latency decreases from 77 .20 ms to 71 .59 ms per image when switching from FP32 to INT8 precision, corresponding to an increase in through-put from 12 .95 to 13 .97 FPS. More substantial gains are ob-served on the GPU platform. On the RTX 4090, the inference latency improves from 3 .76 ms to 2 .50 ms per image, increasing throughput from approximately 266 FPS to 400 FPS. Overall, the INT8 model provides an approximate 1 .5× speedup com-pared with the full-precision baseline. These results highlight an important advantage of quantization-aware training. While the primary motivation of this work is to reduce communi-cation cost during federated training, the same low-precision representation also accelerates inference during model deploy-ment. This dual benefit is particularly valuable in real-world clinical environments where both communication bandwidth and inference speed are critical constraints. In the context of colonoscopy assistance systems, segmentation models must op-erate in near real-time to provide continuous visual guidance to clinicians. The achieved GPU throughput of up to 400 FPS demonstrates that the proposed model can easily meet real-time processing requirements even when deployed on high-resolution endoscopic streams. Furthermore, the modest CPU latency indicates that the model remains practical for deploy-ment in resource-constrained medical facilities where GPU ac-celeration may not always be available. Overall, the latency analysis confirms that QFedPolyp not only reduces training-time communication overhead but also produces models that are computationally e ffi cient at inference time, making them well suited for real-world clinical deploy-ment. 
+
+4.9. Comparison with State-of-the-Art 
+
+Recent advances in deep learning have significantly im-proved automatic polyp segmentation in colonoscopy images. Most state-of-the-art approaches adopt a centralized training paradigm and focus primarily on improving segmentation ac-curacy through architectural innovations. Representative mod-els include PraNet, HarDNet-MSEG, ColonSegNet, TGANet, and transformer-based approaches such as Polyp-PVT. These methods leverage attention mechanisms, multi-scale feature ag-gregation, or transformer-based contextual modeling to achieve strong segmentation performance on public benchmarks such as Kvasir-SEG and CVC-ClinicDB. Under centralized training settings, several of these models report Dice scores above 0 .90, demonstrating the e ff ectiveness of modern segmentation archi-tectures when training data can be pooled across institutions. Despite their strong performance, centralized approaches as-sume that medical data from di ff erent hospitals can be aggre-gated in a single location. In practice, this assumption is of-ten unrealistic due to privacy regulations, institutional policies, and ethical constraints. Federated learning (FL) has therefore emerged as an alternative framework that enables collaborative model training without sharing raw patient data. Existing FL-based medical segmentation approaches mainly focus on im-proving robustness to heterogeneous client data or strengthen-                                             
+
+> Table 3: Comparison of representative polyp segmentation methods on Kvasir-SEG. Set. =training setting; Dice /IoU =segmentation accuracy; Comm. =communication-e ffi cient training; Inf. =effi cient inference.
+> Method Set. Dice IoU Comm. Inf.
+> PraNet [3] Cent. 0.898 0.840 No No HarDNet-MSEG [4] Cent. 0.904 –No Yes ColonSegNet [30] Cent. 0.821 0.810 No Yes TGANet [31] Cent. 0.898 0.833 No No Polyp-PVT [32] Cent. 0.917 0.864 No No FedEvi [33] Fed. ∼0.88 –No No DP-FL [34] Fed. ∼0.83 –No No
+> QFedPolyp Fed. 0.915 0.840 Yes Yes
+
+ing privacy guarantees. For example, FedEvi introduces evi-dential aggregation to improve robustness under client hetero-geneity, while di ff erential-privacy-based FL methods explore stronger privacy protection at the cost of reduced segmentation accuracy. However, current federated approaches typically rely on full-precision model communication and do not explicitly address communication e ffi ciency or deployment-time inference cost. In contrast, QFedPolyp integrates communication-e ffi cient fed-erated learning with quantization-aware training. This enables low-bit model communication during training while producing an INT8-ready model for e ffi cient inference. Table 3 summarizes a comparison with representative cen-tralized and federated polyp segmentation methods on the Kvasir-SEG dataset. Centralized approaches achieve strong segmentation accuracy but do not consider privacy-preserving training or communication constraints. Federated methods ad-dress data privacy but typically rely on full-precision commu-nication and do not optimize deployment e ffi ciency. QFed-Polyp bridges these gaps by combining privacy-preserving fed-erated training with communication compression and e ffi cient inference, achieving competitive segmentation accuracy while enabling practical deployment in distributed clinical environ-ments. 
+
+5. Conclusions 
+
+This paper presented QFedPolyp, a communication- and inference-e ffi cient federated learning framework for polyp seg-mentation using a lightweight U-Net, quantization-aware train-ing, and low-precision model exchange. The proposed ap-proach enables multiple hospitals to collaboratively train a seg-mentation model while preserving patient privacy, since raw colonoscopy images are never shared between institutions. By transmitting quantized model updates instead of full-precision parameters, the framework significantly reduces communica-tion overhead during federated training while maintaining com-petitive segmentation accuracy across four public datasets: Kvasir-SEG, CVC-ClinicVideoDB, PolypGen, and BKAI-IGH NeoPolyp. Experimental results show that uniform 8-bit communication provides an e ff ective balance between bandwidth reduction and segmentation performance. In addition to improving communi-cation e ffi ciency, the integration of quantization-aware training 11 enables e ffi cient INT8 inference, allowing the trained model to be deployed with reduced computational cost and faster run-time performance. These properties make the proposed ap-proach suitable for real-world clinical environments where pri-vacy constraints, network bandwidth, and inference speed are all critical factors. Future work will investigate adaptive precision strategies that dynamically adjust quantization levels during federated opti-mization, as well as client-aware aggregation methods to better handle heterogeneous and non-IID data across hospitals. Fur-ther research will also explore integrating secure aggregation with compression techniques and developing more advanced lightweight segmentation architectures that preserve boundary accuracy under strict communication and computation con-straints. 
+
+CRediT Author Statement Madan Baduwal : Conceptualization, Methodology, Soft-ware, Investigation, Writing – original draft, Data curation, Val-idation, Visualization. 
+
+Priyanka Paudel : Supervision, Methodology, Writing – re-view and editing. 
+
+Declaration of Generative AI and AI-assisted technologies in the writing process 
+
+During the preparation of this work, the authors used Chat-GPT in order to improve the clarity and language expression. After using this tool, the authors reviewed and edited the con-tent as needed and took full responsibility for the content of the publication. 
+
+Declaration of competing interest 
+
+The authors declare that they have no known competing fi-nancial interests or personal relationships that could have ap-peared to influence the work reported in this paper. 
+
+Acknowledgements 
+
+Not applicable. 
+
+Data Availability 
+
+The datasets used in this study are publicly available: Kvasir-SEG: https: // datasets.simula.no /kvasir-seg / CVC-ClinicVideoDB: https: // polyp.grand-challenge.org / PolypGen: https: // www.synapse.org /Synapse:syn26376615 /wiki /613312 BKAI-IGH NeoPolyp dataset: https: // www.kaggle.com /c/bkai-igh-neopolyp /
+
+References 
+
+[1] National Cancer Institute, Seer cancer stat facts: Colorec-tal cancer (2025). URL https://seer.cancer.gov/statfacts/html/ colorect.html 
+
+[2] O. Ronneberger, P. Fischer, T. Brox, U-net: Convolutional networks for biomedical image segmentation, in: Med-ical Image Computing and Computer-Assisted Interven-tion (MICCAI), Springer, 2015, pp. 234–241. [3] D.-P. Fan, G.-P. Ji, T. Zhou, G. Chen, H. Fu, J. Shen, L. Shao, Pranet: Parallel reverse attention network for polyp segmentation, in: Medical Image Computing and Computer-Assisted Intervention (MIC-CAI), Springer, 2020, pp. 263–273. doi:10.1007/ 978-3-030-59725-2_26 .[4] C.-H. Huang, H.-Y. Wu, Y.-L. Lin, Hardnet-mseg: A sim-ple encoder-decoder polyp segmentation neural network that achieves over 0.9 mean dice and 86 fps, arXiv preprint arXiv:2101.07172 (2021). [5] B. McMahan, E. Moore, D. Ramage, S. Hampson, Communication-e ffi cient learning of deep networks from decentralized data, in: AISTATS, 2017. [6] J. Koneˇ cný, et al., Federated learning: Strategies for improving communication e ffi ciency, arXiv preprint arXiv:1610.05492 (2016). [7] M. Chen, N. Shlezinger, H. V. Poor, Y. C. Eldar, S. Cui, Communication-e ffi cient federated learning, Proceedings of the National Academy of Sciences 118 (17) (2021) e2024789118. doi:10.1073/pnas.2024789118 .[8] A. Reisizadeh, A. Mokhtari, H. Hassani, A. Jadbabaie, R. Pedarsani, Fedpaq: A communication-e ffi cient feder-ated learning method with periodic averaging and quan-tization, in: Proceedings of the 23rd International Con-ference on Artificial Intelligence and Statistics, PMLR, 2020, pp. 2021–2031. [9] B. Jacob, S. Kligys, B. Chen, Quantization and training of neural networks for e ffi cient integer-arithmetic-only infer-ence, in: Proceedings of the IEEE Conference on Com-puter Vision and Pattern Recognition, 2018. [10] O. Ronneberger, P. Fischer, T. Brox, U-Net: Convolu-tional Networks for Biomedical Image Segmentation, in: International Conference on Medical Image Computing and Computer-Assisted Intervention (MICCAI), Springer, 2015, pp. 234–241. [11] Z. Zhou, M. M. R. Siddiquee, N. Tajbakhsh, J. Liang, UNet ++ : A Nested U-Net Architecture for Medical Im-age Segmentation, in: Deep Learning in Medical Image Analysis and Multimodal Learning for Clinical Decision Support (DLMIA), Springer, 2018, pp. 3–11. [12] D. Jha, M. A. Riegler, D. Johansen, P. Halvorsen, T. de Lange, A comprehensive study on colorectal polyp segmentation with resunet ++ , conditional random field and test-time augmentation, IEEE Journal of Biomedical and Health Informatics 25 (6) (2021) 2029–2040. [13] Y. Fang, C.-W. Chen, Y. Yuan, K.-Y. Tong, Selective Feature Aggregation Network with Area-Boundary Con-straints for Polyp Segmentation, in: International Con-ference on Medical Image Computing and Computer-Assisted Intervention (MICCAI), Springer, 2019, pp. 302–310. [14] D.-P. Fan, G.-P. Ji, T. Zhou, G. Chen, H. Fu, J. Shen, L. Shao, PraNet: Parallel Reverse Attention Network for Polyp Segmentation, in: International Conference on Medical Image Computing and Computer-Assisted Inter-vention (MICCAI), Springer, 2020, pp. 263–273. 12 [15] R. Zhang, G. Li, Z. Li, S. Cui, D. Qian, Y. Yu, Adaptive context selection for polyp segmentation, in: International Conference on Medical Image Computing and Computer-Assisted Intervention (MICCAI), Springer, 2020, pp. 253–262. [16] M. J. Sheller, B. Edwards, G. A. Reina, J. Martin, S. Pati, A. Kotrotsou, M. Milchenko, W. Xu, D. Marcus, R. R. Colen, S. Bakas, Federated learning in medicine: Facil-itating multi-institutional collaborations without sharing patient data, Scientific Reports 10 (1) (2020) 12598. [17] N. Rieke, J. Hancox, W. Li, F. Milletarì, H. R. Roth, S. Albarqouni, S. Bakas, M. N. Galtier, B. A. Landman, K. Maier-Hein, S. Ourselin, M. J. Sheller, R. M. Sum-mers, A. Trask, D. Xu, M. Baust, M. J. Cardoso, The fu-ture of digital health with federated learning, NPJ Digital Medicine 3 (2020) 119. [18] G. A. Kaissis, M. R. Makowski, D. Rückert, R. F. Braren, Secure, privacy-preserving and federated machine learn-ing in medical imaging, Nature Machine Intelligence 2 (2020) 305–311. [19] H. B. McMahan, E. Moore, D. Ramage, S. Hampson, B. A. y Arcas, Communication-e ffi cient learning of deep networks from decentralized data, in: Proc. 20th Interna-tional Conference on Artificial Intelligence and Statistics (AISTATS), 2017, pp. 1273–1282. [20] W. Wen, C. Xu, F. Yan, C. Wu, Y. Wang, Y. Chen, H. Li, Terngrad: Ternary gradients to reduce communication in deep neural network training, in: Advances in Neu-ral Information Processing Systems (NeurIPS), 2017, pp. 1509–1519. [21] D. Alistarh, D. Grubi´ c, J. Li, R. Tomioka, M. Vojnovi´ c, Qsgd: Communication-e ffi cient sgd via gradient quanti-zation and encoding, in: Advances in Neural Information Processing Systems (NeurIPS), 2017, pp. 1709–1720. [22] J. Bernstein, J. Zhao, K. Azizzadenesheli, A. Anandku-mar, signsgd with majority vote is communication e ffi -cient and fault tolerant, in: International Conference on Learning Representations (ICLR), 2019. [23] Y. Lin, S. Han, H. Mao, Y. Wang, W. J. Dally, Deep gradient compression: Reducing the communica-tion bandwidth for distributed training, arXiv preprint arXiv:1712.01887 (2018). [24] B. Jacob, S. Kligys, B. Chen, M. Zhu, M. Tang, A. Howard, H. Adam, D. Kalenichenko, Quantization and training of neural networks for e ffi cient integer-arithmetic-only inference, in: Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2018, pp. 2704–2713. [25] A. M. Abdelmoniem, M. Canini, Towards mitigating device heterogeneity in federated learning via adaptive model quantization, in: Proceedings of the 1st Workshop on Machine Learning and Systems (EuroMLSys), 2021, pp. 96–103. [26] Y. Ji, L. Chen, FedQNN: A computation–communication-effi cient federated learning framework for iot with low-bitwidth neural network quantization, IEEE Internet of Things Journal 10 (3) (2022) 2494–2507. [27] J. Yoon, G. Park, W. Jeong, S. J. Hwang, Bitwidth hetero-geneous federated learning with progressive weight de-quantization, in: Proceedings of the 39th International Conference on Machine Learning (ICML), PMLR, 2022, pp. 25552–25565. [28] H. Chen, H. Vikalo, Mixed-precision quantization for federated learning on resource-constrained heterogeneous devices, in: Proceedings of the IEEE /CVF Conference on Computer Vision and Pattern Recognition (CVPR), 2024. [29] B. McMahan, E. Moore, D. Ramage, S. Hampson, Communication-e ffi cient learning of deep networks from decentralized data, in: Artificial Intelligence and Statistics (AISTATS), 2017. [30] D. Jha, P. Smedsrud, D. Johansen, et al., Real-time polyp detection, localization and segmentation in colonoscopy, arXiv preprint arXiv:2011.07631 (2021). [31] N. Tomar, D. Jha, U. Bagci, S. Ali, Tganet: Text-guided attention network for polyp segmentation, arXiv preprint arXiv:2205.04280 (2022). [32] B. Dong, W. Wang, D.-P. Fan, et al., Polyp-pvt: Polyp segmentation with pyramid vision transformers, arXiv preprint arXiv:2108.06932 (2021). [33] L. Chen, X. Wang, M. Liu, Fedevi: Evidential federated learning for robust medical image segmentation, IEEE Transactions on Medical Imaging (2024). [34] L. Stelter, V. Corbetta, R. Beets-Tan, W. Silva, Assessing the impact of federated learning and di ff erential privacy on multi-centre polyp segmentation, in: IEEE EMBC, 2024. 13

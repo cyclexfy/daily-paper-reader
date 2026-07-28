@@ -1,0 +1,350 @@
+Title: Robustifying pathology foundation models via fine-tuning
+
+URL Source: https://arxiv.org/pdf/2607.22861v1
+
+Published Time: Tue, 28 Jul 2026 00:13:05 GMT
+
+Number of Pages: 17
+
+Markdown Content:
+# Robustifying pathology foundation models via fine-tuning 
+
+Alexandre Filiot 1∗ Oskar Thaeter 1,2,3 Benoît Schmauch 1 Lionel Guillou 1
+
+> 1
+
+Waiv 
+
+> 2
+
+Institute of Pathology, Technical University of Munich 
+
+> 3
+
+School of Computation, Information and Technology, Technical University of Munich 
+
+## Abstract 
+
+Pathology foundation models (FMs) produce powerful tile-level representations which remain sensitive to scanner and staining variability, undermining deploy-ment across laboratories. We develop a novel fine-tuning recipe that improves the robustness of pathology FMs to acquisition factors. Applied to ten different FMs, our fine-tuning strategy consistently improves robustness for every model as well as downstream performance, with no observed trade-off. On average, it raises the PathoROB robustness index by 23% (from 0.72 to 0.87) and increases the overall cross-benchmark performance by 43% on Patho-Bench, HEST and THUNDER combined, with individual gains reaching up to 72% in robustness (Phikon-v2) and 76% in performance (Midnight-12k). We publicly release the fine-tuned versions of Phikon-v2 ( Phaet ) and Midnight-12k ( Mascaret ) at hugging-face.co/wearewaiv/models. 
+
+Figure 1: Fine-tuning improves robustness and performance jointly. Each foundation model is shown before (open circle) and after (filled circle) fine-tuning. The x-axis is the average PathoROB robustness index over three datasets, where higher values indicate greater robustness; the y-axis is the normalized rank sum over the HEST, THUNDER and Patho-Bench benchmarks, rescaled to [0 , 1] so that 1 corresponds to the best achievable performance.  
+
+> ∗Corresponding author: alexandre.filiot@wearewaiv.com
+> Preprint. arXiv:2607.22861v1 [cs.CV] 24 Jul 2026
+
+## 1 Introduction 
+
+Foundation models (FMs) trained on large corpora of histopathology images now underpin a wide range of computational pathology pipelines, involving biomarker prediction [ 32 , 47 ], gene expression prediction [ 49 , 29 ], whole slide image (WSI) and tissue classification [ 51 , 16 ] or survival analysis [ 11 ,59 ]. Despite their strong performance, these models inherit a long-standing weakness of the field: their representations are entangled with acquisition factors such as the scanner model or the staining protocol [ 12 ]. Two images of the same tissue, scanned on different devices or stained in different laboratories, can map to markedly different points in feature space. The resulting domain shift degrades downstream models when they are deployed in a laboratory whose acquisition pipeline differs from the training distribution [23, 34, 55]. We argue that robustness to these confounding factors can be instilled directly into the encoder, without retraining from scratch and without sacrificing the generic quality of the representation. Our contributions are threefold: • We develop a novel fine-tuning recipe that makes pathology FMs more robust to acquisition factors, applied uniformly to ten different foundation models. • We support our method with a comprehensive empirical study spanning robustness (PathoROB) [ 34 ] and downstream performance (HEST gene-expression prediction [ 29 ], THUNDER tile-level tasks [ 39 ] and Patho-Bench slide-level tasks [ 63 ]), showing consistent robustness gains with no performance trade-off (Figure 1). • We release Phaet and Mascaret , the respective robust versions of Phikon-v2 and Midnight-12k at huggingface.co/wearewaiv/models. Mascaret strikes a state-of-the-art balance be-tween robustness (first on PathoROB) and downstream performance (second on average behind UNI2-h) among the publicly available models. 
+
+## 2 Related work 
+
+Pretraining a feature extractor with self-supervised learning (SSL) is now a cornerstone of mod-ern computational pathology (CPath) frameworks. Early CPath pipelines used to leverage models pretrained on ImageNet [ 15 ], and suffered from an out-of-domain gap when transferred to digital pathology images. The advent of SSL methods showed the benefit of doing an in-domain pretraining for pathology feature extractors [ 10 , 13 , 46 ]. While they were originally leveraging contrastive meth-ods [ 9, 62 ] tailored for convolutional networks, more recent models build on the Vision Transformer (ViT) architecture, with pretraining methods such as DINO, iBOT, DINOv2 or DINOv3 [ 6 , 64 , 43 , 53 ]. Most of the recent foundation models for digital pathology leverage the DINOv2 [ 37 , 48 , 60 , 61 ] and DINOv3 [ 30 ] frameworks. Over the last two years, progress has largely been driven by scaling the pre-training corpus and model size, culminating in billion-parameter models trained on millions of WSIs [ 65 , 1 , 4 , 48 ]. As a consequence of large data diversity scaling, those large models are not only more performant but also more robust to acquisition shift without any explicit invariance mechanism other than the SSL pretext tasks. However, a growing body of work has shown that even recent FMs entangle non-biological acquisition factors (scanner, laboratory, staining) in their representations, degrading downstream performance across sites [ 12 , 36 , 7, 23 , 25 , 14 , 56 ], and dedicated benchmarks now quantify this fragility [ 34 , 20 ]. This suggests that perfect robustness is not yet achieved, and the question of how to instill invariance to acquisition factors in a model-agnostic way remains open. Existing mitigation strategies act away from the encoder. Image-level approaches normalize stain appearance [ 38 , 44 , 58 ] or augment it [ 17 , 54 , 52 , 41 , 28 ]; post-hoc approaches correct features using site statistics [ 40 ]; and downstream-model approaches suppress domain-predictive features during task training, via domain-adversarial objectives [ 21 ], contrastive losses over co-registered scanner pairs [ 5, 24 , 45 ], or information-bottleneck adaptation that disentangles site and demographic artifacts [ 26 ]. These downstream methods all keep the backbone frozen. Distillation [ 20 , 37 , 22 ] has also been proposed to improve efficiency and robustness but requires a robust teacher model and is computationally expensive. In contrast, we robustify the encoder itself by fine-tuning it, yielding a single task-agnostic and robust encoder. 23 Experimental setup 
+
+3.1 Backbones 
+
+We fine-tune ten pathology FMs spanning a range of architectures and pre-training recipes: AquaViT (internal, ViT-B/14), GenBio-PathFM [ 30 ], H-Optimus-0 [ 48 ], H0-mini [ 20 ], Midnight-12k [ 31 ], Phikon [ 18 ], Phikon-v2 [ 19 ], Prov-GigaPath [ 61 ], UNI2-h [ 8], and Virchow2 [ 65 ]. For detailed information on each model, refer to wearewaiv.github.io/histoboard/models. The fine-tuned versions of Phikon-v2 and Midnight-12k are referred to as Phaet and Mascaret , respectively. 
+
+3.2 Robustness evaluation PathoROB We evaluate robustness with the PathoROB benchmark [ 34 ], which introduces the robustness index metric to quantify the robustness of pathology foundation models to non-biological confounding features, specifically medical center differences arising from variations in staining procedures, scanner hardware, surgical techniques, and laboratory protocols. The Robustness Index (RI) measures the degree to which biological features (e.g., tissue type, cancer type) dominate over confounding non-biological features (e.g., medical center signatures) in the neighborhood structure of a foundation model’s feature space. The benchmark comprises three datasets sourced from CAMELYON [ 3, 2], TCGA [ 35 ] and Tolkach ESCA [ 57 ], covering 28 biological classes from 34 medical centers. 
+
+3.3 Performance evaluation HEST The HEST-Benchmark [ 29 ] casts spatial gene-expression prediction as a multivariate regres-sion from tile features, spanning nine cancer types. Following the default protocol and implementation, we fit a ridge regression on PCA-reduced foundation-model features ( d = 256 ) to predict the mea-sured expression, and report the Pearson correlation coefficient between predicted and measured gene expression. Results are reported for each of the following nine cancer types: invasive ductal carcinoma (breast cancer, IDC), prostate adenocarcinoma (prostate cancer, PRAD), pancreatic ade-nocarcinoma (pancreatic cancer, PAAD), skin cutaneous melanoma (skin cancer, SKCM), colonic adenocarcinoma (colon cancer, COAD), rectal adenocarcinoma (rectum cancer, READ), clear cell renal cell carcinoma (kidney cancer, ccRCC), hepatocellular carcinoma (liver cancer, HCC), and axillary lymph nodes in IDC (metastatic, LYMPH-IDC). 
+
+THUNDER THUNDER [ 39 ] is a comprehensive tile-level benchmark designed to rigorously compare foundation models across various downstream tasks in computational pathology. Across 16 different datasets of various sizes, organs and magnifications, THUNDER evaluates k-nearest-neighbor classification, linear probing and few-shot (simple-shot) classification, semantic segmenta-tion, predictive calibration, and robustness to adversarial attacks. Each model is evaluated on frozen features following the default protocol and ranked per task; we summarize overall performance by the rank sum across the six tasks following the original leaderboard. For computational efficiency, all THUNDER experiments use mixed precision. 
+
+Patho-Bench Patho-Bench [ 63 ] is a slide-level benchmarking framework spanning 95 tasks across seven categories: morphological subtyping, TME characterization, tumor grading, molecular sub-typing, mutation prediction, treatment-response assessment, and survival prediction. We evaluate a subset of 63 tasks drawn from multiple datasets under the default ABMIL [ 27 ] protocol, and report the task-appropriate metric defined by Patho-Bench: AUROC for binary classification, balanced accuracy for multi-class classification, the concordance index (C-index) for survival, and quadratic weighted Cohen’s κ for tumor grading. Each task is run three times, and we report the mean over all data folds and random seeds using the provided data splits and task metadata. For all benchmarks, results for both base and fine-tuned models were generated using the official implementations and default hyperparameters, with no additional tuning. Concatenation of [CLS] 
+
+and mean-pooled patch features was performed for all models in PathoROB; only for Virchow2 in HEST and Patho-Bench; and for Virchow2, AquaViT, H0-mini and Midnight-12k in THUNDER, following the original implementations. 34 Results 
+
+4.1 Fine-tuning jointly improves robustness and performance 
+
+Table 1 (left) reports the PathoROB robustness index for each base and fine-tuned model pair. The robustness index increases consistently for every model ( p < 10 −4, one-sided Wilcoxon signed-rank test), with some substantial improvements for Phikon-v2 ( 0.47 → 0.81 ), Prov-GigaPath ( 0.62 →
+
+0.89 ) and H-Optimus-0 ( 0.81 → 0.92 ). Table 1 (right) aggregates the performance on HEST, THUNDER and Patho-Bench into a single cross-benchmark ranking. Fine-tuned models dominate the leaderboard: the best fine-tuned encoder (UNI2-h) attains a total rank of 5 (versus 21 for the strongest base model), and every model improves its overall rank after fine-tuning ( p < 10 −4, one-sided Wilcoxon signed rank test). Together with the robustness gains, this yields the joint up-and-to-the-right shift visualized in Figure 1: robustness and performance improve simultaneously, with no observed trade-off. According to the complete leaderboards available in Supplementary A, all top-1 positions are taken by fine-tuned models: UNI2-h for HEST (0.4290), UNI2-h for THUNDER (30 against 35 for the base UNI2-h), and Midnight-12k for Patho-Bench. On PathoROB, 8 out of the 10 most robust models are fine-tuned models. 
+
+Table 1: Robustness and cross-benchmark performance summary. Left (PathoROB): robustness index (RI) per dataset and average ( ↑). Right : rank among 20 models (1 = best) on each benchmark with the average metric in parentheses (HEST: average Pearson ↑, THUNDER: rank sum ↓, Patho-bench: grand average ↑), and total being the sum of the three benchmark ranks ↓. Bold marks the better value within each pair. Colors: green = improvement of the fine-tuned model over the base model, red = regression, orange = tie.                                                                                                                                                                                               
+
+> Model Variant Robustness Index (PathoROB) Performance (ranks ↓)
+> TCGA RI ↑Cam. RI ↑Tolkach RI ↑Average HEST ↑THUNDER ↓Patho-bench ↑Total ↓
+> UNI2-h Base 0.803 0.544 0.923 0.757 7 (0.4141) 2 (26) 12 (55.6) 21
+> Fine-tuned 0.863 0.901 0.960 0.908 2 (0.4290) 1 (20) 2 (57.3) 5
+> Midnight-12k Base 0.858 0.478 0.941 0.759 15 (0.3952) 15 (70) 15 (54.6) 45
+> Mascaret Fine-tuned 0.893 0.907 0.972 0.924 5 (0.4167) 5 (34) 1 (58.0) 11
+> H-Optimus-0 Base 0.812 0.703 0.918 0.811 6 (0.4150) 14 (68) 17 (54.4) 37
+> Fine-tuned 0.856 0.933 0.961 0.917 1 (0.4290) 7 (41) 5 (56.8) 13
+> GenBio-PathFM Base 0.838 0.862 0.959 0.886 3 (0.4197) 6 (40) 19 (54.0) 28
+> Fine-tuned 0.863 0.926 0.966 0.918 4 (0.4178) 3 (29) 11 (55.8) 18
+> Virchow2 Base 0.822 0.799 0.954 0.858 13 (0.4034) 8 (43) 13 (55.4) 34
+> Fine-tuned 0.849 0.935 0.969 0.918 8 (0.4135) 4 (32) 6 (56.8) 18
+> AquaViT Base 0.781 0.673 0.925 0.793 12 (0.4045) 10 (60) 9 (56.2) 31
+> Fine-tuned 0.811 0.865 0.950 0.875 11 (0.4064) 10 (60) 3 (57.1) 24
+> Prov-GigaPath Base 0.737 0.382 0.746 0.622 17 (0.3875) 16 (78) 16 (54.5) 49
+> Fine-tuned 0.827 0.872 0.956 0.885 9 (0.4098) 9 (52) 8 (56.7) 26
+> H0-mini Base 0.794 0.717 0.932 0.814 14 (0.3958) 12 (61) 7 (56.7) 33
+> Fine-tuned 0.811 0.842 0.950 0.868 10 (0.4076) 13 (65) 4 (56.9) 27
+> Phikon-v2 Base 0.619 0.019 0.768 0.469 19 (0.3747) 20 (97) 18 (54.1) 57
+> Phaet Fine-tuned 0.785 0.702 0.932 0.806 16 (0.3943) 18 (83) 10 (55.8) 44
+> Phikon Base 0.623 0.011 0.795 0.476 20 (0.3660) 18 (83) 20 (53.3) 58
+> Fine-tuned 0.731 0.244 0.914 0.630 18 (0.3832) 17 (81) 14 (55.0) 49
+
+Figure 2 shows a two-dimensional PCA projection of Phikon-v2 features extracted for the PathoROB-Camelyon dataset [ 34 ]. Tiles are sentinel lymph-node patches from breast-cancer patients drawn from the Camelyon16 and Camelyon17 cohorts across five Dutch medical centers (RUMC, UMCU, CWZ, RST, LPON), each labeled as containing nodal metastasis (tumor) or not (normal). The five centers were digitized on three distinct whole-slide scanners: RUMC, CWZ and RST slides on a 3DHistech P250 ( 0.24 μm/px), UMCU on a Hamamatsu XR C12000 ( 0.23 μm/px), and LPON on a Philips IntelliSite Ultra-Fast scanner ( 0.25 μm/px). For the original Phikon-v2 model, the leading axis of variation separates the acquisition pipeline rather than the tissue (top left): a k-means partition of the full-dimensional features ( k ∈ { 1, ..., 10 } optimizes the silhouette score of the corresponding clustering solution) aligns with the medical center but not the biology (Adjusted Rand Index, ARI, of 0.46 against center vs. 0.00 against metastasis status). In particular, the three centers sharing the 3DHistech P250 (RUMC, CWZ, RST) collapse into a single cloud, whereas UMCU and LPON (each 4Figure 2: Fine-tuning reorganizes Phikon-v2’s feature space around biology rather than acquisition site. PCA of Phikon-v2 features on PathoROB-Camelyon dataset, before (left) and after (right) fine-tuning, colored by medical center (top) and by biological class (bottom). Each panel is annotated with the Adjusted Rand Index (ARI) between a silhouette-selected k-means clustering of the full-dimensional features and the corresponding labeling. Before fine-tuning, the representation clusters by medical center (ARI 0.46 vs. 0.00 for metastasis status); after fine-tuning, it clusters by biological class (ARI 0.67 vs. 0.01 for center). on a distinct scanner) form their own clusters. After fine-tuning, the centers become intermixed (top-right, ARI 0.01 ) while metastatic and normal tiles separate (bottom-right, ARI 0.67 ). Fine-tuning re-purposes the dominant directions of the feature space from encoding where a WSI was digitized to encoding what the morphology is. Importantly, none of these five centers were seen during fine-tuning, so the effect reflects generalization of the learned invariance to unseen acquisition sources. 54.2 Downstream performance 
+
+A robustification recipe is only useful if it preserves the generic quality of the representation. Tables 2, 3, and 4 report models evaluation across THUNDER, HEST, and Patho-Bench, respectively. Fine-tuned models match or exceed their base counterparts on the aggregate metrics, indicating that fine-tuning does not come at the expense of downstream utility. 
+
+THUNDER Table 2 shows that fine-tuning lowers the rank sum for 8 of the 10 models, reducing the mean rank sum from 62 to 49 (p = 7 .5 × 10 −3, one-sided Wilcoxon signed-rank test). The gains are largest for the models that start furthest behind: Midnight-12k ( 70 → 34 ), H-Optimus-0 (68 → 41 ) and Prov-GigaPath ( 78 → 52 ); while the strongest base model, UNI2-h, remains on top and still improves ( 26 → 20 ). Only H0-mini regresses slightly ( 61 → 65 ) and AquaViT is unchanged, confirming that fine-tuning does not erode general tile-level representation quality. 
+
+Table 2: THUNDER benchmark. Per-task scores with leaderboard rank in parentheses; rank sum ↓ is the primary metric. Bold marks the better value within each pair. Colors: green = improvement of the fine-tuned model over the base model, red = regression, orange = tie. 
+
+Model Variant KNN ↑ Lin. prob. ↑ Few-shot ↑ Seg. ↑ Calib. ↓ Adv. att. ↓ Rank sum ↓
+
+UNI2-h Base 83.3 (4) 86.3 (1) 79.8 (1) 68.1 (3) 3.7 (8) 31.0 (9) 26 
+
+Fine-tuned 83.4 (3) 85.5 (2) 79.5 (3) 67.6 (6) 2.5 (3) 24.1 (3) 20 
+
+GenBio-PathFM Base 83.5 (2) 85.1 (4) 79.4 (4) 67.2 (8) 3.7 (8) 32.7 (14) 40 
+
+Fine-tuned 83.9 (1) 85.3 (3) 79.6 (2) 66.8 (9) 4.0 (9) 26.2 (5) 29 
+
+Virchow2 Base 82.9 (5) 84.8 (5) 73.9 (14) 68.2 (2) 3.6 (7) 31.1 (10) 43 
+
+Fine-tuned 82.6 (6) 85.1 (4) 76.6 (7) 68.0 (4) 4.2 (10) 7.7 (1) 32 
+
+Midnight-12k Base 80.0 (13) 84.4 (7) 71.5 (20) 66.0 (12) 2.4 (2) 35.7 (16) 70 
+
+Mascaret Fine-tuned 81.7 (8) 84.6 (6) 75.2 (11) 67.6 (6) 2.3 (1) 23.2 (2) 34 
+
+H-Optimus-0 Base 81.5 (9) 83.7 (9) 76.2 (8) 63.5 (15) 3.6 (7) 42.1 (20) 68 
+
+Fine-tuned 81.9 (7) 84.0 (8) 77.4 (5) 68.1 (3) 3.2 (5) 32.4 (13) 41 
+
+Prov-GigaPath Base 79.4 (15) 82.4 (13) 75.5 (10) 61.1 (16) 3.4 (6) 40.6 (18) 78 
+
+Fine-tuned 80.8 (10) 83.0 (11) 76.7 (6) 65.8 (13) 3.2 (5) 28.6 (7) 52 
+
+AquaViT Base 80.5 (11) 82.7 (12) 75.7 (9) 68.0 (4) 5.2 (13) 32.0 (11) 60 
+
+Fine-tuned 80.1 (12) 82.4 (13) 75.1 (12) 68.3 (1) 5.3 (14) 29.3 (8) 60 H0-mini Base 79.7 (14) 83.5 (10) 75.0 (13) 67.7 (5) 3.0 (4) 33.7 (15) 61 
+
+Fine-tuned 78.7 (16) 82.4 (13) 73.8 (15) 67.5 (7) 3.7 (8) 27.6 (6) 65 Phikon Base 75.7 (19) 80.2 (15) 73.6 (16) 66.8 (9) 5.1 (12) 32.2 (12) 83 
+
+Fine-tuned 76.1 (18) 79.8 (16) 73.2 (18) 66.6 (10) 5.4 (15) 24.5 (4) 81 
+
+Phikon-v2 Base 74.0 (20) 79.3 (17) 71.8 (19) 66.5 (11) 4.5 (11) 41.9 (19) 97 
+
+Phaet Fine-tuned 77.7 (17) 80.7 (14) 73.3 (17) 65.3 (14) 3.0 (4) 38.8 (17) 83 
+
+6HEST For gene-expression prediction (Table 3), the average Pearson correlation increases for 9 of the 10 models ( p = 2 .9×10 −3, one-sided Wilcoxon signed-rank test) with the mean rising from 0.398 
+
+to 0.411 ; the sole exception, GenBio-PathFM, is essentially unchanged ( −0.002 ). Improvements are consistent across the nine cancer types and largest for Prov-GigaPath ( +0 .022 ), Midnight-12k (+0 .022 ) and Phikon-v2 ( +0 .020 ). After fine-tuning, H-Optimus-0 and UNI2-h jointly reach the best average correlation ( 0.4290 ). 
+
+Table 3: HEST benchmark. We report Pearson correlation ( ↑) between predicted and measured gene expression across 9 cancer types. Bold marks the better value within each model pair. Colors: green = improvement of the fine-tuned model over the base model, red = regression. 
+
+Model Variant IDC PRAD PAAD SKCM COAD READ CCRCC LUNG LYMPH IDC Average 
+
+H-Optimus-0 Base 0.5976 0.3848 0.4911 0.6454 0.3086 0.2216 0.2676 0.5590 0.2591 0.4150 
+
+Fine-tuned 0.6069 0.3695 0.5205 0.6764 0.3136 0.2466 0.2791 0.5811 0.2671 0.4290 
+
+UNI2-h Base 0.5898 0.3569 0.5001 0.6606 0.3015 0.2223 0.2640 0.5587 0.2727 0.4141 
+
+Fine-tuned 0.6016 0.3763 0.5290 0.6781 0.3294 0.2239 0.2734 0.5729 0.2761 0.4290 
+
+GenBio-PathFM Base 0.5872 0.3913 0.4959 0.6715 0.3284 0.1785 0.2615 0.5787 0.2842 0.4197 
+
+Fine-tuned 0.5867 0.3965 0.5066 0.6473 0.3217 0.1961 0.2436 0.5783 0.2831 0.4178 Midnight-12k Base 0.5823 0.3370 0.4900 0.6360 0.2908 0.1856 0.2132 0.5577 0.2642 0.3952 
+
+Mascaret Fine-tuned 0.5920 0.3760 0.5127 0.6442 0.3322 0.1964 0.2435 0.5802 0.2727 0.4167 
+
+Virchow2 Base 0.5971 0.3529 0.4779 0.6402 0.2581 0.2074 0.2719 0.5685 0.2568 0.4034 
+
+Fine-tuned 0.5867 0.3900 0.5005 0.6543 0.2940 0.2056 0.2652 0.5656 0.2597 0.4135 
+
+Prov-GigaPath Base 0.5515 0.3699 0.4746 0.5619 0.2992 0.1961 0.2430 0.5412 0.2500 0.3875 
+
+Fine-tuned 0.5856 0.3730 0.5138 0.6137 0.3214 0.1891 0.2607 0.5663 0.2648 0.4098 
+
+H0-mini Base 0.5862 0.3687 0.4919 0.6012 0.2494 0.1863 0.2670 0.5482 0.2629 0.3958 
+
+Fine-tuned 0.5820 0.3805 0.5070 0.6305 0.2838 0.1874 0.2681 0.5662 0.2626 0.4076 
+
+AquaViT Base 0.5875 0.3814 0.4763 0.6294 0.2984 0.2200 0.2317 0.5510 0.2649 0.4045 
+
+Fine-tuned 0.5928 0.3738 0.5020 0.6232 0.2935 0.2158 0.2378 0.5550 0.2635 0.4064 
+
+Phikon-v2 Base 0.5408 0.3545 0.4455 0.5554 0.2500 0.1749 0.2659 0.5419 0.2437 0.3747 
+
+Phaet Fine-tuned 0.5630 0.3546 0.4748 0.5985 0.2915 0.1696 0.2696 0.5622 0.2649 0.3943 
+
+Phikon Base 0.5327 0.3420 0.4425 0.5355 0.2623 0.1532 0.2423 0.5466 0.2373 0.3660 
+
+Fine-tuned 0.5571 0.3639 0.4769 0.5615 0.2708 0.1597 0.2430 0.5649 0.2513 0.3832 
+
+Patho-Bench On slide-level tasks, fine-tuning improves the overall average score for all ten models ( p = 9 .8 × 10 −4, one-sided Wilcoxon signed-rank) from 54 .9 to 56 .6 (Table 4). Gains are spread across the molecular, morphological, survival and treatment-response groups, and are largest for Midnight-12k ( +3 .4), which becomes the best fine-tuned model overall ( 58 .0), followed by H-Optimus-0 ( +2 .5) and Prov-GigaPath ( +2 .2). 
+
+Table 4: Patho-Bench benchmark. Scores are percentages (%); metrics: AUC = Macro OvR AUC, bAcc = Balanced Accuracy, κ = Weighted Cohen kappa, C-idx = C-Index. Shaded columns ( model †)report fine-tuned results; pairs ordered by fine-tuned grand average (descending). Bold : best score per row. Colors: green = improvement of the fine-tuned model over the base model, red = regression. 
+
+[Dataset][Task][Metric] 
+
+> Midnight-12k
+> Mascaret
+> UNI2-h
+> UNI2-h †
+> AquaViT
+> AquaViT †
+> H0-mini
+> H0-mini †
+> H-Optimus-0
+> H-Optimus-0 †
+> Virchow2
+> Virchow2 †
+> Prov-GigaPath
+> Prov-GigaPath †
+> Phikon-v2
+> Phaet
+> GenBio-PathFM
+> GenBio-PathFM †
+> Phikon
+> Phikon †
+
+Molecular 
+
+[BC Therapy][HER2 status][AUC] 58.9 59.6 66.6 63.8 65.8 64.7 66.8 65.7 58.6 63.6 65.2 64.8 62.7 65.3 69.5 66.6 65.6 66.4 62.8 66.0 [CPTAC BRCA][PIK3CA][AUC] 61.3 60.7 57.6 65.4 63.2 66.4 62.9 59.8 62.7 62.7 58.4 65.3 60.9 61.3 57.3 56.6 60.9 62.8 58.7 58.0 [CPTAC BRCA][TP53][AUC] 77.4 83.4 77.8 77.2 78.8 79.7 79.2 79.9 75.1 80.8 78.7 78.4 77.1 78.8 85.4 85.2 78.6 79.7 82.4 81.8 [CPTAC CCRCC][BAP1][AUC] 67.6 71.4 63.9 68.7 64.6 68.6 66.7 71.7 61.5 69.6 64.6 70.7 66.1 76.0 62.3 66.1 66.0 69.9 61.5 65.9 [CPTAC CCRCC][PBRM1][AUC] 43.2 55.1 40.5 44.5 50.0 52.8 53.5 52.2 44.6 46.6 50.6 53.9 54.0 53.6 57.7 56.9 51.9 54.5 47.8 47.9 [CPTAC CCRCC][VHL][AUC] 52.5 49.7 51.7 50.4 52.3 50.2 52.5 52.1 47.6 51.1 52.4 50.3 54.0 53.5 42.6 48.9 51.0 53.2 45.2 45.6 [CPTAC COAD][ACVR2A][AUC] 72.9 78.8 81.5 80.1 81.7 84.0 82.8 82.9 83.1 85.2 77.5 79.0 78.3 83.0 77.2 80.9 77.0 79.4 73.7 77.1 [CPTAC COAD][APC][AUC] 67.2 70.2 74.5 76.8 75.6 76.7 73.9 76.4 70.9 75.0 71.8 72.5 72.4 75.0 72.7 70.7 73.4 74.6 70.6 72.4 [CPTAC COAD][ARID1A][AUC] 72.0 70.3 68.1 71.2 73.5 73.2 72.8 74.0 77.9 73.6 65.2 74.5 70.7 68.5 74.0 78.0 72.6 74.9 69.7 71.7 [CPTAC COAD][KRAS][AUC] 58.5 61.0 69.9 66.9 64.5 61.8 67.7 67.2 59.1 67.2 65.0 65.8 62.8 68.5 70.8 70.8 59.5 62.6 59.6 64.1 
+
+continued. . . 
+
+7[Dataset][Task][Metric] 
+
+> Midnight-12k
+> Midnight-12k †
+> UNI2-h
+> UNI2-h †
+> AquaViT
+> AquaViT †
+> H0-mini
+> H0-mini †
+> H-Optimus-0
+> H-Optimus-0 †
+> Virchow2
+> Virchow2 †
+> Prov-GigaPath
+> Prov-GigaPath †
+> Phikon-v2
+> Phikon-v2 †
+> GenBio-PathFM
+> GenBio-PathFM †
+> Phikon
+> Phikon †
+
+[CPTAC COAD][MSI-H][AUC] 81.2 83.7 89.9 90.4 88.8 91.0 89.3 92.2 86.5 92.6 84.4 89.8 85.8 92.7 82.9 85.2 85.1 88.4 81.2 84.9 [CPTAC COAD][PIK3CA][AUC] 58.1 58.3 55.1 60.1 63.8 64.9 63.2 63.8 67.4 69.9 64.5 65.2 61.0 66.5 58.3 58.2 61.2 63.2 60.0 61.1 [CPTAC COAD][SETD1B][AUC] 80.0 76.9 84.5 85.1 87.7 85.4 86.7 84.4 84.4 88.7 78.7 80.2 80.2 86.3 75.4 77.1 78.9 79.7 76.9 80.5 [CPTAC COAD][TP53][AUC] 64.9 67.8 69.4 69.2 68.7 66.6 68.0 67.3 67.1 70.2 65.0 66.5 66.4 72.8 73.6 69.4 57.7 60.9 69.5 69.9 [CPTAC GBM][EGFR][AUC] 52.7 61.8 57.7 62.3 59.7 64.1 57.1 61.5 53.8 63.2 61.5 65.7 60.1 66.8 52.9 56.8 62.6 66.6 52.9 61.7 [CPTAC GBM][TP53][AUC] 73.9 72.9 81.2 84.6 87.6 83.9 84.3 77.6 80.4 82.2 70.9 73.0 84.8 84.7 75.6 77.9 75.4 77.2 75.3 84.6 [CPTAC HNSC][CASP8][AUC] 60.8 76.1 65.2 63.8 63.4 65.7 65.8 68.3 60.4 71.0 57.7 63.8 63.2 68.7 54.6 48.5 55.4 59.8 55.8 59.6 [CPTAC LSCC][ARID1A][AUC] 50.3 61.5 44.8 51.5 49.9 54.1 47.7 49.9 46.0 53.0 47.2 52.9 45.4 51.2 39.7 49.8 52.3 50.4 43.7 47.3 [CPTAC LSCC][KEAP1][AUC] 60.5 61.7 63.8 60.6 63.9 64.2 62.1 61.4 63.6 65.3 62.8 62.4 57.7 64.5 64.6 67.1 59.9 61.7 60.3 64.5 [CPTAC LUAD][EGFR][AUC] 77.5 77.4 80.4 82.2 84.5 84.3 85.2 83.1 83.2 82.9 80.9 76.1 82.7 81.9 75.1 80.2 76.5 76.6 77.6 82.0 [CPTAC LUAD][KRAS][AUC] 65.7 69.1 67.4 68.5 73.9 73.7 66.6 71.5 72.1 73.1 74.2 68.8 70.9 72.0 65.9 70.6 64.9 62.9 68.9 68.2 [CPTAC LUAD][STK11][AUC] 88.0 86.7 89.6 90.5 88.7 89.5 88.1 87.9 89.4 89.4 82.8 83.0 87.8 88.2 86.5 88.1 86.4 86.7 87.2 88.1 [CPTAC LUAD][TP53][AUC] 70.1 67.9 74.3 73.0 70.2 71.1 71.8 69.8 68.4 69.6 74.1 70.6 72.1 71.6 67.3 70.3 68.6 69.9 71.7 73.1 [CPTAC PDA][SMAD4][AUC] 39.7 38.5 32.3 37.8 39.8 40.2 41.3 40.5 41.0 42.5 43.5 40.7 37.3 41.7 37.4 39.9 39.2 39.9 37.0 39.7 [CPTAC UCEC][CTNNB1][AUC] 75.2 73.7 79.5 77.8 75.7 74.8 76.6 75.2 76.5 76.7 73.7 71.0 74.3 73.1 78.9 78.0 71.7 72.0 73.3 72.0 [CPTAC UCEC][PTEN][AUC] 53.8 64.0 66.2 66.6 67.6 66.8 65.9 63.0 66.4 67.2 66.5 60.2 61.2 67.2 72.0 65.3 58.7 63.0 63.7 64.6 [Mut-Het-RCC][BAP1][AUC] 86.5 88.4 89.1 89.9 89.9 91.0 90.1 89.8 88.8 89.6 86.6 87.8 87.3 88.4 88.5 88.4 87.0 88.0 88.3 88.5 [Mut-Het-RCC][PBRM1][AUC] 80.8 82.0 81.7 82.8 82.4 82.6 80.9 80.6 79.4 81.0 81.8 81.8 78.2 81.1 81.5 83.0 82.8 82.9 79.4 80.5 [Mut-Het-RCC][SETD2][AUC] 71.0 74.9 70.1 70.4 70.8 71.2 69.7 70.1 66.3 68.0 69.9 70.7 63.3 65.4 72.1 72.9 71.2 72.6 69.6 73.2 
+
+Average 66.3 69.1 68.8 70.1 70.6 71.1 70.3 70.3 68.4 71.4 68.1 69.1 68.2 71.3 68.0 69.2 67.3 69.0 66.4 68.8 
+
+Morphology 
+
+[BC Therapy][Grading][ κ] 27.0 38.0 34.4 32.2 33.1 31.5 35.2 37.3 27.5 27.9 33.1 32.6 29.1 36.1 33.5 35.4 30.5 33.2 28.7 35.1 [IMP Cervical][Morph. subtyping][bAcc] 81.1 79.0 80.1 80.1 81.3 79.9 81.3 80.5 80.9 80.4 79.7 78.9 78.1 80.6 70.2 76.4 77.3 74.2 77.0 78.0 [CPTAC BRCA][Immune class][bAcc] 52.5 51.0 55.1 51.2 53.0 51.4 52.3 52.1 50.8 49.4 52.9 55.2 52.5 54.2 52.5 54.8 49.7 50.2 50.5 52.1 [CPTAC CCRCC][Immune class][bAcc] 36.0 37.4 32.8 34.9 38.5 38.7 38.6 39.8 33.6 34.3 34.3 34.3 35.6 35.8 33.0 34.4 35.5 38.6 37.1 38.5 [CPTAC COAD][Immune class][bAcc] 38.7 44.7 40.3 43.3 34.2 37.2 37.7 42.0 34.3 35.6 44.2 43.5 38.1 42.2 38.0 43.5 38.1 38.7 35.3 35.4 [CPTAC GBM][Immune class][bAcc] 54.1 55.1 51.9 53.3 48.9 50.4 50.2 53.0 50.8 54.1 46.0 51.0 51.5 54.8 47.5 49.3 48.8 54.2 44.6 47.4 [CPTAC HNSC][Histologic grade][ κ] 30.1 35.0 23.8 27.5 25.1 27.1 25.4 23.6 23.1 25.0 29.2 26.6 26.9 25.4 26.8 15.0 19.2 28.0 30.7 25.4 [CPTAC HNSC][Immune class][bAcc] 40.6 46.2 44.5 47.8 49.5 51.1 46.2 48.4 43.8 48.8 48.7 52.2 44.0 51.2 42.2 42.4 43.9 49.0 41.4 45.8 [CPTAC LSCC][Histologic grade][ κ] 14.1 10.8 25.9 25.1 22.0 20.9 18.5 16.2 28.0 26.2 22.2 18.6 22.4 16.5 16.2 16.0 14.0 15.4 21.8 19.0 [CPTAC LSCC][Immune class][bAcc] 57.6 58.8 49.8 53.7 51.0 52.3 58.3 57.9 52.8 56.6 58.9 59.8 53.7 55.9 54.0 55.8 56.5 59.0 49.6 54.0 [CPTAC LUAD][Immune class][bAcc] 48.6 54.8 47.0 48.4 49.0 49.7 49.6 50.1 47.1 49.7 51.9 54.0 46.8 48.9 46.0 46.4 55.0 59.1 44.7 49.5 [CPTAC PDA][Immune class][bAcc] 43.8 43.3 40.2 40.4 39.4 40.0 39.0 39.1 39.0 40.1 41.5 40.8 36.5 41.9 37.1 38.4 41.8 41.1 38.3 42.5 [CPTAC UCEC][Immune class][bAcc] 39.8 41.1 38.6 40.2 37.1 42.7 41.3 47.6 38.0 40.2 42.2 42.7 32.3 42.8 34.9 37.1 36.6 42.4 32.7 37.7 [Hancock][Grading: SCC Keratinizing][ κ] 26.4 32.6 31.2 34.4 31.6 32.4 36.2 32.6 38.1 34.2 31.2 31.4 33.5 33.1 34.7 36.6 27.5 28.0 29.3 32.8 [Hancock][Grading: SCC Non-Kerat.][ κ] 22.9 23.2 23.9 29.1 12.9 24.5 19.4 20.7 17.5 23.1 18.8 27.3 18.3 26.4 9.4 20.9 19.0 22.0 5.8 12.9 [Hancock][Lymph. invasion][AUC] 66.9 69.1 63.8 67.4 67.5 68.3 68.6 67.0 66.2 68.8 65.3 67.1 64.0 67.5 61.9 64.6 67.7 69.7 61.5 65.2 [Hancock][Perineural invasion][AUC] 73.5 73.8 68.5 68.6 70.9 69.2 69.8 70.2 73.2 71.7 72.4 71.7 70.5 71.7 66.9 70.3 72.8 72.8 68.1 67.9 [Hancock][Primary vs. Metastasis][AUC] 64.0 70.9 67.0 67.0 66.7 66.8 64.5 66.4 64.9 64.1 64.5 64.7 64.3 65.7 67.4 71.8 68.8 67.5 66.7 68.9 [Hancock][Primary tumor site][bAcc] 73.8 74.2 73.9 74.2 73.4 72.6 72.4 70.6 73.6 73.8 73.6 72.1 72.3 70.9 74.0 71.9 73.2 73.6 74.1 72.6 [Hancock][Vascular invasion][AUC] 61.1 63.0 67.5 70.4 71.6 68.8 66.9 65.4 68.1 64.7 70.3 71.6 66.3 65.6 58.6 61.9 67.6 67.9 63.5 61.8 [Post-NAT BRCA][Lymph. invasion][AUC] 51.2 49.0 55.8 60.6 59.2 59.8 56.5 58.6 59.7 56.8 58.7 57.0 52.3 59.6 59.5 57.9 58.1 55.1 46.4 56.7 [PANDA][Grading: ISUP grade][ κ] 95.4 95.1 96.5 96.6 97.2 96.9 96.4 96.5 96.7 96.4 95.7 95.9 96.2 97.0 95.9 95.7 95.6 95.8 96.5 95.7 
+
+Average 50.0 52.1 50.6 52.1 50.6 51.5 51.1 51.6 50.3 51.0 51.6 52.2 49.3 52.0 48.2 49.9 49.9 51.6 47.5 49.8 
+
+Survival 
+
+[Boehmk][Survival: PFS][C-idx] 53.3 54.7 50.8 54.2 51.6 52.1 51.3 52.1 49.8 51.0 49.5 53.3 53.7 53.6 49.5 52.8 48.6 48.9 50.3 49.8 [CPTAC CCRCC][Survival: OS][C-idx] 67.0 68.3 66.3 65.3 59.8 59.6 60.1 60.3 57.4 55.6 60.0 64.4 57.7 62.4 62.8 69.2 54.7 54.3 63.1 61.2 [CPTAC HNSC][Survival: OS][C-idx] 62.1 61.3 55.7 60.7 57.8 55.4 57.8 59.2 61.2 58.6 53.5 58.0 53.9 56.8 68.3 67.0 55.7 59.5 65.2 62.5 [CPTAC LUAD][Survival: OS][C-idx] 53.1 57.8 52.2 52.0 55.2 63.6 59.0 53.3 46.9 51.5 56.6 51.6 47.3 45.8 55.2 54.7 51.6 50.9 54.9 49.2 [CPTAC PDA][Survival: OS][C-idx] 49.5 55.0 48.7 50.8 50.7 50.1 48.3 47.3 51.3 50.5 48.2 50.7 47.9 51.2 52.3 47.0 49.5 51.5 50.9 48.0 [Hancock][Survival: OS Ttt. Rdc][C-idx] 59.5 58.1 58.6 60.6 54.9 58.1 58.2 58.7 55.6 56.9 58.8 54.5 54.4 56.0 57.1 57.9 50.2 50.6 53.6 57.1 [MBC][Survival: OS][C-idx] 53.7 54.2 50.7 50.0 50.8 46.0 48.6 51.5 55.3 57.4 54.0 55.1 49.3 48.5 45.6 50.3 48.8 49.7 47.3 47.6 
+
+Average 56.9 58.5 54.7 56.2 54.4 55.0 54.8 54.6 53.9 54.5 54.4 55.4 52.0 53.5 55.8 57.0 51.3 52.2 55.0 53.6 
+
+Treatment response 
+
+[BC Therapy][ER status][AUC] 51.5 68.5 67.9 69.7 70.7 69.9 71.4 73.2 59.0 71.8 67.5 68.5 73.1 71.3 69.8 68.7 71.9 73.3 63.9 68.3 [BC Therapy][Res. cancer burden][bAcc] 26.2 29.6 29.4 29.0 29.6 29.1 29.7 29.0 27.3 30.5 29.2 28.3 29.6 28.4 28.7 29.8 26.8 28.9 28.7 30.0 [MBC][RECIST][ κ] 15.4 14.8 7.8 11.6 12.8 17.5 19.6 15.7 13.6 16.0 14.5 15.6 18.1 16.8 12.3 17.1 8.5 14.4 12.8 13.4 [NADT Prostate][Ttt. response][AUC] 73.1 84.1 79.8 84.2 80.4 84.1 83.7 85.1 75.5 80.2 74.9 79.1 65.7 81.3 72.7 71.9 76.0 77.1 65.8 75.4 [OV Bevacizumab][Ttt. response][AUC] 60.3 63.8 56.6 60.2 52.2 54.1 48.6 52.7 48.8 53.5 51.6 60.5 54.7 51.9 37.9 48.9 54.9 58.4 49.9 52.0 
+
+Average 45.3 52.2 48.3 50.9 49.2 50.9 50.6 51.1 44.8 50.4 47.5 50.4 48.2 49.9 44.3 47.3 47.6 50.4 44.2 47.8 
+
+Grand Average 54.6 58.0 55.6 57.3 56.2 57.1 56.7 56.9 54.4 56.8 55.4 56.8 54.5 56.7 54.1 55.8 54.0 55.8 53.3 55.0 
+
+85 Understanding the robustness gains 
+
+To probe how acquisition factors are encoded in pathology FMs, we rely on two publicly available datasets that were built to isolate acquisition variability from tissue content. The PLISM dataset [ 42 ] is a group of consecutive slides digitized on 7 different scanners and stained across 13 H&E conditions, so that each of the 91 resulting acquisition variants captures the same biological information, that is, a collection of 46 TMAs (Tissue Micro Arrays) from 46 different organs. All WSIs were spatially registered to a common reference slide (AT2 scanner, GIVH stain) with the Elastix [ 33 ] software and tessellated into 16,278 aligned tiles, so that every tile location has a matched counterpart in each variant. SCORPION [45] similarly provides 480 tissue samples each digitized on 5 scanners (2,400 spatially aligned patches across Leica Aperio AT2, Leica Aperio GT450, Roche Ventana DP200, 3DHistech P1000, and Philips UFS B300). To understand why fine-tuning yields such consistent improvements, we examine how acquisition factors are encoded in the feature space. Figure 3 suggests that the scanner shift is a near-linear offset in the output feature space that could be corrected through feature-level correction. A closer analysis (Figure 4) across network depth actually reveals that invariance is learned deep in the transformer blocks. 
+
+Acquisition factors seem linearly encoded in feature space. Figure 3 projects tile features of the PLISM dataset to two dimensions, with one panel per scanner, obtained by PCA on H-Optimus-0 features for a fixed staining protocol (GIVH). Interestingly, this figure suggests that the scanner shift is a simple, near-linear offset in feature space: the per-scanner point clouds keep a similar shape (color spatial distribution is similar across scanners) and appear largely translated, which would imply that a feature-level correction could undo it. 
+
+Figure 3: Acquisition factors seem linearly encoded in feature space. PCA projection of H-Optimus-0 tile features on the PLISM dataset for a fixed staining protocol (GIVH), one panel per scanner. Each of the 225 points is a colorectal-cancer (CRC) tile (a subset of the 16 ,278 tiles of the slide), colored by its spatial position within the slide. The point clouds keep a similar shape across scanners, suggesting that the scanner shift is a simple, near-linear offset in feature space. 
+
+Correcting acquisition shifts requires deep adaptation of the backbone. Instead, we show how invariance builds up across the transformer depth using cross-scanner retrieval on SCORPION [45], built to isolate scanner-induced variability from tissue content. Given a query patch imaged on one scanner, the task is to retrieve the same physical patch captured by the other scanners; we report Recall@1 (R@1) and mean average precision (mAP). To make the task discriminative, each 
+
+1024 × 1024 patch is partitioned into 16 tiles ( 256 × 256 , resized to 224 × 224 ), and the negatives for a query include the other tiles of its own grid as well as all tiles of the other slides. Because adjacent grid tiles cover neighboring tissue, they are visually near-identical, so a scanner-sensitive encoder easily ranks such a spatial look-alike (or a same-scanner copy) above the true cross-scanner match. Attaining high R@1 and mAP therefore requires a representation that is at once invariant to the scanner and discriminative of fine spatial detail. 9Figure 4: Fine-tuning makes scanner invariance emerge earlier and stronger with depth. Cross-scanner retrieval on SCORPION (R@1, top; mAP, bottom) as a function of the transformer block used to extract features, for the base H-Optimus-0 model (blue) and after fine-tuning (orange). Fine-tuning shifts the curves up and to the left, reaching comparable retrieval roughly eight blocks earlier and a higher final value. Figure 4 reports R@1 and mAP as a function of the transformer block from which tile features are extracted, for the base (blue) and fine-tuned (orange) H-Optimus-0 encoder. For the base model, robust cross-scanner matching only develops in the last few blocks; fine-tuning shifts the entire curve up and to the left, reaching a given retrieval quality roughly eight blocks earlier and attaining a higher asymptote (mAP ≈ 0.99 vs 0.91 at the final block). Fine-tuning therefore does not merely re-tune the output layer: it instills scanner invariance progressively throughout the network, so that even intermediate representations become markedly more robust. Taken together, these observations suggest that purely feature-level operations (e.g., statistics matching or CORAL-style covariance alignment) can partially reduce the shift but are not deep enough to remove it entirely. 
+
+## 6 Conclusion 
+
+In this work, we show that fine-tuning can improve robustness and downstream performance simul-taneously (Figure 1). Enforcing invariance to acquisition factors could plausibly erase biologically useful signal and degrade downstream tasks. Instead, every fine-tuned model moves up and to the right, suggesting that scanner and stain-related directions in the feature space are largely nuisance dimensions; removing them frees capacity for biologically relevant structure rather than competing with it. This interpretation is consistent with prior evidence that acquisition confounders are strongly encoded by current FMs [12, 34]. The gains are largest for the least robust base models: Phikon-v2 ( 0.47 → 0.81 robustness index) and Prov-GigaPath ( 0.62 → 0.89 ), while already-strong encoders such as UNI2-h and Virchow2 improve more modestly yet remain at the top. Fine-tuning therefore acts as an equalizer: a lightweight, label-free fine-tuning step that narrows the gap between encoders trained at different scales with different pretraining data diversity. 10 We hypothesize that the joint improvement of robustness and performance comes from the fact that confounder-related directions act as structured noise for downstream predictors: if acquisition signal is entangled in the features, a classifier will tend to learn spurious shortcuts that prevent generalizability. By collapsing these directions, fine-tuning removes this nuisance variance and leaves a cleaner, lower-noise representation in which the biologically relevant signal is easier to separate. In terms of limitations, some fine-tuned models show slightly degraded performance compared to their base counterparts (e.g., H0-mini on THUNDER; GenBio-PathFM on HEST). Lastly, our evaluation is limited to vision-only encoders; the effect of our fine-tuning approach on vision-language or multi-modal encoders remains to be explored. Further, we measure robustness through the PathoROB index, which quantifies the degree to which biological features dominate over non-biological confounders in the feature space. While this is a useful proxy, it does not directly measure downstream robustness under domain shift for specific tasks such as biomarker prediction or survival analysis [ 55 , 50 ]. Evaluating on a broader set of robustness benchmarks would further clarify the generality of the approach. 
+
+## Acknowledgments 
+
+Computing resources. This work was granted access to the High-Performance Computing (HPC) resources of IDRIS under the allocation 2026-A0201012519 made by GENCI. Fine-tuning experi-ments were performed using the EuroHPC supercomputer MareNostrum 5, hosted by the Barcelona Supercomputing Center (BSC). We gratefully acknowledge EuroHPC and BSC for providing access to these resources. 
+
+Data access. The results presented here are in part based upon data generated by the TCGA Research Network: https://www.cancer.gov/tcga. 
+
+## References 
+
+[1] Maximilian Alber et al. Atlas 2 – foundation models for clinical deployment. arXiv preprint arXiv:2601.05148 , 2026. [2] Péter Bándi, Oscar Geessink, Quirine Manson, Marcory Van Dijk, Maschenka Balkenhol, Meyke Hermsen, Babak Ehteshami Bejnordi, et al. From detection of individual metastases to classification of lymph node status at the patient level: The camelyon17 challenge. IEEE Transactions on Medical Imaging , 38(2): 550–560, 2019. doi: 10.1109/TMI.2018.2867350. [3] Babak Ehteshami Bejnordi, Mitko Veta, Paul Johannes Van Diest, Bram Van Ginneken, Nico Karssemeijer, Geert Litjens, Jeroen A. W. M. Van Der Laak, et al. Diagnostic assessment of deep learning algorithms for detection of lymph node metastases in women with breast cancer. JAMA , 318(22):2199–2210, 2017. doi: 10.1001/jama.2017.14585. [4] Bioptimus. H-optimus-1. https://huggingface.co/bioptimus/H-optimus-1 , 2025. [5] Gianluca Carloni, Biagio Brattoli, Seongho Keum, Jongchan Park, Taebum Lee, Chang Ho Ahn, and Sergio Pereira. Pathology foundation models are scanner sensitive: Benchmark and mitigation with contrastive scangen loss. In MICCAI Workshop on Foundation Models for General Medical AI (MedAGI) , pages 44–53. Springer, 2025. arXiv:2507.22092. [6] Mathilde Caron, Hugo Touvron, Ishan Misra, Hervé Jégou, Julien Mairal, Piotr Bojanowski, and Armand Joulin. Emerging properties in self-supervised vision transformers. In IEEE/CVF International Conference on Computer Vision (ICCV) , pages 9650–9660, 2021. [7] Binghao Chai, Jianan Chen, Paul Cool, Fatine Oumlil, Anna Tollitt, David F. Steiner, Tapabrata Chakraborti, and Adrienne M. Flanagan. Impact of tissue staining and scanner variation on the performance of pathology foundation models: a study of sarcomas and their mimics. The Journal of Pathology: Clinical Research ,12(2):e70080, 2026. doi: 10.1002/2056-4538.70080. [8] Richard J. Chen, Tong Ding, Ming Y. Lu, Drew F. K. Williamson, Guillaume Jaume, Andrew H. Song, Bowen Chen, Andrew Zhang, Daniel Shao, Muhammad Shaban, Mane Williams, Lukas Oldenburg, Luca L. Weishaupt, Judy J. Wang, Anurag Vaidya, Long Phi Le, Georg Gerber, Sharifa Sahai, Walt Williams, and Faisal Mahmood. Towards a general-purpose foundation model for computational pathology. Nature Medicine , 30(3):850–862, 2024. doi: 10.1038/s41591-024-02857-3. 
+
+11 [9] Xinlei Chen, Haoqi Fan, Ross Girshick, and Kaiming He. Improved baselines with momentum contrastive learning. arXiv preprint arXiv:2003.04297 , 2020. [10] Ozan Ciga, Tony Xu, and Anne L. Martel. Self supervised contrastive learning for digital histopathology. 
+
+Machine Learning with Applications , 7:100198, 2022. doi: 10.1016/j.mlwa.2021.100198. [11] Pierre Courtiol, Charles Maussion, Matahi Moarii, Elodie Pronier, Samuel Pilcer, Meriem Sefta, Pierre Manceron, Sylvain Toldo, Mikhail Zaslavskiy, Nolwenn Le Stang, Nicolas Girard, Olivier Elemento, Andrew G. Nicholson, Jean-Yves Blay, Françoise Galateau-Sallé, Gilles Wainrib, and Thomas Clozel. Deep learning-based classification of mesothelioma improves prediction of patient outcome. Nature Medicine , 25(10):1519–1525, 2019. doi: 10.1038/s41591-019-0583-3. [12] Edwin D. de Jong, Eric Marcus, and Jonas Teuwen. Current pathology foundation models are unrobust to medical center differences. arXiv preprint arXiv:2501.18055 , 2025. [13] Olivier Dehaene, Axel Camara, Olivier Moindrot, Axel de Lavergne, and Pierre Courtiol. Self-supervision closes the gap between weak and strong supervision in histology. arXiv preprint arXiv:2012.03583 , 2020. ML4H Workshop, NeurIPS 2020. [14] Taher Dehkharghanian, Azam Asilian Bidgoli, Abtin Riasatian, Pooria Mazaheri, Clinton J. V. Camp-bell, Liron Pantanowitz, H. R. Tizhoosh, and Shahryar Rahnamayan. Biased data, biased ai: deep networks predict the acquisition site of tcga images. Diagnostic Pathology , 18(1):67, 2023. doi: 10.1186/s13000-023-01355-3. [15] Jia Deng, Wei Dong, Richard Socher, Li-Jia Li, Kai Li, and Li Fei-Fei. Imagenet: A large-scale hierarchical image database. In IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , pages 248–255, 2009. doi: 10.1109/CVPR.2009.5206848. [16] Tong Ding, Sophia J. Wagner, Andrew H. Song, et al. A multimodal whole-slide foundation model for pathology. Nature Medicine , 2025. arXiv:2411.19666. [17] David Jacob Drexlin, Jonas Dippel, Julius Hense, Niklas Prenißl, Grégoire Montavon, Frederick Klauschen, and Klaus-Robert Müller. Medi: Metadata-guided diffusion models for mitigating biases in tumor classification. In Medical Image Computing and Computer Assisted Intervention (MICCAI) , volume 15973 of Lecture Notes in Computer Science , pages 379–388. Springer, 2025. doi: 10.1007/978-3-032-05185-1_ 37. arXiv:2506.17140. [18] Alexandre Filiot, Ridouane Ghermi, Antoine Olivier, Paul Jacob, Lucas Fidon, Alice Mac Kain, Charlie Saillard, and Jean-Baptiste Schiratti. Scaling self-supervised learning for histopathology with masked image modeling. medRxiv , 2023. doi: 10.1101/2023.07.21.23292757. [19] Alexandre Filiot, Paul Jacob, Alice Mac Kain, and Charlie Saillard. Phikon-v2, a large and public feature extractor for biomarker prediction. arXiv preprint arXiv:2409.09173 , 2024. [20] Alexandre Filiot, Nicolas Dop, Oussama Tchita, Auriane Riou, Rémy Dubois, Thomas Peeters, Daria Valter, Marin Scalbert, Charlie Saillard, Geneviève Robin, and Antoine Olivier. Distilling foundation models for robust and efficient models in digital pathology. In Medical Image Computing and Computer Assisted Intervention (MICCAI) , volume 15966 of Lecture Notes in Computer Science , pages 162–172. Springer, 2025. doi: 10.1007/978-3-032-04981-0_16. arXiv:2501.16239. [21] Yaroslav Ganin, Evgeniya Ustinova, Hana Ajakan, Pascal Germain, Hugo Larochelle, François Laviolette, Mario Marchand, and Victor Lempitsky. Domain-adversarial training of neural networks. Journal of Machine Learning Research , 17(59):1–35, 2016. [22] Christian Grashei, Christian Brechenmacher, Rao Muhammad Umer, Jingsong Liu, Carsten Marr, Ewa Szczurek, and Peter J. Schüffler. Pathryoshka: Compressing pathology foundation models via multi-teacher knowledge distillation with nested embeddings. arXiv preprint arXiv:2511.23204 , 2025. [23] Fredrik K. Gustafsson and Mattias Rantalainen. Evaluating computational pathology foundation models for prostate cancer grading under distribution shifts. arXiv preprint arXiv:2410.06723 , 2024. [24] Audun L. Henriksen, Ole-Johan Skrede, Lisa van der Schee, Enric Domingo, Karolina Cyll, Wanja Kildal, Joakim Kalsnes, Manohar Pradhan, Hanne Askautrud, Tarjei Sveinsgjerd Hveem, Knut Liestøl, David N. Church, David J. Kerr, and Andreas Kleppe. Enabling clinical use of foundation models for computational pathology. arXiv preprint arXiv:2602.22347 , 2026. 
+
+12 [25] Frederick M. Howard, James Dolezal, Sara Kochanny, Jefree Schulte, Heather Chen, Lara Heij, Dezheng Huo, Rita Nanda, Olufunmilayo I. Olopade, Jakob N. Kather, Nicole Cipriani, Robert L. Grossman, and Alexander T. Pearson. The impact of site-specific digital histology signatures on deep learning model accuracy and bias. Nature Communications , 12(1):4423, 2021. doi: 10.1038/s41467-021-24698-1. [26] Yanyan Huang et al. Knowledge-guided adaptation of pathology foundation models effectively improves cross-domain generalization and demographic fairness. Nature Communications , 16:11485, 2025. doi: 10.1038/s41467-025-66300-y. [27] Maximilian Ilse, Jakub M. Tomczak, and Max Welling. Attention-based deep multiple instance learning. In 
+
+International Conference on Machine Learning (ICML) , volume 80 of Proceedings of Machine Learning Research , pages 2132–2141, 2018. [28] Mostafa Jahanifar, Manahil Raza, Kesi Xu, Trinh Vuong, Robert Jewsbury, Adam Shephard, Neda Zamanitajeddin, Jin Tae Kwak, Shan E Ahmed Raza, Fayyaz Minhas, and Nasir Rajpoot. Domain generalization in computational pathology: Survey and guidelines. ACM Computing Surveys , 2025. arXiv:2310.19656. [29] Guillaume Jaume, Paul Doucet, Andrew H. Song, Ming Y. Lu, Cristina Almagro-Pérez, Sophia J. Wagner, Anurag J. Vaidya, Richard J. Chen, Drew F. K. Williamson, Ahrong Kim, and Faisal Mahmood. Hest-1k: A dataset for spatial transcriptomics and histology image analysis. In Advances in Neural Information Processing Systems (NeurIPS), Datasets and Benchmarks Track , 2024. arXiv:2406.16192. [30] Saarthak Kapse, Mehmet Aygün, Elijah Cole, Emma Lundberg, Le Song, and Eric P. Xing. Genbio-pathfm: A state-of-the-art foundation model for histopathology. bioRxiv , 2026. doi: 10.64898/2026.03.17.712534. 
+
+https://huggingface.co/genbio-ai/genbio-pathfm .[31] Mikhail Karasikov, Joost van Doorn, Nicolas Känzig, Melis Erdal Cesur, Hugo Mark Horlings, Robert Berke, Fei Tang, and Sebastian Otálora. Training state-of-the-art pathology foundation models with orders of magnitude less data. In Medical Image Computing and Computer Assisted Intervention (MICCAI) ,volume 15967 of Lecture Notes in Computer Science , pages 573–583. Springer, 2025. doi: 10.1007/ 978-3-032-04984-1_55. arXiv:2504.05186. [32] Jakob Nikolas Kather, Alexander T. Pearson, Niels Halama, Dirk Jäger, Jeremias Krause, Sven H. Loosen, Alexander Marx, Peter Boor, Frank Tacke, Ulf Peter Neumann, Heike I. Grabsch, Takaki Yoshikawa, Hermann Brenner, Jenny Chang-Claude, Michael Hoffmeister, Christian Trautwein, and Tom Luedde. Deep learning can predict microsatellite instability directly from histology in gastrointestinal cancer. Nature Medicine , 25(7):1054–1056, 2019. doi: 10.1038/s41591-019-0462-y. [33] Stefan Klein, Marius Staring, Keelin Murphy, Max A. Viergever, and Josien P. W. Pluim. elastix: a toolbox for intensity-based medical image registration. IEEE Transactions on Medical Imaging , 29(1):196–205, 2010. doi: 10.1109/TMI.2009.2035616. [34] Jonah Kömen, Edwin D. de Jong, Julius Hense, Hannah Marienwald, Jonas Dippel, Philip Naumann, Eric Marcus, Lukas Ruff, Maximilian Alber, Jonas Teuwen, Frederick Klauschen, and Klaus-Robert Müller. Towards robust foundation models for digital pathology. Nature Communications , 17, 2026. doi: 10.1038/s41467-026-73923-2. arXiv:2507.17845. [35] Daisuke Komura, Akihiro Kawabe, Keisuke Fukuta, Kyohei Sano, Toshikazu Umezaki, Hirotomo Koda, Ryohei Suzuki, Ken Tominaga, Mieko Ochi, Hiroki Konishi, et al. Universal encoding of pan-cancer histology by deep texture representations. Cell Reports , 38(9):110424, 2022. doi: 10.1016/j.celrep.2022. 110424. [36] Weiping Lin, Shen Liu, Runchen Zhu, and Liansheng Wang. Beyond diagnostic performance: Revealing and quantifying ethical risks in pathology foundation models. arXiv preprint arXiv:2502.16889 , 2025. [37] Jiabo Ma, Zhengrui Guo, Fengtao Zhou, Yihui Wang, Yingxue Xu, Jinbang Li, Fang Yan, Yu Cai, Zhengjie Zhu, Cheng Jin, Yi Lin, Xinrui Jiang, Chenglong Zhao, Danyi Li, Anjia Han, Zhenhui Li, Ronald Cheong Kin Chan, Jiguang Wang, Peng Fei, Kwang-Ting Cheng, Shaoting Zhang, Li Liang, and Hao Chen. A generalizable pathology foundation model using a unified knowledge distillation pretraining framework. Nature Biomedical Engineering , 10(3):545–564, 2026. doi: 10.1038/s41551-025-01488-4. arXiv:2407.18449. [38] Marc Macenko, Marc Niethammer, J. S. Marron, David Borland, John T. Woosley, Xiaojun Guan, Charles Schmitt, and Nancy E. Thomas. A method for normalizing histology slides for quantitative analysis. In 
+
+IEEE International Symposium on Biomedical Imaging: From Nano to Macro (ISBI) , pages 1107–1110, 2009. doi: 10.1109/ISBI.2009.5193250. 
+
+13 [39] Pierre Marza, Leo Fillioux, Sofiène Boutaj, Kunal Mahatha, Christian Desrosiers, Pablo Piantanida, Jose Dolz, Stergios Christodoulidis, and Maria Vakalopoulou. Thunder: Tile-level histopathology image understanding benchmark. Advances in Neural Information Processing Systems (NeurIPS), Datasets and Benchmarks Track , 2025. arXiv:2507.07860. [40] Hai Cao Truong Nguyen and David Joon Ho. fmmap: A framework reducing site-bias batch effect from foundation models in pathology. In MICCAI Workshop on Computational Pathology with Multimodal Data (COMPAYL) , 2025. [41] Tan H. Nguyen et al. Contrimix: Scalable stain color augmentation for domain generalization without domain labels. arXiv preprint arXiv:2306.04527 , 2023. [42] Masaki Ochi, Daisuke Komura, Takumi Onoyama, Koki Shinbo, Haruya Endo, Hiroto Odaka, Miwako Kakiuchi, Hiroto Katoh, Tetsuo Ushiku, and Shumpei Ishikawa. Registered multi-device/staining histology image dataset for domain-agnostic machine learning models. Scientific Data , 11(1):330, 2024. doi: 10.1038/s41597-024-03122-5. [43] Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy V. Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, Mahmoud Assran, Nicolas Ballas, Wojciech Galuba, Russell Howes, Po-Yao Huang, Shang-Wen Li, Ishan Misra, Michael Rabbat, Vasu Sharma, Gabriel Synnaeve, Hu Xu, Herve Jegou, Julien Mairal, Patrick Labatut, Armand Joulin, and Piotr Bojanowski. Dinov2: Learning robust visual features without supervision. Transactions on Machine Learning Research , 2024. arXiv:2304.07193. [44] Erik Reinhard, Michael Ashikhmin, Bruce Gooch, and Peter Shirley. Color transfer between images. IEEE Computer Graphics and Applications , 21(5):34–41, 2001. doi: 10.1109/38.946629. [45] Jeongun Ryu, Heon Song, Seungeun Lee, Soo Ick Cho, Jiwon Shin, Kyunghyun Paeng, and Sérgio Pereira. Scorpion: Addressing scanner-induced variability in histopathology. In Uncertainty for Safe Utilization of Machine Learning in Medical Imaging (UNSURE), MICCAI 2025 Workshop , Lecture Notes in Computer Science. Springer, 2025. arXiv:2507.20907. [46] Charlie Saillard, Olivier Dehaene, Tanguy Marchand, Olivier Moindrot, Aurélien Kamoun, Benoît Schmauch, and Simon Jegou. Self supervised learning improves dmmr/msi detection from histology slides across multiple cancers. In MICCAI Workshop on Computational Pathology (COMPAY) , volume 156 of Proceedings of Machine Learning Research , pages 191–205, 2021. arXiv:2109.05819. [47] Charlie Saillard, Rémy Dubois, Oussama Tchita, Nicolas Loiseau, Théophile Garcia, Aurélie Adriansen, Séverine Carpentier, Joël Reyre, Diana Enea, Katharina Von Loga, Aurélien Kamoun, Stéphane Rossat, Céline Wiscart, Meriem Sefta, Michaël Auffret, Lionel Guillou, Arnaud Fouillet, Jakob Nikolas Kather, and Magali Svrcek. Validation of msintuit as an ai-based pre-screening tool for msi detection from colorectal cancer histology slides. Nature Communications , 14(1):6695, 2023. doi: 10.1038/s41467-023-42453-6. [48] Charlie Saillard, Rodolphe Jenatton, Felipe Llinares-López, Zelda Mariet, David Cahané, Eric Durand, and Jean-Philippe Vert. H-optimus-0. https://github.com/bioptimus/releases/tree/main/models/ h-optimus/v0 , 2024. [49] Benoît Schmauch, Alberto Romagnoni, Elodie Pronier, Charlie Saillard, Pascale Maillé, Julien Calderaro, Aurélien Kamoun, Meriem Sefta, Sylvain Toldo, Mikhail Zaslavskiy, Thomas Clozel, Matahi Moarii, Pierre Courtiol, and Gilles Wainrib. A deep learning model to predict rna-seq expression of tumours from whole slide images. Nature Communications , 11(1):3877, 2020. doi: 10.1038/s41467-020-17678-4. [50] Lydia A. Schönpflug, Nikki van den Berg, Sonali Andani, Nanda Horeweg, Jurriaan Barkey Wolf, Tjalling Bosse, Viktor H. Koelzer, and Maxime W. Lafarge. A protocol for evaluating robustness to h&e staining variation in computational pathology models. arXiv preprint arXiv:2603.12886 , 2026. [51] Zhuchen Shao, Hao Bian, Yang Chen, Yifeng Wang, Jian Zhang, Xiangyang Ji, and Yongbing Zhang. Transmil: Transformer based correlated multiple instance learning for whole slide image classification. In 
+
+Advances in Neural Information Processing Systems (NeurIPS) , 2021. arXiv:2106.00908. [52] Yiqing Shen, Yulin Luo, Dinggang Shen, and Jing Ke. Randstainna: Learning stain-agnostic features by bridging stain augmentation and normalization. In Medical Image Computing and Computer Assisted Intervention (MICCAI) . Springer, 2022. arXiv:2206.12694. [53] Oriane Siméoni, Huy V. Vo, Maximilian Seitzer, Federico Baldassarre, Maxime Oquab, et al. Dinov3. 
+
+arXiv preprint arXiv:2508.10104 , 2025. 
+
+14 [54] David Tellez, Geert Litjens, Péter Bándi, Wouter Bulten, John-Melle Bokhorst, Francesco Ciompi, and Jeroen van der Laak. Quantifying the effects of data augmentation and stain color normalization in convolutional neural networks for computational pathology. Medical Image Analysis , 58:101544, 2019. doi: 10.1016/j.media.2019.101544. [55] Erik Thiringer, Fredrik K. Gustafsson, Kajsa Ledesma Eriksson, and Mattias Rantalainen. Scanner-induced domain shifts undermine the robustness of pathology foundation models. arXiv preprint arXiv:2601.04163 ,2026. [56] Hamid R. Tizhoosh. Beyond the failures: Rethinking foundation models in pathology. arXiv preprint arXiv:2510.23807 , 2025. [57] Yuri Tolkach, Lisa Marie Wolgast, Alexander Damanakis, Alexey Pryalukhin, Simon Schallenberg, Wolfgang Hulla, Marie-Lisa Eich, Wolfgang Schroeder, Anirban Mukhopadhyay, Moritz Fuchs, et al. Artificial intelligence for tumour tissue detection and histological regression grading in oesophageal adenocarcinomas: a retrospective algorithm development and validation study. The Lancet Digital Health ,5(5):e265–e275, 2023. doi: 10.1016/S2589-7500(23)00027-4. [58] Abhishek Vahadane, Tingying Peng, Amit Sethi, Shadi Albarqouni, Lichao Wang, Maximilian Baust, Katja Steiger, Anna Melissa Schlitter, Irene Esposito, and Nassir Navab. Structure-preserving color normalization and sparse stain separation for histological images. IEEE Transactions on Medical Imaging ,35(8):1962–1971, 2016. doi: 10.1109/TMI.2016.2529665. [59] Xiyue Wang, Junhan Zhao, Eliana Marostica, Wei Yuan, et al. A pathology foundation model for cancer diagnosis and prognosis prediction. Nature , 634(8035):970–978, 2024. doi: 10.1038/s41586-024-07894-z. [60] Georg Wölflein, Dyke Ferber, Asier Rabasco Meneghetti, Omar S. M. El Nahhas, Daniel Truhn, Zunamys I. Carrero, David J. Harrison, Ognjen Arandjelovi´ c, and Jakob Nikolas Kather. A good feature extractor is all you need for weakly supervised pathology slide classification. In Computer Vision – ECCV 2024 Workshops , volume 15638 of Lecture Notes in Computer Science , pages 68–87. Springer, 2025. doi: 10.1007/978-3-031-91721-9_5. arXiv:2311.11772. [61] Hanwen Xu, Naoto Usuyama, Jaspreet Bagga, Sheng Zhang, Rajesh Rao, Tristan Naumann, Cliff Wong, Zelalem Gero, Javier González, Yu Gu, Yanbo Xu, Mu Wei, Wenhui Wang, Shuming Ma, Furu Wei, Jianwei Yang, Chunyuan Li, Jianfeng Gao, Jaylen Rosemon, Tucker Bower, Soohee Lee, Roshanthi Weerasinghe, Bill J. Wright, Ari Robicsek, Brian Piening, Carlo Bifulco, Sheng Wang, and Hoifung Poon. A whole-slide foundation model for digital pathology from real-world data. Nature , 630(8015):181–188, 2024. doi: 10.1038/s41586-024-07441-w. [62] Jure Zbontar, Li Jing, Ishan Misra, Yann LeCun, and Stéphane Deny. Barlow twins: Self-supervised learning via redundancy reduction. In International Conference on Machine Learning (ICML) , volume 139 of Proceedings of Machine Learning Research , pages 12310–12320, 2021. [63] Andrew Zhang, Guillaume Jaume, Anurag Vaidya, Tong Ding, and Faisal Mahmood. Accelerating data processing and benchmarking of ai models for pathology. arXiv preprint arXiv:2502.06750 , 2025. [64] Jinghao Zhou, Chen Wei, Huiyu Wang, Wei Shen, Cihang Xie, Alan Yuille, and Tao Kong. ibot: Image bert pre-training with online tokenizer. In International Conference on Learning Representations (ICLR) ,2022. arXiv:2111.07832. [65] Eric Zimmermann, Eugene Vorontsov, Julian Viret, Adam Casson, Michal Zelechowski, George Shaikovski, Neil Tenenholtz, James Hall, David Klimstra, Razik Yousfi, Thomas Fuchs, Nicolo Fusi, Siqi Liu, and Kristen Severson. Virchow2: Scaling self-supervised mixed magnification models in pathology. arXiv preprint arXiv:2408.00738 , 2024. 
+
+15 A Extended leaderboards 
+
+The following tables report the complete leaderboards for all four benchmarks. For previously released models we quote the official published values, whereas results for our fine-tuned encoders were computed in-house under the same evaluation protocols. 
+
+Table 5: THUNDER benchmark: extended leaderboard. Per-task scores with unified rank in parentheses; rank sum ( ↓) is the primary metric. Shaded rows ( model †) report fine-tuned results.  
+
+> MP
+
+denotes a base model evaluated with mixed precision (our setup); for each base model, only the better-performing precision variant is shown. Unlabelled rows report full-precision results from the official leaderboard. Sorted by rank sum (ascending). 
+
+Model KNN ↑ Lin. prob. ↑ Few-shot ↑ Seg. ↑ Calib. ↓ Adv. att. ↓ Rank sum ↓
+
+UNI2-h † 83.4 (3) 85.5 (2) 79.5 (3) 67.6 (18) 2.5 (2) 24.1 (3) 31 
+
+UNI2-h MP 83.3 (4) 86.3 (1) 79.8 (1) 68.1 (10) 3.7 (10) 31.0 (9) 35 H-Optimus-0 † 81.9 (7) 84.0 (10) 77.4 (6) 68.1 (10) 3.2 (5) 32.4 (12) 50 GenBio-PathFM † 83.9 (1) 85.3 (3) 79.6 (2) 66.8 (23) 4.0 (17) 26.2 (5) 51 
+
+Mascaret 81.7 (8) 84.6 (9) 75.2 (15) 67.6 (18) 2.3 (1) 23.2 (2) 53 Virchow2 † 82.6 (6) 85.1 (4) 76.6 (9) 68.0 (12) 4.2 (21) 7.7 (1) 53 GenBio-PathFM MP 83.5 (2) 85.1 (4) 79.4 (4) 67.2 (22) 3.7 (10) 32.7 (13) 55 Virchow2 82.9 (5) 84.8 (6) 73.9 (20) 69.3 (1) 3.9 (15) 31.1 (10) 57 Prov-GigaPath † 80.8 (11) 83.0 (16) 76.7 (8) 65.8 (27) 3.2 (5) 28.6 (7) 74 Midnight-12k 79.9 (15) 84.7 (7) 71.5 (30) 68.8 (5) 2.9 (3) 37.0 (16) 76 H0-mini 79.7 (17) 83.8 (11) 75.0 (18) 69.1 (3) 3.8 (13) 34.3 (15) 77 UNI 80.8 (11) 83.5 (14) 78.1 (5) 67.8 (16) 3.8 (13) 40.3 (22) 81 KEEP 81.5 (9) 83.2 (15) 77.1 (7) 68.0 (12) 4.0 (17) 44.9 (27) 87 AquaViT † 80.1 (14) 82.4 (20) 75.1 (16) 68.3 (8) 5.3 (28) 29.3 (8) 94 AquaViT MP 80.5 (13) 82.7 (19) 75.7 (13) 68.0 (12) 5.2 (27) 32.0 (11) 95 H-Optimus-0 MP 81.5 (9) 83.7 (12) 76.2 (12) 63.5 (30) 3.6 (9) 42.1 (23) 95 H0-mini † 78.7 (22) 82.4 (20) 73.8 (21) 67.5 (20) 3.7 (10) 27.6 (6) 99 Hibou-B 78.9 (20) 81.2 (26) 76.3 (11) 67.8 (16) 3.2 (5) 52.7 (28) 106 OpenMidnight 79.3 (19) 84.7 (7) 43.7 (31) 69.1 (3) 5.4 (29) 38.3 (17) 106 Hibou-L 78.6 (24) 83.7 (12) 73.8 (21) 68.6 (7) 4.7 (25) 39.5 (21) 110 Prov-GigaPath 79.5 (18) 82.9 (17) 75.5 (14) 63.5 (30) 3.4 (8) 42.1 (23) 110 CONCH 1.5 79.9 (15) 82.4 (20) 75.0 (18) 68.8 (5) 4.6 (23) 75.8 (31) 112 Virchow 77.4 (28) 82.8 (18) 71.8 (28) 69.2 (2) 4.5 (22) 38.3 (17) 115 CONCH 78.8 (21) 81.9 (23) 73.4 (24) 68.3 (8) 4.1 (20) 57.3 (29) 125 Kaiko ViT-B/16 78.7 (22) 81.4 (25) 76.4 (10) 66.8 (23) 5.0 (26) 38.8 (19) 125 
+
+Phaet 77.7 (26) 80.7 (29) 73.3 (25) 65.3 (28) 3.0 (4) 38.8 (19) 131 Kaiko ViT-S/16 78.2 (25) 81.7 (24) 75.1 (16) 66.8 (23) 4.6 (23) 42.5 (25) 136 Phikon 75.7 (30) 80.9 (28) 73.6 (23) 68.0 (12) 5.8 (31) 33.5 (14) 138 Phikon † 76.1 (29) 79.8 (30) 73.2 (26) 66.6 (26) 5.4 (29) 24.5 (4) 144 Phikon-v2 73.9 (31) 79.7 (31) 71.8 (28) 67.4 (21) 3.9 (15) 43.8 (26) 152 MUSK 77.7 (26) 81.1 (27) 71.9 (27) 65.1 (29) 4.0 (17) 71.9 (30) 156 
+
+Table 6: HEST benchmark: extended leaderboard (Pearson correlation ↑). Shaded rows ( model †)report fine-tuned results; unshaded rows report base model results from the HEST leaderboard. Sorted by average (descending).                                                                                                                                             
+
+> Model IDC PRAD PAAD SKCM COAD READ CCRCC LUNG LYMPH IDC Average
+> H-Optimus-0 †0.6069 0.3695 0.5205 0.6764 0.3136 0.2466 0.2791 0.5811 0.2671 0.4290
+> UNI2-h †0.6016 0.3763 0.5290 0.6781 0.3294 0.2239 0.2734 0.5729 0.2761 0.4290 H-Optimus-1 0.6024 0.3781 0.4964 0.6589 0.3195 0.2421 0.2533 0.5779 0.2774 0.4229 GenBio-PathFM 0.5872 0.3913 0.4959 0.6715 0.3284 0.1785 0.2615 0.5787 0.2842 0.4197 GenBio-PathFM †0.5867 0.3965 0.5066 0.6473 0.3217 0.1961 0.2436 0.5783 0.2831 0.4178
+> Mascaret 0.5920 0.3760 0.5127 0.6442 0.3322 0.1964 0.2435 0.5802 0.2727 0.4167 H-Optimus-0 0.5976 0.3848 0.4911 0.6454 0.3086 0.2216 0.2676 0.5590 0.2591 0.4150 UNI2-h 0.5898 0.3569 0.5001 0.6606 0.3015 0.2223 0.2640 0.5587 0.2727 0.4141 Virchow2 †0.5867 0.3900 0.5005 0.6543 0.2940 0.2056 0.2652 0.5656 0.2597 0.4135 Prov-GigaPath †0.5856 0.3730 0.5138 0.6137 0.3214 0.1891 0.2607 0.5663 0.2648 0.4098 H0-mini †0.5820 0.3805 0.5070 0.6305 0.2838 0.1874 0.2681 0.5662 0.2626 0.4076 AquaViT †0.5928 0.3738 0.5020 0.6232 0.2935 0.2158 0.2378 0.5550 0.2635 0.4064 Virchow 0.5846 0.3378 0.5159 0.6243 0.3079 0.1981 0.2586 0.5664 0.2610 0.4061
+> continued. . .
+
+16 Model IDC PRAD PAAD SKCM COAD READ CCRCC LUNG LYMPH IDC Average 
+
+AquaViT 0.5875 0.3814 0.4763 0.6294 0.2984 0.2200 0.2317 0.5510 0.2649 0.4045 Virchow2 0.5971 0.3529 0.4779 0.6402 0.2581 0.2074 0.2719 0.5685 0.2568 0.4034 H0-mini 0.5862 0.3687 0.4919 0.6012 0.2494 0.1863 0.2670 0.5482 0.2629 0.3958 Midnight-12k 0.5823 0.3370 0.4900 0.6360 0.2908 0.1856 0.2132 0.5577 0.2642 0.3952 
+
+Phaet 0.5630 0.3546 0.4748 0.5985 0.2915 0.1696 0.2696 0.5622 0.2649 0.3943 OpenMidnight 0.5870 0.3590 0.4731 0.5941 0.2728 0.1762 0.2458 0.5534 0.2598 0.3912 Hibou-L 0.5701 0.2945 0.4674 0.5817 0.3040 0.1902 0.2657 0.5762 0.2432 0.3881 Prov-GigaPath 0.5515 0.3699 0.4746 0.5619 0.2992 0.1961 0.2430 0.5412 0.2500 0.3875 UNI 0.5890 0.2943 0.4807 0.6346 0.2614 0.1836 0.2400 0.5464 0.2559 0.3873 Phikon † 0.5571 0.3639 0.4769 0.5615 0.2708 0.1597 0.2430 0.5649 0.2513 0.3832 GPFM 0.5660 0.3423 0.4601 0.5891 0.2480 0.1646 0.2591 0.5472 0.2371 0.3793 CONCH 1.5 0.5440 0.3808 0.4570 0.5517 0.2802 0.1600 0.2176 0.5513 0.2699 0.3792 Phikon-v2 0.5408 0.3545 0.4455 0.5554 0.2500 0.1749 0.2659 0.5419 0.2437 0.3747 Kaiko ViT-B/8 0.5599 0.3611 0.4601 0.5725 0.2683 0.1623 0.2313 0.5183 0.2273 0.3735 CONCH 0.5363 0.3548 0.4468 0.5787 0.2489 0.1602 0.2180 0.5322 0.2507 0.3696 Phikon 0.5327 0.3420 0.4425 0.5355 0.2623 0.1532 0.2423 0.5466 0.2373 0.3660 
+
+Table 7: PathoROB benchmark: extended leaderboard (robustness index ↑). Shaded rows ( model †)report fine-tuned results. MP denotes a base model evaluated with mixed precision; unlabelled rows report results from the official PathoROB leaderboard. Sorted by average robustness index (descending). 
+
+Model TCGA Cam. Tolkach Average 
+
+Atlas 2 0.879 0.940 0.964 0.928 
+
+Mascaret 0.893 0.907 0.972 0.924 GenBio-PathFM † 0.863 0.926 0.966 0.918 Virchow2 † 0.849 0.935 0.969 0.918 H-Optimus-0 † 0.856 0.933 0.961 0.917 UNI2-h † 0.863 0.901 0.960 0.908 GenBio-PathFM 0.838 0.865 0.960 0.888 Prov-GigaPath † 0.827 0.872 0.956 0.885 AquaViT † 0.811 0.865 0.950 0.875 H0-mini † 0.811 0.842 0.950 0.868 Virchow2 0.822 0.806 0.955 0.861 CONCH 1.5 0.832 0.774 0.951 0.852 Atlas 0.826 0.785 0.938 0.850 Virchow 0.761 0.751 0.932 0.815 H0-mini 0.794 0.718 0.932 0.815 CONCH 0.824 0.662 0.951 0.812 H-Optimus-0 0.812 0.705 0.918 0.812 
+
+Phaet 0.785 0.702 0.932 0.806 AquaViT MP 0.781 0.673 0.925 0.793 Midnight-12k MP 0.858 0.478 0.941 0.759 UNI2-h 0.803 0.544 0.923 0.757 MUSK 0.727 0.467 0.928 0.707 HIPT 0.614 0.649 0.726 0.663 Prov-GigaPath 0.738 0.399 0.754 0.630 Phikon † 0.731 0.244 0.914 0.630 Kaiko ViT-B/8 0.763 0.147 0.896 0.602 UNI 0.747 0.145 0.902 0.598 RETCCL 0.593 0.318 0.878 0.596 CTransPath 0.652 0.106 0.872 0.543 Kang-DINO 0.661 0.043 0.832 0.512 RudolfV 0.587 0.184 0.695 0.489 Phikon 0.623 0.011 0.795 0.476 Phikon-v2 0.619 0.019 0.768 0.469 Ciga 0.511 0.135 0.693 0.446 
+
+17
