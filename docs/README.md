@@ -6,46 +6,41 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-28
-- 运行时间：2026-07-28 20:53:38 UTC
+- 最新运行日期：2026-07-29
+- 运行时间：2026-07-29 21:47:34 UTC
 - 运行状态：成功
-- 本次总论文数：8
-- 精读区：5
-- 速读区：3
+- 本次总论文数：7
+- 精读区：2
+- 速读区：5
 
 ### 今日简报（AI）
-今天精选8篇论文，精读5篇，重点关注弱监督实例级Gleason模式估计与病理基础模型鲁棒微调。  
-最值得关注的是利用主次标签实现弱监督Gleason评分，以及通过微调增强病理基础模型鲁棒性。  
-建议关注弱监督方法在医学图像中的扩展应用，并探索微调策略对模型稳定性的提升。
-- 详情：[/202607/28/README](/202607/28/README)
+今天日报聚焦病理基础模型与染色转移可靠性的突破，两篇高分精读均为8.0。最值得关注：基于多模态专家评估的迭代数据-模型协同染色转移框架，以及病理基础模型的分布鲁棒性度量。建议速读弱监督乳腺X线的梯度特征分解方法，以理解模型退化机制。
+- 详情：[/202607/29/README](/202607/29/README)
 
 ### 精读区论文标签
-1. [Weakly Supervised Instance-Level Gleason Pattern Estimation Using Primary and Secondary Labels](/202607/28/2607.23594v1-weakly-supervised-instance-level-gleason-pattern-estimation-using-primary-and-secondary-labels)  
-   标签：评分：10.0/10、query:cpath
-   evidence：基于弱监督多实例学习的前列腺癌全切片图像Gleason模式估计
-2. [Robustifying pathology foundation models via fine-tuning](/202607/28/2607.22861v1-robustifying-pathology-foundation-models-via-fine-tuning)  
-   标签：评分：9.0/10、query:cpath
-   evidence：微调病理基础模型以提高鲁棒性
-3. [PathSelect: Sequential Token Selection for Whole Slide Pathology](/202607/28/2607.23631v1-pathselect-sequential-token-selection-for-whole-slide-pathology)  
-   标签：评分：9.0/10、query:cpath
-   evidence：解决病理全切片图像的令牌选择问题用于视觉语言模型
-4. [PathScale-R1: Cross-scale Reasoning for Pathological Image Analysis](/202607/28/2607.23794v1-pathscale-r1-cross-scale-reasoning-for-pathological-image-analysis)  
+1. [Towards Reliable Stain Transfer: An Iterative Data-Model Co-Optimization Framework Based on Multimodal Expert-Guided Assessment](/202607/29/2607.25393v1-towards-reliable-stain-transfer-an-iterative-data-model-co-optimization-framework-based-on-multimodal-expert-guided-assessment)  
    标签：评分：8.0/10、query:cpath
-   evidence：病理视觉语言模型的跨尺度推理基准与训练
-5. [HistoGPA: A Context-Conditioned Gene-Prior Attention Framework for Histology-Based Spatial Gene Expression Prediction](/202607/28/2607.24364v1-histogpa-a-context-conditioned-gene-prior-attention-framework-for-histology-based-spatial-gene-expression-prediction)  
+   evidence：组织病理学中H&E与IHC之间的多模态染色迁移
+2. [Beyond Counts: A Distributional Robustness Margin For Pathology Foundation Models](/202607/29/2607.25497v1-beyond-counts-a-distributional-robustness-margin-for-pathology-foundation-models)  
    标签：评分：8.0/10、query:cpath
-   evidence：通过上下文条件注意力从H&E图像预测空间基因表达
+   evidence：病理基础模型鲁棒性分析
 
 ### 速读区论文标签
-1. [Rethinking Layer-Wise Information Allocation for Vision Foundation Model Adaptation](/202607/28/2607.21973v1-rethinking-layer-wise-information-allocation-for-vision-foundation-model-adaptation)  
+1. [Attributes Should Come from Images, Not Class Names: Distribution-Conditioned Attribute Selection for Vision-Language Models](/202607/29/2607.18695v1-attributes-should-come-from-images-not-class-names-distribution-conditioned-attribute-selection-for-vision-language-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：基于提示的视觉基础模型适配方法
-2. [scMIR: a vision-language foundation model for single-cell light microscopy image representation](/202607/28/2607.22712v1-scmir-a-vision-language-foundation-model-for-single-cell-light-microscopy-image-representation)  
+   evidence：提出从目标图像集选择属性用于VLM零样本分类
+2. [Controlling Embedding Spaces with Text-Conditioned Transformations](/202607/29/2607.22919v1-controlling-embedding-spaces-with-text-conditioned-transformations)  
+   标签：评分：7.0/10、query:cpath
+   evidence：基于文本条件的视觉嵌入变换
+3. [Gradient-Based Latent Decomposition Reveals Mechanisms of Feature Degradation in Weakly Supervised Mammography](/202607/29/2607.24835v1-gradient-based-latent-decomposition-reveals-mechanisms-of-feature-degradation-in-weakly-supervised-mammography)  
+   标签：评分：7.0/10、query:cpath
+   evidence：弱监督乳腺钼靶用于乳腺癌诊断
+4. [Group Equivariant Diffusion for Anomaly Detection in Computational Cytology](/202607/29/2607.25503v1-group-equivariant-diffusion-for-anomaly-detection-in-computational-cytology)  
+   标签：评分：7.0/10、query:cpath
+   evidence：使用群等变扩散在全切片图像上进行异常检测
+5. [Re-thinking Mammography Transfer Learning: The Dataset-Informed Transfer Learning (DITL) Framework for Breast Cancer Screening and Lesion Diagnosis](/202607/29/2607.26043v1-re-thinking-mammography-transfer-learning-the-dataset-informed-transfer-learning-ditl-framework-for-breast-cancer-screening-and-lesion-diagnosis)  
    标签：评分：6.0/10、query:cpath
-   evidence：用于单细胞显微镜的视觉语言基础模型
-3. [QFedPolyp: A Communication- and Inference-Efficient Federated Learning Framework for Polyp Segmentation](/202607/28/2607.22743v1-qfedpolyp-a-communication--and-inference-efficient-federated-learning-framework-for-polyp-segmentation)  
-   标签：评分：6.0/10、query:cpath
-   evidence：用于息肉分割的联邦学习，支持结直肠癌诊断
+   evidence：乳腺钼靶乳腺癌诊断的迁移学习框架
 
 
 <div class="dpr-home-promo-card">

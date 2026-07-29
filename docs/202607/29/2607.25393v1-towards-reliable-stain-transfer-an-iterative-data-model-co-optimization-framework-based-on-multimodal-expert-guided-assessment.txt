@@ -1,0 +1,561 @@
+Title: Towards Reliable Stain Transfer: An Iterative Data-Model Co-Optimization Framework Based on Multimodal Expert-Guided Assessment
+
+URL Source: https://arxiv.org/pdf/2607.25393v1
+
+Published Time: Wed, 29 Jul 2026 00:38:46 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Towards Reliable Stain Transfer: An Iterative Data-Model Co-Optimization Framework Based on Multimodal Expert-Guided Assessment 
+
+# Siyuan Xu 
+
+East China Normal University Shanghai, China syxu@stu.ecnu.edu.cn 
+
+# Yan Wang ∗
+
+East China Normal University Shanghai, China ywang@cee.ecnu.edu.cn 
+
+# Haofei Song 
+
+East China Normal University Shanghai, China hfsong@stu.ecnu.edu.cn 
+
+# Lili Gao 
+
+Ruijin Hospital, Shanghai Jiao Tong University School of Medicine Shanghai, China gll12216@rjh.com.cn 
+
+# Jiansheng Wang 
+
+Hangzhou Hyperspectral Imaging Technology Co., Ltd. Hangzhou, China jswang@cee.ecnu.edu.cn 
+
+# Qing Zhang 
+
+East China Normal University Shanghai, China qzhang@cee.ecnu.edu.cn 
+
+# Dan Huang 
+
+Fudan University Shanghai Cancer Center Shanghai, China danhuang@shca.org.cn 
+
+# Boxiang Yun 
+
+East China Normal University Shanghai, China boxiangyun@stu.ecnu.edu.cn 
+
+# Hongkai Xiong 
+
+East China Normal University Shanghai, China hkxiong@cee.ecnu.edu.cn 
+
+# Qingli Li ∗
+
+East China Normal University Shanghai, China qlli@cs.ecnu.edu.cn 
+
+## Abstract 
+
+Histopathological examination primarily relies on hematoxylin and eosin (H&E) and immunohistochemistry (IHC) staining. Although IHC provides critical molecular information, it is costly and re-quires specialized expertise. Stain transfer provides an efficient alternative by computationally generating IHC from H&E images, but remains challenged by unified and interpretable modeling for heterogeneous biomarkers under pixel-unaligned supervision. We propose DMCoStain, a novel Data-Model Co -optimization frame-work for Stain transfer. It iteratively co-refines training data and model capability, improving staining accuracy and interpretability in both pathological and structural consistency. To refine training data in a clinically meaningful manner, it incorporates the Multi-modal Expert-Guided Finer Selection (MEGFS) strategy, built upon a pioneering IHC-positive-expression (IPE) vision-language model (VLM) that emulates pathologist reasoning. To support MEGFS, we construct ImmunoInstruction, the first large-scale IPE instruction-following dataset with 150K VQA samples. Extensive experiments on multiple tissues and biomarkers demonstrate that DMCoStain achieves state-of-the-art (SOTA) accuracy. This paradigm offers  
+
+> ∗Corresponding authors.
+> This work is licensed under a Creative Commons Attribution 4.0 International License.
+> MM ’26, Rio de Janeiro, Brazil
+> ©2026 Copyright held by the owner/author(s). ACM ISBN 979-8-4007-2213-4/2026/11 https://doi.org/10.1145/3767308.3835927
+
+strong practical value, and MEGFS also functions as a specialized evaluation tool for future model development. Dataset, code, and more details are in https://github.com/SikangSHU/DMCoStain. 
+
+## CCS Concepts 
+
+• Computing methodologies → Computer vision ; • Applied computing → Health informatics .
+
+## Keywords 
+
+computational pathology; stain transfer; immunohistochemistry images; image generation 
+
+ACM Reference Format: 
+
+Siyuan Xu, Yan Wang, Haofei Song, Lili Gao, Jiansheng Wang, Qing Zhang, Dan Huang, Boxiang Yun, Hongkai Xiong, and Qingli Li. 2026. Towards Reliable Stain Transfer: An Iterative Data-Model Co-Optimization Frame-work Based on Multimodal Expert-Guided Assessment. In Proceedings of the 34th ACM International Conference on Multimedia (MM ’26), November 10–14, 2026, Rio de Janeiro, Brazil. ACM, New York, NY, USA, 10 pages. https://doi.org/10.1145/3767308.3835927 
+
+## 1 Introduction 
+
+Cancer remains one of the most serious global health challenges [ 15 , 16 ]. Histopathological examination is the gold standard for diagnosis and treatment, providing essential microscopic insights. In routine pathology, hematoxylin and eosin (H&E) staining is the most commonly used technique for visualizing tissue archi-tecture and cellular morphology. Hematoxylin stains nuclei blue arXiv:2607.25393v1 [cs.CV] 28 Jul 2026 MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Siyuan Xu et al. Sampling             
+
+> (b) Pixel -unaligned consecutive stained sections
+> HER2: Dense Membranous ER: Clustered Nuclear Ki67: Sparse Nuclear
+> (c) Diverse expression patterns
+> (d) Inconsistent discriminability
+> ER PAX5
+> Fixation, Embedding
+> Sectioning, Staining
+> H& Eof Various Biomarkers
+> Specialized Arch
+> Imaging
+> H&E IHC
+> (a) Image preparation workflow
+> IHC Output
+> (e) Existing methods
+
+Figure 1: (a) Workflow for H&E and IHC image preparation; (b-d) Fundamental challenges in H&E-to-IHC stain transfer; (e) Architecture of existing methods. “Arch” = “Architecture”. 
+
+to dark purple, while eosin colors the cytoplasm and extracellu-lar matrix pink. However, H&E cannot reveal specific protein ex-pression, which is critical for tumor interpretation. This limitation is addressed by immunohistochemistry (IHC), a molecular-level technique that visualizes protein (positive) expression via antigen-antibody reactions. IHC typically employs diaminobenzidine (DAB) as a chromogen with hematoxylin counterstaining to detect clini-cally relevant biomarkers (e.g., ER, PR, Ki67, HER2 in breast cancer). Despite its diagnostic value, IHC is time-consuming, costly, and requires specialized expertise, limiting its widespread use. These constraints have motivated stain transfer [ 13 ], which computation-ally generates biomarker-specific IHC images from standard H&E slides. It is enabled by the intrinsic correlation between tissue mor-phology and molecular expression, whereby cellular structures and contextual patterns encode underlying biomarker status [ 7, 19 , 31 ]. We seek to learn a deep learning-based mapping from H&E to IHC that enables multi-biomarker diagnosis on the same tissue while preserving pathological and structural information in H&E. Despite recent progress, several fundamental challenges remain: (1) 
+
+Absence of pixel-aligned ground truth (GT) . In clinical practice, staining is irreversible, as repeated destaining and restaining of the same section cause chromogenic residue and tissue degrada-tion. Thus, H&E and IHC staining are performed on consecutive sections, inevitably introducing intrinsic and preparation-induced misalignment (Fig. 1(a, b)). This process achieves only region-level alignment, whose quality varies across datasets, while true pixel-level alignment is unavailable. Most existing methods rely on pixel-unaligned (i.e., weakly paired) data. Some studies [ 2 , 25 ] incorporate region- or cell-level expert annotations for stronger supervision, but such annotations are limited, coarse, and not scalable. (2) Chal-lenges in unified modeling under morphological heterogene-ity . Morphological heterogeneity arises in two key aspects. First, biomarkers differ in expression patterns: e.g., HER2 in breast cancer presents dense membranous staining, while Ki67 exhibits sparse nuclear localization. Second, biomarker discriminability in H&E is inconsistent: ER in breast cancer is relatively apparent, while PAX5 in lymphoma is hard to discern (Fig. 1(c, d)). This hetero-geneity makes it difficult for a single model to capture a unified mapping across tissues and biomarkers. Existing models, often bi-ased by task-specific architectures (Fig. 1(e)), exhibit inconsistent performance across datasets. (3) Limited practical reliability .Although existing models can accommodate weakly paired data [ 8 ], their underlying feature learning remains opaque. Combined with pixel-unaligned supervision, the lack of interpretability in learning undermines confidence in practical reliability. While such models may improve average metrics, their practical value remains limited. We present DMCoStain (Fig. 3), an iterative data-model co-optimization framework that jointly improves training samples and model capability. On the model side, instead of relying on a single architecture for heterogeneous biomarkers, DMCoStain employs biomarker-specific models whose staining capability pro-gressively improves through multi-stage (i.e., iterative) training on refined data (for Challenge 2). On the data side, to overcome the unavailability of pixel-aligned pairs, DMCoStain starts from weakly paired samples and iteratively refines them via inference, coarse-to-fine evaluation, and selection (for Challenge 1). The accumulated better-paired samples guide models to capture precise pathological features, thereby enhancing and stabilizing modeling. This para-digm improves staining accuracy while maintaining interpretability through explicit optimization procedures (for Challenge 3). Specifically, we first train a set of cutting-edge specialized mod-els on private or public weakly paired datasets. These models serve as candidate generators, producing pixel-aligned (i.e., better-paired) virtual IHC images. Inference on the same samples then yields candidate images for selection. Classical evaluation metrics, includ-ing Contrast-Structure Similarity (CSS) and Perceptual Hash Value (PHV), measure only image-level similarity between generated im-ages and GT. While capable of identifying obviously low-quality results, they remain insensitive to fine-grained local regions. A generated image with only minor but clinically critical errors in biomarker spatial position or intensity may still meet the fixed thresholds, offering no guarantee of pathological consistency and thus being suitable only for coarse filtering. To enable fine-grained, pathology-aware selection with region-level aligned GT, we pro-pose Multimodal Expert-Guided Finer Selection (MEGFS) , cen-tered on the VL Expert-Guided Assessment model (VLEGA) , a vision-language model (VLM) inspired by LLaVA [ 18 , 30 ] for IHC-positive-expression (IPE) assessment. VLEGA identifies biomarker expression and answers clinically relevant questions for both gen-erated (fake) images and (real) GT. MEGFS evaluates images’ con-sistency across four pathologist-determined aspects: style fidelity, (bio)marker location, marker proportion and spatial position, and marker intensity. Image quality is determined by response consis-tency, enabling MEGFS to capture local pathological details aligned with clinical practice (Fig. 2). The selected better-paired samples then replace the original weakly paired data, guiding models to-wards more precise features of biomarkers. DMCoStain iterates this process over multiple stages. To support VLEGA, we construct 
+
+ImmunoInstruction , a large-scale IPE VQA dataset spanning two tissue types (breast cancer and lymphoma) and six biomarkers. It comprises 29,474 IHC images and 147,370 QA pairs across four Towards Reliable Stain Transfer MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Generated     
+
+> (pixel -aligned
+> with H&E)
+> Real GT
+> (region -aligned
+> with H& E)
+> CSS PHV
+> Both above average
+> MEGFS
+> Style Fidelity
+> Marker Location
+> Proportion & Position
+> Marker Intensity
+> Classical
+> Evaluation Specialized
+> Evaluation
+> Selected
+> CSS PHV
+> Both above average
+> MEGFS
+> Style Fidelity
+> Marker Location
+> Proportion & Position
+> Marker Intensity
+> Rejected
+> Case  1Case  2
+
+Figure 2: Classical evaluation fails to detect fine-grained local errors. Both cases pass coarse filtering, yet Case 2 contains clinically critical errors in biomarker proportion and posi-tion (red box), correctly identified and rejected by MEGFS. 
+
+evaluation categories, with all images sourced from public datasets [14 , 39 ]. All answers are curated and refined by expert pathologists, which directly motivates the term “expert-guided” in MEGFS. The main contributions of this paper are as follows: 
+
+• We propose DMCoStain to improve staining accuracy in an in-terpretable manner. It is an iterative and explicit data-model co-optimization framework that jointly refines weakly paired samples and biomarker-specific modeling, addressing fundamental chal-lenges in stain transfer and serving as a unifying tool for diverse models likely to emerge in the future. 
+
+• Based on region-level aligned GT, MEGFS is proposed to enhance image-level evaluation by assessing staining quality via finer, clin-ically grounded criteria. Central to it is VLEGA , the first IHC-positive-expression VLM that emulates pathologist reasoning. 
+
+• We build ImmunoInstruction , the first large-scale IHC-positive-expression VQA dataset, to support VLEGA training. It comprises 30K IHC images and 150K QA pairs spanning diverse biomarkers. 
+
+• Extensive experiments on six biomarkers from breast cancer and lymphoma demonstrate DMCoStain’s SOTA performance in pathol-ogy, structure, and style, while varied protocols confirm the frame-work’s effectiveness across diverse models. 
+
+## 2 Related Works 2.1 H&E-to-IHC Stain Transfer 
+
+Early studies focus on color mapping, such as channel-level distri-bution matching [ 28 ] and stain vector decomposition [ 23 ], which are limited to color transfer and cannot model pathological relation-ships. Recent deep learning-based generative methods better cap-ture semantic relationships between stained pairs. Pixel-supervised methods typically adopt Pix2pix [ 12 ] as the backbone, for example the multi-scale pyramid model [ 20 ], but pixel-level losses under im-perfect alignment distort tissue structure. To address misalignment, weakly paired training based on CycleGAN [ 41 ] or CUT [ 24 ] is em-ployed. ASP [ 14 ] introduces an adaptive supervised PatchNCE loss to exploit weak supervision, while PSPStain [ 3 ] enhances patholog-ical semantic mining under spatial misalignment. PPT [ 39 ] designs FocalNCE and patch alignment losses. Diffusion-based transfer is explored in [ 10 ], though preserving structure remains challenging. ATST-Net [ 36 ] introduces auxiliary task supervision with human-annotation-free masks to ensure pathological consistency and in-terpretability. More recent methods incorporate optimal transport: SIMGAN [ 9] leverages optimal transport-based supervision with pathological correlation constraints, and USIGAN [ 27 ] mitigates weak-pairing effect via unbalanced self-information feature trans-port and correlation-based consistency mining. 
+
+## 2.2 MLLMs in Computational Pathology 
+
+Multimodal Large Language Models (MLLMs) have recently ad-vanced computational pathology by enabling joint reasoning over images and text [ 6 , 21 , 35 ]. PathChat [ 22 ] proposes a VL assistant trained on over 456K VL instructions for strong diagnostic QA. PathAsst [ 33 ] integrates a pathology-specific CLIP with Vicuna-13B [ 5] and instruction tuning to build a generative foundation model for pathology analysis. CPath-Omni [ 32 ], a 15B-parameter MLLM, unifies patch-level and whole slide image (WSI)-level tasks within a single framework, achieving SOTA performance across di-verse benchmarks. SmartPath-R1 [ 37 ] improves reasoning efficiency via reinforcement fine-tuning and a mixture-of-experts model for region of interest (ROI)-level and WSI-level tasks. SlideChat [ 4]enables direct interaction with WSIs using large-scale instructions, while WSI-LLaVA [ 17 ] enhances morphological understanding and explainability through multi-stage training. However, existing MLLMs primarily target complex diagnosis tasks, are large in scale, and lack task-specific, lightweight VLMs tailored to IPE assessment. 
+
+## 3 Method 3.1 Overall Architecture of DMCoStain 
+
+DMCoStain (Fig. 3) consists of three training stages: Initial T raining (IT), Refined Training (RT), and F inal T raining (FT), along with two e valuation-and- s election (E&S) stages, forming a progressive pipe-line: IT E&S 
+
+−−−→ RT E&S 
+
+−−−→ FT . Each E&S stage integrates Classical Image-Level Primary Selection (CILPS) and MEGFS. Given weakly paired H&E-IHC data Dweak = {( 𝑋 𝑖 , 𝑌 𝑖 )} 𝑁 𝑖 =1, a set of cutting-edge stain transfer models {𝑀 𝑗 }𝐾 𝑗 =1 is first trained in the IT stage, each exhibiting varying accuracy across biomarkers. These models then perform inference on the same training samples to generate On-Train IHC Prediction ˆ𝑌 OT  
+
+> 𝑗
+
+= {𝑀 𝑗 (𝑋 𝑖 )} 𝑁 𝑖 =1, which serve as candidate seeds for data refinement. These predictions are first filtered by CILPS using classical metrics (CSS and PHV) to remove obviously low-quality results, retaining only those satisfying the average-based thresholds of both metrics: 
+
+ˆ𝑌 CILPS =  ˆ𝑦 ∈ ˆ𝑌 OT | CSS ( ˆ𝑦 ) > ¯CSS , PHV ( ˆ𝑦 ) < ¯PHV . (1) Since CILPS is coarse and insensitive to fine local patterns, ˆ𝑌 CILPS 
+
+is further refined by MEGFS, which evaluates clinically relevant aspects through a multimodal, question-driven paradigm, produc-ing Selected IHC Prediction ˆ𝑌 SEL = MEGFS ( ˆ𝑌 CILPS ). These are treated as better-paired samples and replace the original weak pairs to form the refined dataset Drefined = {( 𝑋 𝑖 , ˆ𝑌 SEL  
+
+> 𝑖
+
+if exists else 𝑌 𝑖 ) | (𝑋 𝑖 , 𝑌 𝑖 ) ∈ D weak }. Drefined is used in RT to provide higher-quality supervision, guiding models to better capture pathological features from H&E images. The same E&S is applied after RT, followed by FT. For efficiency, MEGFS is applied only to the model with the best CILPS performance per biomarker, as CILPS identifies the candidate model most likely to yield a higher proportion of qualified samples, MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Siyuan Xu et al. Latest SOTA 
+
+Stain Transfer 
+
+Model Library 
+
+Public and Private 
+
+Weakly Paired 
+
+H&E -IHC  Database 
+
+> MIST (Breast)
+> ER
+
+Initial Training 
+
+(IT) Stage 
+
+> On -Train
+> IHC Prediction
+
+RMIST (Breast) 
+
+> PR
+
+ASP (2023) 
+
+Classical & Specialized 
+
+Evaluation & Selection 
+
+Classical Image -Level 
+
+Primary Selection 
+
+> CSS PHV
+> Metric n
+
+Multimodal 
+
+Expert -Guided 
+
+Finer Selection 
+
+> Style Fidelity
+> Marker Location
+> Proportion and Position
+> Marker Intensity
+
+R
+
+R
+
+R
+
+R
+
+> Selected
+> IHC Prediction
+> Latest SOTA Stain
+> Transfer  Model Library
+
+R Replace 
+
+> Workflow
+> Better -Paired
+
+On -Test 
+
+Evaluation 
+
+Real H&E  Real IHC 
+
+VLM 
+
+Answering  Expert 
+
+Validation 
+
+VL Expert -Guided 
+
+Assessment Model Real H&E 
+
+ImmunoInstruction  [Style] [Location]     
+
+> [Proportion & Spatial Position] [Intensity]
+> [C1 -Style Fidelity] x60K
+> #Q1 -2: Is the overall style of this image, including color, texture,
+> and overall appearance, consistent with that of real IHC images?
+> #A: Yes .
+> Train
+> MIST (Breast)
+> Ki67 MIST (Breast)
+> HER2
+> BCI (Breast)
+> HER2
+> Dataset n (Tissue )
+> Biomarker
+> Classical & Specialized
+> Evaluation & Selection
+
+Multimodal Expert -Guided Finer Selection           
+
+> [C2 -Marker Location] x30K
+> #Q3: Which cellular compartment is the positive signal
+> localized to? (i.e. membran e, cytoplasm, or nucle us)
+> #A: The positive signal is mainly localized to the cell membrane .
+> [C3 -Marker Proportion and Spatial Position] x30K
+> #Q4: What approximate percentage is covered by the positive signal,
+> and in which positions is it primarily located?
+> #A: Approximately 25% is positive, primarily located in the left and
+> top -right positions.
+> [C4 -Marker Intensity] x30K
+> #Q5: How strong is the positive signal in the image?
+> #A: Strong .
+
+VL Expert -Guided Assessment Model 
+
+Lightweight LLM 
+
+Projector  Key 
+
+Questions 
+
+Answers 
+
+Phase 1 LLM 
+
+Phase 2 LLM 
+
+Patch -Level Encoder 
+
+Global -Level Encoder 
+
+Patching  
+
+> Priv (PDAC)
+> PanCK
+> HIT (Lymphoma)
+> CD3 HIT (Lymphoma)
+> PAX5
+> Final Training  (FT) Stage
+
+ˆOT 
+
+Yˆ SEL 
+
+YˆCILPS 
+
+Yrefined Dweak D
+
+> Questions
+> IHC
+> Key Questions
+> Fake /Real IHC
+> Key Questions
+> Weakly Paired
+
+PSPStain (2024) 
+
+TDKStain (2024) 
+
+ATST -Net (2025) 
+
+SIMGAN (2025) 
+
+USIGAN (202 6)
+
+Model n (Year) 
+
+Refined Training 
+
+(RT) Stage 
+
+> Training Data
+
+Figure 3: Overview of the proposed DMCoStain. For training data, darker colors indicate a higher proportion of better-paired samples. “On-Train” and “On-Test” denote inference on training and test data, respectively. Best viewed at a zoomed-in level. 
+
+whose predictions are then subjected to fine-grained pathological selection by MEGFS. While all candidate models participate in IT and RT, only the top-performing model for each biomarker is employed in FT. Since FT requires models to capture precise pathological features while fully preserving H&E tissue structure, model selection at this stage incorporates an additional structural preservation constraint on top of CILPS. Specifically, the FT model is selected as: 
+
+𝑀 FT  
+
+> 𝑏
+
+= arg max  
+
+> 𝑀 𝑗 ∈ M valid
+> 𝑏
+
+CILPS RT (𝑀 𝑗 , 𝑏 ), (2a) 
+
+Mvalid  
+
+> 𝑏
+
+=
+
+(
+
+𝑀 𝑗 
+
+1
+
+𝑁 𝑏 𝑁 𝑏 ∑︁ 
+
+> 𝑖 =1
+
+SSIM  gray (𝑀 𝑗 (𝑋 𝑖 )) , 𝑋 gray 
+
+> 𝑖
+
+ ≥ 𝜏 struct 
+
+)
+
+,
+
+(2b) where 𝑀 FT  
+
+> 𝑏
+
+is the FT model for biomarker 𝑏 , and CILPS RT (𝑀 𝑗 , 𝑏 )
+
+is the CILPS score of 𝑀 𝑗 on biomarker 𝑏 after RT. Mvalid  
+
+> 𝑏
+
+denotes the subset of candidate models satisfying the structural preserva-tion constraint, where gray (·) is grayscale conversion and 𝑋 gray  
+
+> 𝑖
+
+=
+
+gray (𝑋 𝑖 ) is the grayscale H&E image. 𝜏 struct is the structural preser-vation threshold for excluding structurally distorted models, and 
+
+𝑁 𝑏 is the number of training pairs for biomarker 𝑏 . Overall, IT selects models that better associate weakly paired data, and RT fur-ther identifies models better at handling such data and exploiting better-paired samples for feature extraction. Selected models are finally adopted in FT with accumulated better-paired samples. As data optimization progresses across stages, the growing avail-ability of high-quality H&E-IHC pairs gradually reduces reliance on weak supervision, leading to consistent model performance gains. On-Test Evaluation in Sec. 4.3 confirms this trend, with models improving progressively across successive stages. 
+
+## 3.2 Multimodal Expert-Guided Finer Selection 
+
+MEGFS is illustrated in the lower-left part of Fig. 3. During the construction of ImmunoInstruction, we integrate preliminary re-sponses generated by a general-purpose VLM with expert patho-logical refinement. Based on it, we develop VLEGA to replace the original “VLM Answering + Expert Validation” workflow. Given a fake or real IHC image, VLEGA answers a predefined set 𝑄 . A gen-erated image is retained as ˆ𝑌 SEL only if all its answers are consistent with those of the corresponding real image: 
+
+ˆ𝑌 SEL = { ˆ𝑦 | ∀ 𝑞 ∈ 𝑄, VLEGA ( ˆ𝑦, 𝑞 ) = VLEGA (𝑦, 𝑞 )} , (3) where 𝑦 is the real image. Training on ImmunoInstruction enables VLEGA to learn robust semantic representation of IPE patterns. VLEGA adopts an improved LLaVA-style [ 18 ] architecture, con-sisting of four main components: a patch-level encoder, a global-level encoder, a projection layer, and a lightweight LLM. IHC images, along with a portion of noisy data (see Sec. 3.3), are first divided into smaller 224 ×224 patches for computational efficiency. Patch-level features are extracted applying PathoDuet [ 11 ], a SOTA pretrained model for IHC images based on ViT, to capture fine-grained lo-cal features. These patch tokens are then aggregated by a vanilla transformer-based global-level encoder to model global contextual relationships. A projection layer maps visual tokens into an LLM-compatible embedding space, where they are fused with textual question embeddings to generate accurate answers. Benefiting from inherent consistency of IPE characteristics, including color pattern Towards Reliable Stain Transfer MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+Table 1: Statistics of the ImmunoInstruction dataset. HBC = human breast cancer, CL = canine lymphoma; Nuc. / Mem. = nuclear / membranous staining. Each image contains five QA pairs: two for Category 1 and one for each of Categories 2-4. 
+
+Dataset Marker Tissue Location IHC Image Q-A/img MIST ER HBC Nuc. 4,093 5MIST PR HBC Nuc. 4,134 5MIST Ki67 HBC Nuc. 4,334 5MIST HER2 HBC Mem. 4,642 5HIT PAX5 CL Nuc. 6,043 5HIT CD3 CL Mem. 6,228 5Total – – 29,474 147,370 
+
+and cellular compartment localization across tissues and biomark-ers, VLEGA trained on diverse IHC data generalizes effectively without biomarker-specific retraining, as confirmed in Sec. 4.3.4. 
+
+## 3.3 ImmunoInstruction 
+
+The scarcity of large-scale IHC pathology datasets limits VLMs from learning IHC expression patterns. To address this issue, we construct ImmunoInstruction, with images collected from the train-ing splits of public MIST [ 14 ] and HIT [ 39 ], covering two tissue types and six (bio)markers. In total, ImmunoInstruction comprises 29,474 1024 ×1024 IHC images, with detailed statistics in Tab. 1. We first exclude images with obvious artifacts from staining, sectioning, or imaging. GPT-4o [ 1 ] generates initial answers by following predefined instructions, yielding responses that cover the required key information with relatively consistent formatting while retaining natural linguistic diversity. These answers are then reviewed and refined by four pathology experts to ensure clinical accuracy and relevance. Each image is annotated under four instruc-tion categories (C) with five questions (Q) in total: (C1, Q1-2) Style Fidelity : evaluates whether the overall style matches real IHC im-ages. Since real IHC images inherently satisfy, we introduce “noisy” negative samples by randomly selecting H&E, immunofluorescence (IF), or heavily blurred IHC images, with answers set to “No” to enhance model discriminability. These three negative categories serve complementary purposes: H&E and IF images, which differ markedly in appearance from IHC, promote robustness against varying color distribution shifts, while heavily blurred IHC images, sharing the same staining modality but with severely degraded quality, are the most challenging negatives by requiring the model to distinguish obvious degradation from intact IHC appearance. (C2, Q3) Marker Location : identifies the cellular compartment of positive expression (i.e., membrane, cytoplasm, or nucleus). (C3, Q4) 
+
+Marker Proportion and Spatial Position : assesses the approximate proportion and spatial distribution of positive regions within the image. (C4, Q5) Marker Intensity : evaluates the staining strength of positive signal. This design yields 58,948 QA pairs for Style Fi-delity and 29,474 pairs for each of the other three categories . For data splitting, 80% of images from MIST ER, PR, Ki67 (nuclear) and HIT CD3 
+
+(membranous) are jointly used for training and 20% for testing. Images from MIST HER2 (membranous) and HIT PAX5 (nuclear) are entirely held out as external test data to assess generalization to unseen biomarkers. Complete details are provided in Sec. 1 of the supplementary materials. Stratified sampling is adopted to main-tain the 80/20 ratio across all answer classes of all questions within each biomarker. Notably, we preserve the natural data imbalance to reflect true clinical prevalence and avoid bias from artificial re-balancing. Since IPE recognition of style, position, and intensity is not biomarker-specific, scarce minority answer classes in one biomarker can be compensated by instances from others. 
+
+## 3.4 Training and Testing Protocol of VLEGA 
+
+3.4.1 Training Phase 1: Multimodal Pre-Alignment. VLEGA train-ing comprises two phases. The first phase aligns textual embeddings with visual representations, enabling the LLM to correctly interpret visual tokens and stabilize subsequent instruction learning. Only Category 1 questions from ImmunoInstruction are used, resulting in 30.1K VQA samples. This phase is formulated as a binary clas-sification task that distinguishes real IHC images from noisy data. Only the global-level encoder and projection layer are updated. 
+
+3.4.2 Training Phase 2: Visual Instruction Learning. In Phase 2, VLEGA learns to integrate and understand features from the two aligned modalities to recognize IPE and generate professional re-sponses. The remaining three instruction categories (45.1K VQA samples) are used for training, and three main components are jointly updated to ensure adaptability. After this phase, VLEGA ac-quires robust IHC-specific semantic understanding and is integrated into MEGFS as an offline evaluator without further fine-tuning. 
+
+3.4.3 Testing. Predicted answers are evaluated against GT using category-specific rules. For Categories 1, 2, and 4, keyword-level exact matching is adopted. Let 𝐴 pred and 𝐴 gt denote the extracted keyword from the predicted and GT answers. A prediction is re-garded as correct if Icat {1,2,4} = 1 when 𝐴 pred = 𝐴 gt , and 0 otherwise. For Category 3, the evaluation is split into two aspects. For Propor-tion, since exact matching would be overly strict given the continu-ous nature of percentage estimates, a tolerance-based consistency rule is applied. Proportion levels are discretized into predefined intervals indexed by 𝑘 , with 𝜏 𝑘 denoting the tolerance threshold for the 𝑘 -th interval. Let 𝑝 pred and 𝑝 gt denote the predicted and GT proportion levels. A prediction is considered consistent if Iprop = 1
+
+when 𝑝 pred − 𝑝 gt < 𝜏 𝑘 , and 0 otherwise. For Position, semantic consistency between predicted and GT descriptions is evaluated using a GPT-based similarity [ 4] function 𝑆 GPT (· , ·) , with threshold 
+
+𝜃 . Similarity scores range from 1 to 10 in increments of 1, with higher values indicating greater similarity. A spatial description is deemed correct if Ispatial = 1 when 𝑆 GPT 
+
+ 𝐴 pred , 𝐴 gt 
+
+ ≥ 𝜃 , and 0
+
+otherwise. The advanced GPT-5.1 model is employed for scoring. In DMCoStain, model training occurs only during the IT, RT, and FT stages, while all E&S stages operate offline. During E&S, MEGFS employs VLEGA for evaluation under the same rules. Additional details are provided in Sec. 2 of the supplementary materials. 
+
+## 4 Experiments and Analysis 4.1 Experimental Setup 
+
+For datasets , we apply two high-quality public datasets of consecu-tive H&E and IHC sections: MIST [ 14 ] and HIT [ 39 ]. MIST contains four biomarkers (ER, PR, Ki67, HER2), each with 1,000 test images, while HIT includes PAX5 and CD3 with 652 and 620 test images, respectively. All images have a resolution of 1024 ×1024. For the segmentation task evaluation in the ablation study, we additionally use a private Pancreatic Ductal Adenocarcinoma (PDAC) dataset of MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Siyuan Xu et al. 
+
+Table 2: Quantitative comparison on MIST and HIT. KID is scaled by 1000; bold and underlined denote the best and second-best. 
+
+Dataset IHC Image Count Method (Model) Source CSS ↑ PHV ( 𝑇 =0.01 )↓ FID ↓ KID ↓
+
+layer1 layer2 layer3 layer4 avg. MIST ER 
+
+Nuc. 1000 PyramidP2P CVPRW 22 0.097 0.477 0.465 0.363 0.852 0.539 112.7 81.5 ASP MICCAI 23 0.115 0.467 0.435 0.291 0.831 0.506 68.0 23.1 PSPStain MICCAI 24 0.139 0.494 0.435 0.286 0.825 0.510 35.5 6.7 TDKStain MICCAI 24 0.091 0.400 0.389 0.317 0.839 0.486 84.5 38.7 ATST-Net IJCAI 25 0.112 0.495 0.440 0.288 0.826 0.512 53.4 13.8 SIMGAN TMI 25 0.121 0.473 0.435 0.285 0.834 0.507 36.6 4.8 USIGAN TIP 26 0.129 0.467 0.417 0.277 0.832 0.498 35.9 4.5 DMCoStain Ours 0.155 0.414 0.365 0.241 0.801 0.455 32.1 2.8 
+
+MIST HER2 
+
+Mem. 1000 PyramidP2P CVPRW 22 0.080 0.465 0.441 0.333 0.841 0.520 113.0 76.6 ASP MICCAI 23 0.100 0.459 0.420 0.264 0.822 0.491 54.7 14.8 PSPStain MICCAI 24 0.106 0.515 0.454 0.281 0.825 0.519 42.7 6.5 TDKStain MICCAI 24 0.088 0.408 0.378 0.281 0.830 0.474 67.0 28.0 ATST-Net IJCAI 25 0.095 0.482 0.430 0.270 0.818 0.500 57.3 9.5 SIMGAN TMI 25 0.090 0.480 0.434 0.277 0.825 0.504 49.0 9.7 USIGAN TIP 26 0.114 0.436 0.385 0.248 0.816 0.471 39.7 2.3 
+
+DMCoStain Ours 0.131 0.429 0.374 0.231 0.797 0.458 35.2 2.3 
+
+HIT PAX5 
+
+Nuc. 652 PyramidP2P CVPRW 22 0.417 0.350 0.315 0.211 0.783 0.415 64.4 19.9 ASP MICCAI 23 0.398 0.482 0.439 0.270 0.812 0.501 107.3 27.2 PSPStain MICCAI 24 0.353 0.379 0.303 0.183 0.775 0.410 51.3 3.3 TDKStain MICCAI 24 0.427 0.252 0.227 0.156 0.757 0.348 54.0 5.9 ATST-Net IJCAI 25 0.336 0.388 0.349 0.205 0.778 0.430 56.2 6.2 SIMGAN TMI 25 0.326 0.398 0.330 0.198 0.786 0.428 50.4 2.7 USIGAN TIP 26 0.336 0.351 0.288 0.186 0.779 0.401 48.6 2.2 DMCoStain Ours 0.352 0.328 0.262 0.158 0.751 0.375 42.3 1.1 
+
+HIT CD3 
+
+Mem. 620 PyramidP2P CVPRW 22 0.459 0.287 0.253 0.175 0.772 0.372 64.7 13.9 ASP MICCAI 23 0.435 0.399 0.338 0.207 0.787 0.433 62.5 6.3 PSPStain MICCAI 24 0.381 0.393 0.294 0.196 0.791 0.419 59.8 3.8 TDKStain MICCAI 24 0.476 0.221 0.183 0.132 0.754 0.323 54.3 5.1 ATST-Net IJCAI 25 0.334 0.454 0.371 0.198 0.733 0.439 65.0 8.9 SIMGAN TMI 25 0.406 0.369 0.308 0.197 0.779 0.413 52.6 2.3 USIGAN TIP 26 0.387 0.318 0.247 0.162 0.768 0.374 48.3 2.5 DMCoStain Ours 0.400 0.310 0.231 0.143 0.748 0.358 45.2 1.3 
+
+Table 3: Segmentation performance of three models across stages on private PDAC CK . “#Images” = “IHC Image Count”. 
+
+Dataset #Images Stage Model DICE ↑ IOU ↑
+
+PDAC CK 
+
+Mem. 60 IT ATST-Net 0.592 0.450 SIMGAN 0.595 0.476 USIGAN 0.648 0.532 RT ATST-Net 0.637 0.513 SIMGAN 0.651 0.530 USIGAN 0.663 0.544 FT ATST-Net 0.684 0.561 
+
+SIMGAN 0.673 0.550 USIGAN 0.670 0.544 
+
+consecutive H&E and cytokeratin (CK)-IHC sections, comprising 89 training and 15 testing pairs at 40 × magnification and 1024 ×1024 resolution. Expert pixel-wise annotations are provided on H&E images, guided by the corresponding CK-IHC sections to delineate CK-positive regions. For evaluation metrics , we adopt four metrics [36 ]: two image-level metrics (CSS, PHV) and two set-level metrics, Fréchet Inception Distance (FID) and Kernel Inception Distance (KID). FID and KID measure feature-space distribution similarity be-tween image sets. For implementation details , the model library of DMCoStain comprises PyramidP2P [ 20 ], ASP [ 14 ], PSPStain [ 3], TDKStain [ 26 ], ATST-Net [ 36 ], SIMGAN [ 9], and USIGAN [ 27 ], all of which also serve as baselines for comparison. Whether used in-dependently or within DMCoStain, all models follow their original training settings with a unified epoch schedule. All stain transfer models are trained and inferenced at 512 ×512 resolution without image normalization, and the resulting patches are subsequently stitched back to 1024 ×1024 resolution for evaluation and selection. The structural preservation threshold 𝜏 struct is set to 0.6. Unless 
+
+Table 4: Pathologist subjective evaluation scores for USIGAN-generated images across stages on MIST and HIT test data. 
+
+Stage MIST ER MIST HER2 HIT PAX5 HIT CD3 
+
+IT 6.68 6.77 6.96 7.64 RT 7.06 7.35 7.43 8.15 FT 7.65 7.96 8.06 8.92 
+
+otherwise specified, VLEGA employs the relatively lightweight Qwen2.5-3B-Instruct [ 34 ] as the LLM. VLEGA is trained in two phases on two 48GB NVIDIA GeForce RTX 4090 GPUs. Phase 1 is trained for 3 epochs with a learning rate (lr) of 0.001, while Phase 2 is trained for 3 epochs with a lr of 0.00002. AdamW is used in both phases. VLEGA is trained and evaluated on 1024 ×1024 images. 
+
+## 4.2 Comparison with SOTA Methods 
+
+4.2.1 Quantitative Comparison. Quantitative results of various methods on two nuclear biomarkers (ER, PAX5) and two mem-branous biomarkers (HER2, CD3) are presented in Tab. 2, with more detailed results in Sec. 3 of the supplementary materials. Pyra-midP2P aligns fake and real IHC feature maps in high-dimensional space using strict constraints on aggregated features. While it pre-serves partial consistency of positive regions on HIT, where align-ment is relatively reliable, it performs poorly on MIST and severely disrupts tissue structure. ASP mitigates the impact of noisy supervi-sion through specialized loss designs, achieving strong performance on MIST. However, its limited representation capacity hinders ac-curate pathological modeling on HIT, where H&E morphology is highly similar and biomarker discrimination is more challenging. ATST-Net constructs auxiliary tasks based on masks derived from consecutive IHC sections, but heavy noise in these masks degrades Towards Reliable Stain Transfer MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Original H&E  PyramidP2P  ASP  PSPStain  TDKStain  DMCoStain SIMGAN ATST -Net  Adjacent IHC USIGAN 
+
+> ER HER2 PAX5 CD3
+
+Figure 4: Qualitative comparison on MIST and HIT. Rows show ER, HER2, PAX5, and CD3 from top to bottom, at 1024 ×1024. PAX5 
+
+ER  HER2 
+
+CD3 
+
+Figure 5: PHV trends of On-Test Prediction across stages. 
+
+its performance. Notably, TDKStain and USIGAN, benefiting from well-designed task-specific networks, achieve leading CSS and PHV scores across all biomarkers, indicating strong pathological consis-tency in H&E-to-IHC style transfer. However, TDKStain’s strong loss constraints damage tissue structure, limiting its practical value. In contrast, DMCoStain integrates the complementary strengths of multiple models across biomarkers. By selecting fully aligned gener-ated IHC images to guide subsequent training, it focuses on precise pathological features, markedly improving pathological consistency while fully preserving structure. Consistently superior PHV scores indicate accurate multi-level feature matching between fake and real IHC images, while FID and KID further confirm feature distri-bution consistency. On MIST ER , DMCoStain improves CSS, PHV (avg.), FID, and KID by 0.016, 0.031, 3.4, and 1.7, respectively. 
+
+4.2.2 Qualitative Comparison. Fig. 4 shows qualitative results. Pyra-midP2P and TDKStain distort the original H&E structure, while other methods preserve structural integrity. Using consecutive (ad-jacent) IHC sections as reference, DMCoStain exhibits superior Original H&E  GT Mask Adjacent IHC  Mask of  IT  Mask of RT  Mask of FT     
+
+> D: 0.665
+> I: 0.498 D: 0.934
+> I: 0.875 D: 0.952
+> I: 0.908
+> D: 0.713
+> I: 0.554 D: 0.831
+> I: 0.711 D: 0.850
+> I: 0.739
+
+Figure 6: Segmentation results on private PDAC CK test data across stages. D = Dice, I = IoU. All images are 512 ×512. 
+
+pathological consistency. In the red-boxed regions, both the posi-tion and intensity of positive expression in the generated images align more closely with the real IHC GT. DMCoStain also better reproduces IHC staining style. Moreover, patches generated by DM-CoStain show minimal discontinuity, indicating accurate capture of intrinsic biomarker-specific features without being affected by local context variations, as is particularly evident in the last row. 
+
+## 4.3 Ablation Study 
+
+We analyze On-Train and On-Test Prediction accuracy across DM-CoStain’s stages to validate the data-model co-optimization frame-work, further assess it via downstream segmentation and expert evaluation, and finally examine VLEGA’s core design choices. 
+
+4.3.1 Stage-Wise Performance of DMCoStain. After the RT stage, USIGAN is identified as the best-performing model across all four biomarkers and is adopted as the sole training model in FT. Al-though TDKStain achieves the highest raw CILPS scores on HIT PAX5 
+
+and HIT CD3 , it is automatically excluded by the structural preser-vation constraint due to severe tissue distortion, consistent with the model selection process defined in Sec. 3.1. The numbers of Selected IHC Prediction for each biomarker and stage are provided in Sec. 3 of the supplementary materials. Fig. 5 shows the PHV trends of On-Test Prediction across stages, with red points indi-cating the FT stage results of USIGAN (i.e., DMCoStain). Detailed On-Train and On-Test Prediction results are in Sec. 3 of the sup-plementary materials. Overall, nearly all models exhibit consistent MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Siyuan Xu et al. 
+
+Table 5: Comparison of LLM backbones and model scales in VLEGA on internal and external test data. Accuracy is 0-100% for C1, C2, C3(1), and C4; similarity score is 1-10 for C3(2).                                                               
+
+> LLM Training C1 C2 C3(1) C3(2) C4
+> Internal Test Data (above) and External Test Data (below)
+> Random –50.3 34.0 ––24.9 GPT-4o –85.8 75.6 19.9 4.43 57.4 Qwen2.5-1.5B-Instruct ✓79.5 73.4 63.1 6.37 72.0 LLaMA-3.2-3B-Instruct ✓88.6 79.4 73.3 7.71 78.9 Qwen2.5-3B-Instruct ✓91.0 81.0 82.1 8.62 80.8 GPT-4o –84.2 70.6 25.0 3.49 56.8 Qwen2.5-1.5B-Instruct ✓76.7 69.6 60.3 6.49 72.8 LLaMA-3.2-3B-Instruct ✓86.7 78.9 71.9 7.18 77.0 Qwen2.5-3B-Instruct ✓89.8 82.4 80.7 7.93 78.6
+
+improvement as stages advance. Notably, on HIT PAX5 , ASP benefits substantially from better-aligned pairs, as the reduction in noisy samples alleviates reliance on low-quality supervision, yielding an 8.4% PHV improvement. These results fully demonstrate that the data-model co-optimization framework generates high-quality data and leverages it to enhance model capability in stain transfer. 
+
+4.3.2 Segmentation Task Evaluation. Biomarker-specific stain trans-fer enables molecular-related region segmentation on H&E-stained pathological images by providing accurate IHC images as an inter-mediate representation. Segmentation is performed via stain trans-fer followed by conventional morphological operations, including color deconvolution [ 29 ], grayscale conversion, Otsu thresholding, and closing. Since segmentation accuracy correlates positively with staining quality, segmentation improvement across stages serves as an indirect but objective measure of staining quality gains. Here, we evaluate three recent models on the private PDAC CK dataset using Dice and IoU as metrics. Tab. 3 reports segmentation results on the test data across IT, RT, and FT stages, showing substantial improve-ment for all models. ATST-Net achieves the largest gains, with Dice increasing by 9.2% and IoU by 11.1% from IT to FT, highlighting its particular reliance on better-paired training data. Fig. 6 visualizes segmentation masks using ATST-Net as the backbone, showing that predicted masks progressively approach the GT masks from IT to FT. These results show data-model co-optimization’s effectiveness. 
+
+4.3.3 Subjective Evaluation. Three pathologists with over five years of clinical experience conduct a blinded evaluation of test results generated by USIGAN (the FT model) at different training stages. To eliminate potential bias, pathologists are blinded to the stage assignment of each image. Original H&E and corresponding IHC images serve as reference. Images are scored on a 10-point scale (in-terval = 1), with higher scores indicating better quality. Evaluation criteria include preservation of IHC staining style and accuracy of positive expression regarding marker location, proportion, spatial distribution, and intensity. Scores are defined as: 8-10, no notice-able errors and high consistency with reference, meeting clinical requirements; 6-7, minor errors in some aspects without affecting overall judgment; 4-5, multiple errors and poor overall quality; 1-3, completely incorrect. Three experts independently evaluate 50 non-overlapping image groups per biomarker, with each group comprising one image from each of the three stages, totaling 150 groups per biomarker. Final scores averaged across all images are shown in Tab. 4. Scores consistently increase across stages, and at FT, all biomarkers approach or exceed the clinical applicability threshold, with HIT CD3 achieving the highest score of 8.92. 
+
+4.3.4 Modules in VLEGA. We compare different LLM backbones and model scales for our task. Unlike general pathological image diagnosis, which involves diverse instructions and complex tumor microenvironments and thus typically requires medium-scale LLMs [4 , 38 , 40 ], IPE recognition features fixed instructions and relatively simple visual inputs. Accordingly, we prioritize relatively light-weight LLMs to balance accuracy and computational efficiency. Tab. 5 reports accuracy across question categories, with internal testing results in the upper section and external results on biomark-ers unseen during training in the lower section. All results are averaged over the test data. As a baseline, candidate keywords in answers are randomly sampled for C1, C2, and C4, approximating the theoretical probability distribution but yielding poor perfor-mance. GPT-4o, used in MEGFS to generate preliminary answers during dataset construction, achieves decent accuracy on internal data for C1 and C2 (85.8% and 75.6%), but performs poorly on C3 and C4, highlighting the necessity of expert correction when using general-purpose VLMs. Overall, VLEGA with Qwen2.5-3B-Instruct achieves the best performance across all categories, outperform-ing LLaMA-3.2-3B-Instruct at a comparable scale and substantially surpassing the lighter Qwen2.5-1.5B-Instruct. It achieves 91.0% ac-curacy on C1 and exceeds 80% on all other categories. Given the inherent subjectivity involved in expert correction, this level of per-formance is comparable to a “VLM Answering + Expert Validation” paradigm. External evaluation shows only marginal degradation on unseen biomarkers, demonstrating strong generalization without any retraining. We further examine the necessity of the two-phase training strategy by incorporating all instruction categories into Phase 1 training. This leads to non-convergence and redundant outputs containing irrelevant information, indicating that the pro-jection layer alone is insufficient to align visual and textual features across diverse instruction categories and that LLM fine-tuning is essential. We additionally remove the global-level encoder under the standard two-phase training, leaving only the projection layer for multimodal pre-alignment. This prevents convergence even in Phase 1, underscoring the critical role of the global-level encoder in integrating patch tokens. These results confirm the necessity of the two-phase training strategy and all core modules. To assess the computational cost of VLEGA, we measure end-to-end inference time and GPU memory usage. The entire pipeline, from input image to output answer, completes within 0.5s for all question categories, with C1 and C4 taking approximately 0.1s each. GPU memory consumption is 7.2GB, indicating fast and resource-efficient inference well-suited for clinical deployment. 
+
+## 5 Conclusion 
+
+We propose a new paradigm for stain transfer based on iterative data-model co-optimization. Extensive experiments demonstrate its reliability in both accuracy and interpretability. The complete framework, with its essential evaluation module MEGFS, supports future model development and clinical deployment. By enabling reliable virtual IHC generation from standard H&E slides, this work reduces dependence on costly molecular staining and facilitates broader clinical adoption of IHC techniques. Overall, it provides a robust pathway towards reliable AI-assisted histopathology. Towards Reliable Stain Transfer MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+## Acknowledgments 
+
+This work is supported by the National Natural Science Foundation of China (Grant Nos. 42527804, 62475072, 62471182, 82572674, and U25A20647), the Science and Technology Commission of Shanghai Municipality (Grant Nos. 25xtcx00600 and 22DZ2229004), the Fun-damental Research Funds for the Central Universities, the Shanghai Rising-Star Program (Grant No. 24QA2702100), and the Joint Lab-oratory of Hyperspectral Big Data and Artificial Intelligence (No. MIP202605). 
+
+## References 
+
+[1] Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya, Floren-cia Leoni Aleman, Diogo Almeida, Janko Altenschmidt, Sam Altman, Shyamal Anadkat, et al . 2023. Gpt-4 technical report. ArXiv Preprint ArXiv:2303.08774 
+
+(2023). [2] Joseph Boyd, Irène Villa, Marie-Christine Mathieu, Eric Deutsch, Nikos Paragios, Maria Vakalopoulou, and Stergios Christodoulidis. 2022. Region-guided cyclegans for stain transfer in whole slide images. In International Conference on Medical Image Computing and Computer-Assisted Intervention . 356–365. [3] Fuqiang Chen, Ranran Zhang, Boyun Zheng, Yiwen Sun, Jiahui He, and Wenjian Qin. 2024. Pathological semantics-preserving learning for H&E-to-IHC virtual staining. In International Conference on Medical Image Computing and Computer-Assisted Intervention . 384–394. [4] Ying Chen, Guoan Wang, Yuanfeng Ji, Yanjun Li, Jin Ye, Tianbin Li, Ming Hu, Rongshan Yu, Yu Qiao, and Junjun He. 2025. Slidechat: A large vision-language assistant for whole-slide pathology image understanding. In Proceedings of the Computer Vision and Pattern Recognition Conference . 5134–5143. [5] Wei-Lin Chiang, Zhuohan Li, Zi Lin, Ying Sheng, Zhanghao Wu, Hao Zhang, Lianmin Zheng, Siyuan Zhuang, Yonghao Zhuang, Joseph E. Gonzalez, Ion Stoica, and Eric P. Xing. 2023. Vicuna: An Open-Source Chatbot Impressing GPT-4 with 90%* ChatGPT Quality. https://vicuna.lmsys.org [6] Tong Ding, Sophia J Wagner, Andrew H Song, Richard J Chen, Ming Y Lu, Andrew Zhang, Anurag J Vaidya, Guillaume Jaume, Muhammad Shaban, Ahrong Kim, et al . 2025. A multimodal whole-slide foundation model for pathology. Nature Medicine (2025), 1–13. [7] Omar SM El Nahhas, Chiara ML Loeffler, Zunamys I Carrero, Marko van Treeck, Fiona R Kolbinger, Katherine J Hewitt, Hannah S Muti, Mara Graziani, Qinghe Zeng, Julien Calderaro, et al . 2024. Regression-based deep-learning predicts molecular biomarkers from pathology slides. Nature Communications 15, 1 (2024), 1253. [8] Xianchao Guan, Yifeng Wang, Ye Zhang, Zheng Zhang, and Yongbing Zhang. 2025. OT-StainNet: Optimal transport driven semantic matching for weakly paired h&e-to-ihc stain transfer. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 39. 3194–3202. [9] Xianchao Guan, Zheng Zhang, Yifeng Wang, Yueheng Li, and Yongbing Zhang. 2025. Supervised Information Mining from Weakly Paired Images for Breast IHC Virtual Staining. IEEE Transactions on Medical Imaging 44, 5 (2025), 2120–2130. [10] Yufang He, Zeyu Liu, Mingxin Qi, Shengwei Ding, Peng Zhang, Fan Song, Chen-bin Ma, Huijie Wu, Ruxin Cai, Youdan Feng, et al . 2024. PST-Diff: achieving high-consistency stain transfer by diffusion models with pathological and struc-tural constraints. IEEE Transactions on Medical Imaging 43, 10 (2024), 3634–3647. [11] Shengyi Hua, Fang Yan, Tianle Shen, Lei Ma, and Xiaofan Zhang. 2024. PathoDuet: Foundation models for pathological slide analysis of H&E and IHC stains. Medical Image Analysis 97 (2024), 103289. [12] Phillip Isola, Jun-Yan Zhu, Tinghui Zhou, and Alexei A Efros. 2017. Image-to-image translation with conditional adversarial networks. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 1125–1134. [13] Pascal Klöckner, José Teixeira, Diana Montezuma, João Fraga, Hugo M Horlings, Jaime S Cardoso, and Sara P Oliveira. 2025. H&E to IHC virtual staining methods in breast cancer: an overview and benchmarking. npj Digital Medicine 8, 1 (2025), 384. [14] Fangda Li, Zhiqiang Hu, Wen Chen, and Avinash Kak. 2023. Adaptive super-vised patchnce loss for learning H&E-to-IHC stain translation with inconsistent groundtruth image pairs. In International Conference on Medical Image Computing and Computer-Assisted Intervention . 632–641. [15] Junjian Li, Hulin Kuang, Jin Liu, Hailin Yue, Mengshen He, and Jianxin Wang. 2026. Universal-to-Specific: Dynamic Knowledge-Guided Multiple Instance Learning for Few-Shot Whole Slide Image Classification. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 26614–26623. [16] Junjian Li, Jin Liu, Hulin Kuang, Hailin Yue, Mengshen He, and Jianxin Wang. 2025. MiCo: Multiple Instance Learning with Context-Aware Clustering for Whole Slide Image Analysis. In International Conference on Medical Image Com-puting and Computer-Assisted Intervention . Springer, 376–385. [17] Yuci Liang, Xinheng Lyu, Wenting Chen, Meidan Ding, Jipeng Zhang, Xiangjian He, Song Wu, Xiaohan Xing, Sen Yang, Xiyue Wang, et al . 2025. Wsi-llava: A multimodal large language model for whole slide image. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 22718–22727. [18] Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. 2023. Visual in-struction tuning. Advances in Neural Information Processing Systems 36 (2023), 34892–34916. [19] Shuting Liu, Baochang Zhang, Yiqing Liu, Anjia Han, Huijuan Shi, Tian Guan, and Yonghong He. 2021. Unpaired stain transfer using pathology-consistent con-strained generative adversarial networks. IEEE Transactions on Medical Imaging 
+
+40, 8 (2021), 1977–1989. [20] Shengjie Liu, Chuang Zhu, Feng Xu, Xinyu Jia, Zhongyue Shi, and Mulan Jin. 2022. Bci: Breast cancer immunohistochemical image generation through pyramid pix2pix. In Proceedings of the Computer Vision and Pattern Recognition Conference .1815–1824. [21] Ming Y Lu, Bowen Chen, Drew FK Williamson, Richard J Chen, Ivy Liang, Tong Ding, Guillaume Jaume, Igor Odintsov, Long Phi Le, Georg Gerber, et al . 2024. A visual-language foundation model for computational pathology. Nature Medicine 
+
+30, 3 (2024), 863–874. [22] Ming Y Lu, Bowen Chen, Drew FK Williamson, Richard J Chen, Melissa Zhao, Aaron K Chow, Kenji Ikemura, Ahrong Kim, Dimitra Pouli, Ankush Patel, et al .2024. A multimodal generative AI copilot for human pathology. Nature 634, 8033 (2024), 466–473. [23] Marc Macenko, Marc Niethammer, James S Marron, David Borland, John T Woosley, Xiaojun Guan, Charles Schmitt, and Nancy E Thomas. 2009. A method for normalizing histology slides for quantitative analysis. In 2009 IEEE Interna-tional Symposium on Biomedical Imaging: From Nano to Macro . IEEE, 1107–1110. [24] Taesung Park, Alexei A Efros, Richard Zhang, and Jun-Yan Zhu. 2020. Contrastive learning for unpaired image-to-image translation. In European Conference on Computer Vision . Springer, 319–345. [25] Pushpak Pati, Sofia Karkampouna, Francesco Bonollo, Eva Compérat, Martina Radić, Martin Spahn, Adriano Martinelli, Martin Wartenberg, Marianna Kruithof-de Julio, and Marianna Rapsomaniki. 2024. Accelerating histopathology work-flows with generative AI-based virtually multiplexed tumour profiling. Nature Machine Intelligence 6, 9 (2024), 1077–1093. [26] Qiong Peng, Weiping Lin, Yihuang Hu, Ailisi Bao, Chenyu Lian, Weiwei Wei, Meng Yue, Jingxin Liu, Lequan Yu, and Liansheng Wang. 2024. Advancing H&E-to-IHC virtual staining with task-specific domain knowledge for HER2 scoring. In International Conference on Medical Image Computing and Computer-Assisted Intervention . 3–13. [27] Yue Peng, Bing Xiong, Fuqiang Chen, Deboch Eybo Abera, RanRan Zhang, Wan-ming Hu, Jing Cai, and Wenjian Qin. 2026. Usigan: Unbalanced self-information feature transport for weakly paired image ihc virtual staining. IEEE Transactions on Image Processing (2026). [28] Erik Reinhard, Michael Adhikhmin, Bruce Gooch, and Peter Shirley. 2002. Color transfer between images. IEEE Computer Graphics and Applications 21, 5 (2002), 34–41. [29] AC Ruifrok and DA Johnston. 2001. Quantification of histochemical staining by color deconvolution. Analytical and Quantitative Cytology and Histology 23, 4 (2001), 291–299. [30] Mehmet Saygin Seyfioglu, Wisdom O Ikezogwo, Fatemeh Ghezloo, Ranjay Kr-ishna, and Linda Shapiro. 2024. Quilt-llava: Visual instruction tuning by extracting localized narratives from open-source histopathology videos. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 13183–13192. [31] Gil Shamai, Amir Livne, António Polónia, Edmond Sabo, Alexandra Cretu, Gil Bar-Sela, and Ron Kimmel. 2022. Deep learning-based image analysis predicts PD-L1 status from H&E-stained histopathology images in breast cancer. Nature Communications 13, 1 (2022), 6753. [32] Yuxuan Sun, Yixuan Si, Chenglu Zhu, Xuan Gong, Kai Zhang, Pingyi Chen, Ye Zhang, Zhongyi Shui, Tao Lin, and Lin Yang. 2025. Cpath-omni: A unified multimodal foundation model for patch and whole slide image analysis in compu-tational pathology. In Proceedings of the Computer Vision and Pattern Recognition Conference . 10360–10371. [33] Yuxuan Sun, Chenglu Zhu, Sunyi Zheng, Kai Zhang, Lin Sun, Zhongyi Shui, Yunlong Zhang, Honglin Li, and Lin Yang. 2024. Pathasst: A generative foundation ai assistant towards artificial general intelligence of pathology. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 38. 5034–5042. [34] Qwen Team et al . 2024. Qwen2 technical report. ArXiv Preprint ArXiv:2407.10671 
+
+2, 3 (2024). [35] Jinxi Xiang, Xiyue Wang, Xiaoming Zhang, Yinghua Xi, Feyisope Eweje, Yijiang Chen, Yuchen Li, Colin Bergstrom, Matthew Gopaulchan, Ted Kim, et al . 2025. A vision–language foundation model for precision oncology. Nature 638, 8051 (2025), 769–778. [36] Siyuan Xu, Haofei Song, Yingjiao Deng, Jiansheng Wang, Yan Wang, and Qingli Li. 2025. Advancing stain transfer for multi-biomarkers: A human annotation-free method based on auxiliary task supervision. In Proceedings of the 34th Interna-tional Joint Conference on Artificial Intelligence . 2116–2124. MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Siyuan Xu et al. 
+
+[37] Zhe Xu, Ziyi Liu, Junlin Hou, Jiabo Ma, Cheng Jin, Yihui Wang, Zhixuan Chen, Zhengyu Zhang, Fuxiang Huang, Zhengrui Guo, et al . 2025. A versatile pathology co-pilot via reasoning enhanced multimodal large language model. ArXiv Preprint ArXiv:2507.17303 (2025). [38] Wenchuan Zhang, Jingru Guo, Hengzhe Zhang, Penghao Zhang, Jie Chen, Shuwan Zhang, Zhang Zhang, Yuhao Yi, and Hong Bu. 2026. Patho-AgenticRAG: Towards multimodal agentic retrieval-augmented generation for pathology VLMs via reinforcement learning. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 40. 29921–29929. [39] Wei Zhang, Tik Ho Hui, Pui Ying Tse, Fraser Hill, Condon Lau, and Xinyue Li. 2024. High-resolution medical image translation via patch alignment-based bidirectional contrastive learning. In International Conference on Medical Image Computing and Computer-Assisted Intervention . 178–188. [40] Wenchuan Zhang, Penghao Zhang, Jingru Guo, Tao Cheng, Jie Chen, Shuwan Zhang, Zhang Zhang, Yuhao Yi, and Hong Bu. 2025. Patho-R1: A multi-modal reinforcement learning-based pathology expert reasoner. ArXiv Preprint ArXiv:2505.11404 (2025). [41] Jun-Yan Zhu, Taesung Park, Phillip Isola, and Alexei A Efros. 2017. Unpaired image-to-image translation using cycle-consistent adversarial networks. In Pro-ceedings of the IEEE International Conference on Computer Vision . 2223–2232.
