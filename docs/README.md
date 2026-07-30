@@ -6,41 +6,40 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-29
-- 运行时间：2026-07-29 21:47:34 UTC
+- 最新运行日期：2026-07-30
+- 运行时间：2026-07-30 20:51:38 UTC
 - 运行状态：成功
-- 本次总论文数：7
+- 本次总论文数：6
 - 精读区：2
-- 速读区：5
+- 速读区：4
 
 ### 今日简报（AI）
-今天日报聚焦病理基础模型与染色转移可靠性的突破，两篇高分精读均为8.0。最值得关注：基于多模态专家评估的迭代数据-模型协同染色转移框架，以及病理基础模型的分布鲁棒性度量。建议速读弱监督乳腺X线的梯度特征分解方法，以理解模型退化机制。
-- 详情：[/202607/29/README](/202607/29/README)
+今日精读两篇9分论文：病理图像分层框架与头颈癌转移预测新方法。  
+病理图像的分层图学习结构及基础模型嵌入在头颈癌远处转移预测中的优势值得关注。  
+普通读者可重点了解分层框架如何提升分类性能，以及基础模型对比传统方法的实用性。
+- 详情：[/202607/30/README](/202607/30/README)
 
 ### 精读区论文标签
-1. [Towards Reliable Stain Transfer: An Iterative Data-Model Co-Optimization Framework Based on Multimodal Expert-Guided Assessment](/202607/29/2607.25393v1-towards-reliable-stain-transfer-an-iterative-data-model-co-optimization-framework-based-on-multimodal-expert-guided-assessment)  
-   标签：评分：8.0/10、query:cpath
-   evidence：组织病理学中H&E与IHC之间的多模态染色迁移
-2. [Beyond Counts: A Distributional Robustness Margin For Pathology Foundation Models](/202607/29/2607.25497v1-beyond-counts-a-distributional-robustness-margin-for-pathology-foundation-models)  
-   标签：评分：8.0/10、query:cpath
-   evidence：病理基础模型鲁棒性分析
+1. [A Hierarchical Framework for Graph Structure Learning in Histopathology Image Classification](/202607/30/2607.26153v1-a-hierarchical-framework-for-graph-structure-learning-in-histopathology-image-classification)  
+   标签：评分：9.0/10、query:cpath
+   evidence：用于全切片图像分类的图结构学习
+2. [Comparing the Performance of Foundation Model Derived Embeddings with Traditional Approaches for Distant Metastasis Prediction in Head and Neck Cancer](/202607/30/2607.26276v1-comparing-the-performance-of-foundation-model-derived-embeddings-with-traditional-approaches-for-distant-metastasis-prediction-in-head-and-neck-cancer)  
+   标签：评分：9.0/10、query:cpath
+   evidence：使用医学图像基础模型预测癌症转移
 
 ### 速读区论文标签
-1. [Attributes Should Come from Images, Not Class Names: Distribution-Conditioned Attribute Selection for Vision-Language Models](/202607/29/2607.18695v1-attributes-should-come-from-images-not-class-names-distribution-conditioned-attribute-selection-for-vision-language-models)  
+1. [RadSight: Towards Perceptually Reliable Multimodal Radiology Image Understanding](/202607/30/2607.22293v1-radsight-towards-perceptually-reliable-multimodal-radiology-image-understanding)  
    标签：评分：7.0/10、query:cpath
-   evidence：提出从目标图像集选择属性用于VLM零样本分类
-2. [Controlling Embedding Spaces with Text-Conditioned Transformations](/202607/29/2607.22919v1-controlling-embedding-spaces-with-text-conditioned-transformations)  
+   evidence：医学图像多模态大语言模型基准
+2. [Explaining BiomedCLIP with Weighted Banzhaf Interactions Supported by Tree-Gram Parsing](/202607/30/2607.23368v1-explaining-biomedclip-with-weighted-banzhaf-interactions-supported-by-tree-gram-parsing)  
    标签：评分：7.0/10、query:cpath
-   evidence：基于文本条件的视觉嵌入变换
-3. [Gradient-Based Latent Decomposition Reveals Mechanisms of Feature Degradation in Weakly Supervised Mammography](/202607/29/2607.24835v1-gradient-based-latent-decomposition-reveals-mechanisms-of-feature-degradation-in-weakly-supervised-mammography)  
+   evidence：提供BiomedCLIP的可解释方法
+3. [MedARC: Training-Free Adaptive Redundancy Compression of Visual Tokens for 3D Medical Vision-Language Models](/202607/30/2607.26554v1-medarc-training-free-adaptive-redundancy-compression-of-visual-tokens-for-3d-medical-vision-language-models)  
    标签：评分：7.0/10、query:cpath
-   evidence：弱监督乳腺钼靶用于乳腺癌诊断
-4. [Group Equivariant Diffusion for Anomaly Detection in Computational Cytology](/202607/29/2607.25503v1-group-equivariant-diffusion-for-anomaly-detection-in-computational-cytology)  
-   标签：评分：7.0/10、query:cpath
-   evidence：使用群等变扩散在全切片图像上进行异常检测
-5. [Re-thinking Mammography Transfer Learning: The Dataset-Informed Transfer Learning (DITL) Framework for Breast Cancer Screening and Lesion Diagnosis](/202607/29/2607.26043v1-re-thinking-mammography-transfer-learning-the-dataset-informed-transfer-learning-ditl-framework-for-breast-cancer-screening-and-lesion-diagnosis)  
+   evidence：为3D医学视觉语言模型提供自适应令牌压缩
+4. [Towards Grounded GI Endoscopy VQA via Multi-Task Learning on Small VLMs](/202607/30/2607.27122v1-towards-grounded-gi-endoscopy-vqa-via-multi-task-learning-on-small-vlms)  
    标签：评分：6.0/10、query:cpath
-   evidence：乳腺钼靶乳腺癌诊断的迁移学习框架
+   evidence：基于VLM的胃肠道内窥镜视觉问答
 
 
 <div class="dpr-home-promo-card">
