@@ -6,40 +6,49 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-30
-- 运行时间：2026-07-30 20:51:38 UTC
+- 最新运行日期：2026-07-31
+- 运行时间：2026-07-31 21:14:58 UTC
 - 运行状态：成功
-- 本次总论文数：6
-- 精读区：2
+- 本次总论文数：9
+- 精读区：5
 - 速读区：4
 
 ### 今日简报（AI）
-今日精读两篇9分论文：病理图像分层框架与头颈癌转移预测新方法。  
-病理图像的分层图学习结构及基础模型嵌入在头颈癌远处转移预测中的优势值得关注。  
-普通读者可重点了解分层框架如何提升分类性能，以及基础模型对比传统方法的实用性。
-- 详情：[/202607/30/README](/202607/30/README)
+今日聚焦9篇医学图像AI论文，5篇精读，其中病理基础模型与跨模态分类最亮眼。  
+最值得看：9分《Beyond Classification》用病理基础模型作检测编码器识别有丝分裂，以及8分《Shared Semantic Codebook》实现无配对跨模态医学分类。  
+建议普通读者优先了解病理基础模型的应用潜力，再顺带看Vision Transformer分割与多模态融合方向。
+- 详情：[/202607/31/README](/202607/31/README)
 
 ### 精读区论文标签
-1. [A Hierarchical Framework for Graph Structure Learning in Histopathology Image Classification](/202607/30/2607.26153v1-a-hierarchical-framework-for-graph-structure-learning-in-histopathology-image-classification)  
+1. [Beyond Classification: Pathology Foundation Models as Detection Encoders for Mitotic Figures](/202607/31/2607.28007v1-beyond-classification-pathology-foundation-models-as-detection-encoders-for-mitotic-figures)  
    标签：评分：9.0/10、query:cpath
-   evidence：用于全切片图像分类的图结构学习
-2. [Comparing the Performance of Foundation Model Derived Embeddings with Traditional Approaches for Distant Metastasis Prediction in Head and Neck Cancer](/202607/30/2607.26276v1-comparing-the-performance-of-foundation-model-derived-embeddings-with-traditional-approaches-for-distant-metastasis-prediction-in-head-and-neck-cancer)  
-   标签：评分：9.0/10、query:cpath
-   evidence：使用医学图像基础模型预测癌症转移
+   evidence：病理基础模型作为检测编码器的评估
+2. [Shared Semantic Codebook Distillation for Unpaired Cross-Modal Medical Classification](/202607/31/2607.27357v1-shared-semantic-codebook-distillation-for-unpaired-cross-modal-medical-classification)  
+   标签：评分：8.0/10、query:cpath
+   evidence：跨模态知识蒸馏用于医学分类
+3. [Benchmarking Foundation and Large Language Models for Few-Shot Medical Image Segmentation](/202607/31/2607.27856v1-benchmarking-foundation-and-large-language-models-for-few-shot-medical-image-segmentation)  
+   标签：评分：8.0/10、query:cpath
+   evidence：基础模型与大语言模型在医学图像分割中的基准评测
+4. [PathView-Bench: Can Multimodal Large Language Models Achieve Fine-grained Multiscale Understanding of Pathology Images?](/202607/31/2607.28318v1-pathview-bench-can-multimodal-large-language-models-achieve-fine-grained-multiscale-understanding-of-pathology-images)  
+   标签：评分：8.0/10、query:cpath
+   evidence：针对病理图像多模态大模型的细粒度多尺度视觉理解基准
+5. [A report-grounded vision-language foundation model for colonoscopy from 280000 routine reports](/202607/31/2607.28466v1-a-report-grounded-vision-language-foundation-model-for-colonoscopy-from-280000-routine-reports)  
+   标签：评分：8.0/10、query:cpath
+   evidence：基于报告的结肠镜视觉-语言基础模型
 
 ### 速读区论文标签
-1. [RadSight: Towards Perceptually Reliable Multimodal Radiology Image Understanding](/202607/30/2607.22293v1-radsight-towards-perceptually-reliable-multimodal-radiology-image-understanding)  
+1. [SAFViT: Spatial Attention Fusion Gating for Vision Transformer-Based Nucleus Segmentation and Classification](/202607/31/2607.27835v1-safvit-spatial-attention-fusion-gating-for-vision-transformer-based-nucleus-segmentation-and-classification)  
    标签：评分：7.0/10、query:cpath
-   evidence：医学图像多模态大语言模型基准
-2. [Explaining BiomedCLIP with Weighted Banzhaf Interactions Supported by Tree-Gram Parsing](/202607/30/2607.23368v1-explaining-biomedclip-with-weighted-banzhaf-interactions-supported-by-tree-gram-parsing)  
+   evidence：面向数字病理的细胞核分割与分类方法，支持定量组织分析和诊断
+2. [MUL-T: Decoding Spatial Cellular Architecture in Multiplexed Tissue Images](/202607/31/2607.28030v1-mul-t-decoding-spatial-cellular-architecture-in-multiplexed-tissue-images)  
    标签：评分：7.0/10、query:cpath
-   evidence：提供BiomedCLIP的可解释方法
-3. [MedARC: Training-Free Adaptive Redundancy Compression of Visual Tokens for 3D Medical Vision-Language Models](/202607/30/2607.26554v1-medarc-training-free-adaptive-redundancy-compression-of-visual-tokens-for-3d-medical-vision-language-models)  
+   evidence：用于多重组织图像空间细胞架构的Transformer框架
+3. [MIND: Multimodal Intent-Driven Network via Diffusion Transformers for Medical Image Fusion](/202607/31/2607.28565v1-mind-multimodal-intent-driven-network-via-diffusion-transformers-for-medical-image-fusion)  
    标签：评分：7.0/10、query:cpath
-   evidence：为3D医学视觉语言模型提供自适应令牌压缩
-4. [Towards Grounded GI Endoscopy VQA via Multi-Task Learning on Small VLMs](/202607/30/2607.27122v1-towards-grounded-gi-endoscopy-vqa-via-multi-task-learning-on-small-vlms)  
+   evidence：基于扩散Transformer的多模态意图驱动医学图像融合
+4. [Post-Operative Glioma Segmentation via Loss Stabilization, Normalization and Subspace Attention](/202607/31/2607.22749v1-post-operative-glioma-segmentation-via-loss-stabilization-normalization-and-subspace-attention)  
    标签：评分：6.0/10、query:cpath
-   evidence：基于VLM的胃肠道内窥镜视觉问答
+   evidence：深度学习用于脑胶质瘤自动分割，属于癌症诊断相关研究
 
 
 <div class="dpr-home-promo-card">

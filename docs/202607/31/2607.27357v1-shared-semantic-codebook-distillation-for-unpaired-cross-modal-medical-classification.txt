@@ -1,0 +1,420 @@
+Title: Shared Semantic Codebook Distillation for Unpaired Cross-Modal Medical Classification
+
+URL Source: https://arxiv.org/pdf/2607.27357v1
+
+Published Time: Fri, 31 Jul 2026 00:10:00 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# Shared Semantic Codebook Distillation for Unpaired Cross-Modal Medical Classification 
+
+Dillan Imans 1, Phuoc-Nguyen Bui 2, Duc-Tai Le 3, and Hyunseung Choo 4⋆ 
+
+> 1
+
+Department of Computer Science and Engineering, Sungkyunkwan University, Suwon, South Korea  
+
+> 2
+
+Convergence Research Institute, Sungkyunkwan University, Suwon, South Korea  
+
+> 3
+
+Department of AI Systems Engineering, Sungkyunkwan University, Suwon, South Korea  
+
+> 4
+
+Department of Electrical and Computer Engineering, Sungkyunkwan University, Suwon, South Korea 
+
+{dillanimans,phuocnguyen,ldtai,choo}@skku.edu 
+
+Abstract. Cross-modal knowledge distillation can transfer diagnostic knowledge from a strong but costly teacher modality to a cheaper and more deployable student modality. In medical image analysis, however, the two modalities are often unpaired: they are collected from different patient cohorts and occupy geometrically incompatible feature spaces. This makes instance-level distillation invalid and direct feature match-ing unreliable. To address these challenges, we propose Shared Seman-tic Codebook Distillation (SSCD), which compares teacher and stu-dent representations through a shared discrete codebook. Each image is represented as a distribution over a common, modality-agnostic vo-cabulary, and knowledge is transferred by aligning these distributions across modalities, both globally and class-conditionally, without requir-ing paired samples or directly comparable raw features. The codebook is evolved online by exponential moving average and kept diverse through entropy regularization and dead-code restart. At inference, all teacher-side and codebook modules are discarded, leaving only the student en-coder and classifier. On two heterogeneous unpaired settings, OCT →fundus retinal disease classification and CT →chest-X-ray pneumonia classifica-tion, SSCD improves the student from 64 .5 to 70 .2 macro-F1 and from 
+
+73 .8 to 76 .3 macro-F1, respectively, outperforming all evaluated distilla-tion baselines on both settings. Code and pretrained models are available at https://github.com/DillanImans/SSCD-unpaired-distillation .
+
+Keywords: Cross-modal learning · Knowledge distillation · Discrete codebook learning · Medical image analysis 
+
+## 1 Introduction 
+
+Many visual recognition systems are deployed under a modality asymmetry: one modality carries rich, discriminative information but is costly, invasive, or un- 
+
+> ⋆
+
+Corresponding author arXiv:2607.27357v1 [cs.CV] 29 Jul 2026 2 D. Imans et al. 
+
+available at deployment, while a second modality is cheaper and more widely accessible but comparatively weak. A natural goal is to let a model that runs on the accessible modality at test time benefit from the stronger modality during training. In autonomous driving, LiDAR provides accurate 3D geometry but is an order of magnitude more expensive than cameras, motivating distillation from a LiDAR teacher into a camera-only student that incurs no additional cost at inference [21]. In audio-visual perception, a visual teacher can supervise a model that must operate from sound alone when the visual stream is unavailable at test time [1]. The same asymmetry is pervasive in medical imaging: computed tomography (CT) offers detailed volumetric structure but is expensive and ex-poses patients to higher radiation [2], whereas chest X-ray (CXR) is cheap and ubiquitous in screening; likewise, optical coherence tomography (OCT) resolves retinal layers that fundus photography cannot [10], yet fundus cameras are far more widely deployed. In each case, the goal is the same: transfer knowledge from the strong teacher modality to the weaker student modality that alone is used at deployment. We treat this as a general cross-modal learning problem and study it in the medical setting. A central obstacle is that, in realistic medical deployments, teacher and stu-dent data are often unpaired: the same patient is not scanned in both modalities. Paired cross-modal datasets, in which each patient or scene is captured across both modalities, are scarce, expensive to assemble, and rarely collected at scale in routine clinical practice. More commonly, the available data consist of two independently collected cohorts imaged with different modalities but annotated under a shared label space. This setting breaks instance-level distillation in two ways. First, there is no valid correspondence to supervise: a teacher image and a student image sampled in the same mini-batch usually come from different patients and must not be treated as a matched pair. Second, even if such a correspondence were artificially imposed, the two modalities often occupy geo-metrically incompatible feature spaces because they differ in appearance, dimen-sionality, and acquisition geometry. Directly matching raw features across them is therefore unreliable [11]. Existing approaches do not resolve both difficulties at once. Standard knowl-edge distillation assumes that teacher and student share the same input or op-erate in directly comparable representation spaces [9, 13, 15, 16, 23], which fails once the modalities differ substantially. Paired cross-modal distillation relaxes the shared-input assumption by transferring supervision across modalities, but still requires paired, registered, or synchronized samples to define the correspon-dence [1, 8, 21]. These methods therefore become inapplicable when teacher and student datasets are collected independently. Recent unpaired medical distilla-tion methods address the absence of paired samples [18,19], but they either align teacher and student through continuous feature or prediction statistics, which implicitly assumes that the two embedding spaces can be made comparable, or route distillation through an externally defined semantic medium, which intro-duces additional modality- or domain-specific dependencies. What remains open is a generic framework that can handle both unpaired data and incompatible Title Suppressed Due to Excessive Length 3
+
+feature spaces without relying on paired correspondence, direct feature-space comparability, or external modality-specific priors. To address this, we propose Shared Semantic Codebook Distillation 
+
+(SSCD). The core idea is to avoid comparing teacher and student features di-rectly and instead route both modalities through a shared discrete semantic codebook that acts as a neutral intermediate space. Teacher and student em-beddings are softly assigned to the same set of learned codes, so each image is represented not by its raw features but by a distribution over a common semantic vocabulary. Because both modalities are expressed in this shared code-book space, SSCD sidesteps the geometric incompatibility that makes direct cross-modal feature matching unreliable. To respect the unpaired setting, SSCD matches teacher and student code-assignment distributions rather than individ-ual samples: it aligns their overall code usage and crucially their class-conditional code distributions, so the average code signature of each disease agrees across modalities without ever assuming an instance-level correspondence. The distil-lation mechanism is modality-agnostic and can be applied unchanged across different modality pairs. At inference, all teacher-side and codebook modules are discarded, leaving only the student encoder and classifier, so SSCD adds no deployment cost over the student-only model. Our contributions are summarized as follows: 
+
+– We study unpaired cross-modal medical image classification under a practical training-time teacher and test-time student setting, where the two modalities share labels but not patient-level correspondence. 
+
+– We propose SSCD, which uses a shared semantic codebook to bridge hetero-geneous teacher and student representations. This converts modality-specific features into a common code vocabulary before distillation. 
+
+– We design a code-distribution distillation objective that transfers both global modality-level knowledge and class-level disease structure, enabling each class to be described by multiple semantic codes rather than a single proto-type. 
+
+– We validate SSCD on OCT →fundus and CT →CXR classification, showing consistent improvements over the student-only model and all evaluated dis-tillation baselines with no additional inference cost. 
+
+## 2 Related Work 
+
+2.1 Distillation 
+
+Knowledge distillation transfers knowledge from a high-capacity teacher to a student model. Early work used softened output logits [9], while later methods distilled intermediate feature hints [15], relational structure [13], and contrastive representations [16]. These methods are effective when teacher and student op-erate in the same modality or have directly comparable representations, but this assumption becomes fragile when modalities differ in appearance, dimensionality, and feature geometry [11]. 4 D. Imans et al. 
+
+Cross-modal distillation relaxes the shared-input assumption by transferring knowledge from a richer training-time modality to another modality used at deployment. Prior work has transferred supervision from RGB to depth using registered image pairs [8], from vision to sound using synchronized audio-visual data [1], and from LiDAR to camera using shared driving scenes [21]. However, these methods still rely on paired, registered, or synchronized samples, which are often unavailable in medical imaging. Recent unpaired medical distillation methods address this limitation. FDDM [18] aligns OCT and fundus images through class-prototype matching and class-similarity alignment in a continuous feature space, while OCT-CoDA [19] uses language-model-generated disease concepts and vision-language image–concept similarities as an external semantic bridge. In contrast, SSCD learns a shared discrete codebook directly from the teacher-student training process. Each im-age is represented as a distribution over reusable semantic codes, and distillation matches global and class-conditional code distributions rather than continuous prototypes or externally defined concepts. This provides a modality-agnostic bridge for unpaired cross-modal distillation without paired samples or direct feature-space matching. 
+
+2.2 Codebooks and Assignment-Based Representation Learning 
+
+Codebook-based representation learning maps continuous features to discrete or prototype-like entries in a learned vocabulary. VQ-VAE introduced discrete latent codes updated from encoded features [6, 17], while BEiT v2 used vector-quantized distillation to produce semantic visual tokens [14]. Assignment-based self-supervised methods such as DeepCluster [3], SwAV [4], and DINO [5] further show that matching cluster or prototype assignments can learn strong semantic representations. More recently, VQGraph used soft code assignments for distil-lation between different model families [22]. These works motivate our use of assignment distributions, but they mainly use codebooks within a single modal-ity or for same-domain transfer. In contrast, SSCD uses a shared codebook as a cross-modal bridge for unpaired datasets: teacher and student modalities are expressed as distributions over one common vocabulary, and knowledge is trans-ferred by aligning their global and class-conditional code distributions. 
+
+## 3 Proposed Method 
+
+3.1 Problem Formulation 
+
+We consider unpaired cross-modal knowledge distillation between a teacher modal-ity and a student modality. Let DT = {(xiT , y iT )}NT 
+
+> i=1
+
+denote a labeled teacher-modality dataset and DS = {(xjS , y jS )}NS 
+
+> j=1
+
+denote a labeled student-modality dataset. The two datasets share the same label space Y, but they are not paired: a teacher image xiT and a student image xjS do not correspond to the same pa-tient or clinical acquisition. This setting is common in medical imaging, where datasets from different modalities are often collected independently. Title Suppressed Due to Excessive Length 5 
+
+> Fig. 1: Overview of SSCD. The two images shown per cohort illustrate the two settings evaluated (OCT →fundus and CT →CXR), each trained independently with a single teacher and single student modality. Teacher and student features are projected into a shared space and softly assigned to a common codebook, where their code distributions are aligned overall and per class.
+
+A teacher encoder fT is trained on the teacher modality and frozen during distillation. The goal is to train a student model, composed of an encoder fS and classifier ϕS , that is deployed using only the student modality. Since teacher and student images are unpaired and visually heterogeneous, direct instance-level feature matching is ill-defined. We therefore formulate cross-modal distillation as semantic distribution matching over a shared codebook space, both overall and class-conditionally. 
+
+3.2 Overview 
+
+Figure 1 gives an overview of SSCD. It routes both modalities through a shared discrete codebook that acts as a neutral intermediate space, so that the teacher and student are never compared in their raw feature geometries. Each image is represented not by its features but by a soft distribution over a common set of learned codes, and knowledge is transferred by aligning these distributions across modalities. The framework has four parts, described in turn below: (i) a projection of each backbone’s features into a shared space (Sec. 3.3); (ii) a shared semantic codebook with a soft code-assignment rule (Sec. 3.4); (iii) a cross-modal distillation objective that matches code distributions both globally and class-conditionally (Sec. 3.5); and (iv) an online EMA evolution of the codebook with diversity regularization (Sec. 3.6). The codebook, the projectors, and the teacher are all training-time scaffolding: at inference, they are discarded and only the 6 D. Imans et al. 
+
+student encoder and classifier run (Sec. 3.7), so SSCD adds no cost over a plain student model. 
+
+3.3 Projecting Modalities into the Shared Space 
+
+Given a teacher image xT and a student image xS , the corresponding backbones produce a pooled feature 
+
+hT = fT (xT ), hS = fS (xS ), hT , h S ∈ RD . (1) Because hT and hS originate from different modalities, they are not directly comparable. We therefore map each into a shared, lower-dimensional space with modality-specific projection heads, 
+
+zT = gT (hT ), zS = gS (hS ), zT , z S ∈ Rd, (2) each a small two-layer MLP (architecture details in Sec. 4.1). The projected embeddings zT , z S are used only for codebook assignment; the student classifier operates separately on the raw backbone feature, ϕS (hS ). The classification head and the codebook head are thus two distinct branches off the same student backbone, reading the D- and d-dimensional representations respectively. 
+
+Frozen teacher projection. The student projector gS is trained, but the teacher projector gT stays fixed at its random initialization for the entire run, for two reasons. First, the codebook evolves by a slow EMA (Sec. 3.6) and can only form clean clusters if the distribution it tracks is stationary; a trained gT would make the teacher side a moving target, whereas a frozen gT gives a fixed teacher man-ifold. Second, we expect the class structure of the high-accuracy frozen teacher backbone to largely survive an untrained projection: although gT is a shallow nonlinear MLP rather than a strictly linear map, random projections are known to approximately preserve the geometry of well-organized representations in the spirit of the Johnson–Lindenstrauss phenomenon [12], and we find this holds empirically, as the teacher’s class separability in Fig. 2 and the cross-modal alignment in Table 4 both indicate. The transferable knowledge already lives in the trained teacher backbone, and the projector’s only job is dimensionality reduction, not representation learning. 
+
+3.4 Shared Semantic Codebook and Soft Assignment 
+
+The shared codebook is a set of K code vectors, 
+
+C = {ck}Kk=1 , ck ∈ Rd. (3) Each code acts as a semantic anchor in the shared space. The same codebook is used for both modalities, so teacher and student images are expressed using one common vocabulary. The codebook is maintained as a buffer and is updated by the EMA rule described in Sec. 3.6, rather than by gradient descent. Title Suppressed Due to Excessive Length 7
+
+For a projected embedding z, we compute a soft assignment over the codes using temperature-scaled cosine similarity, 
+
+p(k | z) = exp  sim( z, c k)/τ PKl=1 exp  sim( z, c l)/τ  , (4) where sim( ·, ·) is cosine similarity and τ is a temperature that sharpens the assignment as it decreases. The resulting vector p(· | z) ∈ RK is a probability distribution over codes. We write the teacher and student assignments as 
+
+pT = p(· | zT ), pS = p(· | zS ). (5) These distributions are a modality-agnostic representation of each image: both modalities are described in the same vocabulary, so they can be compared even though their raw features cannot. Gradients from the distillation losses flow through zS into gS and the student backbone via Eq. (4); the codes ck themselves receive no gradient. 
+
+3.5 Cross-Modal Distillation Objective 
+
+We transfer knowledge by aligning the teacher and student code distributions with two complementary terms. In both, the teacher distribution is treated as a fixed target and detached from the gradient computation. 
+
+Distribution distillation. The first term pulls the student’s batch-marginal code distribution toward the teacher’s under the forward KL divergence. Let 
+
+¯pT = 1
+
+BTBTX
+
+> i=1
+
+p(i) 
+
+> T
+
+, ¯pS = 1
+
+BSBSX
+
+> j=1
+
+p(j) 
+
+> S
+
+(6) denote the teacher and student marginal code distributions over the current mini-batches, aligned with 
+
+Ldist = KL   ¯pT ¯pS
+
+. (7) Because the teacher is the reference distribution, the student is penalized for placing low probability, in aggregate, on codes the teacher activates, so it learns to use the same regions of the shared vocabulary as the teacher without any instance-level correspondence. 
+
+Class-conditional codebook alignment. Since the data are unpaired, the principal transfer signal is label-conditioned rather than instance-level. For each class c
+
+present with at least two samples in both the teacher and student mini-batches, we form the class-mean code distributions 
+
+¯p cT = 1
+
+N cT
+
+X  
+
+> i:yiT=c
+
+p(i) 
+
+> T
+
+, ¯p cS = 1
+
+N cS
+
+X  
+
+> j:yjS=c
+
+p(j) 
+
+> S
+
+, (8) 8 D. Imans et al. 
+
+where N cT and N cS count the class-c samples in each batch, aligned with a squared-error loss, 
+
+Lcls -cb = 1
+
+|Y B |
+
+X
+
+> c∈Y B
+
+¯p cS − ¯p cT
+
+> 22
+
+, (9) where YB is the set of classes satisfying this condition in the current step. This term asks the teacher’s and student’s average code-signature for each disease to agree; classes absent from either batch are skipped for that step. 
+
+3.6 Codebook Evolution and Diversity Regularization 
+
+EMA update. After each optimizer step, the codebook is refreshed using the freshly computed projections of both modalities, B = {ziT }BT 
+
+> i=1
+
+∪ { zjS }BS
+
+> j=1
+
+; this is a separate buffer update, outside the backpropagation graph entirely, so it has no effect on the trained network’s gradients. The losses use the soft as-signment of Eq. (4); the EMA instead uses a hard top-1 assignment, κ(z) = arg max k sim( z, c k), meaning each embedding votes for its single closest code. We keep a running count nk (how many embeddings have recently landed on code k) and a running sum mk (their accumulated direction), updated each step as an exponential moving average with momentum γ:
+
+nk ← γ n k + (1 − γ)X
+
+> z∈B
+
+⊮[κ(z) = k] , (10) 
+
+mk ← γ m k + (1 − γ)X
+
+> z∈B
+
+⊮[κ(z) = k] ˆ z,  (11) where ˆz = z/ ∥z∥ is the unit-normalized embedding. The code vector is then the (Laplace-smoothed) running mean of the embeddings assigned to it, renormal-ized to unit length: 
+
+ck ← normalize 
+
+ mk
+
+nk + ϵ
+
+
+
+. (12) This is simply an online, EMA-smoothed k-means: each code slowly drifts toward the centroid of the embeddings that land on it. Pooling embeddings from both modalities keeps codes distributed across the teacher’s region and the shifting student’s region, so neither side is left without nearby codes. 
+
+Dead-code restart. EMA k-means can leave codes unused. Periodically, any code whose count falls below a small threshold is re-seeded to a randomly chosen embedding from the current batch and its statistics are reset, which keeps the full vocabulary alive and prevents collapse onto a few dominant codes. This is standard practice in VQ-based training [17] and triggers rarely under our settings, so we do not ablate it separately from Lent , the diversity term we do ablate. Title Suppressed Due to Excessive Length 9
+
+Diversity regularization. As a second, gradient-based guard against collapse, we maximize the entropy of the batch-averaged student assignment. Let ¯pS =
+
+> 1
+> BS
+
+PBS 
+
+> j=1
+
+p(j) 
+
+> S
+
+be the student’s marginal code usage over the batch; we minimize its negative entropy, 
+
+Lent = −H(¯ pS ) = 
+
+> K
+
+X
+
+> k=1
+
+¯pS (k) log ¯ pS (k). (13) This pushes marginal code usage toward uniform, spreading aggregate code usage across the vocabulary and preventing collapse onto a few dominant codes. Like 
+
+Ldist , it acts on the batch marginal rather than on individual assignments, and it is applied to the student only. 
+
+3.7 Training and Inference 
+
+Objective. The student is trained with the standard classification loss and the three codebook terms, 
+
+L = Lcls + λdist Ldist + λcls -cb Lcls -cb + λent Lent , (14) where Lcls is class-weighted cross-entropy on the student logits ϕS (hS ), and the 
+
+λ terms balance the codebook losses against classification (values in Sec. 4.1). Note that Lent pulls the student marginal toward uniform while Ldist pulls it toward the teacher marginal ¯pT ; we keep λent small so that Lent acts only as a guard against marginal collapse rather than competing with Ldist where the teacher signal is informative. Each training step draws one teacher and one student mini-batch independently; the teacher loader is cycled if shorter. 
+
+Optimization. The student encoder fS , classifier ϕS , and student projector gS are optimized end to end. The teacher encoder fT is frozen throughout distillation, and the codebook C is updated only through EMA. Training begins with a short warmup stage in which only Lcls is active while the codebook EMA continues to run. This allows the codebook to settle on the feature distribution before the distillation losses are introduced. The checkpoint with the best validation macro-F1 is selected for evaluation. 
+
+Inference. At test time, all distillation modules are removed. SSCD introduces no additional inference cost over the student-only baseline. Given a student-modality image xS , prediction uses only the student encoder and classifier: 
+
+ˆy = arg max  
+
+> y
+
+ϕS (fS (xS )) . (15) 
+
+## 4 Experiments 
+
+4.1 Experimental Setup 
+
+Datasets. We evaluate SSCD on two unpaired cross-modal medical classifica-tion settings that differ in imaging dimensionality, anatomy, and class count. 10 D. Imans et al. 
+
+OCT →fundus uses MultiEYE [19], where OCT serves as the teacher modality and fundus photography as the student modality. Following our unpaired set-ting, the two modalities share the same disease label space but contain different patient cohorts. We use six categories with sufficient samples in both modalities: normal, dry age-related macular degeneration (dAMD), diabetic retinopathy (DR), macular epiretinal membrane (MEM), retinal vein occlusion (RVO), and wet age-related macular degeneration (wAMD). The remaining three MultiEYE categories are excluded because one modality contains too few samples; the same six-class split is used for all methods. Fundus images are enhanced with CLAHE, OCT images are median-filtered, and all images are resized to 224 × 224 .
+
+CT →CXR evaluates a more heterogeneous cross-anatomy setting. We use COVIDx CT-3A [7] as the CT teacher dataset and NIH ChestX-ray [20] as the CXR student dataset. COVIDx CT-3A is binarized into normal and pneumo-nia. NIH ChestX-ray is mapped to the same nominal label space by assigning “No Finding” to normal and “Pneumonia” to pneumonia, while excluding other categories; pneumonia images with co-occurring findings are retained. This set-ting is fully unpaired: the teacher and student images come from independently collected cohorts and share only a normal-versus-pneumonia label space, rather than patient-level correspondence or clinically identical label definitions. 
+
+Baselines. We compare with a student-only model, two simple mean-matching baselines, and FDDM [18]. DistillGlobMean aligns the student’s projected em-bedding to a single global teacher mean, while DistillClsMean aligns it to the corresponding class-wise teacher mean using MSE. FDDM is the closest un-paired cross-modal medical distillation baseline and is reimplemented under the same backbone, optimizer, and data protocol for both settings. We exclude OCT-CoDA [19] from the main comparison because it requires LLM-generated disease concepts and a pretrained vision-language backbone, which breaks the common ResNet-50 protocol and is not directly transferable to the CT →CXR setting. 
+
+Implementation. All methods use an ImageNet-pretrained ResNet-50 backbone with 224 × 224 inputs and are trained under the same protocol unless otherwise specified. We use AdamW with learning rate 3 × 10 −5, weight decay 0.01 , and a cosine learning-rate schedule. Models are trained for up to 50 epochs with batch size 32 , and early stopping is applied with patience 15 based on valida-tion macro-F1. The student classification objective is inverse-frequency class-weighted cross-entropy. For each run, the checkpoint with the best validation macro-F1 is evaluated once on the held-out test set. For SSCD, the ResNet-50 pooled feature dimension is D = 2048 . The teacher and student projection heads map features to a d = 128 codebook space using a two-layer MLP (Linear →ReLU →Linear). We use K = 256 codes, assignment temperature τ = 0 .1, λdist = λcls -cb = 0 .5, and λent = 0 .05 . The codebook is updated with EMA momentum γ = 0 .99 , and inactive codes are re-seeded when their count falls below η = 1 every R = 100 steps. During the first 3 epochs, codebook losses are disabled while the EMA update remains active, allowing the codebook to stabilize before distillation begins. Title Suppressed Due to Excessive Length 11 
+
+Table 1: OCT →fundus multiclass retinal disease classification on MultiEYE (6 classes). OCT is the teacher modality, fundus the student. Mean ± std over three seeds; best deployable result in bold . The OCT teacher is an upper-bound reference. Method F1 Prec. Rec. AUC κ
+
+OCT teacher 88.0 ±2.6 86.8 ±2.5 90.4 ±1.9 98.7 ±0.4 88.7 ±1.6
+
+Fundus student 64.5 ±3.0 74.7 ±1.5 61.0 ±2.8 90.2 ±0.7 46.6 ±3.2
+
+DistillGlobMean 66.3 ±1.9 78.2 ±3.2 62.4 ±0.9 90.8 ±0.3 48.0 ±2.2
+
+DistillClsMean 65.5 ±2.1 77.6 ±3.3 61.9 ±0.9 91.2 ±0.2 47.6 ±2.8
+
+FDDM [18] 66.2 ±2.6 78.0 ±0.7 62.1 ±2.5 90.0 ±0.8 46.7 ±1.9
+
+SSCD (Ours) 70.2 ±1.6 79.9 ±2.3 65.3 ±1.5 90.7 ±0.3 52.1 ±1.8
+
+Table 2: CT →CXR binary normal-versus-pneumonia classification (COVIDx CT-3A teacher, NIH ChestX-ray student). Mean ± std over three seeds; best deployable result in bold . The CT teacher is an upper-bound reference. Method F1 Prec. Rec. AUC κ
+
+CT teacher 98.9 ±0.1 98.9 ±0.2 98.9 ±0.1 99.9 ±0.1 97.8 ±0.2
+
+X-ray student 73.8 ±0.9 73.5 ±0.9 75.0 ±1.0 80.8 ±0.7 47.9 ±1.8
+
+DistillGlobMean 72.8 ±0.7 72.5 ±0.6 74.0 ±0.6 81.1 ±0.5 45.9 ±1.2
+
+DistillClsMean 74.7 ±1.5 74.5 ±1.3 76.3 ±1.2 81.2 ±0.4 49.9 ±2.8
+
+FDDM [18] 74.4 ±1.9 74.2 ±1.9 76.0 ±2.1 81.7 ±1.2 49.3 ±3.8
+
+SSCD (Ours) 76.3 ±1.3 75.9 ±1.1 77.4 ±0.8 82.9 ±1.5 52.7 ±2.4
+
+FDDM is implemented with the same backbone, optimizer, and training schedule, using only its original loss weights. DistillGlobMean and DistillClsMean sweep λ ∈ { 0.05 , 0.1, 0.3, 0.5, 1} and select the value that maximizes average val-idation macro-F1 across the two modality pairs; this gives λ = 0 .5 for Distill-GlobMean and λ = 1 .0 for DistillClsMean. Full sweep results are provided in the supplementary material. 
+
+Evaluation metrics. We report precision, recall, F1, AUC, and Cohen’s κ as mean ±std over three seeds, with macro-F1 as the primary metric. For each seed, we regenerate the patient-level train/validation/test split and model initial-ization, so the reported variation reflects both data-partition and optimization randomness. 
+
+4.2 Main Results 
+
+Tables 1 and 2 report both settings. SSCD achieves the best macro-F1 among all methods on both settings, improving over the student-only baseline by +5 .7
+
+on OCT →fundus and +2 .5 on CT →CXR, and outperforming FDDM and the other distillation baselines. Precision, recall, and κ move together with F1 in both tables. AUC is largely saturated across methods on the six-class pair, where 12 D. Imans et al. 
+
+Table 3: Ablation of the three codebook losses, removing one term at a time from the full SSCD objective. Mean ± std over three seeds. Variant F1 Prec. Rec. AUC κ
+
+OCT →fundus (6 classes) 
+
+SSCD (full) 70.2 ±1.6 79.9 ±2.3 65.3 ±1.5 90.7 ±0.3 52.1 ±1.8
+
+− L dist 68.6 ±2.1 79.2 ±1.9 63.6 ±1.8 90.2 ±0.4 48.9 ±0.8
+
+− L cls -cb 69.3 ±1.2 79.0 ±1.4 64.6 ±1.5 90.7 ±0.3 50.6 ±0.8
+
+− L ent 68.2 ±1.8 78.0 ±0.7 63.8 ±1.3 90.4 ±0.3 48.5 ±1.6
+
+CT →CXR (2 classes) 
+
+SSCD (full) 76.3 ±1.3 75.9 ±1.1 77.4 ±0.8 82.9 ±1.5 52.7 ±2.4
+
+− L dist 74.4 ±3.5 74.2 ±3.5 75.4 ±3.5 80.9 ±3.0 49.1 ±6.9
+
+− L cls -cb 75.8 ±1.4 75.5 ±1.3 77.0 ±0.9 83.9 ±0.9 51.9 ±2.7
+
+− L ent 76.6 ±1.0 76.2 ±1.0 77.4 ±0.6 84.4 ±0.5 53.4 ±1.9
+
+all methods including the student-only baseline fall within a narrow band ( 90 .0–
+
+91 .2); SSCD is competitive but not the highest on this metric there, while remain-ing best on AUC on the binary pair. The naive mean-transfer baselines are in-consistent across settings: modest gains comparable to FDDM on OCT →fundus, but on CT →CXR DistillGlobMean falls below the student while DistillClsMean edges past FDDM, showing that matching averaged teacher statistics alone is not a reliable strategy across modality pairs. SSCD is the only method that improves the student consistently on both settings and across nearly all metrics. 
+
+4.3 Ablation Study 
+
+Table 3 removes one codebook loss at a time. On OCT →fundus, all three terms contribute: removing any one lowers F1 and κ, with Ldist and Lent having the largest effect and Lcls -cb adding class-conditional refinement. On CT →CXR, 
+
+Ldist remains most important and Lcls -cb continues to help, but Lent is not ben-eficial: removing it leaves performance unchanged within one standard deviation (76.6 ±1.0 vs. 76.3 ±1.3 F1). With only two classes the code marginal is far less prone to collapse, so the diversity pressure that helps the six-class setting has little left to do; retaining Lent costs nothing here while helping there, so we keep one objective across both. 
+
+4.4 Cross-Modal Alignment in the Shared Codebook 
+
+Table 4 reports per class, the cosine similarity between teacher and student class-mean code distributions on held-out data. Alignment is consistently positive across all classes in both settings (means 0.60 –0.80 on OCT →fundus, 0.49 –0.55 
+
+on CT →CXR), indicating that teacher and student code usage is related rather than independent, though we do not treat this as a precise or complete charac-terization of the shared representation. Alignment is also noticeably less stable Title Suppressed Due to Excessive Length 13 
+
+Table 4: Cross-modal alignment in codebook space: per-class cosine similarity between teacher and student class-mean code distributions, with per-class teacher ( nT ) and student ( nS ) sample counts. Mean ± std over three seeds. Class nT nS Cosine sim. OCT →fundus (6 classes), mean = 0 .706 
+
+Normal 432.3 ±53 .6 450.0 ±17 .7 0.759 ±0.042 
+
+DR 450.7 ±122 .4 445.0 ±6.2 0.765 ±0.076 
+
+dAMD 28.0 ±2.8 204.3 ±5.6 0.799 ±0.187 
+
+MEM 149.3 ±30 .9 29.0 ±1.4 0.662 ±0.081 
+
+RVO 25.3 ±2.5 66.7 ±1.2 0.652 ±0.293 
+
+wAMD 150.3 ±35 .9 62.7 ±0.9 0.600 ±0.114 
+
+CT →CXR (2 classes), mean = 0 .519 
+
+Normal 744.7 ±20 .5 200.0 ±0.0 0.490 ±0.142 
+
+Pneumonia 714.7 ±38 .0 109.7 ±2.6 0.547 ±0.095 
+
+for the smallest classes (e.g. RVO, dAMD), consistent with Lcls -cb receiving a gradient for a class only when it co-occurs in both mini-batches, so rare classes are aligned less consistently across training runs. 
+
+4.5 Qualitative Visualization 
+
+Figure 2 visualizes within-modality class separability at inference, computed from a single representative checkpoint. The teacher (top) forms tighter, better-separated clusters than the student (bottom) in both settings, consistent with its role as the upper-bound modality, though the student still shows distinguish-able class structure post-distillation. This within-modality view complements the cross-modal codebook alignment in Sec. 4.4. 
+
+## 5 Discussion 
+
+SSCD estimates class-conditional code distributions from classes that co-occur in both teacher and student mini-batches. Consequently, rare classes receive this signal less frequently and show less stable alignment across seeds, as observed for RVO ( 0.652 ±0.293 ). This suggests that the main limitation lies in the stability of class-wise estimates under imbalanced data rather than in the shared-codebook mechanism itself. Class-balanced or co-occurrence-aware sampling could make rare-class alignment more reliable, which we leave to future work. Another important property of SSCD is that its distillation losses operate on aggregate distributions rather than individual samples. This is intentional: because the teacher and student datasets are unpaired, no instance-level corre-spondence should be assumed. Consequently, SSCD encourages the two modal-ities to agree at the batch and class levels, through ¯pT , ¯pS , ¯p cT , and ¯p cS , but it 14 D. Imans et al.     
+
+> (a) OCT →Fundus (b) CT →CXR
+> Fig. 2: UMAP of backbone features at inference, teacher (top) and student (bottom), colored by class, for (a) OCT →fundus and (b) CT →CXR.
+
+does not guarantee that any particular teacher image and student image will be mapped to similar codes. The method is therefore best understood as disease-level semantic transfer, not instance-level cross-modal matching. Finally, SSCD recovers only part of the gap between the student-only model and the teacher upper bound: 24 .3% on OCT →fundus and 10 .0% on CT →CXR. This is expected, since some teacher-side information may be modality-specific and absent from the student image itself. For example, OCT and CT provide structural information that fundus photography and CXR may not fully encode. The goal of SSCD is therefore not to reproduce the teacher performance, but to transfer the portion of disease-level structure that can be expressed through the student modality while preserving student-only inference. 
+
+## 6 Conclusion 
+
+We presented SSCD, a shared-codebook framework for unpaired cross-modal medical image classification. Instead of forcing teacher and student features into direct correspondence, SSCD represents both modalities as distributions over a common learned vocabulary and transfers knowledge by aligning these distribu-tions globally and class-conditionally. This design avoids instance-level pairing, reduces reliance on direct feature-space comparability, and represents each dis-ease class as a multi-code semantic composition rather than a single continuous prototype. Across OCT →fundus and CT →CXR classification, the same distilla-tion mechanism consistently improves the student-only model and outperforms the evaluated baselines. Ablation and codebook-alignment analyses further in-dicate that these gains come from distribution alignment in the shared code space. Since all teacher-side and codebook modules are discarded at inference, Title Suppressed Due to Excessive Length 15 
+
+SSCD adds no deployment cost. Future work will extend this shared-codebook view to partially overlapping label spaces, unlabeled student modalities, and rare-class-aware sampling. 
+
+## Acknowledgements 
+
+This work was supported in part by the Korea government (MSIT), IITP, under IITP-2026-RS-2020-II201821 (60%) and RS-2019-II190421 (10%); and by the Ministry of SMEs and Startups (MSS) under RS-2024-00514724 (30%). Profes-sors D.T. Le and H. Choo are also with SKAI X Inc. 
+
+## Disclosure of Interest 
+
+The authors have no competing interests to declare that are relevant to the content of this article. 
+
+## References 
+
+1. Aytar, Y., Vondrick, C., Torralba, A.: Soundnet: Learning sound representations from unlabeled video. Advances in neural information processing systems 29 (2016) 2. Brenner, D.J., Hall, E.J.: Computed tomography—an increasing source of radiation exposure. New England journal of medicine 357 (22), 2277–2284 (2007) 3. Caron, M., Bojanowski, P., Joulin, A., Douze, M.: Deep clustering for unsupervised learning of visual features. In: Proceedings of the European conference on computer vision (ECCV). pp. 132–149 (2018) 4. Caron, M., Misra, I., Mairal, J., Goyal, P., Bojanowski, P., Joulin, A.: Unsupervised learning of visual features by contrasting cluster assignments. Advances in neural information processing systems 33 , 9912–9924 (2020) 5. Caron, M., Touvron, H., Misra, I., Jégou, H., Mairal, J., Bojanowski, P., Joulin, A.: Emerging properties in self-supervised vision transformers. In: Proceedings of the IEEE/CVF international conference on computer vision. pp. 9650–9660 (2021) 6. Esser, P., Rombach, R., Ommer, B.: Taming transformers for high-resolution image synthesis. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 12873–12883 (2021) 7. Gunraj, H., Tuinstra, T., Wong, A.: Covidx ct-3: A large-scale, multinational, open-source benchmark dataset for computer-aided covid-19 screening from chest ct images. arXiv preprint arXiv:2206.03043 (2022) 8. Gupta, S., Hoffman, J., Malik, J.: Cross modal distillation for supervision transfer. In: Proceedings of the IEEE conference on computer vision and pattern recognition. pp. 2827–2836 (2016) 9. Hinton, G., Vinyals, O., Dean, J.: Distilling the knowledge in a neural network. arXiv preprint arXiv:1503.02531 (2015) 10. Huang, D., Swanson, E.A., Lin, C.P., Schuman, J.S., Stinson, W.G., Chang, W., Hee, M.R., Flotte, T., Gregory, K., Puliafito, C.A., et al.: Optical coherence to-mography. science 254 (5035), 1178–1181 (1991) 16 D. Imans et al. 11. Huo, F., Xu, W., Guo, J., Wang, H., Guo, S.: C2kd: Bridging the modality gap for cross-modal knowledge distillation. In: Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition. pp. 16006–16015 (2024) 12. Johnson, W.B., Lindenstrauss, J., et al.: Extensions of lipschitz mappings into a hilbert space. Contemporary mathematics 26 (189-206), 1 (1984) 13. Park, W., Kim, D., Lu, Y., Cho, M.: Relational knowledge distillation. In: Pro-ceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 3967–3976 (2019) 14. Peng, Z., Dong, L., Bao, H., Ye, Q., Wei, F.: Beit v2: Masked image modeling with vector-quantized visual tokenizers. arXiv preprint arXiv:2208.06366 (2022) 15. Romero, A., Ballas, N., Kahou, S.E., Chassang, A., Gatta, C., Bengio, Y.: Fitnets: Hints for thin deep nets (2015), https://arxiv.org/abs/1412.6550 
+
+16. Tian, Y., Krishnan, D., Isola, P.: Contrastive representation distillation. arXiv preprint arXiv:1910.10699 (2019) 17. Van Den Oord, A., Vinyals, O., et al.: Neural discrete representation learning. Advances in neural information processing systems 30 (2017) 18. Wang, L., Dai, W., Jin, M., Ou, C., Li, X.: Fundus-enhanced disease-aware dis-tillation model for retinal disease classification from oct images. In: International Conference on Medical Image Computing and Computer-Assisted Intervention. pp. 639–648. Springer (2023) 19. Wang, L., Qi, C., Ou, C., An, L., Jin, M., Kong, X., Li, X.: Multieye: Dataset and benchmark for oct-enhanced retinal disease recognition from fundus images. IEEE Transactions on Medical Imaging 44 (4), 1711–1722 (2024) 20. Wang, X., Peng, Y., Lu, L., Lu, Z., Bagheri, M., Summers, R.M.: Chestx-ray8: Hospital-scale chest x-ray database and benchmarks on weakly-supervised classi-fication and localization of common thorax diseases. In: Proceedings of the IEEE conference on computer vision and pattern recognition. pp. 2097–2106 (2017) 21. Wang, Z., Li, D., Luo, C., Xie, C., Yang, X.: Distillbev: Boosting multi-camera 3d object detection with cross-modal knowledge distillation. In: Proceedings of the IEEE/CVF International Conference on Computer Vision. pp. 8637–8646 (2023) 22. Yang, L., Tian, Y., Xu, M., Liu, Z., Hong, S., Qu, W., Zhang, W., Cui, B., Zhang, M., Leskovec, J.: Vqgraph: Rethinking graph representation space for bridging gnns and mlps. In: International Conference on Learning Representations. vol. 2024, pp. 16490–16509 (2024) 23. Zagoruyko, S., Komodakis, N.: Paying more attention to attention: Improving the performance of convolutional neural networks via attention transfer. arXiv preprint arXiv:1612.03928 (2016)
