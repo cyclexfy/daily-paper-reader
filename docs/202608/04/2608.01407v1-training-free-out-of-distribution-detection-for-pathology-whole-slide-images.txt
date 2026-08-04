@@ -1,0 +1,625 @@
+Title: Training-Free Out-of-Distribution Detection for Pathology Whole-Slide Images
+
+URL Source: https://arxiv.org/pdf/2608.01407v1
+
+Published Time: Tue, 04 Aug 2026 01:31:06 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+> 1
+
+# Training-Free Out-of-Distribution Detection for Pathology Whole-Slide Images 
+
+Sabri Mustafa Kahya, Richard R. Chen, Muhammet Sami Yavuz, Jerry Jierui Lou, Akanimoh Adeleye, Hacı Ali Kahya, and Jana Lipkova 
+
+Abstract —Safe deployment of AI methods in medicine requires robust guardrails that detect when input data deviate from the training distribution to ensure that models provide predictions only within their scope of expertise and abstain otherwise. Out-of-distribution (OOD) detection can provide such safeguards and is extensively studied in general computer vision. Yet, it remains un-derdeveloped in computational pathology, where gigapixel whole-slide images (WSIs), subtle differences between disease subtypes, and variability in tissue preparation pose unique challenges for conventional OOD methods. We propose ZIO, a training-free, multimodal OOD detector for pathology WSIs that leverages vision–language pathology foundation models (FMs). ZIO con-structs text and visual prototypes of in-distribution classes and integrates their complementary information through a prototype shrinkage mechanism to derive OOD scores. We provide the ZIO formulation for both slide- and patch-level FMs. We evaluate ZIO across diverse clinically relevant domain shifts, including rare diseases and near-OOD settings. Extensive evaluation of over 14,700 WSIs from five independent consortia shows that ZIO consistently outperforms both unimodal prototypes and 40 state-of-the-art OOD methods. These results demonstrate the benefits of multimodal representation for OOD detection and pave the way towards safer AI deployment in clinical practice. The code is available at https://github.com/muskahya/ZIO. 
+
+Index Terms —Computational pathology, foundation models, low-shot learning, out-of-distribution detection. 
+
+I. I NTRODUCTION 
+
+# AI models often operate under a closed-world assump-tion, expecting that the data seen at inference resemble the training data. In clinical settings, however, models may encounter rare or atypical cases. Without explicit guardrails, a model trained to predict a fixed set of diagnoses is forced to assign one of the predefined labels even when confronted with different anatomy or previously unseen conditions. Safe clinical deployment thus requires mechanisms that detect when input data deviates from the training distribution, enabling models to abstain rather than produce confident but incor-rect predictions [1]–[5]. This need is particularly acute in pathology, where subtle disease variations, differences in tissue preparation, staining protocols, scanner hardware, and patient demographics can induce distribution shifts that impact model performance [6]–[8]. Out-of-distribution (OOD) detection addresses this chal-lenge by flagging inputs that deviate from the in-distribution (ID) training data. Unlike standard binary classification, OOD detection is typically developed using ID data only, since it is infeasible to anticipate all OOD types the model may encounter. Despite substantial progress in OOD detection for natural images [9]–[12], the problem relatively remains unex-plored in digital pathology. This gap stems from the unique complexity of gigapixel WSIs: a single slide may contain diverse tissue constituents (e.g., stroma, necrosis, inflamma-tion) and even mixtures of ID and OOD-like regions (see Fig. 1). Consequently, most existing pathology OOD studies are patch-centric [13]–[17], relying on selected regions of interest that do not capture the heterogeneity of WSIs. While these studies demonstrate the feasibility of OOD detection, they are typically restricted to far-OOD settings (e.g. different organs), and often require expensive pretraining, which limits their application to WSIs and domain shifts presented in clinical practice. Recently, zero-shot and few-shot OOD detection methods have emerged in computer vision as a new class of training-free approaches [18]–[21]. These methods rely on multimodal vision-text foundation models (FMs) trained with contrastive learning [22] to build lightweight classifiers from text prompts (zero-shot) or a few exemplars (low-shot) in the embedding space [18], [19], [21], [23], [24]. While these methods have demonstrated strong performance on natural images, their application to computational pathology remains largely un-explored. At the same time, several multimodal vision-text FMs have been developed for computational pathology [25]– [29] over the last three years. These developments open new opportunities to translate the benefits of training-free OOD detection into computational pathology. Here, we introduce ZIO (Zero-Shot-Informed One-Shot), a multimodal, training-free OOD detection framework that operates on entire WSIs and can be applied without back-bone fine-tuning, calibration, or additional OOD data. ZIO constructs visual and text prototypes for each ID class and integrates their complementary information through prototype shrinkage to enable multimodal low-shot OOD detection in WSIs (Fig. 2). To be compatible with different types of FMs used in pathology, we provide the ZIO formulation for both slide- and patch-level FMs. Moreover, for patch-level FMs, we provide a new mechanism to determine which image regions correspond to the given text prompts in the WSI prior to multimodal fusion. We demonstrate that unimodal image and text prototypes provide strong baselines for OOD detection, but struggle under different types of domain shifts. By inte-grating complementary information from both modalities, ZIO overcomes these limitations and achieves robust performance across diverse domain shifts. We performed extensive evalua-tion across multiple clinically relevant domain shifts, including near-OOD and rare diseases with limited data, where many arXiv:2608.01407v1 [cs.CV] 2 Aug 2026 2
+
+standard OOD methods struggle. Evaluation of over 14,700 WSIs from five independent consortia shows that ZIO out-performs the unimodal baselines and 40 state-of-the-art OOD detection methods. To our knowledge, this is the first work to demonstrate the feasibility of training-free multimodal OOD detection in pathology WSIs and underscores the benefits of multimodal representation for this task. This work paves the way towards safer deployment of AI in clinical practice. II. R ELATED WORK 
+
+Computational pathology and foundation models. Compu-tational pathology develops algorithms that learn from dig-itized histopathology WSIs to support diagnosis, prognosis, and treatment selection [30]. WSIs are gigapixel-resolution scans with substantial tissue heterogeneity within a slide, as shown in Fig. 1. In practice, a WSI is usually partitioned into patches, encoded by a feature extractor, and aggregated into a slide-level representation using Multiple Instance Learning (MIL) methods. Attention-based MIL (ABMIL) [31], [32] has become a standard aggregation strategy for downstream WSI tasks. FMs have recently advanced representation learning at both patch and slide levels [33]. Patch-level encoders pretrained with self-supervised learning on large histopathol-ogy corpora provide general purpose embeddings for im-age patches that can be used as a backbone for diverse downstream tasks [34], [35]. Slide-level FMs capture global context by processing patches jointly or hierarchically, to directly output slide-level embeddings [36], [37]. Multimodal vision–language pathology FMs use CLIP-style contrastive learning [22] to align histology images with text reports in the feature space, enabling zero-shot predictions and cross-modal retrieval. Representative examples of vision-language pathol-ogy FMs include PLIP [28], QUILT-Net [38], MUSK [39], PRISM [40], CONCH [25], or TITAN [26]. For more details see the recent review articles [27], [41]. 
+
+OOD detection. The objective of OOD detection is to distin-guish ID and OOD samples [42]–[45], as illustrated in Fig. 2A. Unlike a typical supervised binary classification task, OOD detectors are often developed using only the ID samples, since it is infeasible to anticipate all possible OOD cases. Existing OOD detection methods are typically applied on top of a trained ID model, most often using standard backbones such as ResNet-18 and ResNet-34. Below we provide an overview of different types of OOD methods, while more details are given in the review articles [46], [47]. 
+
+Post-hoc methods enable OOD detection without retraining of the ID model. Early approaches leveraged confidence-based scores, where MSP [9] established the baseline by using maximum softmax probabilities. ODIN [10] enhances this through temperature scaling and input perturbations. Energy-based detection [11] applies the LogSumExp function to logits, demonstrating that in-distribution (ID) samples exhibit lower energy scores. MaxLogit [12] directly operates on logits and is based on the observation that ID samples tend to have higher maximum logit values than OODs. 
+
+Training-based methods incorporate OOD awareness during model training. This includes Outlier Exposure (OE) approach A. Intra-slide tissue heterogeneity      
+
+> tumor
+> adipose tissue normal mucosa
+> stroma C. Color and staining variations
+> H&E H&E IHC
+> B. Visually similar subtypes
+> Breast Adenocarcinoma
+> Colon Adenocarcinoma
+> Large Cell Lung Carcinoma Lung Adenocarcinoma
+> Fig. 1. Challenges in WSI-level OOD detection in pathology. (A) A single WSI can exhibit substantial intra-slide heterogeneity; example regions include tumor, normal mucosa, stroma, and adipose tissue. (B) Histologically similar tumor types share highly similar morphology across different organs. (C) Color and staining variability across slides (H&E across scanners/centers and IHC) can induce strong covariate shift even for the same diagnostic categories.
+
+[48], which uses auxiliary outlier datasets and jointly trains the model on both ID and subset of OOD samples for better detection. Methods without OE modify the training objective or model architecture. For instance, CIDER [49] optimizes hy-perspherical embeddings through dispersion and compactness losses, increasing angular separation between classes. 
+
+Zero-shot and few-shot OOD detection. Vision–language FMs trained with contrastive learning (e.g., CLIP [22]) have enabled zero-shot OOD detection by building text-prompt prototypes for ID classes and deriving OOD scores from image–text similarity in the joint embedding space [18]–[21]. Few-shot variants further leverage limited visual exemplars or prompt adaptation to improve separability [23], [24]. However, most prior works were designed for natural images. 
+
+OOD detection in pathology remains relatively unexplored in comparison to studies on natural images. Most early meth-ods [13]–[17] operate on small regions of interest or image patches. However, this approach is not suitable for clinical deployment, since a single WSI can contain both ID and OOD samples. Linmans et al. [50] proposed a way to aggregate information from the image patches to enable a slide-level OOD detection. However, this approach is based on threshold-ing of the entropy scores computed across patches, where the choice of the threshold is task-dependent, making the model less flexible for broader deployment. Recently, StaDis [51] and SCULPT [52] enabled slide-level OOD detection within MIL frameworks using perturbation-based stability scoring and causal prompt tuning, respectively. The early works [15], [16], [50] usually focused on relatively simple settings; the models typically consider only a single ID class (e.g. pres-ence/absence of tumor) and are tested for far-OOD cases with very distinct tissue morphology, e.g. prostate cancer as ID and healthy colon tissue as OOD [15], [16], [50]. The recent studies [51], [52] further included more clinically challenge domain shift, such as different cancer types within the same primary tissue. However these models are tested only on a handful of cancer types, and thus their generalization across different diseases remain underexplored. Moreover Poceviˇ ci¯ ut˙ e[15], showed that existing OOD methods in pathology do not 3  
+
+> Fig. 2. High-level study overview. (A) Example of AI-based classification of lung cancer into LUAD and LUSC subtypes, while using OOD safeguards. OOD detection flags cases that deviate from model’s expertise, such as rare disease or different domain shifts, to ensure safe model deployment. (B) High-level overview of the ZIO OOD detection using multimodal image and text prototypes.
+
+generalize well to data from external cohorts. These prior works show the feasibility but also underscore the challenges of OOD detection in histology WSIs. III. M ETHOD 
+
+Problem setup. OOD detection is formulated as a binary classification problem where the objective is to distinguish ID samples from OOD ones (see Fig. 2A). Unlike standard supervised classification, the OOD detector has only access to ID data during model development. The goal is to learn a scoring function that captures the characteristics of the ID samples and flags data that deviates from this distribution. A typical OOD detector first assigns a score to each input sample 
+
+x using a scoring function s, and then classifies the sample based on a predefined threshold τ : if s(x) < τ , the sample is classified as OOD; otherwise ID. 
+
+Notation. Let Y = {1, . . . , C } denote the ID classes. For each WSI x, we extract representations using a FM. The slide-level FM produces a single embedding h ∈ RDsl , while patch-level FM yields a set of patch embeddings U = {up ∈
+
+RDpl }Pp=1 , where P denotes the number of patches in a given WSI x. The proposed ZIO method is compatible with any vision-language FM. Here we use TITAN [26], as a slide-level FM and CONCH [25] as a patch-level FM. Under this setup, the embedding dimensions are D := Dsl = 768 
+
+and D := Dpl = 512 , respectively. We denote the text-only prototypes as ZS , due to their conceptual link to zero-shot learning, and the image-only prototypes as OS , as they are derived from one-shot visual exemplars. ZIO and its unimodal variants, ZS and OS, each construct a prototype matrix W = [ w1, . . . , w C ] ∈ RD×C , where wc denotes the class-c prototype. Let norm( ·) denote ℓ2 normalization. 
+
+A. ZIO: Multimodal OOD Detection in WSIs 
+
+ZIO constructs text and visual prototypes and integrates them via prototype shrinkage to provide multimodal OOD detection. We first describe the construction of the individual prototypes, followed by the fusion mechanism and the resulting scoring function. A high-level overview of the ZIO model is provided in Fig. 2B, with model specifics shown in Fig. 3. 
+
+ZS: text prototypes. The text prototypes use only the text description of the ID classes, no images. For each ID class c,given a set of class name synonyms Sc (e.g., lung adenocar-cinoma, LUAD ) and prompt templates T (e.g., “ the pathology image shows CLASSNAME ”), we build the prototype matrix 
+
+W ZS = [ wZS  
+
+> 1
+
+, . . . , w ZS  
+
+> C
+
+] using the FM’s text encoder ftext as: 
+
+wZS  
+
+> c
+
+= norm 1
+
+|S c||T | 
+
+X
+
+> s∈S c
+
+X
+
+> t∈T
+
+norm  ftext (t[s]) !
+
+.
+
+OS: visual prototypes. Using a single WSI for each ID class, we construct image prototypes W OS = [ wOS  
+
+> 1
+
+, . . . , w OS  
+
+> C
+
+]. We describe the procedure separately for slide-level and patch-level visual representations. 
+
+i) Slide-level. Given a WSI of class c, the slide-level FM provides a single slide-level embedding hc ∈ RD . Using the pretrained projection head V ∈ RD×D of the FM, we map the raw image features hc into the joint image–text embedding space established during contrastive pretraining, i.e., zc = norm( h⊤ 
+
+> c
+
+V ) ∈ RD . The visual prototype is then defined as wOS  
+
+> c
+
+= norm( zc).
+
+ii) Patch-level. Patch-level FM produces embeddings U (c) =
+
+{u(c) 
+
+> p
+
+}Pp=1 for each image patch of a given WSI of class c.Using the projection head A ∈ RD×D of the FM, we map each patch embedding into the joint image-text feature space as follows: z(c) 
+
+> p
+
+= norm( u(c)⊤ 
+
+> p
+
+A) ∈ RD . The visual prototype of a given WSI is obtained by mean pooling over all patches, followed by ℓ2 normalization: 
+
+¯z(c) = 1
+
+P
+
+> P
+
+X
+
+> p=1
+
+z(c) 
+
+> p
+
+; wOS  
+
+> c
+
+= norm(¯ z(c)).
+
+ZIO: multimodal fusion. ZIO performs prototype shrink-age to build the multimodal visual-text prototypes W ZIO =[wZIO  
+
+> 1
+
+, . . . , w ZIO  
+
+> C
+
+] as follows: 
+
+i) Slide-level. In the slide-level formulation, given the text prototype wZS  
+
+> c
+
+and the one-shot slide-level prototype wOS  
+
+> c
+
+, we can directly compute the prototype shrinkage as follows: 
+
+wZIO  
+
+> c
+
+= norm  (1 − α) wOS  
+
+> c
+
++ α w ZS 
+
+> c
+
+, α ∈ [0 , 1] .
+
+ii) Patch-level. In pathology, the diagnostically relevant tissue often occupies only a small fraction of a WSI, while the remaining regions include other tissue constituents (see Fig. 1). In the patch-level model formulation, the text-based prototype 
+
+wZS  
+
+> c
+
+corresponds to diagnostic class c. However, it is not clear which image patches in the WSI are representative of a given class c. Consequently, it is non-trivial to determine how visual and text prototypes should be aligned for the multimodal fusion. To address this challenge, we introduce a ZS-guided top-j filtering mechanism that allows us to select 4A histopathological image of { CLASSNAME }. A photomicrograph of {CLASSNAME }. . . . . . .  
+
+> LUAD adenocarcinoma adenocarcinoma of the lung
+> Text Encoder Stack Average L2-Norm
+
+w1
+
+> ZS
+
+. . . wC
+
+> ZS
+
+]WZS = [ w1
+
+> ZS
+
+ZS Baseline 
+
+wCw2w 1
+
+> ZS
+
+Text prototype . . . wC
+
+> OS
+
+]W OS = [ w1
+
+> OS
+
+OS Baseline 
+
+wCw2w 1
+
+> OS L2-Norm
+
+w1
+
+> OS Slide Embedding
+> Image Encoder
+> Image Patches WSI of LUAD
+> Projection VImage-Text Space
+
+Visual prototype . . . wC
+
+> ZIO
+
+]W ZIO = [ w1
+
+> ZIO
+
+ZIO Classifier 
+
+wCw2w 1
+
+> ZIO
+
+w1  
+
+> ZIO A histopathological image of { CLASSNAME }. A photomicrograph of {CLASSNAME }. . . . . . .
+> LUAD adenocarcinoma adenocarcinoma of the lung
+> Text Encoder Stack Average L2-Norm
+> w1ZS
+
+(1−α) +α || || )( )( 2
+
+> z1Slide Embedding
+> Image Encoder
+> Image Patches WSI of LUAD Projection VImage-Text Space
+
+Multimodal ZIO 
+
+Fig. 3. ZIO prototype construction and fusion. Top: text prototype used as the unimodal ZS baseline, built from class names/synonyms and prompt templates via the FM text encoder. Middle: visual prototype used as the unimodal OS baseline, built from a single WSI per class via the FM image encoder. Bottom: ZIO fuses the text and visual prototypes via prototype shrinkage to form a multimodal image-text prototype. 
+
+the most informative image patches and discard the signal from non-informative patches prior to multimodal fusion. This is achieved through the following two stages. 
+
+Stage 1: ZS-guided patch selection. Given the projected image patch embeddings {z(c)
+
+p }Pp=1 for a WSI of class c, we compute their cosine similarity with the corresponding text prototype wZS 
+
+c . The similarity score for patch p is defined as score (c)
+
+p = z(c)⊤
+
+p wZS 
+
+c . We then select the set Ij corresponding to the top-j patches with the highest similarity scores: 
+
+Ij = Top -j {score (c)
+
+p }Pp=1 
+
+.
+
+Stage 2: Multimodal fusion. We define the visual prototype of class c by computing the average of the top-j informative patches, followed by normalization. 
+
+˜z(c) = 1
+
+j
+
+X
+
+p∈I j
+
+z(c)
+
+p , wpre 
+
+c = norm(˜ z(c)).
+
+The multimodal prototype is then computed through prototype shrinkage as: 
+
+wZIO 
+
+c = norm  (1 − α) wpre 
+
+c + α w ZS 
+
+c
+
+, α ∈ [0 , 1] .
+
+OOD detection. Given an input WSI x, the OOD score s(x)
+
+is computed using the prototype matrix W , where W ZS , W OS ,and W ZIO correspond to the ZS, OS baselines, and multimodal ZIO detector, respectively. 
+
+i) Slide-level. We compute the logits for OOD detection via cosine similarity between the slide embedding z and the prototype matrix W , as follows: ℓ = z⊤W . At this point, any standard logit-based OOD scoring function can be applied. In this work, we use MaxLogit , which defines the scoring function as smax (x) = max c ℓc. We intentionally adopt vanilla MaxLogit for its simplicity, allowing us to isolate the effect of the proposed prototype-based formulation. Other logit-based OOD scoring methods (e.g., Energy, MSP (after softmax), or LogitNorm) could be used in the same manner. 
+
+ii) Patch-level. For the input WSI, we compute per-patch logits 
+
+ℓp = z⊤
+
+p W . We use top-j pooling to select the patches with the highest per-class confidence: 
+
+ℓpool 
+
+c = 1
+
+j
+
+X
+
+p∈Top -j{ℓp,c }Pp=1 
+
+ℓp,c ,
+
+MaxLogit is then used to compute the scoring function as 
+
+smax (x) = max c ℓpool 
+
+c .
+
+OOD decision rule and evaluation metrics: Following the standard practice in OOD detection [46], [47], the threshold 
+
+τ is determined by ensuring that 95% of ID samples are correctly detected. We report common OOD detection metrics that compute performance across all values of τ : Area Under the Receiver Operating Characteristic curve (AUROC), Area Under the Precision-Recall Curve when IDs are positives (AUPR IN ), and when OODs are positives (AUPR OUT ); and False Positive Rate at 95% True Positive Rate (FPR95). 
+
+Hyperparameters. For ZIO shrinkage, we use α = 0.5,assigning equal weight to the text and visual prototypes. For patch-level models, we set j = 10 in all experiments. All feature vectors and prototype columns are ℓ2-normalized after projection. For methods that use visual exemplars (OS and ZIO), results are averaged over 30 randomly sampled one-shot episodes to assess robustness. 5
+
+Complexity. Per-slide complexity is O(P C ) for patch-FM (with P patches and C classes) and O(C) for slide-FM. IV. E XPERIMENTS 
+
+Dataset and preprocessing. We evaluate all OOD detectors on over 14,700 WSIs sourced from five public consortia: CPTAC [53], PLCO [54], TCGA [55], EBRAINS [56], and GTEx [57], as shown in Table I. We partition the data into different ID and OOD configurations to simulate scenar-ios with varying levels of difficulty, ranging from far-OOD 
+
+to very near-OOD . Each configuration is described in the corresponding experiments section. All WSIs are processed using the TRIDENT [58] framework. The tissue regions are segmented and tiled into non-overlapping 512 ×512 patches at 
+
+20 × magnification. 
+
+Implementation of baseline models. To provide a rigorous evaluation, ZIO is compared against 40 SOTA OOD detectors. All OOD methods operate on the exactly the same patch- and slide-level embeddings from the FMs as ZIO. This allows us to determine the benefits of ZIO against the baseline models, regardless of the choice of FM. For the SOTA baselines, we follow the standard pipeline: train an ID classifier on top of these embeddings, then apply the corresponding OOD methods. For the slide-level formulation, we train a ResNet-18 classifier on top of slide-level embeddings. For the patch-level formulation, we first apply ABMIL [31] to aggregate patch features into a slide-level representation for a given downstream task, followed by a ResNet-18 classifier. Although in computational pathology it is common to use linear probing (e.g., logistic regression) or MLP layers after the slide-level embeddings (either from slide-level FM or after MIL), we opt for ResNet-18, because most of SOTA OOD detectors are designed and optimized for ResNet-style architectures. Moreover, several of these methods require access to inter-mediate features, penultimate-layer representations, gradients, or activations, which cannot be well established with linear probing. Since the resulting inputs to ResNet-18 are 1D embedding vectors, we reshape each embedding to a 1×1×D
+
+tensor and modify the first convolution to accept a single-channel input. After model training, we apply each OOD detector following its original implementation. For methods that require auxiliary OOD samples, such as OE methods, we use 516 WSIs from TCGA KIRC cohort, which are excluded from all reported OOD experiments.                                                     
+
+> TABLE I
+> OVERVIEW OF COHORTS ,DATASETS AND WSI COUNTS .ALL LISTED DATASETS CONTAIN H&E-STAINED WSIS EXCEPT PLCO-IHC, WHICH CONTAINS IHC-STAINED WSIS. CPTAC [53] TCGA [55] PLCO [54] EBRAINS [56] GTEx [57] LUAD 398 LUAD 539 LUAD 399 RB 0652 GTEx-near1 382 LUSC 405 LUSC 512 LUSC 224 RB 1142 GTEx-near2 341 BRCA 650 BRCA 859 BRCA 860 RB 2507 COAD 370 COAD 458 COAD 846 RB 32132 GBM 525 GBM 859 IHC 434 PDA 556 PAAD 209 RARELUNG 115 UCEC 882 SKCM 475
+
+A. Common Cancers: Very-far, Far, and Near-OOD 
+
+The objective of this experiment is threefold: (i) to evaluate the proposed ZIO method against its unimodal counterparts, ZS and OS; (ii) to assess whether the benefits of multimodal prototype fusion generalize across external cohorts and dif-ferent malignancies; and (iii) to benchmark ZIO against 40 SOTA OOD baselines. The ID task is subtyping of non-small cell lung carcinoma (NSCLC) into the two most common sub-types: lung adenocarcinoma (LUAD) and lung squamous cell carcinoma (LUSC). The ID classifier is trained on set of 1,293 Hematoxylin and Eosin (H&E)-stained WSIs (also excluded from all reported experiments) from CPTAC LUAD/LUSC cohort. The OOD detection methods are tested against dif-ferent types of domain shifts. We consider (i) far-OOD cases, which include H&E-stained WSIs from cancers that are bio-logically and histologically distinct from lung tumors, such as glioblastoma (GBM), skin cutaneous melanoma (SKCM), or uterine corpus endometrial carcinoma (UCEC). The (ii) near-OOD cases include adenocarcinomas originating from other organs, such as breast (BRCA), colon (COAD) or pancreatic (PAAD/PDA) cancers, which share the glandular morphology and adenocarcinoma characteristics with the ID LUAD class. These are significantly more challenging cases because the histology samples are usually taken from the tumor regions and thus they contain only minimal or no ”healthy” tissue, while the adenocarcinoma histologic representation is almost identical across all cases. Additionally, we consider (iii) very far-OOD , where Immunohistochemistry (IHC)-stained WSIs represent the OOD cases, which are visually distinct from H&E-stained ID WSIs (Fig. 1C). 
+
+(i) ZIO outperforms unimodal ZS and OS baselines: Ta-ble II shows the performance of the ZIO model, in comparison with the unimodal ZS and OS baselines across very-far , far ,and near-OOD cases. Both ZS and OS models reach relatively high performance, however neither consistently dominates across all cancer types and datasets. This suggests that the visual and text prototypes have complementary properties. ZIO efficiently integrates this complementary information from both modalities, leading to consistent improvement over both unimodal baselines. 
+
+(ii) ZIO generalizes across cancer types and external co-horts: Table II further demonstrates that ZIO maintains robust performance across external cohorts and diverse malignancies. For example, ZIO achieves an AUROC of 0.95 for BRCA across TCGA, PLCO, and CPTAC cohorts, indicating strong generalization to variations in data distribution arising from different institutions and data preparation protocols. At the same time, ZIO also demonstrates robust performance across various malignancies and domain shifts. 
+
+(iii) ZIO outperforms SOTA OOD methods: Table III reports results for 15 representative OOD methods evaluated on six datasets (restricted to two per consortium due to space constraints), while Fig. 4 shows comparison with all 40 methods, averaged across all 13 datasets presented in Table II. Across all evaluations, ZIO consistently outperforms all 40 SOTA methods, for both slide- and patch-level formulations. 6
+
+TABLE II 
+
+PERFORMANCE ACROSS VERY -FAR , FAR , AND NEAR OOD SCENARIOS . ID: CPTAC-LUAD/LUSC. A LL METRICS SHOW ZS |OS |ZIO 
+
+OOD Scenario Cohort Dataset AUROC AUIN AUOUT FPR95 Slide-Level 
+
+Very-far OOD PLCO IHC 99 .96 |97 .10 ±4.61 |99 .96 ±0.06 99 .85 |98 .57 ±2.10 |99 .85 ±0.03 99 .69 |91 .97 ±11 .55 |99 .70 ±0.09 0.00 |16 .57 ±29 .77 |0.11 ±0.31 
+
+Far OOD 
+
+CPTAC GBM 97 .25 |96 .78 ±3.67 |98 .89 ±0.67 98 .25 |97 .94 ±2.28 |99 .19 ±0.43 95 .04 |94 .06 ±6.26 |98 .01 ±1.04 13 .71 |16 .46 ±18 .51 |4.93 ±4.66 
+
+CPTAC UCEC 87 .94 |90 .20 ±7.52 |93 .65 ±2.98 88 .87 |91 .04 ±6.92 |94 .22 ±2.76 87 .11 |88 .98 ±7.71 |93 .03 ±3.01 56 .24 |44 .66 ±21 .23 |37 .72 ±10 .95 
+
+TCGA GBM 97 .17 |97 .39 ±3.13 |99 .08 ±0.81 97 .58 |97 .77 ±2.44 |99 .10 ±0.62 96 .39 |96 .29 ±4.41 |98 .77 ±1.11 13 .04 |14 .87 ±20 .21 |4.07 ±6.49 
+
+TCGA SKCM 89 .80 |91 .19 ±6.99 |94 .51 ±2.58 94 .25 |95 .21 ±3.60 |96 .96 ±1.36 78 .99 |81 .78 ±13 .11 |88 .66 ±5.25 55 .58 |45 .83 ±28 .87 |34 .10 ±15 .76 
+
+Near OOD 
+
+CPTAC BRCA 91 .05 |91 .39 ±8.34 |95 .12 ±3.16 92 .56 |93 .77 ±5.65 |96 .20 ±2.41 89 .51 |87 .62 ±10 .63 |93 .66 ±3.80 36 .92 |39 .26 ±22 .28 |25 .12 ±12 .44 
+
+CPTAC COAD 96 .79 |97 .10 ±2.84 |98 .65 ±0.75 98 .25 |98 .60 ±1.26 |99 .24 ±0.34 93 .66 |92 .26 ±6.88 |96 .78 ±2.11 11 .89 |14 .53 ±15 .70 |6.39 ±3.65 
+
+CPTAC PDA 91 .04 |94 .00 ±7.24 |96 .57 ±2.23 93 .88 |96 .03 ±4.33 |97 .66 ±1.48 85 .91 |90 .42 ±11 .13 |94 .36 ±3.53 46 .40 |26 .22 ±23 .35 |18 .88 ±13 .09 
+
+PLCO BRCA 90 .45 |92 .91 ±6.80 |95 .65 ±2.68 91 .46 |94 .15 ±5.12 |96 .18 ±2.34 89 .10 |90 .57 ±8.79 |94 .85 ±2.93 47 .91 |36 .99 ±28 .05 |27 .02 ±14 .76 
+
+PLCO COAD 97 .03 |96 .00 ±3.31 |98 .79 ±0.62 97 .17 |96 .57 ±2.72 |98 .81 ±0.55 96 .85 |94 .76 ±4.37 |98 .55 ±0.69 16 .73 |24 .26 ±20 .82 |6.57 ±4.31 
+
+TCGA BRCA 91 .22 |92 .92 ±6.42 |95 .49 ±2.58 90 .17 |93 .78 ±5.35 |95 .43 ±2.69 91 .88 |91 .02 ±7.44 |95 .39 ±2.39 33 .99 |36 .63 ±20 .75 |22 .64 ±10 .28 
+
+TCGA COAD 93 .25 |94 .41 ±3.97 |96 .66 ±1.36 96 .36 |96 .98 ±2.20 |98 .16 ±0.69 85 .74 |87 .89 ±7.75 |92 .99 ±3.16 36 .46 |31 .81 ±19 .59 |22 .41 ±9.35 
+
+TCGA PAAD 90 .52 |96 .34 ±5.24 |97 .23 ±1.76 97 .34 |98 .91 ±1.45 |99 .18 ±0.44 61 .79 |85 .78 ±14 .59 |87 .46 ±8.21 49 .76 |18 .60 ±23 .60 |17 .26 ±14 .59 
+
+Patch-Level 
+
+Very-far OOD PLCO IHC 99 .83 |91 .79 ±10 .74 |99 .71 ±0.32 99 .79 |96 .34 ±4.77 |99 .74 ±0.13 99 .44 |80 .98 ±20 .56 |99 .00 ±1.03 0.00 |40 .00 ±42 .75 |0.27 ±0.40 
+
+Far OOD 
+
+CPTAC GBM 99 .67 |93 .88 ±6.01 |99 .44 ±0.54 99 .65 |96 .38 ±3.49 |99 .54 ±0.32 99 .34 |88 .78 ±10 .80 |98 .90 ±0.88 0.76 |33 .52 ±30 .02 |1.97 ±3.30 
+
+CPTAC UCEC 92 .90 |92 .14 ±4.92 |94 .98 ±3.42 92 .84 |92 .44 ±4.98 |95 .05 ±3.28 93 .40 |91 .75 ±5.04 |95 .19 ±3.05 34 .37 |39 .25 ±18 .83 |23 .97 ±16 .74 
+
+TCGA GBM 98 .92 |91 .36 ±8.14 |98 .68 ±1.29 98 .87 |93 .28 ±6.10 |98 .73 ±1.12 98 .80 |88 .36 ±11 .05 |98 .38 ±1.49 4.42 |44 .90 ±35 .66 |5.94 ±7.72 
+
+TCGA SKCM 94 .77 |81 .36 ±9.29 |94 .79 ±2.23 96 .80 |89 .93 ±4.92 |96 .84 ±1.21 91 .53 |64 .89 ±14 .95 |90 .53 ±3.24 26 .00 |75 .68 ±23 .12 |24 .74 ±13 .10 
+
+Near OOD 
+
+CPTAC BRCA 79 .73 |83 .42 ±11 .08 |86 .59 ±6.17 83 .55 |89 .05 ±7.71 |90 .05 ±4.70 77 .58 |74 .38 ±14 .25 |83 .16 ±6.11 63 .32 |70 .44 ±24 .27 |53 .46 ±13 .48 
+
+CPTAC COAD 68 .40 |80 .77 ±10 .91 |81 .15 ±9.48 86 .09 |91 .75 ±5.61 |92 .07 ±4.05 39 .84 |56 .66 ±14 .27 |56 .80 ±15 .00 96 .08 |82 .07 ±17 .90 |80 .00 ±19 .54 
+
+CPTAC PDA 95 .39 |89 .42 ±7.57 |96 .49 ±2.71 96 .67 |93 .32 ±4.85 |97 .52 ±1.86 93 .67 |82 .51 ±11 .49 |94 .89 ±3.29 23 .56 |49 .92 ±30 .03 |15 .79 ±13 .02 
+
+PLCO BRCA 96 .32 |80 .11 ±9.22 |96 .42 ±1.96 95 .99 |84 .64 ±6.90 |96 .48 ±2.10 96 .66 |74 .05 ±12 .56 |96 .09 ±1.52 16 .86 |76 .93 ±23 .97 |15 .92 ±9.51 
+
+PLCO COAD 95 .00 |81 .76 ±9.56 |96 .31 ±2.20 94 .74 |86 .65 ±6.47 |96 .74 ±2.06 95 .22 |75 .20 ±13 .77 |95 .47 ±1.96 21 .27 |73 .18 ±26 .67 |18 .96 ±13 .95 
+
+TCGA BRCA 88 .04 |76 .70 ±11 .16 |90 .05 ±5.57 87 .74 |81 .51 ±9.67 |91 .00 ±5.03 88 .17 |70 .12 ±12 .10 |88 .81 ±4.98 47 .66 |83 .54 ±18 .97 |43 .64 ±19 .41 
+
+TCGA COAD 83 .68 |85 .25 ±8.00 |91 .69 ±5.69 91 .44 |92 .14 ±4.45 |95 .77 ±2.85 66 .96 |74 .13 ±12 .27 |82 .12 ±10 .36 76 .72 |61 .99 ±21 .40 |43 .47 ±27 .81 
+
+TCGA PAAD 85 .75 |75 .79 ±13 .05 |88 .78 ±6.99 95 .86 |93 .08 ±4.24 |96 .87 ±1.97 57 .55 |40 .27 ±17 .96 |63 .89 ±14 .26 63 .16 |82 .90 ±21 .11 |52 .65 ±25 .55 
+
+TABLE III 
+
+COMPARISON WITH SOTA OOD METHODS . ID:CPTAC-LUAD/LUSC. P ERFORMANCE SCORES : AUROC | AUIN | AUOUT | FPR95. 
+
+Method CPTAC PDA CPTAC GBM PLCO IHC PLCO COAD TCGA BRCA TCGA PAAD Slide-level 
+
+msp [9] 80.89 | 87.27 | 69.64 | 78.96 77.48 | 86.24 | 63.54 | 84.19 86.01 | 93.21 | 68.77 | 76.50 77.89 | 81.51 | 73.58 | 85.34 78.08 | 80.48 | 74.46 | 82.31 80.66 | 94.38 | 46.58 | 79.43 odin [10] 78.07 | 83.64 | 69.00 | 73.92 71.30 | 80.69 | 53.75 | 92.00 83.54 | 91.30 | 66.30 | 75.58 71.12 | 75.94 | 61.77 | 96.81 74.33 | 76.32 | 67.96 | 92.32 72.28 | 90.93 | 35.87 | 84.69 maha [59] 91.08 | 94.37 | 85.20 | 51.08 94.88 | 96.83 | 91.48 | 33.33 91.47 | 95.66 | 82.29 | 52.53 94.85 | 95.11 | 94.44 | 30.61 93.63 | 94.31 | 92.63 | 41.56 95.28 | 98.66 | 81.85 | 33.01 energy [11] 80.35 | 87.07 | 66.80 | 78.42 76.57 | 85.80 | 59.60 | 85.52 85.46 | 92.96 | 66.71 | 75.81 77.45 | 81.11 | 72.28 | 84.28 77.18 | 79.76 | 72.18 | 82.77 80.40 | 94.37 | 42.56 | 80.86 gradnorm [60] 80.92 | 86.95 | 70.35 | 75.18 68.69 | 79.44 | 56.22 | 83.81 82.63 | 90.87 | 65.68 | 74.88 70.77 | 74.10 | 67.95 | 85.82 76.61 | 78.83 | 73.37 | 79.98 78.26 | 93.21 | 46.03 | 76.08 knn [61] 80.86 | 87.63 | 68.37 | 80.76 78.35 | 87.45 | 60.49 | 88.57 85.90 | 93.34 | 66.54 | 80.88 79.61 | 83.68 | 72.12 | 88.06 79.16 | 82.16 | 73.79 | 84.75 78.14 | 93.72 | 39.54 | 87.56 react [62] 72.70 | 81.94 | 57.11 | 89.93 73.21 | 83.77 | 53.67 | 93.33 78.83 | 89.64 | 56.63 | 88.02 71.53 | 75.54 | 64.06 | 92.55 68.73 | 71.97 | 63.17 | 92.55 77.83 | 93.52 | 38.52 | 85.17 vim [63] 87.43 | 91.59 | 80.70 | 55.04 86.38 | 91.54 | 78.54 | 58.86 91.47 | 95.68 | 81.92 | 46.08 86.57 | 87.54 | 86.15 | 53.90 85.47 | 86.39 | 84.63 | 59.95 89.16 | 96.83 | 67.43 | 45.93 maxlogit [12] 80.51 | 87.11 | 68.06 | 77.52 76.79 | 85.86 | 61.29 | 83.62 85.55 | 92.99 | 67.43 | 75.58 77.50 | 81.13 | 72.90 | 84.40 77.34 | 79.81 | 73.04 | 81.72 80.55 | 94.40 | 44.57 | 78.95 nci [64] 80.74 | 86.83 | 68.94 | 78.78 70.54 | 80.49 | 55.31 | 88.76 83.88 | 91.61 | 65.92 | 78.57 74.01 | 77.08 | 69.52 | 87.83 76.28 | 77.04 | 72.16 | 84.40 79.58 | 94.00 | 43.75 | 81.82 scale [65] 77.01 | 78.51 | 68.08 | 78.24 71.69 | 75.42 | 60.96 | 84.00 84.11 | 90.49 | 67.87 | 76.04 71.79 | 67.20 | 71.27 | 84.99 73.59 | 66.86 | 72.29 | 82.07 75.89 | 90.81 | 44.60 | 79.43 fdbd [66] 80.89 | 85.83 | 70.83 | 74.64 69.89 | 76.46 | 57.05 | 85.52 84.32 | 91.92 | 66.98 | 75.58 72.05 | 72.32 | 68.65 | 86.29 75.85 | 72.88 | 73.41 | 81.14 80.18 | 94.07 | 47.51 | 77.03 oe [48] 83.61 | 90.40 | 69.45 | 80.22 80.09 | 88.52 | 63.58 | 84.76 89.13 | 94.98 | 72.39 | 71.43 79.21 | 83.95 | 71.89 | 86.64 85.58 | 88.74 | 80.35 | 77.18 87.69 | 96.77 | 54.24 | 77.03 cider [49] 79.30 | 86.78 | 66.67 | 78.24 87.73 | 92.42 | 78.00 | 62.29 69.87 | 83.53 | 47.50 | 91.01 81.35 | 83.84 | 78.07 | 73.64 83.90 | 85.90 | 81.21 | 68.92 80.21 | 94.24 | 44.37 | 77.99 lnorm [67] 78.46 | 85.04 | 64.70 | 84.17 74.34 | 81.69 | 58.90 | 86.29 77.92 | 87.81 | 58.52 | 85.48 59.34 | 57.01 | 59.50 | 91.02 75.93 | 73.05 | 73.25 | 83.12 77.81 | 92.50 | 43.01 | 83.25 
+
+ZIO 96.57 | 97.66 | 94.36 | 18.88 98.89 | 99.19 | 98.01 | 4.93 99.96 | 99.85 | 99.70 | 0.11 98.79 | 98.81 | 98.55 | 6.57 95.49 | 95.43 | 95.39 | 22.64 97.23 | 99.18 | 87.46 | 17.26 Patch-level 
+
+msp [9] 64.44 | 76.00 | 45.50 | 99.10 69.71 | 83.03 | 48.57 | 96.00 69.31 | 85.52 | 42.39 | 100.0 68.95 | 72.76 | 64.40 | 89.48 61.20 | 66.15 | 53.83 | 98.84 48.46 | 80.77 | 18.37 | 97.61 odin [10] 65.43 | 76.19 | 46.73 | 100.0 62.03 | 79.11 | 41.66 | 100.0 72.50 | 86.63 | 45.29 | 100.0 60.21 | 67.75 | 53.86 | 100.0 59.50 | 64.25 | 53.45 | 100.0 45.19 | 80.12 | 17.19 | 100.0 maha [59] 61.84 | 72.64 | 51.35 | 85.61 73.80 | 81.88 | 64.48 | 71.81 54.86 | 76.83 | 36.83 | 93.78 84.05 | 83.11 | 84.47 | 47.99 71.28 | 71.92 | 70.49 | 78.11 83.75 | 94.75 | 52.28 | 63.16 energy [11] 60.57 | 74.09 | 42.57 | 100.0 64.75 | 80.55 | 43.56 | 100.0 66.93 | 84.36 | 40.67 | 100.0 63.50 | 69.63 | 55.86 | 100.0 57.93 | 63.84 | 51.47 | 100.0 44.43 | 79.08 | 17.01 | 100.0 gradnorm [60] 69.76 | 80.81 | 49.84 | 99.10 73.70 | 85.10 | 52.33 | 95.81 75.27 | 88.48 | 47.52 | 100.0 71.48 | 75.87 | 67.38 | 84.16 65.64 | 69.39 | 57.35 | 98.60 54.13 | 84.64 | 20.23 | 97.61 knn [61] 49.31 | 61.91 | 38.58 | 98.38 58.82 | 68.10 | 45.21 | 93.33 43.37 | 67.38 | 29.04 | 99.54 72.94 | 74.19 | 67.20 | 91.61 59.41 | 60.72 | 57.67 | 93.95 70.56 | 90.03 | 30.29 | 97.13 react [62] 61.78 | 69.23 | 50.01 | 90.11 45.97 | 58.00 | 35.83 | 97.71 63.86 | 79.69 | 44.12 | 90.78 46.01 | 49.06 | 45.28 | 98.82 56.17 | 52.73 | 58.74 | 88.47 53.16 | 82.58 | 19.78 | 98.09 vim [63] 72.07 | 81.58 | 58.17 | 86.33 83.20 | 89.55 | 74.38 | 64.19 71.49 | 86.66 | 46.22 | 94.24 89.75 | 90.33 | 89.25 | 47.87 78.82 | 81.38 | 74.98 | 79.86 80.13 | 93.56 | 46.01 | 78.47 maxlogit [12] 61.52 | 74.48 | 43.24 | 100.0 66.08 | 81.19 | 44.59 | 99.62 67.09 | 84.48 | 40.81 | 100.0 65.08 | 70.34 | 57.80 | 99.88 58.47 | 64.17 | 51.78 | 100.0 45.24 | 79.29 | 17.24 | 100.0 nci [64] 71.31 | 78.96 | 52.16 | 98.38 74.02 | 81.97 | 54.93 | 94.48 77.75 | 88.66 | 50.54 | 99.77 70.89 | 69.36 | 69.49 | 81.32 65.93 | 62.66 | 59.56 | 97.79 52.94 | 82.74 | 20.14 | 98.56 scale [65] 64.73 | 75.83 | 45.72 | 99.10 69.99 | 83.10 | 48.77 | 96.00 69.70 | 85.73 | 42.66 | 100.0 69.07 | 72.43 | 64.51 | 89.72 61.39 | 64.91 | 53.99 | 98.84 48.82 | 81.11 | 18.50 | 97.61 fdbd [66] 63.24 | 72.39 | 44.95 | 99.46 67.45 | 81.38 | 46.06 | 97.71 69.47 | 84.23 | 42.76 | 100.0 64.31 | 66.70 | 59.88 | 95.86 58.24 | 61.19 | 52.12 | 99.53 44.58 | 78.04 | 17.23 | 98.09 oe [48] 78.37 | 86.64 | 61.89 | 88.85 81.87 | 90.07 | 64.01 | 87.81 90.81 | 95.48 | 77.12 | 61.29 78.30 | 84.05 | 69.80 | 90.66 80.16 | 83.74 | 73.48 | 89.06 68.74 | 91.12 | 27.77 | 95.69 cider [49] 62.79 | 75.86 | 48.69 | 92.45 58.16 | 74.10 | 43.95 | 93.71 55.80 | 78.28 | 34.56 | 97.70 63.26 | 66.77 | 61.88 | 89.48 63.54 | 68.70 | 60.46 | 92.90 68.78 | 89.41 | 32.94 | 87.08 lnorm [67] 68.93 | 80.73 | 49.56 | 98.02 81.33 | 89.82 | 62.83 | 90.10 66.97 | 85.45 | 40.28 | 99.77 79.53 | 83.57 | 72.94 | 87.59 68.62 | 75.61 | 61.57 | 94.30 59.41 | 86.79 | 22.62 | 95.69 
+
+ZIO 96.49 | 97.52 | 94.89 | 15.79 99.44 | 99.54 | 98.90 | 1.97 99.71 | 99.74 | 99.00 | 0.27 96.31 | 96.74 | 95.47 | 18.96 90.05 | 91.00 | 88.81 | 43.64 88.78 | 96.87 | 63.89 | 52.65 
+
+Since all methods use exactly the same FM embeddings, these results demonstrate the effectiveness of the ZIO model rather than the benefits of the FMs alone. Moreover, to isolate the added value of the multimodal prototype learning, ZIO uses a simple MaxLogit scoring function, which can be easily replaced with more advanced methods. 
+
+B. Within-Organ (very-near-OOD) Detection 
+
+While the previous experiments showed generalization across cancer types, here we analyze clinically more rele-vant and challenging scenarios. As before, we use NSCLC 7  
+
+> Fig. 4. Comparison with SOTA methods. AUROC (mean and std) computed across 13 datasets comparing 40 SOTA OOD detectors with ZIO for (A) slide-and (B) patch-level representations. The 40 OOD baselines include: ASH [68], Cadref [69], Caref [69], CIDER [49], DICE [70], DML [71], Energy [11], Entropy [72], fDBD [66], fssd [73], GEN [74], GODIN [75], GradNorm [60], KernelPCA [76], KLMatching [12], KNN [61], LogitNorm [67], MAHA [59], MAHA++ [77], MaxLogit [12], MSP [9], NCI [64], NECO [78], NNGUIDE [79], NRG [80], ODIN [10], OE [48], OECC [81], OODD [82], pNML [83], PRO [84], React [62], Residual [63], RMAHA [85], RTL++ [86], SCALE [65], SHE [87], T2fNorm [88], TScale [89], and VIM [63].
+
+subtyping as the ID-task, while the OOD cases include other pathologies in the lung tissue. We evaluate three very near-within-organ OOD cases: (i) GTEx-near1: Non-malignant findings such as calcification, atelectasis or hypertrophy in lung tissue, (ii) GTEx-near2: Non-malignant cancer mimickers, 
+
+which include benign lung pathologies that share features with lung cancer, such as reactive or inflammatory tissue, fibrosis, or edema, (iii) PLCO RareLung: includes rare lung cancer types, such as small-cell lung carcinoma or large-cell lung carcinoma. Table IV shows the performance of ZIO in comparison with top five OOD detectors (based on their average performance). ZIO reached AUROC over 0.97 for the non-malignant cases, while the performance on the rare cancers is 0.87, suggesting the increased complexity of rare-lung cancer detection. Nonetheless, ZIO outperformed all SOTA OOD methods by 10-20%.                          
+
+> TABLE IV
+> VERY -NEAR WITHIN ORGAN OOD DETECTION (SLIDE -LEVEL ).
+> ID: TCGA-LUAD/LUSC. V ALUES ARE AUROC Method (i) GTEx-near1 (ii ) GTEx-near2 (iii ) PLCO-RareLung ZIO 97.59 97.34 87.04
+> MAHA 72.33 74.41 79.68 Residual 70.99 70.63 76.56 OECC 49.73 55.10 74.08 VIM 73.79 79.40 79.21 OE 75.15 81.77 69.44
+
+C. Very-Near-OOD Detection for Rare Brain Cancers 
+
+The previous experiments consider common cancer types as ID samples. Since ZIO is a training-free method, it can be applied as a safeguard also in low-data regimes. To il-lustrate this, here we consider rare brain cancer types as ID classes, while the OOD set comprises both common and rare brain cancers. This setting is particularly challenging due to the strong morphological and biological similarity between ID and OOD samples. It mimics a realistic clinical setting, where for instance, an AI model trained for treatment response predictions in meningiomas should abstain from predictions when presented with a GBM sample. We use the EBRAINS [56] cohort, which consists of 125 distinct brain cancer types, and divide it into four histologically distinct datasets (based on neuro-pathologist assessment): RB 0
+
+contains 7 rare cancer types (pilocytic astrocytoma, gan-glioglioma, ependymoma, adamantinomatous craniopharyn-gioma, pituitary adenoma, schwannoma, haemangioblastoma) and serves as the ID set. The remaining data are divided into three OOD configurations: RB 1 consists of 14 cancer subtypes comprising brain lymphomas, hematopoietic, and histiocytic disorders; RB 2 includes 15 meningioma subtypes; and RB 3 covers all 118 cancer types not present in the ID set ( including also RB 1 and RB 2). Some cancer subtypes (classes) are represented by very limited sample sizes (e.g. 12 WSIs per class), reflecting the data scarcity of rare diseases. Since many conventional OOD methods require a training of an ID classifier on sufficiently large datasets, they cannot be applied in this low-data setting. The performance of ZIO and the unimodal baselines is reported in Table V. While all prototype-based approaches reached strong performance, ZIO outperformed both unimodal models. The performance at the patch level is, however, lower compared to the slide level. 8
+
+TABLE V 
+
+PERFORMANCE ON RARE BRAIN CANCERS . A LL METRICS ARE SHOWN AS ZS |OS |ZIO . (ID: EBRAINS-RB 0 )
+
+OOD Dataset AUROC AUIN AUOUT FPR95 Slide-Level 
+
+RB 1 88 .99 |96 .65 ±1.54 |97 .01 ±0.92 96 .51 |99 .00 ±0.43 |99 .11 ±0.26 78 .02 |89 .71 ±3.75 |90 .96 ±1.68 32 .07 |15 .42 ±6.36 |15 .19 ±3.87 
+
+RB 2 88 .94 |96 .17 ±2.59 |96 .96 ±1.58 91 .80 |97 .06 ±1.77 |97 .79 ±1.03 82 .89 |93 .70 ±4.40 |94 .50 ±2.86 54 .04 |18 .63 ±15 .68 |16 .17 ±11 .96 
+
+RB 3 87 .22 |89 .90 ±2.66 |92 .55 ±1.30 69 .43 |72 .18 ±6.99 |78 .51 ±2.90 95 .64 |96 .62 ±0.82 |97 .51 ±0.44 46 .08 |35 .36 ±5.87 |28 .01 ±5.39 
+
+Patch-Level 
+
+RB 1 81 .30 |79 .47 ±5.01 |86 .33 ±1.70 92 .69 |93 .56 ±2.00 |95 .70 ±0.79 63 .85 |49 .39 ±9.54 |68 .04 ±2.66 47 .56 |66 .60 ±11 .34 |44 .60 ±3.69 
+
+RB 2 79 .96 |76 .01 ±6.23 |88 .70 ±2.80 84 .69 |82 .01 ±5.83 |91 .51 ±2.44 72 .36 |66 .21 ±6.68 |82 .53 ±3.48 75 .50 |82 .26 ±6.63 |58 .08 ±9.51 
+
+RB 3 73 .58 |62 .55 ±5.47 |74 .93 ±2.65 46 .24 |32 .91 ±7.55 |46 .33 ±5.26 89 .48 |84 .50 ±2.47 |90 .48 ±0.99 77 .38 |84 .73 ±4.18 |71 .16 ±3.54 
+
+TABLE VI 
+
+PERFORMANCE ON IHC STAINS . ID: PLCO-IHC, OOD: H&E-STAINED TISSUE . A LL METRICS SHOW ZS |OS |ZIO .
+
+OOD dataset AUROC AUIN AUOUT FPR95 Slide-Level 
+
+EBRAINS (ALL) 14 .73 |99 .97 ±0.06 |99 .61 ±0.80 7.78 |99 .65 ±0.25 |97 .79 ±5.45 76 .17 |99 .96 ±0.01 |99 .90 ±0.13 96 .01 |0.04 ±0.14 |1.50 ±3.45 
+
+CPTAC GBM 76 .64 |99 .91 ±0.21 |99 .85 ±0.42 59 .49 |99 .65 ±0.29 |99 .49 ±0.92 85 .92 |99 .74 ±0.15 |99 .70 ±0.26 42 .10 |0.29 ±1.09 |0.51 ±1.46 
+
+TCGA GBM 79 .04 |99 .98 ±0.03 |99 .98 ±0.07 51 .16 |99 .74 ±0.07 |99 .71 ±0.18 90 .88 |99 .88 ±0.02 |99 .87 ±0.03 40 .63 |0.05 ±0.21 |0.07 ±0.24 
+
+Patch-Level 
+
+EBRAINS (ALL) 91 .91 |99 .89 ±0.05 |99 .75 ±1.05 66 .04 |99 .27 ±0.24 |98 .43 ±5.22 98 .55 |99 .95 ±0.01 |99 .92 ±0.17 31 .54 |0.42 ±0.51 |0.89 ±3.91 
+
+CPTAC GBM 95 .15 |99 .99 ±0.01 |99 .45 ±0.59 89 .79 |99 .76 ±0.02 |98 .75 ±1.48 96 .66 |99 .80 ±0.01 |99 .46 ±0.33 13 .71 |0.00 ±0.00 |1.78 ±1.16 
+
+TCGA GBM 94 .56 |99 .98 ±0.01 |99 .92 ±0.20 89 .54 |99 .74 ±0.02 |99 .60 ±0.48 96 .91 |99 .87 ±0.01 |99 .85 ±0.09 25 .66 |0.00 ±0.02 |0.26 ±0.77 
+
+One possible explanation is that patch-level representations lack the broader tissue context that might be required to identify the subtle difference between ID and OOD brain cancer subtypes. This experiment demonstrates the feasibility of the ZIO deployment under realistic, data-constrained, and semantically challenging very near-OOD conditions. 
+
+D. OOD Detection under Stain Shift 
+
+The previous experiments evaluated H&E-stained WSIs as ID samples. Here, we instead consider IHC-stained slides as ID cases and treat H&E samples as OOD. This setup evaluates robustness to covariate shifts induced by different staining mechanisms: IHC highlights specific protein expression pat-terns, whereas H&E emphasizes tissue morphology. Results in Table VI show that the text-only prototypes achieve variable performance and struggle under this type of domain shift. In contrast, both the image-only and multimodal prototypes achieve near-perfect performance. These findings reinforce our earlier observations that unimodal approaches may be sensitive to certain distribution shifts, whereas the multimodal formulation provides a more stable and reliable solution. 
+
+E. Ablation Studies 
+
+Data efficiency. We assess the data efficiency of ZIO with respect to the number of WSIs used to construct visual prototypes. We compare the performance of ZIO using one vs. multiple image prototypes. Table VII shows the ablation study for the patch-level models on common cancer types, while Table VIII shows the results for slide-level models on rare brain cancers. These findings show that multi-shot variants provide only marginal improvements over the one-shot (default ZIO) formulation, demonstrating the model data efficiency. 
+
+Top-j pooling. We analyze the effect of the top-j selection in the patch-level models. Table IX shows ZIO performance with 
+
+j ∈ { 1, 5, 10 , 50 , 100 }. The results confirm that j = 10 (the default value) achieves the best performance, outperforming both smaller j values (which might not sufficiently capture the 
+
+TABLE VII 
+
+ABLATION STUDY FOR ZS-INFORMED ONE VS . MULTI -SHOT WITH PATCH -LEVEL FM . ID: CPTAC-LUAD/LUSC. V ALUES ARE AUROC. 
+
+Cohort OOD Dataset 1-shot 5-shot 10-shot 50-shot 
+
+CPTAC BRCA 86 .59 86 .02 ±3.08 86 .95 ±3.08 87 .11 ±1.69 
+
+COAD 81 .15 82 .45 ±7.04 84 .37 ±4.98 85 .03 ±2.64 
+
+GBM 99 .44 99 .77 ±0.08 99 .82 ±0.05 99 .84 ±0.01 
+
+PDA 96 .49 97 .90 ±1.38 98 .19 ±0.99 98 .39 ±0.37 
+
+UCEC 94 .98 96 .89 ±1.85 97 .27 ±1.58 97 .59 ±0.51 
+
+PLCO BRCA 96 .42 97 .82 ±0.88 97 .97 ±0.85 98 .13 ±0.31 
+
+COAD 96 .31 98 .25 ±0.89 98 .41 ±0.89 98 .70 ±0.20 
+
+IHC 99 .71 99 .90 ±0.06 99 .93 ±0.02 99 .94 ±0.01 
+
+TCGA BRCA 90 .05 92 .05 ±3.08 92 .41 ±2.62 92 .75 ±1.14 
+
+COAD 91 .69 95 .47 ±2.81 95 .99 ±2.46 96 .71 ±0.70 
+
+GBM 98 .68 99 .48 ±0.19 99 .59 ±0.13 99 .66 ±0.03 
+
+PAAD 88 .78 92 .23 ±3.61 92 .64 ±3.15 93 .35 ±1.23 
+
+SKCM 94 .79 97 .08 ±0.94 97 .29 ±1.06 97 .59 ±0.26 
+
+TABLE VIII 
+
+ABLATION STUDY FOR ZS-INFORMED ONE - VS MULTI -SHOT WITH SLIDE -LEVEL FM. ID:EBRAINS RB 0 . V ALUES AUROC. 
+
+OOD Dataset AUROC 1-shot 3-shot 5-shot 10-shot 
+
+RB 1 97 .01 ±0.92 97 .55 ±0.42 97 .51 ±0.40 97 .66 ±0.24 
+
+RB 2 96 .96 ±1.59 97 .94 ±0.43 97 .83 ±0.40 97 .89 ±0.29 
+
+RB 3 92 .55 ±1.29 93 .73 ±0.51 93 .71 ±0.46 93 .83 ±0.29 
+
+TABLE IX 
+
+ABLATION STUDY FOR NUMBER OF PATCHES IN THE TOP -j POOLING .ID: RB 0 . E ACH CELL SHOWS AUROC FOR ZIO .
+
+OOD Top-1 Top-5 Top-10 Top-50 Top-100 
+
+RB 1 84 .29 ±2.84 85 .89 ±1.69 86 .33 ±1.70 85 .94 ±1.55 84 .93 ±1.46 
+
+RB 2 84 .46 ±4.61 88 .13 ±3.08 88 .70 ±2.80 87 .10 ±2.37 84 .97 ±2.22 
+
+RB 3 72 .98 ±4.76 74 .77 ±2.87 74 .93 ±2.65 73 .11 ±2.51 71 .23 ±2.25 
+
+disease representation) and larger values (which may include diagnostically non-relevant tissue). 
+
+Multimodal fusion strategies. We compare the prototype shrinkage with two other approaches for fusion of ZS and OS prototypes: (i) score avg which computes average of 9
+
+MaxLogit scores from each prototype and (ii) score max 
+
+which selects the maximum of MaxLogit scores. On the challenging rare-brain cancer types with EBRAINS-RB2 as OOD set, ZIO outperforms both fusion methods: with AU-ROC 88 .70 ±2.80 vs. 82 .76 ±2.51 (score avg ) and 76 .00 ±6.22 
+
+(score max ) for the patch-level model. This indicates that prototype-based fusion provides benefits beyond simple score combination. V. S UMMARY 
+
+We introduced ZIO, a training-free multimodal OOD de-tector for pathology WSIs. The proposed framework can be used with any vision-language FMs in pathology, and is compatible with both slide- and patch-level formulations. We showed that the multimodal ZIO model, which integrates complementary information from text and visual prototypes, outperforms the unimodal ZS and OS baselines. ZIO achieved superior performance over 40 SOTA OOD methods across different types of domain shifts, and also showed robust generalization to external cohorts. Thanks to the training-free formulation, ZIO can be easily applied as a safeguard for var-ious conditions, including rare diseases or stain-compatibility testing. Our study also revealed that certain types of domain shifts, such as nuanced differences between some rare cancer types, are more challenging and will require more attention in future studies. These results also underscore the importance of model testing on various, real-world OOD conditions. To support reproducibility and enable future advances, all model implementation and dataset splits are publicly released at https://github.com/muskahya/ZIO. In summary, this study represents a step towards safer deployment of AI in medicine. REFERENCES [1] P. Rajpurkar, E. Chen, O. Banerjee, and E. J. Topol, “Ai in health and medicine,” Nature medicine , vol. 28, no. 1, pp. 31–38, 2022. [2] E. Begoli, T. Bhattacharya, and D. Kusnezov, “The need for uncertainty quantification in machine-assisted medical decision making,” Nature Machine Intelligence , vol. 1, no. 1, pp. 20–23, 2019. [3] K. Zadorozhny, P. Thoral, P. Elbers, and G. Cin` a, “Out-of-distribution detection for medical applications: Guidelines for practical evaluation,” in Multimodal AI in healthcare: A paradigm shift in health intelligence .Springer, 2022, pp. 137–153. [4] D. Zimmerer, P. M. Full, F. Isensee, P. J¨ ager, T. Adler, J. Petersen, G. K¨ ohler, T. Ross, A. Reinke, A. Kascenas, B. S. Jensen, A. Q. O’Neil, J. Tan, B. Hou, J. Batten, H. Qiu, B. Kainz, N. Shvetsova, I. Fedulova, D. V. Dylov, B. Yu, J. Zhai, J. Hu, R. Si, S. Zhou, S. Wang, X. Li, L. Maier-Hein, and K. Maier-Hein, “Mood 2020: A public benchmark for out-of-distribution detection and localization on medical images,” 
+
+IEEE Transactions on Medical Imaging , vol. 41, no. 10, 2022. [5] J. M. Dolezal, A. Srisuwananukorn, D. Karpeyev, S. Ramesh, S. Kochanny, B. Cody, A. S. Mansfield, S. Rakshit, R. Bansal, M. C. Bois et al. , “Uncertainty-informed deep learning models enable high-confidence predictions for digital histopathology,” Nature communica-tions , vol. 13, no. 1, p. 6572, 2022. [6] D. Tellez, G. Litjens, P. B´ andi, W. Bulten, J.-M. Bokhorst, F. Ciompi, and J. Van Der Laak, “Quantifying the effects of data augmentation and stain color normalization in convolutional neural networks for computational pathology,” Medical image analysis , vol. 58, 2019. [7] K. Stacke, G. Eilertsen, J. Unger, and C. Lundstr¨ om, “Measuring domain shift for deep learning in histopathology,” IEEE Journal of Biomedical and Health Informatics , vol. 25, no. 2, pp. 325–336, 2021. [8] R. J. Chen, J. J. Wang, D. F. Williamson, T. Y. Chen, J. Lipkova, M. Y. Lu, S. Sahai, and F. Mahmood, “Algorithmic fairness in artificial intel-ligence for medicine and healthcare,” Nature biomedical engineering ,vol. 7, no. 6, pp. 719–742, 2023. [9] D. Hendrycks and K. Gimpel, “A baseline for detecting misclassified and out-of-distribution examples in neural networks,” in ICLR , 2017. [10] S. Liang, Y. Li, and R. Srikant, “Enhancing the reliability of out-of-distribution image detection in neural networks,” in ICLR , 2018. [11] W. Liu, X. Wang, J. Owens, and Y. Li, “Energy-based out-of-distribution detection,” in NeurIPS , vol. 33, 2020. [12] D. Hendrycks, S. Basart, M. Mazeika, A. Zou, J. Kwon, M. Mostajabi, J. Steinhardt, and D. Song, “Scaling out-of-distribution detection for real-world settings,” in ICML , 2022. [13] J. Linmans, G. Raya, J. van der Laak, and G. Litjens, “Diffusion models for out-of-distribution detection in digital pathology,” Medical Image Analysis , vol. 93, p. 103088, 2024. [14] J.-H. Oh, K. Falahkheirkhah, and R. Bhargava, “Are we ready for out-of-distribution detection in digital pathology?” in MICCAI , 2024. [15] M. Poceviˇ ci¯ ut˙ e, Y. Ding, R. Brom´ ee, and G. Eilertsen, “Out-of-distribution detection in digital pathology: Do foundation models bring the end to reconstruction-based approaches?” Computers in Biology and Medicine , vol. 184, p. 109327, 2025. [16] J. Linmans, J. van der Laak, and G. Litjens, “Efficient out-of-distribution detection in digital pathology using multi-head convolutional neural networks.” in MIDL , 2020, pp. 465–478. [17] J. Thagaard, S. Hauberg, B. van der Vegt, T. Ebstrup, J. D. Hansen, and A. B. Dahl, “Can you trust predictive uncertainty under real dataset shifts in digital pathology?” in MICCAI . Springer, 2020, pp. 824–833. [18] S. Esmaeilpour, B. Liu, E. Robertson, and L. Shu, “Zero-shot out-of-distribution detection based on the pre-trained model clip,” in AAAI ,vol. 36, no. 6, 2022, pp. 6568–6576. [19] H. Wang, Y. Li, H. Yao, and X. Li, “Clipn for zero-shot ood detection: Teaching clip to say no,” in ICCV , 2023, pp. 1802–1812. [20] Y. Ming, Z. Cai, J. Gu, Y. Sun, W. Li, and Y. Li, “Delving into out-of-distribution detection with vision-language representations,” NeurIPS ,vol. 35, pp. 35 087–35 102, 2022. [21] H. Fu, N. Patel, P. Krishnamurthy, and F. Khorrami, “Clipscope: Enhancing zero-shot ood detection with bayesian scoring,” in WACV .IEEE, 2025, pp. 5346–5355. [22] A. Radford, J. W. Kim, C. Hallacy, A. Ramesh, G. Goh, S. Agarwal, G. Sastry, A. Askell, P. Mishkin, J. Clark et al. , “Learning transferable visual models from natural language supervision,” in ICML , 2021. [23] A. Miyai, Q. Yu, G. Irie, and K. Aizawa, “Locoop: Few-shot out-of-distribution detection via prompt learning,” NeurIPS , vol. 36, 2023. [24] Y. Bai, Z. Han, B. Cao, X. Jiang, Q. Hu, and C. Zhang, “Id-like prompt learning for few-shot out-of-distribution detection,” in CVPR , 2024. [25] M. Y. Lu, B. Chen, D. F. Williamson, R. J. Chen, I. Liang, T. Ding, G. Jaume, I. Odintsov, L. P. Le, G. Gerber et al. , “A visual-language foundation model for computational pathology,” Nature medicine ,vol. 30, no. 3, pp. 863–874, 2024. [26] T. Ding, S. J. Wagner, A. H. Song, R. J. Chen, M. Y. Lu, A. Zhang, A. J. Vaidya, G. Jaume, M. Shaban, A. Kim et al. , “A multimodal whole-slide foundation model for pathology,” Nature Medicine , pp. 1–13, 2025. [27] D. Li, G. Wan, X. Wu, X. Wu, X. Chen, Y. He, C. G. Lian, P. K. Sorger, Y. R. Semenov, and C. Zhao, “Multi-modal foundation models for computational pathology: A survey,” Preprint , 2025. [28] Z. Huang, F. Bianchi, M. Yuksekgonul, T. J. Montine, and J. Zou, “A visual–language foundation model for pathology image analysis using medical twitter,” Nature medicine , vol. 29, no. 9, pp. 2307–2316, 2023. [29] P. Neidlinger, O. S. El Nahhas, H. S. Muti, T. Lenz, M. Hoffmeister, H. Brenner, M. van Treeck, R. Langer, B. Dislich et al. , “Benchmarking foundation models as feature extractors for weakly supervised compu-tational pathology,” Nature biomedical engineering , 2025. [30] G. Campanella, M. G. Hanna, L. Geneslaw, A. Miraflor, V. Werneck Krauss Silva, K. J. Busam, E. Brogi, V. E. Reuter, D. S. Klimstra, and T. J. Fuchs, “Clinical-grade computational pathology using weakly supervised deep learning on whole slide images,” Nature medicine ,vol. 25, no. 8, pp. 1301–1309, 2019. [31] M. Ilse, J. Tomczak, and M. Welling, “Attention-based deep multiple instance learning,” in ICML . PMLR, 2018, pp. 2127–2136. [32] M. Y. Lu, D. F. Williamson, T. Y. Chen, R. J. Chen, M. Barbieri, and F. Mahmood, “Data-efficient and weakly supervised computational pathology on whole-slide images,” Nature biomedical engineering ,vol. 5, no. 6, pp. 555–570, 2021. [33] J. Lipkova and J. N. Kather, “The age of foundation models,” Nature Reviews Clinical Oncology , vol. 21, no. 11, pp. 769–770, 2024. [34] E. Vorontsov, A. Bozkurt, A. Casson, G. Shaikovski, M. Zelechowski, K. Severson, E. Zimmermann, J. Hall, N. Tenenholtz, N. Fusi et al. , “A foundation model for clinical-grade computational pathology and rare cancers detection,” Nature medicine , vol. 30, no. 10, 2024. 10 
+
+[35] R. J. Chen, T. Ding, M. Y. Lu, D. F. Williamson, G. Jaume, A. H. Song, B. Chen, A. Zhang, D. Shao, M. Shaban et al. , “Towards a general-purpose foundation model for computational pathology,” Nature medicine , vol. 30, no. 3, pp. 850–862, 2024. [36] X. Wang, J. Zhao, E. Marostica, W. Yuan, J. Jin, J. Zhang, R. Li, H. Tang, K. Wang, Y. Li et al. , “A pathology foundation model for cancer diagnosis and prognosis prediction,” Nature , vol. 634, 2024. [37] H. Xu, N. Usuyama, J. Bagga, S. Zhang, R. Rao, T. Naumann, C. Wong, Z. Gero, J. Gonz´ alez, Y. Gu, Y. Xu, M. Wei, W. Wang, S. Ma, F. Wei, J. Yang, C. Li, J. Gao, J. Rosemon, T. Bower, S. Lee, R. Weerasinghe, B. J. Wright, A. Robicsek, B. Piening, C. Bifulco, S. Wang, and H. Poon, “A whole-slide foundation model for digital pathology from real-world data,” Nature , 2024. [38] W. Ikezogwo, S. Seyfioglu, F. Ghezloo, D. Geva, F. Sheikh Mohammed, P. K. Anand, R. Krishna, and L. Shapiro, “Quilt-1m: One million image-text pairs for histopathology,” NeurIPS , vol. 36, pp. 37 995–38 017, 2023. [39] J. Xiang, X. Wang, X. Zhang, Y. Xi, F. Eweje, Y. Chen, Y. Li, C. Bergstrom, M. Gopaulchan, T. Kim et al. , “A vision–language foundation model for precision oncology,” Nature , vol. 638, no. 8051, pp. 769–778, 2025. [40] G. Shaikovski, A. Casson, K. Severson, E. Zimmermann, Y. K. Wang, J. D. Kunz, J. A. Retamero, G. Oakley, D. Klimstra, C. Kanan et al. ,“Prism: A multi-modal generative foundation model for slide-level histopathology,” Preprint , 2024. [41] D. Li, G. Wan, X. Wu, X. Wu, Y. He, Z. Chen, A. J. Nirmal, C. G. Lian, P. K. Sorger, Y. R. Semenov et al. , “A survey on computational pathology foundation models: datasets, adaptation strategies, and evaluation tasks,” 
+
+Knowledge and Information Systems , vol. 68, 2026. [42] S. M. Kahya, M. S. Yavuz, and E. Steinbach, “Hood: Real-time human presence and out-of-distribution detection using fmcw radar,” IEEE Transactions on Radar Systems , vol. 3, pp. 44–56, 2025. [43] H. Dong, Y. Zhao, E. Chatzi, and O. Fink, “Multiood: Scaling out-of-distribution detection for multiple modalities,” NeurIPS , vol. 37, 2024. [44] S. M. Kahya, M. Sami Yavuz, and E. Steinbach, “Mcrood: Multi-class radar out-of-distribution detection,” in ICASSP , 2023, pp. 1–5. [45] M. K¨ osel, M. Schreiber, M. Ulrich, C. Gl¨ aser, and K. Dietmayer, “Revis-iting out-of-distribution detection in lidar-based 3d object detection,” in 
+
+2024 IEEE Intelligent Vehicles Symposium (IV) , 2024, pp. 2806–2813. [46] J. Yang, K. Zhou, Y. Li, and Z. Liu, “Generalized out-of-distribution detection: A survey,” International Journal of Computer Vision , vol. 132, no. 12, pp. 5635–5662, 2024. [47] J. Yang, P. Wang, D. Zou, Z. Zhou, K. Ding, W. Peng, H. Wang, G. Chen, B. Li, Y. Sun et al. , “Openood: Benchmarking generalized out-of-distribution detection,” NeurIPS , vol. 35, pp. 32 598–32 611, 2022. [48] D. Hendrycks, M. Mazeika, and T. Dietterich, “Deep anomaly detection with outlier exposure,” in ICLR , 2019. [49] Y. Ming, Y. Sun, O. Dia, and Y. Li, “How to exploit hyperspherical embeddings for out-of-distribution detection?” in ICLR , 2023. [50] J. Linmans, S. Elfwing, J. van der Laak, and G. Litjens, “Predictive uncertainty estimation for out-of-distribution detection in digital pathol-ogy,” Medical Image Analysis , vol. 83, p. 102655, 2023. [51] D. Zhang, J. Ge, J. Liu, C. Wang, T. Gong, Z. Gao, and C. Li, “Stadis: Stability distance to detecting out-of-distribution data in computational pathology,” Medical Image Analysis , p. 103774, 2025. [52] P. Sun, X. Li, D. Liang, J. Liu, Z. Zhu, X. Li, S. Dong, G. Luo, W. Wang, K. Wang et al. , “Sculpt: Semantic-aware causal prompt tuning for out-of-distribution detection of whole slide images,” Knowledge-Based Systems ,p. 115432, 2026. [53] N. J. Edwards, M. Oberti, R. R. Thangudu, S. Cai, P. B. McGarvey, S. Jacob, S. Madhavan, and K. A. Ketchum, “The cptac data portal: a resource for cancer proteomics research,” Journal of proteome research ,vol. 14, no. 6, pp. 2707–2713, 2015. [54] J. K. Gohagan, P. C. Prorok, R. B. Hayes, B.-S. Kramer, P. P. Team 
+
+et al. , “The prostate, lung, colorectal and ovarian (plco) cancer screening trial of the national cancer institute: history, organization, and status,” 
+
+Controlled clinical trials , vol. 21, no. 6, pp. 251S–272S, 2000. [55] J. N. Weinstein, E. A. Collisson, G. B. Mills, K. R. Shaw, B. A. Ozenberger, K. Ellrott, I. Shmulevich, C. Sander, and J. M. Stuart, “The cancer genome atlas pan-cancer analysis project,” Nature genetics ,vol. 45, no. 10, pp. 1113–1120, 2013. [56] K. Amunts, C. Ebell, J. Muller, M. Telefont, A. Knoll, and T. Lippert, “The human brain project: creating a european research infrastructure to decode the human brain,” Neuron , vol. 92, no. 3, pp. 574–581, 2016. [57] GTEx Consortium, “The GTEx Consortium atlas of genetic regulatory effects across human tissues,” Science , vol. 369, 2020. [58] A. Zhang, G. Jaume, and F. Mahmood, “Accelerating data processing and benchmarking of ai models for pathology,” Preprint , 2025. [59] K. Lee, K. Lee, H. Lee, and J. Shin, “A simple unified framework for detecting out-of-distribution samples and adversarial attacks,” in 
+
+NeurIPS , vol. 31, 2018. [60] R. Huang, A. Geng, and Y. Li, “On the importance of gradients for detecting distributional shifts in the wild,” in NeurIPS , 2021. [61] Y. Sun, Y. Ming, X. Zhu, and Y. Li, “Out-of-distribution detection with deep nearest neighbors,” in ICML , 2022. [62] Y. Sun, C. Guo, and Y. Li, “React: Out-of-distribution detection with rectified activations,” in NeurIPS , 2021. [63] H. Wang, Z. Li, L. Feng, and W. Zhang, “Vim: Out-of-distribution with virtual-logit matching,” in CVPR , 2022, pp. 4921–4930. [64] L. Liu and Y. Qin, “Detecting out-of-distribution through the lens of neural collapse,” in CVPR , 2025, pp. 15 424–15 433. [65] K. Xu, R. Chen, G. Franchi, and A. Yao, “Scaling for training time and post-hoc out-of-distribution detection enhancement,” in ICLR , 2024. [66] L. Liu and Y. Qin, “Fast decision boundary based out-of-distribution detector,” in ICML , ser. Proceedings of Machine Learning Research, R. Salakhutdinov, Z. Kolter, K. Heller, A. Weller, N. Oliver, J. Scarlett, and F. Berkenkamp, Eds., vol. 235. PMLR, 2024, pp. 31 728–31 746. [67] H. Wei, R. Xie, H. Cheng, L. Feng, B. An, and Y. Li, “Mitigating neural network overconfidence with logit normalization,” in ICML , 2022. [68] A. Djurisic, N. Bozanic, A. Ashok, and R. Liu, “Extremely simple activation shaping for out-of-distribution detection,” Preprint , 2022. [69] Z. Ling, Y. Chang, H. Zhao, X. Zhao, K. Chow, and S. Deng, “Cadref: Robust out-of-distribution detection via class-aware decoupled relative feature leveraging,” in CVPR , 2025, pp. 4968–4977. [70] Y. Sun and Y. Li, “Dice: Leveraging sparsification for out-of-distribution detection,” in ECCV . Springer, 2022, pp. 691–708. [71] Z. Zhang and X. Xiang, “Decoupling maxlogit for out-of-distribution detection,” in CVPR , 2023, pp. 3388–3397. [72] J. Ren, P. J. Liu, E. Fertig, J. Snoek, R. Poplin, M. Depristo, J. Dillon, and B. Lakshminarayanan, “Likelihood ratios for out-of-distribution detection,” NeurIPS , vol. 32, 2019. [73] H. Huang, Z. Li, L. Wang, S. Chen, B. Dong, and X. Zhou, “Feature space singularity for out-of-distribution detection,” in Proceedings of the Workshop on Artificial Intelligence Safety 2021 (SafeAI 2021) , 2021. [74] X. Liu, Y. Lochman, and C. Zach, “Gen: Pushing the limits of softmax-based out-of-distribution detection,” in CVPR , 2023, pp. 23 946–23 955. [75] Y.-C. Hsu, Y. Shen, H. Jin, and Z. Kira, “Generalized odin: Detecting out-of-distribution image without learning from out-of-distribution data,” in CVPR , 2020, pp. 10 951–10 960. [76] K. Fang, Q. Tao, K. Lv, M. He, X. Huang, and J. Yang, “Kernel pca for out-of-distribution detection,” NeurIPS , vol. 37, 2024. [77] M. Mueller and M. Hein, “Mahalanobis++: Improving ood detection via feature normalization,” Preprint , 2025. [78] M. B. Ammar, N. Belkhir, S. Popescu, A. Manzanera, and G. Franchi, “Neco: Neural collapse based out-of-distribution detection,” Preprint ,2023. [79] J. Park, Y. G. Jung, and A. B. J. Teoh, “Nearest neighbor guidance for out-of-distribution detection,” in ICCV , 2023, pp. 1686–1695. [80] J.-H. Kim, S. Yun, and H. O. Song, “Neural relation graph: A unified framework for identifying label noise and outlier data,” NeurIPS , vol. 36, pp. 43 754–43 779, 2023. [81] A.-A. Papadopoulos, M. R. Rajati, N. Shaikh, and J. Wang, “Outlier exposure with confidence control for out-of-distribution detection,” 
+
+Neurocomputing , vol. 441, pp. 138–150, 2021. [82] Y. Yang, L. Zhu, Z. Sun, H. Liu, Q. Gu, and N. Ye, “Oodd: Test-time out-of-distribution detection with dynamic dictionary,” in CVPR , 2025. [83] K. Bibas, M. Feder, and T. Hassner, “Single layer predictive normalized maximum likelihood for out-of-distribution detection,” NeurIPS , 2021. [84] W. Chen, R. A. Yeh, S. Mou, and Y. Gu, “Leveraging perturbation robustness to enhance out-of-distribution detection,” in CVPR , 2025. [85] J. Ren, S. Fort, J. Liu, A. G. Roy, S. Padhy, and B. Lakshminarayanan, “A simple fix to mahalanobis distance for improving near-ood detection,” 
+
+Preprint , 2021. [86] K. Fan, T. Liu, X. Qiu, Y. Wang, L. Huai, Z. Shangguan, S. Gou, F. Liu, Y. Fu, Y. Fu et al. , “Test-time linear out-of-distribution detection,” in 
+
+CVPR , 2024, pp. 23 752–23 761. [87] J. Zhang, Q. Fu, X. Chen, L. Du, Z. Li, G. Wang, X. Liu, and D. Zhang, “Out-of-distribution detection based on in-distribution data patterns memorization with modern hopfield energy,” in ICLR , 2023. [88] S. Regmi, B. Panthi, S. Dotel, P. K. Gyawali, D. Stoyanov, and B. Bhat-tarai, “T2fnorm: Train-time feature normalization for ood detection in image classification,” in CVPR , 2024, pp. 153–162. [89] C. Guo, G. Pleiss, Y. Sun, and K. Q. Weinberger, “On calibration of modern neural networks,” in ICML . PMLR, 2017, pp. 1321–1330.

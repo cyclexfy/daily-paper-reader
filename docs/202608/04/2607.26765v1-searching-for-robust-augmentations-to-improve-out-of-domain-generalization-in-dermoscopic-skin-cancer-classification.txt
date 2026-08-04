@@ -1,0 +1,521 @@
+Title: Searching for Robust Augmentations to Improve Out-of-Domain Generalization in Dermoscopic Skin Cancer Classification
+
+URL Source: https://arxiv.org/pdf/2607.26765v1
+
+Published Time: Thu, 30 Jul 2026 00:46:39 GMT
+
+Number of Pages: 27
+
+Markdown Content:
+> Copyright: © 2026 by the authors. This preprint is distributed under the terms and conditions of the Creative Commons Attribution (CC BY) license.
+
+Article 
+
+# Searching for Robust Augmentations to Improve Out-of-Domain Generalization in Dermoscopic Skin Cancer Classification 
+
+Alexander Kozachok 1, * , Ilya Latyshev 1 , Evgeny Karpulevich 1 , Elena Kozachok 1 , Egor Ushakov 1 and Oleg Samovarov 1  
+
+> 1Trusted AI Research Center, Russian Academy of Sciences, 109004 Moscow, Russia; i.latyshev@tairc.ru (I.L.); karpulevich@tairc.ru (Ev.K.); e.kozachok@tairc.ru (El.K.); ushakov@tairc.ru (E.U.); samov@tairc.ru (O.S.)
+> *Correspondence: a.kozachok@tairc.ru
+
+Simple Summary 
+
+Early detection of malignant skin lesions increasingly relies on automated analysis of dermoscopic images. However, models that perform well on data from a single clinic or dermatoscope often degrade when they are applied to images from a new source, be-cause differences in devices, lighting, color processing, and imaging artifacts shift the data distribution. In this study we systematically search for data augmentations that make a deep learning classifier less dependent on color, illumination, capture artifacts, and dataset-specific cues. Using a large multi-source collection of public dermoscopic datasets and a predominantly source-disjoint out-of-domain test, we show that combinations of photo-metric and moderate geometric transformations can substantially improve performance on that test while preserving in-domain accuracy. Because the best policy was chosen using those same held-out sources, the size of the improvement should be treated as provisional until it is reproduced on sources that took no part in the selection. These augmentation policies provide a simple and reproducible baseline step that should be considered before clinical validation of decision-support systems for skin cancer triage. 
+
+Abstract Background/Objectives: Dermoscopic skin lesion classifiers often lose accuracy under domain shift across imaging devices, illumination, and capture artifacts. We study how data augmentation improves the robustness of a binary malignant-versus-non-malignant classifier, with emphasis on out-of-domain (OOD) generalization. Methods: Single augmen-tations, photometric combinations, and composite policies were searched on a multi-source ISIC Archive collection with Derm7pt, using a ConvNeXt-Large backbone and ROC-AUC. Splits were made at the lesion-ID level, and HAM10000 and ISIC 2019–2020 were held out as a predominantly source-disjoint OOD test. Results: The largest OOD gain came from the 
+
+mix policy, and photometric transformations dominated the most useful OOD operations. On an expanded pool from the same held-out sources the gain was +0.053 (95% CI +0.045 to +0.061, p < 0.001), consistent across four training seeds (per-seed ROC-AUC: baseline 0.761–0.775, mix 0.806–0.829). On a small independent clinical collection, single-checkpoint sensitivity rose from 0.591 to 0.818, but this rested on 22 malignant cases and did not persist across seeds. Conclusions: Augmentations modelling real sources of domain shift can matter more than maximizing in-domain accuracy. Because the policy was selected on the same sources used to evaluate it, a source-disjoint selection protocol is needed before this effect size can be read as unbiased. 
+
+Keywords: dermoscopy; skin cancer; melanoma; domain shift; out-of-domain validation; data augmentation; ConvNeXt; ROC-AUC; Grad-CAM; t-SNE arXiv:2607.26765v1 [cs.CV] 29 Jul 2026 2 of 27 
+
+# 1. Introduction 
+
+The incidence of malignant skin neoplasms continues to rise, and early detection remains one of the key factors determining treatment strategy and prognosis. Global estimates indicate that, if current trends persist, the burden of cutaneous melanoma may increase substantially by 2040, reinforcing the need for reproducible tools for early detection and patient triage [ 1]. In dermoscopy this task is particularly important, because it is at the primary screening stage that the decision is made on whether a biopsy, additional examination, or active surveillance is required. Dermoscopy improves diagnostic accuracy compared with naked-eye examination, but the effect depends on the experience of the clinician and the quality of the examination protocol [2]. The practical application of deep learning models in this area is complicated by domain shift: images of the same pathology acquired in different clinics or with different dermatoscopes may differ substantially in color distribution, contrast, the degree of artifact contamination, and background structure. After the demonstration of dermatologist-level classification of skin lesions using convolutional neural networks (CNNs) [ 3], it became clear that high internal accuracy does not by itself guarantee robustness when a model is transferred to an independent data source. The external validation in the ISIC 2019 Grand Challenge further showed that statistical shift, novel diagnostic categories, and image artifacts are critical factors for the real-world reliability of algorithms [ 4]. A distinct problem is posed by non-biological correlations—for example, markers, stickers, hair, illumination characteristics, and white balance—that can statistically co-occur with the target class and thereby distort training. Such situations correspond to the more general problem of shortcut learning, in which a model exploits simple correlations that work well on a standard benchmark but transfer poorly to real-world conditions [ 5 ]. For skin cancer diagnosis this has already been recognized as a specific threat related to dermoscopic image artifacts and dataset biases [6]. The aim of this work is to search for a set of augmentations that increases the robustness of a model to domain differences and reduces its sensitivity to artifacts and color shifts. The main emphasis is placed on comparing model behavior on in-domain and out-of-domain test sets. In contrast to approaches focused solely on architecture selection, this work concentrates on the data-centric component of the pipeline: a systematic search for transformations that expand the training distribution and can act as a practical regularizer for the model [7]. The clinically interpretable usage scenario for the model is not autonomous diagnosis but preliminary sorting of images and a second opinion for the clinician: the model should flag cases requiring increased attention, additional diagnostics, or biopsy, while remaining robust when images arrive from new institutions and devices. 
+
+1.1. Related Work and Research Gap 
+
+Most studies on dermoscopic image classification evaluate models within a single dataset, using an internal train/validation/test split or cross-validation. Such a protocol is useful for comparing architectures, but it often overestimates generalization ability and poorly reflects model behavior when transferred to a new data source. The public ISIC 2016, ISIC 2017, and ISIC 2018 challenges have become an important basis for the standardized evaluation of algorithms for segmentation, dermoscopic feature extraction, and skin lesion classification [8–10]. For dermatology and dermoscopy it has already been shown that sources of domain shift include differences in the clinical population, diagnosis prevalence, lesion location, 3 of 27 
+
+capture device, and preprocessing protocols. Even with a comparable architecture and the same quality metric, performance can drop noticeably when moving to an external domain. The HAM10000 and Derm7pt datasets, used in a wide range of studies, contain images from different sources and with different annotation structures, which makes them useful for assessing transferability and the quality of label harmonization [11,12]. A separate line of research is devoted to external validation on independent datasets. These studies show that models often retain an acceptable level of performance, but the magnitude of degradation depends substantially on the source–target domain pair. Consequently, cross-dataset evaluation is a stricter and more realistic criterion of reliability. Analysis of the ISIC 2016–2020 versions also points to the problem of duplicates and source heterogeneity, so correct splitting at the lesion-ID level and control of overlaps are mandatory elements of the protocol [13]. Review articles on machine learning in dermatology additionally emphasize the impor-tance of strict control of the overlap between training and test data, as well as transparency of evaluation protocols. Incomplete specification of splits and hyperparameters hinders reproducibility and makes comparison of results across studies less reliable. Augmentation itself has been studied in this domain before, and it is against that work that the present contribution must be positioned. The closest antecedent is the systematic comparison of augmentation scenarios for skin lesion classification by Perez et al., who evaluated thirteen configurations of geometric and photometric transformations— including test-time augmentation—and found that augmentation choice can matter more than the choice of backbone [ 14 ]. Valle et al. subsequently examined which design decisions actually transfer across skin-lesion pipelines, again reporting augmentation among the most influential factors [ 15 ]. Both studies, however, evaluate within the ISIC challenge splits, so the augmentation ranking they produce is an in-domain ranking; neither isolates a source-level held-out test, which is precisely the regime in which photometric augmentation would be expected to pay off. A parallel line of work removes the manual search altogether by learning the policy: AutoAugment and RandAugment optimize augmentation directly against validation accuracy [ 16 ], and interpolation-based schemes such as mixup regularize by mixing images and labels [ 17 ]. These methods are strong general-purpose baselines, but they optimize for the validation distribution, which under source-level shift is the wrong objective; they also do not answer the question of which class of transformation is responsible for any robustness gained. A third line of work explains why robustness in this domain is fragile. Bissoto et al. showed that skin-lesion classifiers retain much of their accuracy even when the lesion itself is occluded, implying heavy reliance on background and artifact cues [ 18 ], and Nauta et al. documented specific shortcuts such as colored patches and rulers [ 6]. Independently curated evaluation sets confirm that these dependencies translate into real degradation: performance drops substantially on the diverse clinical images of the DDI set [ 19 ] and varies with skin tone on Fitzpatrick17k [ 20 ]. This literature establishes the problem but proposes mainly diagnostic or dataset-level remedies rather than a training-time recipe. Finally, robustness can be pursued through domain-adversarial training [ 21 ] or test-time adaptation [ 22 ]; these are more powerful in principle, but they require either source labels at training time or unlabeled target data at deployment, whereas an augmentation policy is a one-line change to an existing pipeline that assumes neither. Table 1 summarizes this comparison. The gap it exposes is specific: prior augmentation studies in dermoscopy rank policies in-domain, prior domain-shift studies in dermatology document failure without prescribing a policy, and prior automated-augmentation methods optimize an objective that is misaligned with source-level transfer. The present work addresses exactly that intersection—a systematic augmentation search evaluated on a 4 of 27 
+
+source-level held-out test, with the selected policy then subjected to confidence intervals, DeLong tests, multi-seed repetition, and a quantitative domain-mixing analysis.                                               
+
+> Table 1. Positioning of this work relative to the closest prior studies. “Source-level OOD” means that entire acquisition sources are held out of training, as opposed to a random or challenge-provided split. “Stat. testing” refers to confidence intervals or significance tests on the reported differences.
+> Study Focus Aug. search Source-level OOD Stat. testing Multi-seed
+> Perez et al. [14] Augmentation for skin lesions Yes No No No Valle et al. [15] Design factors, skin lesions Partial No Partial Yes Cubuk et al. [16] Learned augmentation policy Automated No No No Bissoto et al. [18] Bias/shortcut diagnosis No No No No Nauta et al. [6] Shortcut correction No No Partial No Daneshjou et al. [19] External clinical validation No Yes Yes No Groh et al. [20] Skin-tone generalization No Yes Partial No
+> This work Augmentation for domain shift Yes Yes Yes Yes
+
+Thus, the research gap consists not only in the lack of cross-dataset evaluation, but also in the absence of a systematic analysis of which classes of augmentations actually increase model robustness to domain shift in dermoscopy. This work addresses this gap at the level of a reproducible experimental protocol: individual augmentations, color compositions, and several final policies are compared, after which the results are interpreted simultaneously through ROC-AUC, the distribution of sources, and qualitative feature-analysis methods. 
+
+# 2. Materials and Methods 
+
+2.1. Study Design 
+
+The binary classification task was chosen as a tractable and interpretable first stage of decision making. It is important to keep two things apart. The computational task addressed here is strictly malignant versus non-malignant, as defined by the label mapping in Section 2.2. The intended use is narrower than that dichotomy might suggest: the model output is a means of prioritizing cases for subsequent assessment by a clinician, not a determination that a lesion is safe. The distinction matters because the non-malignant class pools genuinely benign lesions with premalignant ones—actinic keratosis in particular—so a negative prediction does not imply that observation alone is appropriate management. Throughout this paper, therefore, performance is reported for the computational task, and any clinical reading of it should be understood as case prioritization rather than as triage to discharge. In the experimental protocol three levels of decisions were compared: the absence of an extended augmentation search (baseline), individual transformations, and composite policies assembled from photometric, geometric, and artifact-modeling operations. The primary efficiency criterion is the area under the receiver operating characteristic curve (ROC-AUC) on the in-domain and out-of-domain test sets. The in-domain test reflects performance on a distribution close to the training data, whereas the out-of-domain test is used as a stricter check of the model’s ability to transfer to sources excluded from training. 
+
+2.2. Materials and Datasets 
+
+The study draws on two kinds of material. The first is a set of public research collec-tions, which supply all of the training data and the out-of-domain test: the ISIC Archive datasets BCN20000, Derm12345, HAM10000, ISIC 2016–2020, HIBA, BALD, and MILK10k, together with Derm7pt, which is not part of the ISIC Archive. The second is a closed clinical collection, Melanoscope , assembled and owned by the authors and used only as an independent external test at the end of the study; it is described at the end of this section 5 of 27 
+
+and never contributes to training or to any model-selection decision. The paragraphs that follow immediately concern the public collections. Images from the ISIC Archive were filtered by the diagnosis_3 field; only cases with the following diagnoses were retained: nevus, melanoma, basal cell carcinoma, squa-mous cell carcinoma, keratosis, solar or actinic keratosis, dermatofibroma, lentigo, and hemangioma. To exclude duplicates, only images with a unique isic_id were kept. From Derm7pt, melanosis cases were excluded. This set of sources was chosen not to maximize sample size at any cost, but to create pronounced inter-domain variability across clinics, devices, protocols, and diagnosis structures. Diagnostic labels were mapped to a clinically interpretable binary formulation: malig-nant versus non-malignant. This simplification corresponds to the basic clinical decision at the primary-screening level and reduces the semantic heterogeneity of the classes. At the same time, the mapping deliberately preserves the clinical meaning of the task: melanoma (including invasive, in situ , and metastatic forms), basal cell carcinoma, and squamous cell carcinoma (including in situ forms) were assigned to the malignant class, whereas nevi, seborrheic and pigmented benign keratoses, lichen-planus-like keratoses, actinic keratoses, dermatofibromas, solar lentigines, and haemangiomas form the non-malignant class. We deliberately use “non-malignant” rather than “benign” for the negative class, because it is not a healthy-skin or strictly benign category: it pools genuinely benign lesions with pre-cursor and in-situ -adjacent entities, most notably actinic keratosis, which is a premalignant lesion that may progress to squamous cell carcinoma. The clinical question modelled here is therefore “does this lesion require urgent specialist referral?” rather than “is this lesion normal?”. The diagnosis-to-class mappings for the ISIC Archive and for Derm7pt are given in Table 2 and Table 3, respectively. The set of retained diagnoses was determined by the diagnosis_3 field of the ISIC Archive metadata, which is the most specific level of the archive’s diagnostic hierarchy that is populated consistently across all the collections used here. Three inclusion criteria were applied. First, only lesions whose diagnosis_3 value maps unambiguously to one side of the malignant/non-malignant dichotomy were kept; entries with missing, purely hierarchical (e.g. only diagnosis_1 = “Benign”), or indeterminate labels were discarded, because assigning them would require an arbitrary decision that the binary target cannot express. Second, only image_type = dermoscopic images were retained, so that the study measures domain shift between dermatoscopes rather than between imaging modalities. Third, categories with too few qualifying images to contribute a stable per-source estimate were dropped. The resulting sixteen diagnosis_3 categories were then collapsed into the nine label groups of Table 2. This filtering explains why the image counts reported here are smaller than the nominal sizes of the source collections.  
+
+> Table 2. Mapping of ISIC Archive diagnoses to the binary malignant/non-malignant classes.
+
+Diagnosis Class 
+
+Melanoma Malignant Basal cell carcinoma Malignant Squamous cell carcinoma Malignant Nevus Non-malignant Keratosis Non-malignant Solar or actinic keratosis Non-malignant Dermatofibroma Non-malignant Lentigo Non-malignant Hemangioma Non-malignant 6 of 27  
+
+> Table 3. Mapping of Derm7pt diagnoses to the binary malignant/non-malignant classes.
+
+Diagnosis Class 
+
+Basal cell carcinoma Malignant Melanoma (less than 0.76 mm) Malignant Melanoma (0.76 to 1.5 mm) Malignant Melanoma (more than 1.5 mm) Malignant Melanoma metastasis Malignant Melanoma (in situ) Malignant Melanoma Malignant Blue nevus Non-malignant Clark nevus Non-malignant Combined nevus Non-malignant Congenital nevus Non-malignant Dermal nevus Non-malignant Dermatofibroma Non-malignant Lentigo Non-malignant Recurrent nevus Non-malignant Reed or Spitz nevus Non-malignant Seborrheic keratosis Non-malignant Vascular lesion Non-malignant To minimize data leakage, splitting was performed at the lesion-ID level. Most sources—BCN20000, Derm12345, HIBA, BALD, MILK10k, HAM10000, and ISIC 2020— were partitioned into train/validation/test in an approximately 70/21/9 ratio. Two sources deviate from this scheme and are reported here explicitly. For Derm7pt we did not re-split the data but used the official partition distributed with the dataset, which yields 384/185/383 images (40/19/40%) after restricting to dermoscopic images and excluding melanosis cases; this keeps our in-domain results comparable with published work on that benchmark. For ISIC 2019, which is held out from training entirely, the partition is 2524/265/110 (87/9/4%); because none of its images are used for fitting, this ratio affects only how many of its images enter the screening out-of-domain split, and the expanded evaluation of Section 3.5 uses the collection in full. The six sources BCN20000, Derm12345, Derm7pt, HIBA, BALD, and MILK10k form the in-domain partition, while HAM10000 and ISIC 2019–2020 were held out entirely to construct a source-level out-of-domain test. The ISIC 2016 and ISIC 2017 collections were not used as separate sources in the screening out-of-domain split, because after filtering by diagnosis_3 and lesion-ID deduplication they retained too few qualifying dermoscopic images to support a source-level evaluation on their own (23 and 5 images, respectively). ISIC 2016 is nevertheless included in the expanded out-of-domain pool of Section 3.5, where it contributes 23 images to an aggre-gate of 9921 rather than being scored in isolation. This design makes the out-of-domain sample independent at the image level and, for the most part, at the source level, which is closer to real deployment of the model in a new clinic. The resulting class distribution is summarized in Table 4; a detailed per-source breakdown of the in-domain partition is provided in Appendix A.1 (Table A1). 
+
+Residual overlap between the in-domain and out-of-domain partitions. We audited the held-out partition explicitly rather than assuming that separate ISIC Archive collections are disjoint, and two residual dependencies were found. First, there is no image-level leakage anywhere: the intersection of isic_id sets between every in-domain collection and every held-out collection is empty, so no image is simultaneously trained on and evaluated. Second, however, MILK10k and HAM10000 share 967 archive-level lesion_id 
+
+values, because the two collections partly follow the same physical lesions over time. As a consequence, 158 of the 1038 HAM10000 test images (15.2%) depict a lesion that also 7 of 27 
+
+appears—as a different image, acquired at a different visit—in the MILK10k training or validation split. Third, 179 of the ISIC 2020 images are attributed to the Department of Dermatology, Hospital Clínic de Barcelona, the same institution that contributed BCN20000 to the in-domain partition; these images share no lesion_id with BCN20000, but they are not institutionally independent of the training data. Together these two effects mean that the out-of-domain pool is a predominantly , not perfectly, source-disjoint test: 158 of 9921 images (1.6%) of the expanded pool, and 158 of 1685 images (9.4%) of the smaller screening pool, are affected. We quantify the impact of this residual overlap directly in Section 3.5 rather than leaving it as a caveat, and we retain the full pool in the main analysis so that the reported numbers correspond to the released annotation files. We additionally audited the held-out collections against one another , since duplication inside the evaluation pool would not constitute train–test leakage but would reduce its effective sample size. No such duplication exists: across all six pairs formed by HAM10000, ISIC 2016, ISIC 2019, and ISIC 2020, the intersection is empty both at the isic_id level and at the lesion_id level, and no isic_id occurs twice within any single collection. Repeated imaging of the same lesion does occur within HAM10000, and we account for it with a lesion-level resampling analysis in Section 3.5. The out-of-domain test is class-imbalanced (1410 non-malignant versus 275 malignant, a ratio of approximately 5:1), reflecting the natural prevalence of non-malignant lesions in the held-out sources. ROC-AUC is threshold-independent and relatively insensitive to class prevalence, which is why it is used as the primary comparison metric; nevertheless, for a malignant-detection triage scenario this imbalance must be taken into account when interpreting absolute performance. We therefore additionally report sensitivity and speci-ficity at the validation-tuned operating point, balanced accuracy, and the area under the precision–recall curve (AUPRC) in the expanded evaluation of Section 3.5. Beyond the ISIC-derived data, an independent external clinical dataset was used to assess transfer to an entirely new acquisition setting: Melanoscope . It is a closed clinical dataset assembled by the authors and not part of any public archive; it was de-identified before analysis and analysed retrospectively (see the Institutional Review Board Statement). This set originates from devices, populations, and protocols not represented in training, and it is the only evaluation set in this study that played no part in selecting the augmentation policy, which makes it the most independent—though also the smallest—test of cross-institution generalization available here. It is used only for the independent external evaluation of the baseline and the selected policy in Section 3.5, never for training, for the augmentation search, or for tuning the decision threshold.  
+
+> Table 4. Distribution of images across partitions. The in-domain train/validation/test partitions are pooled over the six in-domain sources; the out-of-domain (OOD) test is pooled over the held-out HAM10000 and ISIC 2019–2020 sources.
+
+Class Train Validation Test OOD Test 
+
+Non-malignant 15,972 4737 2156 1410 Malignant 9931 3058 1441 275 
+
+Total 25,903 7795 3597 1685 
+
+2.3. Evidence of Domain Shift 
+
+In the ISIC Archive, the attribution field contains information about the data source, such as the clinic or collecting team. Analysis of the distribution of attribution values shows that some sub-collections, in particular ISIC 2016–2020 and HAM10000, are con-centrated in a limited number of sources, including the Medical University of Vienna. This indicates heterogeneity of the imaging conditions. Such a distribution is especially 8 of 27 
+
+important for reliability assessment, because a model may inadvertently use the image source as a proxy feature for the diagnosis if classes and sources are unevenly distributed (Figure 1). Hospital Clínic de Barcelona 
+
+> Imperial College London
+> Not in ISIC Archive
+> Hospital Italiano de Buenos Aires
+> International Dermoscopy Society
+> MILK study team
+> Medical Univ. of Vienna
+> Anonymous
+> Memorial Sloan Kettering CC
+> Sydney Melanoma Diagn. Center
+> Univ. of Queensland
+
+Acquisition source (ISIC attribution)      
+
+> BCN20000
+> Derm12345
+> Derm7pt
+> HIBA
+> BALD
+> MILK10k
+> HAM10000
+> ISIC 2016-2020
+> Dataset
+> 17 325
+> 12 157
+> 952
+> 1 239
+> 666
+> 4 956
+> 11 539
+> 179 4 374 2 922 963 313 132
+> 10 2
+> 10 3
+> 10 4
+> Images (log scale)
+
+Figure 1. Distribution of ISIC attribution values across the datasets. Counts are taken from the train/validation/test split files actually used in this study, so they agree with Table A1; the color scale is logarithmic and combinations that contain no images are left blank. Every dataset except the ISIC 2016–2020 group maps onto a single acquisition source, and the 179 ISIC 2020 images attributed to Hospital Clínic de Barcelona are the institutional overlap with BCN20000 discussed in Section 2.2. Derm7pt is not part of the ISIC Archive and therefore has no ISIC attribution of its own. The matrix shows that individual sub-collections are concentrated in a limited number of sources, which creates the preconditions for domain shift. 
+
+Additional evidence of domain shift is provided by visualizations of features extracted from the penultimate layer of a ConvNeXt-Large model pre-trained on ImageNet. In the t-SNE projection, partial clustering of images from specific sources is observed, which is consistent with the assumption of source-specific visual patterns. Here t-SNE is used as a qualitative tool for diagnosing the structure of embeddings rather than as a standalone statistical significance test [23] (Figure 2). 9 of 27 t-SNE dimension 1 
+
+> t-SNE dimension 2  BCN20000 (455)
+> Derm12345 (498)
+> Derm7pt (20)
+> HIBA (377)
+> BALD (500)
+> MILK10k (251)
+> HAM10000 (369)
+> ISIC 2016-2020 (1571)
+
+Figure 2. t-SNE visualization of embeddings of test images extracted from ImageNet-pretrained ConvNeXt-Large, colored by dataset ( N per dataset in the legend). Partial grouping by acquisition source indicates the presence of source-specific features. t-SNE axes carry no units and are shown without ticks. 
+
+Cluster analysis using K-means and hierarchical agglomerative clustering, together with distance matrices based on the symmetrized Kullback–Leibler divergence, the Jensen– Shannon distance, and the Wasserstein distance for the RGB channels, also indicates that images from the Medical University of Vienna and an anonymous source form a separate cluster. The most likely explanation is a difference in dermatoscopes, illumination, color-correction algorithms, and white balance. This is precisely why the subsequent emphasis is placed on photometric augmentations that model changes in color distribution and intensity (Figure 3). 0 5 10 15 20 25 30 
+
+> Ward linkage distance
+> Univ. of Queensland
+> Anonymous
+> Medical Univ. of Vienna
+> MILK study team
+> Hospital Clínic de Barcelona
+> International Dermoscopy Society
+> Imperial College London
+> Hospital Italiano de Buenos Aires
+> Memorial Sloan Kettering CC
+> Sydney Melanoma Diagn. Center
+> Acquisition source
+
+Figure 3. Dendrogram of the clustering of data-collection sources by color distributions and inter-histogram distance metrics. 10 of 27 
+
+2.4. Model Architecture 
+
+ConvNeXt-Large was selected as the backbone architecture. This model combines the inductive bias of convolutional networks with design principles borrowed from Vision Transformer architectures: larger kernels, modernized normalization, a simplified stage-wise structure, and more consistent scaling of computation. In applied experiments, ConvNeXt often demonstrates a strong balance between accuracy, robustness, and training cost, which makes it a sound choice for comparisons in computer-vision tasks where both quality and optimization stability matter. The choice of ConvNeXt-Large is also methodologically convenient: the architecture remains convolutional and is well compatible with classical image augmentations, while still reflecting modern practices in scaling vision models [ 24 ]. The classifier was trained in the binary malignant-versus-non-malignant setting. We acknowledge that a single backbone limits the generality of architecture-level conclusions; cross-checking the augmentation policies on a Vision Transformer (e.g., ViT) and an EfficientNet backbone is left for future work (see Section 4.1). 
+
+2.5. Implementation Details 
+
+The backbone was ConvNeXt-Large initialized from ImageNet-pretrained weights (ConvNeXt_Large_Weights.DEFAULT ) with a single-logit binary head and a sigmoid output. Images were resized to 224 × 224 pixels and normalized with dataset-specific channel means 
+
+(0.658, 0.542, 0.499 ) and standard deviations (0.237, 0.217, 0.219 ) estimated on the training data. The network was optimized with AdamW (learning rate 8 × 10 −5, β = ( 0.9, 0.999 ),weight decay 0.01) under a focal loss, with a StepLR schedule (decay factor 0.8 every 1500 steps), a batch size of 16, for 15 epochs, with a fixed random seed of 42. The best checkpoint was selected by macro ROC-AUC on the validation set ( load_best_model_at_end ). The decision threshold for the operating-point metrics was selected on the validation set by maximizing the Youden index ( J = sensitivity + specificity − 1), giving 0.476 for the baseline and 0.455 for the mix policy. The threshold was tuned separately for each policy and each training run, and always on validation data only; no test or external image took part in choosing it. The baseline is defined as the same backbone, preprocessing, and optimization trained without the augmentation search (only resizing, normalization, and horizontal/vertical/transpose flips); the augmentation policies in Section 2.7 are applied on top of this baseline pipeline. Augmentations were implemented with albumentations 
+
+version 2.0.8. The experiments were tracked with MLflow and version control. Training configuration files and per-image prediction logits are available from the corresponding author upon reasonable request. 
+
+2.6. Augmentation Search Space 
+
+The augmentations in this study are divided into two groups. Photometric transforma-tions change the color and intensity characteristics of an image and are intended primarily to counter variability associated with imaging devices, illumination, white balance, and skin coloration. This group includes ColorJitter, PlanckianJitter, HueSaturationValue, ToGray, ChromaticAberration, RandomGamma, CLAHE, RandomBrightnessContrast, and HES-tain. Their expected effect is that the model should rely less on absolute RGB values and local color shifts, which often reflect the data source rather than the biology of the lesion. HEStain originates as a stain-normalization/perturbation technique for hematoxylin–eosin (H&E) histopathology, where stain color augmentation and normalization are well es-tablished for improving robustness across scanners and laboratories [ 25 , 26 ], and is not a native dermoscopic transformation. We include it here not as a physically faithful model of dermoscopy, but as an aggressive color-space perturbation: using the Macenko stain decomposition [ 25 ], it factors the image into stain-like density channels and randomly 11 of 27 
+
+reweights them, producing strong yet structure-preserving chromatic variation. Trans-ferring such stain-style perturbations outside their original histopathology setting, as a generic color domain-randomization operator, is consistent with evidence that color-space augmentation is among the most effective tools against acquisition-induced domain shift in medical imaging [ 26 ]. This acts as a domain-randomization operator that perturbs exactly the channel statistics (overall color cast, contrast between pigmented and background regions) that we found to differ most across dermatoscopes and white-balance settings in Section 2.3; its empirical value for out-of-domain transfer is reported in Section 3.3. Geometric and artifact-modeling transformations are used to regularize spatial fea-tures and increase invariance to position, scale, small deformations, and partial occlusion. This group includes Transpose, VerticalFlip, HorizontalFlip, Rotate, MotionBlur, Medi-anBlur, GaussianBlur, GaussNoise, OpticalDistortion, GridDistortion, CoarseDropout, ShiftScaleRotate, ElasticTransform, Affine, and GridDropout. At the same time, overly aggressive geometric and occlusion transformations can destroy clinically meaningful structures, so the interpretation of their effect requires a comparison of in-domain and out-of-domain metrics rather than a single aggregate score. The hypothesis is that photometric augmentations will be most useful for out-of-domain generalization, because it is there that differences in spectral and color characteris-tics manifest themselves, whereas geometric transformations should improve robustness to local variations and help the model avoid overfitting to incidental spatial correlations. This hypothesis is consistent with the general logic of robust augmentation: the training distribution is expanded so as to include realistic variations expected at deployment [27]. 
+
+2.7. Experimental Setup 
+
+In the experiments, single augmentations, combinations of photometric transforma-tions, and composite sets inspired by practices from Kaggle competitions were evaluated separately. This approach makes it possible not only to identify the most useful individ-ual transformations, but also to check whether synergy arises between simple and more aggressive augmentations. The final augmentation sets were assembled based on the analysis of single transformations, color combinations, and configurations borrowed from competition solutions. For comparison, the following policies were used: simple , prime ,
+
+strong_hestain , kaggle , kaggle_simple , kaggle_strong , kaggle_strong_hestain , mix , combine_all ,
+
+low_intensity_prime , and low_intensity_kaggle_strong . The detailed composition of the color combinations and final configurations is provided in Appendix B.1 to avoid overloading the main text. 
+
+# 3. Results 
+
+3.1. Single-Augmentation Screening 
+
+Analysis of single augmentations showed that the most useful transformations for out-of-domain generalization were ColorJitter, ChromaticAberration, CLAHE, GridDis-tortion, GridDropout, HueSaturationValue, OpticalDistortion, and PlanckianJitter. These transformations apparently help the model become less dependent on the specifics of color reproduction and on local capture artifacts. Notably, among the best out-of-domain trans-formations, operations that change color, contrast, and local geometry predominate—that is, precisely the factors that are expected to differ between dermatoscopes and capture protocols. For the in-domain test set, a positive effect was demonstrated by Affine, ColorJitter, GridDropout, HEStain, PlanckianJitter, and Rotate. It is worth noting separately that geometric augmentations such as Affine and Rotate were accompanied by a later onset of overfitting, which indicates a regularizing effect of these transformations. Thus, the 12 of 27 
+
+single-augmentation screening shows that the usefulness of an augmentation depends on the evaluation domain: a transformation may barely change internal quality but yield a gain when transferring to external sources. 
+
+3.2. Color-Augmentation Combinations 
+
+Eleven combinations of photometric operators were evaluated; each is a fixed pairing or triple of ColorJitter, PlanckianJitter, HueSaturationValue, and HEStain, and the exact composition of every numbered set is given in Appendix B.1, Table A4, which should be read alongside the results below. Of these, sets 1, 2, 3, 4, 7, 8, and 11 improved gen-eralization ability on the out-of-domain test, whereas sets 1, 2, 3, and 4 also produced a gain on the in-domain set. This shows that even within the narrow group of photometric transformations there is a pronounced dependence of effectiveness on the specific composi-tion. In practice, this means that adding a new color operation should not be regarded as automatically beneficial: the intensity, the probability of application, and the compatibility with other transformations all matter. The composition of these color combinations is listed in Appendix B.1, Table A4. 
+
+3.3. Composite Augmentation Policies 
+
+The most important quantitative results of the augmentation search are summarized in Table 5. Values are given as the absolute change in ROC-AUC relative to the baseline. A positive value indicates an improvement over the baseline, a negative value a decrease in quality. These values are single-run point estimates computed on the development out-of-domain split (HAM10000 and ISIC 2019–2020 test splits; Table 4) and are used to rank policies and select mix ; the selected policy is then validated with confidence intervals and significance tests on a larger external suite in Section 3.5, so the magnitudes in Table 5 and Table 7 are not directly comparable.  
+
+> Table 5. Change in ROC-AUC relative to the baseline for the composite augmentation policies. Positive values indicate improvement over the baseline. The best value in each column is shown in bold. All entries come from the policy-search campaign, in which each policy and the baseline were trained once; the deltas are therefore single-run point estimates and are not directly comparable with the separately trained checkpoints analysed in Section 3.5 and Section 3.6 (see the note on comparability in Section 3.5).
+
+Augmentation Set ∆ ROC-AUC In-Domain ∆ ROC-AUC Out-of-Domain 
+
+low_intensity_prime 0.0004 0.0099 low_intensity_kaggle_strong −0.0005 −0.0030 combine_all 0.0040 0.0060 kaggle 0.0051 0.0173 kaggle_simple 0.0072 0.0129 kaggle_strong_hestain 0.0026 0.0303 mix 0.0061 0.0332 
+
+prime 0.0001 0.0244 simple −0.0019 0.0234 strong_hestain −0.0019 0.0248 The table shows that the maximum gain on the out-of-domain test is achieved by the 
+
+mix set (+0.0332), followed by kaggle_strong_hestain (+0.0303) and strong_hestain (+0.0248). For the in-domain test the best was kaggle_simple (+0.0072), followed by mix (+0.0061) and kaggle (+0.0051). Thus, mix is the most balanced configuration: it not only yields the maximum external gain, but also preserves a positive effect on the internal test. The most interesting effect, therefore, lies not in maximizing the metric in a single domain, but in a noticeable shift toward more robust behavior on the external domain. In a 13 of 27 
+
+number of cases, a small loss of in-domain quality is compensated by a substantially larger gain on the out-of-domain set, which is consistent with the goal of building a robust model. For example, simple and strong_hestain slightly reduce in-domain ROC-AUC ( −0.0019) but yield a pronounced out-of-domain gain (+0.0234 and +0.0248, respectively). This illustrates the key trade-off of domain generalization: the model can give up some locally useful features of the training source in exchange for better transfer to a new domain. 
+
+3.4. Evidence of Increased Robustness 
+
+Robustness of the model to artifacts and color correlations should be treated as an empirically supported property rather than as absolute proof. The most convincing evi-dence is formed by the joint analysis of quality metrics and interpretability. In this work the term “robustness” is used operationally: an increase in ROC-AUC on the external domain, the absence of a substantial drop in in-domain quality, and qualitative signs of reduced source-specific clustering of embeddings. As a first, qualitative line of evidence, we compared Grad-CAM saliency maps for the baseline model and the model trained with the selected augmentation policy on the same lesion (Figure 4). Grad-CAM is a standard method for the visual localization of regions that influence a CNN’s decision, and is used here for expert verification of whether the model relies on clearly irrelevant image regions [ 28 ]. Maps were computed from the final convolutional stage of ConvNeXt-Large on 224 × 224 inputs. For the illustrated basal cell carcinoma case, the baseline model distributes its attention over several diffuse foci, including peripheral regions away from the lesion, whereas the augmented model produces a single, more compact activation centered on the lesion. This single example is consistent with the hypothesis that the augmented model relies less on peripheral artifacts, but it is anecdotal: a quantitative panel-based reader study over many lesions, with agreement statistics, is required before this can be treated as evidence rather than illustration.      
+
+> (a) Lesion (b) Baseline model (c)mix policy
+> Figure 4. Grad-CAM comparison for a basal cell carcinoma case: ( a) the input lesion; ( b) baseline model, with attention spread over several diffuse, partly peripheral foci; ( c) model trained with the selected augmentation policy, with a single compact activation centered on the lesion. Maps were computed with respect to malignancy: the classification head has a single output unit, and the saliency is the gradient of that sigmoid logit with respect to the final convolutional feature map. This is a single illustrative case and not a quantitative result.
+
+As a second, complementary line of evidence, we examined t-SNE projections of the learned embeddings (Figure 5). Whereas the ImageNet-pretrained projection in Figure 2 exhibits partial grouping by acquisition source, the embeddings produced by the model trained with the selected augmentation policy are more thoroughly mixed across sources, although residual grouping remains visible for some collections, most noticeably BALD and Derm12345. This is consistent with the hypothesis that the augmentation policy reduces source-specific structure in the feature space. To quantify this observation, we 14 of 27 
+
+computed two standard domain-mixing indices on the same embedding sets (Table 6): (i) the balanced accuracy of a 5-fold cross-validated logistic-regression classifier trained to predict acquisition source from the embedding (lower is better; chance level 0.10 for ten sources), and (ii) the silhouette score with respect to attribution (lower / more negative is better). The source-classifier accuracy drops from 0.819 on ImageNet-pretrained features to 0.764 on mix -trained features, and the silhouette decreases from −0.017 to −0.070. This analysis is exploratory and must not be read as attributing the reduction to the augmentations. The two embedding sets differ in two respects at once: one is a general-purpose ImageNet representation, the other has been fine-tuned on the dermoscopic task 
+
+with augmentations. Fine-tuning alone would be expected to reduce source separabil-ity, since it reshapes the representation around lesion morphology rather than around acquisition characteristics, so the observed drop cannot be apportioned between the two causes. The comparison that would settle it—a baseline fine-tuned without the augmen-tation search versus mix , evaluated on identical images, at the same layer, with the same source-classification procedure—requires embeddings from the noaug checkpoint that were not retained, and is left for future work. Table 6 and Figure 5 are therefore presented as supporting observations consistent with the quantitative results, not as evidence for the mechanism. t-SNE dimension 1 
+
+> t-SNE dimension 2  BCN20000 (455)
+> Derm12345 (498)
+> Derm7pt (20)
+> HIBA (377)
+> BALD (500)
+> MILK10k (251)
+> HAM10000 (369)
+> ISIC 2016-2020 (1571)
+
+Figure 5. t-SNE projection of test-set embeddings from ConvNeXt-Large trained with the selected augmentation policy, colored by dataset, with the same palette and projection settings as Figure 2 so that the two are directly comparable. The points are more uniformly mixed across sources than in Figure 2, which is qualitatively consistent with reduced source-specific structure in the feature space, though some grouping persists. 15 of 27              
+
+> Table 6. Domain-mixing indices for ImageNet-pretrained and mix -trained ConvNeXt-Large em-beddings. Exploratory: the two models differ both in fine-tuning and in augmentation, so the difference cannot be attributed to augmentation alone ( N=4041, D=1536, 10 acquisition sources). Source-classifier balanced accuracy was estimated by 5-fold stratified cross-validation with a logistic-regression classifier. Silhouette score uses attribution as the cluster label. Lower values are better for both metrics; chance level for balanced accuracy is 1/10 =0.10.
+
+Model Source-classifier balanced accuracy ↓ Silhouette score ↓
+
+ImageNet pretrained 0.819 −0.017 
+
+Mix -trained 0.764 −0.070 
+
+Chance level 0.100 —
+
+3.5. Expanded Evaluation on the Held-Out ISIC and HAM Sources 
+
+To move beyond the point estimates of the screening phase (Table 5), we compared the baseline and the selected mix policy using their per-image predictions on a fixed evaluation suite. The suite comprises the in-domain test, an expanded out-of-domain test pooling the held-out ISIC and HAM10000 dermoscopic images, and an independent external clinical dataset (Melanoscope). For each evaluation set we report ROC-AUC with a 95% bootstrap confidence interval (2000 resamples), the difference in ROC-AUC with its own bootstrap interval, and the two-sided DeLong test for paired ROC curves; results are summarized in Table 7. 
+
+What this evaluation does and does not establish. We deliberately avoid calling this analysis 
+
+confirmatory , because it is not an independent confirmation of the policy choice. The mix 
+
+policy was selected by ranking candidate policies on out-of-domain ROC-AUC measured on the held-out test splits of HAM10000 and ISIC 2019–2020 (Table 5), and the expanded pool used here is drawn from those same sources and contains that screening split as a subset. No model weights were ever fitted on any of these images, so there is no leakage in the ordinary sense; but the augmentation policy is itself a top-level hyperparameter, and it was chosen using labelled data from the target out-of-domain sources. In the terminology of domain generalization this is supervised target-domain model selection, and it leaves two effects that the statistics below cannot remove: a selection bias in favour of the winning policy, and a winner’s-curse inflation of its apparent margin after a search over eleven candidates. The p-values reported here therefore quantify whether two already-chosen 
+
+models differ on this pool—which they clearly do—and not whether mix would win on a source that played no part in its selection. The Melanoscope collection (Section 2.2) is the only evaluation set in this study that is untouched by the selection procedure, and it is small. A genuinely independent protocol—leave-one-source-out policy search, or selection on one archive with a single final comparison on another—is the natural next step and is stated as such in Section 4.1. 
+
+Important note on comparability with the screening phase. Two separate differences must be kept apart when reading the numbers of this section against the screening results of Table 5. The first is the evaluation set. The screening delta in Table 5 is computed on the held-out test splits of HAM10000 and ISIC 2019–2020 only (1685 images; Table 4), whereas the expanded ISIC + HAM set takes the ISIC 2019 and ISIC 2020 collections in full, adds ISIC 2016, and retains the same HAM10000 test split, giving 9921 images; the exact per-source composition is in Appendix A.1, Table A2. The second, and the one that matters more, is the trained checkpoint. Table 5 reports the policy-search campaign, in which each candidate policy was trained once and compared with the baseline of that same campaign. The statistical analysis in this section, and the repeated trainings of Section 3.6, use separately trained baseline and mix checkpoints, for 16 of 27 
+
+which the per-image predictions were retained. Evaluated on the identical 1685 screening images, the search-campaign pair gives ∆ = + 0.033 and the retained pair ∆ = + 0.058. This is not a discrepancy in the data or the metric but ordinary training variance: across the repeated trainings of Section 3.6 the baseline spans 0.827–0.847 on this split and mix spans 0.874–0.892, so two independently trained models differ by anywhere between +0.027 and 
+
++0.064 on it. Both reported values lie inside that range. The practical implication is that a single-run margin should not be read to three decimal places, which is precisely why the seed analysis of Section 3.6 is reported alongside the point estimates.           
+
+> Table 7. Comparison of the baseline and the mix policy for single trained checkpoints. ROC-AUC and ∆AUC are reported with 95% bootstrap confidence intervals (2000 resamples); pis the two-sided DeLong test for the paired difference in ROC-AUC. Nis the number of images and “Prev.” the malignant prevalence. Differences with p
+
+< 0.05 are shown in bold. Note that the first two rows are measured on sources that took part in selecting mix , so their p-values are not corrected for that selection; only the Melanoscope row is independent of the selection procedure.                        
+
+> Evaluation Set NPrev. Baseline AUC (95% CI) Mix AUC (95% CI) ∆AUC (95% CI) p
+> In-domain test 3597 0.40 0.935 (0.928–0.943) 0.943 (0.935–0.949) +0.007 (+0.003–+0.012) <0.001
+> ISIC + HAM (OOD) 9921 0.13 0.770 (0.755–0.783) 0.823 (0.810–0.835) +0.053 (+0.045–+0.061) <0.001
+> Melanoscope (external) 472 0.05 0.916 (0.835–0.978) 0.941 (0.874–0.995) +0.026 (
+
+−0.008–+0.073) 0.22 
+
+The mix policy yields a statistically significant improvement in ROC-AUC on both the in-domain test ( ∆ = + 0.007, p < 0.001) and, more importantly, the large ISIC + HAM out-of-domain test ( ∆ = + 0.053, p < 0.001), showing that the paired difference between the two models is not explained by test-set sampling variability. Whether it survives repeated 
+
+training is a separate question, addressed with multiple random seeds in Section 3.6. A per-dataset breakdown of the ISIC + HAM pool is provided in Appendix A.1 (Table A3). 
+
+Lesion-level resampling. The bootstrap above resamples images independently, which is optimistic when several images depict the same lesion: within this pool 9921 images correspond to 9642 distinct lesions, almost all of the redundancy coming from HAM10000. We therefore repeated the analysis with a cluster bootstrap that resamples lesions rather than images. The intervals widen only marginally: the baseline AUC interval goes from 0.755–0.783 to 0.754–0.785, and the 95% interval on the difference is unchanged to three decimal places at +0.045 to +0.061. The correlation induced by repeated imaging therefore does not materially inflate the precision reported here. 
+
+Sensitivity to the residual MILK10k–HAM10000 lesion overlap. As described in Section 2.2, 158 of the 9921 images in this pool (1.6%) depict lesions that also appear—as different images from different visits—in the MILK10k training or validation split. To verify that the reported gain is not produced by this residual dependency, we recomputed the entire analysis on the pool with those 158 images removed ( N = 9763, malignant prevalence 0.130). The baseline AUC falls to 0.763 (95% CI 0.748–0.777) and the mix AUC to 0.818 (95% CI 0.805–0.830), so the gain does not shrink but in fact grows slightly, from +0.053 to 
+
++0.055 (95% bootstrap CI +0.046 to +0.064; DeLong p < 0.001). The overlapping images are, if anything, easier for the baseline than the rest of the pool (AUC 0.858 versus 0.897 on the remaining HAM10000 images), which is consistent with the overlap acting as a mild dilution of the domain shift rather than as an advantage for either model. The overlap matters more for the screening split than for the expanded pool, because there it accounts for 9.4% of the images rather than 1.6%, and it was on that split that mix 
+
+was selected. We therefore repeated the baseline-versus-mix comparison on the screening out-of-domain split alone ( N = 1685), with and without the overlapping lesions, using the retained checkpoints of this section rather than those of the search campaign. On the full 17 of 27 
+
+split the gap is 0.833 versus 0.891 ( ∆ = + 0.058, 95% CI +0.043 to +0.073); after removing the 158 overlapping images it becomes 0.813 versus 0.880 ( N = 1527, ∆ = + 0.067, 95% CI 
+
++0.049 to +0.086). As in the expanded pool, excluding the shared lesions widens rather than narrows the margin, so the policy ranking that produced mix is not an artifact of the residual overlap. The conclusions of this section are therefore unchanged whether or not the overlapping lesions are excluded. The corresponding ROC and precision–recall curves on the out-of-domain test are shown in Figure 6; the mix curve dominates the baseline across essentially the whole operating range, and the gain is especially visible in the precision–recall view, which is the more informative one under the marked class imbalance. 0.0 0.2 0.4 0.6 0.8 1.0      
+
+> 1 − specificity (FPR)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Sensitivity (TPR)
+> (a) ROC
+> Baseline (AUC = 0.770)
+> Mix (AUC = 0.823)
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Recall (sensitivity)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Precision
+> (b) Precision-recall
+> Baseline (AUPRC = 0.425)
+> Mix (AUPRC = 0.485)
+> Prevalence = 0.135
+
+Figure 6. Discrimination on the ISIC + HAM out-of-domain test ( N = 9921, malignant prevalence 0.135) for the baseline and the mix policy: ( a) receiver operating characteristic curves; ( b) precision– recall curves, with the dashed line marking the malignant prevalence (the no-skill baseline). The 
+
+mix policy improves both the area under the ROC curve (0.770 → 0.823) and the area under the precision–recall curve (0.425 → 0.485). 
+
+On the external Melanoscope dataset the ROC-AUC difference is positive but does not reach statistical significance, which is expected given its small size ( N = 472, with 22 malignant cases). This external result should therefore be read as encouraging but underpowered, and it motivates prospective collection of larger external cohorts. Operating-point metrics at the validation-tuned thresholds are reported in Table 9. On the imbalanced ISIC + HAM set the mix policy improves specificity (0.908 → 0.940) and AUPRC (0.425 → 0.485) at comparable sensitivity. The largest single change is on the external Melanoscope set, where sensitivity rises from 0.591 to 0.818 at essentially unchanged specificity, with AUPRC improving from 0.698 to 0.796. That sensitivity change deserves a careful reading, because it is the most quotable number in the study and the weakest supported. It rests on 22 malignant cases: the two models disagree on 5 of them, all 5 in favour of mix , which gives an exact McNemar 
+
+p = 0.06—suggestive, but not significant at the conventional level. The corresponding AUC difference on the same set is not significant either ( p = 0.22, Table 7), and, as shown in Section 3.6, the Melanoscope advantage does not persist when training is repeated over several seeds. It is therefore a single-checkpoint operating-point result on a small sample, consistent in direction with the out-of-domain findings but not independent evidence of a reproducible clinical gain. Because an aggregate AUC can conceal a loss on a clinically important subgroup, we also broke the out-of-domain pool down by diagnosis_3 at the tuned thresholds (Table 8). The picture is mixed in a way the pooled figures do not show. Most of the gain comes 18 of 27 
+
+from the non-malignant side, where specificity improves on every subtype and markedly so on pigmented benign keratosis (0.545 → 0.818), a category the baseline frequently mistook for malignancy. On the malignant side the changes are small and not uniformly favourable: recall improves for invasive melanoma (0.389 → 0.429) and melanoma in situ 
+
+(0.262 → 0.279), is unchanged and perfect for basal cell carcinoma, but falls for the large “Melanoma, NOS” group (0.436 → 0.402). The improvement in out-of-domain AUC is thus driven more by fewer false alarms on benign keratoses than by better melanoma detection, and the absolute recall on melanoma remains low in all configurations—between 0.26 and 0.43 depending on subtype. This is the most important caveat for any clinical reading of the results and is revisited in Section 4.1.      
+
+> Table 8. Per-diagnosis breakdown on the ISIC + HAM out-of-domain pool at the validation-tuned thresholds (baseline 0.476, mix 0.455). Recall is reported for malignant subtypes and specificity for non-malignant ones; subtypes with fewer than 30 malignant or 100 non-malignant images are omitted. Diagnosis labels are the raw diagnosis_3 values of the ISIC Archive.
+
+Diagnosis ( diagnosis_3 ) Class n Baseline Mix 
+
+Basal cell carcinoma Malignant 61 1.000 1.000 Melanoma Invasive Malignant 252 0.389 0.429 
+
+Melanoma in situ Malignant 359 0.262 0.279 
+
+Melanoma, NOS Malignant 644 0.436 0.402 Nevus Non-malignant 7848 0.932 0.960 
+
+Seborrheic keratosis Non-malignant 523 0.723 0.742 
+
+Pigmented benign keratosis Non-malignant 121 0.545 0.818   
+
+> Table 9. Operating-point metrics at the validation-tuned decision threshold (baseline 0.476, mix
+> 0.455). Sens. = sensitivity, Spec. = specificity, Bal. Acc. = balanced accuracy, AUPRC = area under the precision–recall curve.
+
+Evaluation Set Model Sens. Spec. Bal. Acc. AUPRC 
+
+In-domain test Baseline 0.872 0.860 0.866 0.896 Mix 0.861 0.875 0.868 0.911 ISIC + HAM (OOD) Baseline 0.413 0.908 0.661 0.425 Mix 0.403 0.940 0.671 0.485 Melanoscope (external) Baseline 0.591 0.980 0.785 0.698 Mix 0.818 0.967 0.892 0.796 
+
+3.6. Training Variance Across Random Seeds 
+
+The evaluation in Section 3.5 is based on single trained checkpoints, so the bootstrap confidence intervals capture test-set sampling variability but not training variance. To assess whether the observed OOD improvement is robust to the choice of random seed, we retrained both models across four seeds each: the baseline with seeds {42, 1, 10, 20} and the mix policy with seeds {2, 5, 15, 30}. All hyperparameters and the data split were held fixed; the decision threshold was re-tuned on the validation set independently for each run. ROC-AUC (mean ± standard deviation across four runs) is reported in Table 10. Because the two policies were run on different seed sets rather than on a shared one, the runs cannot be paired: we therefore compare the two groups as unpaired samples and do not report a paired test of the seed-level difference. Using a common seed set, which would allow paired differences and remove the influence of particular initializations, is a straightforward improvement for future runs. 19 of 27        
+
+> Table 10. Training-variance analysis: ROC-AUC mean ±SD across four random seeds per policy (baseline seeds 42/1/10/20; mix seeds 2/5/15/30). Statistically relevant seed-level ranges for the OOD set: baseline 0.761–0.775, mix 0.806–0.829 (no overlap).
+
+Evaluation Set Baseline (mean ± SD) Mix (mean ± SD) ∆AUC 
+
+In-domain test 0.938 ± 0.003 0.941 ± 0.001 +0.003 ISIC + HAM (OOD) 0.770 ± 0.006 0.817 ± 0.011 +0.047 
+
+Melanoscope (external) 0.934 ± 0.015 0.930 ± 0.022 −0.004 On the large ISIC + HAM out-of-domain pool the mix policy outperformed the baseline in every one of the eight runs: the seed-level ranges are 0.761–0.775 (baseline) and 0.806– 0.829 ( mix ), with no overlap between the two groups. The mean gap of +0.047 substantially exceeds the within-group standard deviation for either policy (0.006 and 0.011, respectively), so the out-of-domain gain reported in Table 7 is consistent across the seeds tested and is not the product of one favourable initialization. We describe it as consistent across the tested seeds rather than seed-independent, since four unpaired runs per policy support the former claim but not the latter. On the in-domain test a small but consistent advantage (+0.003) is also visible. The external Melanoscope set behaves differently, and this is the more informative observation. Averaged over seeds the difference disappears entirely: 0.934 ± 0.015 versus 0.930 ± 0.022. The single-checkpoint advantage reported in Section 3.5 therefore falls within the run-to-run spread on this collection and should not be read as a reproducible external gain. Its small size ( N = 472 with 22 malignant cases) means training-variance effects cannot be separated from test-set noise at this scale, but the direction of the evidence is clear enough: the out-of-domain effect measured on the ISIC and HAM sources does not yet demonstrably carry over to an independent clinical collection. 
+
+# 4. Discussion 
+
+The obtained results show that the greatest value in the dermoscopic classification task belongs to augmentations that model the actual source of domain shift, rather than only general visual variability. Photometric transformations turn out to be especially useful, because they bring the distribution of training images closer to the conditions observed in external datasets. This is consistent with the general formulation of domain generalization, where the goal is not to fit a single source but to obtain a model capable of working on distributions different from the training one [29]. At the same time, it is important to note that a gain on the out-of-domain set is not always accompanied by a corresponding increase in the in-domain metric. This is a normal effect for domain-generalization tasks: the model becomes less sensitive to the specifics of the training source but may lose some adaptation to its local features. From a practical standpoint, this trade-off should be assessed in light of the deployment scenario: for a clinical system that must scale to new institutions, a small in-domain gain is less important than robustness under external validation. From a practical perspective, this work is also important because it shows that ro-bustness can be increased not only through architectural modifications but also through a careful search for augmentations. This is especially useful as a baseline step before moving to more complex methods such as self-supervised learning, domain adaptation, or test-time adaptation. Contrastive self-supervised learning can be used for pre-training represen-tations that are less sensitive to domain artifacts [ 30 ], domain-adversarial training can explicitly penalize source-identifiable features when source labels are available at training time [ 21 ], and test-time training/test-time adaptation can serve as an additional adaptation layer when new unlabeled data arrive from an external source [ 22 ,31 ]. Compared with 20 of 27 
+
+these, an augmentation policy requires neither source annotations nor access to target data, which is why we treat it as the baseline that such methods should be measured against rather than as a competitor to them. In a broader perspective, the results support the idea that dermoscopic models should be trained not simply to maximize in-domain ROC-AUC, but for robustness to the diversity of data sources, color shift, and image-acquisition artifacts. The contribution of this work is accordingly an augmentation-policy study for domain robustness, not a further comparison of skin-lesion classification architectures. 
+
+4.1. Limitations 
+
+Several limitations bound the strength of the conclusions, and the first is the most consequential. 
+
+The policy was selected on the sources used to evaluate it. As set out in Section 3.5, mix was chosen by comparing eleven candidate policies on out-of-domain ROC-AUC measured on the held-out HAM10000 and ISIC 2019–2020 splits, and the expanded pool on which the effect is then quantified is drawn from those same sources. No weights were fitted on these images, but the augmentation policy is a top-level hyperparameter selected with labelled target-domain data, which is supervised target-domain model selection. Two consequences follow. The reported +0.053 is an optimistically biased estimate of what would be obtained on a source that played no role in the selection, because the maximum over eleven candidates is upward-biased even under the null. And the p-values are conditional on that selection: they test whether two already-chosen models differ on this pool, not whether the policy generalizes. We report them because they establish that the observed difference is not sampling noise, but they cannot be read as evidence of independent out-of-domain generalization. The remedy is a source-disjoint protocol— leave-one-source-out policy search, or selection on one archive with a single pre-registered comparison on another—which we regard as the necessary next experiment rather than an optional refinement. 
+
+The one independent evaluation is small and inconclusive. Melanoscope is the only set untouched by the selection procedure. On a single checkpoint it favours mix (sensitivity 0.591 → 0.818), but with 22 malignant cases the AUC difference is not significant ( p = 0.22), the paired test of sensitivity reaches only p = 0.06, and the advantage vanishes when averaged over seeds (Section 3.6). Independent generalization therefore remains unproven, and larger external cohorts from several institutions are required. 
+
+The gain is unevenly distributed across diagnoses. The per-diagnosis breakdown (Table 8) shows that most of the out-of-domain improvement comes from higher specificity on benign keratoses rather than from better malignancy detection, and that recall decreases for the largest melanoma subgroup. Absolute melanoma recall stays between 0.26 and 0.43 in every configuration, which is far below what a deployed screening aid would require. 
+
+Remaining methodological limits. The statistical analysis covers only the baseline and 
+
+mix ; the other configurations in Table 5 remain single-run point estimates without inter-vals, and no correction was applied for the eleven-way search. All experiments use one backbone (ConvNeXt-Large) and one data split, so architecture-level conclusions do not follow. No numerical comparison against domain adaptation, test-time adaptation, or contrastive self-supervised pre-training is included; these are discussed only qualitatively. The interpretability evidence is exploratory: one illustrative Grad-CAM case, and a domain-mixing analysis (Table 6) that contrasts ImageNet pre-training with augmented fine-tuning and therefore cannot separate the effect of augmentation from that of fine-tuning. Finally, the held-out partition is predominantly but not perfectly source-disjoint—MILK10k and HAM10000 share 967 lesion identifiers, and 179 ISIC 2020 images come from the institution 21 of 27 
+
+that contributed BCN20000—although removing the overlapping lesions widens rather than narrows the measured gap on both the screening split and the expanded pool. A further limitation concerns the binary malignant-versus-non-malignant formulation. It is useful for a triage scenario, but it conceals differences between melanoma, basal cell carcinoma, squamous cell carcinoma, and premalignant conditions. In future work it is reasonable to extend the analysis to a multi-class formulation or to a hierarchical scheme in which the first level handles triage and the second refines the diagnostic category. 
+
+# 5. Conclusions 
+
+In this work, a set of augmentations for dermoscopic skin lesion classification was proposed and empirically evaluated, aimed at increasing robustness to domain shift. The experiments show that correctly selected photometric and combined transformations yield a noticeable increase in ROC-AUC on the out-of-domain test set and, in a number of configurations, also improve quality on in-domain data. The main quantitative result is an out-of-domain ROC-AUC gain of +0.0332 for the mix configuration, with a simultaneous positive change in in-domain ROC-AUC of +0.0061. This makes mix the most preferable policy among the tested configurations. An expanded evaluation with bootstrap confidence intervals and DeLong tests showed that the mix improvement over the baseline is large and statistically significant on both the in-domain test and the ISIC + HAM out-of-domain pool ( p < 0.001), and that it persists when the residual MILK10k–HAM10000 lesion overlap is removed from either the screening split or the expanded pool. Repeating training over four random seeds per policy showed the out-of-domain advantage to be consistent across all the seeds tested, with non-overlapping per-seed ROC-AUC ranges of 0.761–0.775 (baseline) and 0.806–0.829 ( mix ). Two qualifications bound these findings. First, the policy was selected on the same held-out ISIC and HAM sources on which it is evaluated, so this evidence is not independent of the selection procedure. Second, on the one evaluation set untouched by that procedure—the external Melanoscope collection—the picture is weaker: a single-checkpoint sensitivity increase from 0.591 to 0.818 that is favourable in direction but rests on 22 malignant cases, does not reach significance in AUC or in a paired test of sensitivity, and does not persist across seeds. A Grad-CAM comparison and a t-SNE projection with an accompanying domain-mixing analysis are exploratory evidence, consistent with the model relying less on peripheral artifacts and source-specific cues. The decisive next steps are therefore a source-disjoint policy-selection protocol, evaluation on additional backbones, and larger external cohorts. In the future, it appears promising to extend the study in three directions. First, to perform a rigorous quantitative evaluation of robustness on additional external domains. Second, to use self-supervised learning methods for pre-training more domain-invariant representations. Third, to investigate the automated search for augmentation policies and their joint training with the classifier. From an applied standpoint, the next step should be the validation of the selected policy on an independent clinical set with a fixed annotation protocol, predefined quality thresholds, and error analysis by lesion type, image source, and artifacts.  
+
+> Author Contributions: Conceptualization, A.K. and Ev.K.; methodology, A.K. and I.L.; software, I.L. and E.U.; validation, I.L., El.K. and Ev.K.; formal analysis, I.L.; investigation, I.L. and El.K.; resources, O.S. and Ev.K.; data curation, El.K. and I.L.; writing—original draft preparation, I.L.; writing—review and editing, A.K., Ev.K. and O.S.; visualization, I.L.; supervision, A.K. and Ev.K.; project administration, A.K.; funding acquisition, A.K. All authors have read and agreed to the published version of the manuscript. 22 of 27
+
+Funding: This work was supported by a grant provided by the Ministry of Economic Develop-ment of the Russian Federation (agreement dated 20 June 2025, No. 139-15-2025-011, identifier 000000C313925P4G0002). 
+
+Institutional Review Board Statement: This work is a retrospective, non-interventional analysis of pre-existing dermoscopic images; no prospective data collection from human participants or animals was carried out, and the study was conducted in accordance with the Declaration of Helsinki. Two categories of data were used. The ISIC Archive collections (BCN20000, Derm12345, HAM10000, ISIC 2016–2020, HIBA, BALD, MILK10k) and Derm7pt are public research datasets distributed in de-identified form under their respective licenses; ethical approval for the original collection of these images was obtained by the contributing institutions, and their secondary analysis required no further review. The Melanoscope collection is a non-public clinical dataset assembled and owned by the authors; it was de-identified before analysis and used exclusively to evaluate already-trained models—no image from it entered model training, hyperparameter selection, or threshold tuning. It was acquired within the clinical research programme “Intelligent decision-support system for the diagnosis of skin neoplasms based on mobile dermatoscopy”, which was reviewed by the Local Ethics Committee of South-West State University, Kursk, Russia, and found to have been conducted in accordance with the principles of biomedical ethics of the Declaration of Helsinki (protocol No. 7 of 18 June 2025). 
+
+Informed Consent Statement: For the public ISIC Archive and Derm7pt collections, participant consent was obtained by the original contributing institutions as part of their own data-collection protocols; the present secondary analysis used only de-identified images and did not require addi-tional consent. For the Melanoscope collection, written informed consent for the research use of the images was obtained from all patients at the time of acquisition. 
+
+Data Availability Statement: This study uses a combination of public and closed clinical datasets. The ISIC Archive collections (BCN20000, Derm12345, HAM10000, ISIC 2016–2020, HIBA, BALD, MILK10k) are available through the International Skin Imaging Collaboration (https://www.isic-archive.com), and Derm7pt is available at https://derm.cs.sfu.ca. The external Melanoscope dataset is a closed clinical collection assembled and owned by the authors; it is not publicly available and cannot be redistributed, including on request, because the consent obtained from the participating patients covers research use by the collecting team rather than public release. Only aggregate performance figures derived from it are reported here. The training configuration files, per-image prediction logits for the baseline and mix models, and the statistical-analysis code (bootstrap confidence intervals and DeLong tests) supporting the reported results are available from the corresponding author upon reasonable request. 
+
+Acknowledgments: During the preparation of this manuscript, the authors used DeepL Translator (DeepL SE, web version, accessed July 2026) to translate portions of the text from Russian into English. The tool was applied only to the language of the manuscript; it was not used to generate, analyse, or interpret any scientific content, and it played no part in the design of the study, the experiments, or the statistical analysis. The authors reviewed and edited all translated text and take full responsibility for the content of this publication. 
+
+Conflicts of Interest: The authors declare no financial conflicts of interest. As a potential non-financial competing interest, the authors note that they assembled and own the Melanoscope collection used for the external evaluation in Section 3.5, and are involved in the development of decision-support tools for dermoscopic diagnosis; the evaluated models, the augmentation policies, and the external dataset therefore originate from the same group. To limit the resulting risk of bias, the Melanoscope images were used only after model training and threshold selection had been completed and were never involved in any modelling decision, and all per-image predictions underlying the reported statistics have been retained. The funders had no role in the design of the study; in the collection, analyses, or interpretation of data; in the writing of the manuscript; or in the decision to publish the results. 
+
+# Abbreviations 23 of 27       
+
+> The following abbreviations are used in this manuscript: AI Artificial Intelligence CNN Convolutional Neural Network ISIC International Skin Imaging Collaboration OOD Out-of-Domain ROC-AUC Area Under the Receiver Operating Characteristic Curve t-SNE t-Distributed Stochastic Neighbor Embedding
+
+# Appendix A. 
+
+Appendix A.1. Per-Source Class Distribution 
+
+Table A1 provides the per-source breakdown of the in-domain partition summarized in Table 4, together with the out-of-domain sources held out for external testing.  
+
+> Table A1. Per-source class distribution (non-malignant/malignant). “B” denotes non-malignant and “M” denotes malignant. The out-of-domain (OOD) sources are held out entirely from training and contribute only to the OOD test.
+
+Source Train (B/M) Validation (B/M) Test (B/M) 
+
+In-domain sources 
+
+BCN20000 6066 / 6140 1748 / 1868 640 / 863 Derm12345 7721 / 788 2316 / 237 994 / 101 Derm7pt 278 / 106 121 / 64 264 / 119 HIBA 483 / 386 153 / 108 66 / 43 BALD 365 / 101 110 / 30 47 / 13 MILK10k 1059 / 2410 289 / 751 145 / 302 
+
+In-domain total 15,972 / 9931 4737 / 3058 2156 / 1441 
+
+Out-of-domain sources (OOD test only) 
+
+HAM10000 — — 840 / 198 ISIC 2019 — — 83 / 27 ISIC 2020 — — 487 / 50 
+
+OOD total — — 1410 / 275 
+
+The expanded evaluation in Section 3.5 uses a broader ISIC + HAM out-of-domain pool than the screening split above: it takes the ISIC 2019 and ISIC 2020 collections in full rather than only their test splits, and additionally includes ISIC 2016; from HAM10000 it retains the test split, as in the screening phase. Its exact composition is given in Table A2; this is why its size (9921 images) and its ROC-AUC gain differ from the screening out-of-domain split.  
+
+> Table A2. Composition of the expanded ISIC + HAM out-of-domain pool used in Section 3.5 (Table 7, Table 9, Figure 6). “B” denotes non-malignant and “M” denotes malignant. Counts are taken from the annotation files used for evaluation.
+
+Source Annotation File Non-malignant Malignant Total 
+
+HAM10000 test.csv 840 198 1038 ISIC 2016 metadata.csv 18 5 23 ISIC 2019 all_dermoscopic_images.csv 2347 552 2899 ISIC 2020 all_dermoscopic_images.csv 5377 584 5961 
+
+Total 8582 1339 9921 24 of 27 
+
+Table A3. Per-dataset ROC-AUC breakdown of the expanded ISIC + HAM out-of-domain pool (N = 9921; see Table A2 for pool composition). “Prev.” is malignant prevalence. Because both models are evaluated on the same images, each row reports the paired difference in ROC-AUC with a 95% bootstrap confidence interval (2000 resamples, resampling images jointly for the two models), rather than a test that would treat the two AUCs as independent. Rows whose interval excludes zero are shown in bold; no correction is applied for testing four sources, and these sources took part in selecting mix (Section 3.5). 
+
+Dataset N Nmal Prev. Baseline AUC Mix AUC ∆AUC (95% CI) 
+
+HAM10000 1038 198 0.191 0.892 0.926 +0.034 ( +0.020– +0.049) 
+
+ISIC 2016 23 5 0.217 0.856 0.900 +0.044 ( −0.111– +0.206) ISIC 2019 2899 552 0.190 0.731 0.763 +0.032 ( +0.017– +0.046) 
+
+ISIC 2020 5961 584 0.098 0.751 0.812 +0.061 ( +0.048– +0.075) Total 9921 1339 0.135 0.770 0.823 +0.053 ( +0.045– +0.061) 
+
+# Appendix B. 
+
+Appendix B.1. Augmentation Configurations 
+
+Table A4. Color-augmentation combinations tested in the search. 
+
+Set Composition 
+
+Color 1 color_jitter + hestain Color 2 color_jitter + hestain + hsv Color 3 color_jitter + hsv Color 4 planckian_jitter + color_jitter Color 5 planckian_jitter + color_jitter + hsv Color 6 planckian_jitter + color_jitter + hsv + hestain Color 7 planckian_jitter + hestain Color 8 planckian_jitter + hestain + color_jitter Color 9 planckian_jitter + hestain + hsv Color 10 planckian_jitter + hsv Color 11 hestain + hsv 
+
+Table A5. Composition of the final augmentation configurations.      
+
+> Configuration Included Augmentations
+> simple Transpose, VerticalFlip, HorizontalFlip, GridDistortion, OpticalDistortion, Color-Jitter, PlanckianJitter, HueSaturationValue, ToGray, ChromaticAberration, Ran-domGamma, CLAHE prime Transpose, VerticalFlip, HorizontalFlip, Rotate, MotionBlur, MedianBlur, Gaus-sianBlur, GaussNoise, GridDistortion, OpticalDistortion, ColorJitter, Planck-ianJitter, HueSaturationValue, ToGray, ChromaticAberration, RandomGamma, CLAHE strong_hestain Transpose, VerticalFlip, HorizontalFlip, GridDistortion, OpticalDistortion, Color-Jitter, PlanckianJitter, HueSaturationValue, ToGray, ChromaticAberration, Ran-domGamma, CLAHE, HEStain kaggle Transpose, VerticalFlip, HorizontalFlip, Rotate, MotionBlur, MedianBlur, Gaus-sianBlur, GaussNoise, GridDistortion, OpticalDistortion, ShiftScaleRotate, Elas-ticTransform, ColorJitter, PlanckianJitter, HueSaturationValue, ToGray, Chromat-icAberration, RandomGamma, CLAHE
+> continued on next page
+
+25 of 27 
+
+Table A5 continued. 
+
+Configuration Included Augmentations 
+
+kaggle_simple Transpose, VerticalFlip, HorizontalFlip, Rotate, MotionBlur, MedianBlur, Gaus-sianBlur, GaussNoise, GridDistortion, OpticalDistortion, ColorJitter, Planck-ianJitter, HueSaturationValue, ToGray, ChromaticAberration, RandomGamma, CLAHE kaggle_strong Transpose, VerticalFlip, HorizontalFlip, Rotate, MotionBlur, MedianBlur, Gaus-sianBlur, GaussNoise, GridDistortion, OpticalDistortion, ShiftScaleRotate, Elas-ticTransform, Affine, ColorJitter, PlanckianJitter, HueSaturationValue, ToGray, ChromaticAberration, RandomGamma, CLAHE kaggle_strong_hestain Transpose, VerticalFlip, HorizontalFlip, Rotate, MotionBlur, MedianBlur, Gaus-sianBlur, GaussNoise, GridDistortion, OpticalDistortion, ShiftScaleRotate, Elas-ticTransform, Affine, ColorJitter, PlanckianJitter, HueSaturationValue, ToGray, ChromaticAberration, RandomGamma, CLAHE, HEStain mix Transpose, VerticalFlip, HorizontalFlip, Affine, Rotate, CLAHE, MotionBlur, MedianBlur, GaussianBlur, GaussNoise, OpticalDistortion, GridDistortion, Elas-ticTransform, ColorJitter, PlanckianJitter, HueSaturationValue, HEStain, ToGray, ChromaticAberration, RandomGamma combine_all Transpose, VerticalFlip, HorizontalFlip, Rotate, MotionBlur, MedianBlur, Gaus-sianBlur, GaussNoise, GridDistortion, OpticalDistortion, ShiftScaleRotate, Grid-Dropout, ElasticTransform, ColorJitter, PlanckianJitter, RandomBrightnessCon-trast, HueSaturationValue, ToGray, ChromaticAberration, RandomGamma, CLAHE, HEStain low_intensity_prime Transpose, VerticalFlip, HorizontalFlip, Rotate, MotionBlur, MedianBlur, Gaus-sianBlur, GaussNoise, GridDistortion, OpticalDistortion, ColorJitter, Planck-ianJitter, HueSaturationValue, ToGray, ChromaticAberration, RandomGamma, CLAHE low_intensity_kaggle_strong Transpose, VerticalFlip, HorizontalFlip, Rotate, MotionBlur, MedianBlur, Gaus-sianBlur, GaussNoise, GridDistortion, OpticalDistortion, ShiftScaleRotate, Elas-ticTransform, Affine, ColorJitter, PlanckianJitter, RandomBrightnessContrast, HueSaturationValue, ToGray, ChromaticAberration, RandomGamma, CLAHE 
+
+Table A5 lists only which operators each policy contains. Several policies share an identical operator set and are distinguished solely by application probabilities, parameter ranges, and the grouping of operators into mutually exclusive OneOf blocks: this is the case for prime , kaggle_simple , and low_intensity_prime , and likewise for kaggle and mix . The 
+
+low_intensity_* variants use the same operators as their parent policy with the magnitude ranges narrowed. Because these details determine the results in Table 5, the complete specification of the selected mix policy is given in Table A6; the corresponding specifications for the remaining policies are available from the corresponding author on request. All augmentations were implemented with albumentations version 2.0.8, applied in the listed order before resizing and normalization, and sampled independently per image with the seed of the training run. The version matters for exact reproduction, because several operator signatures used here (for example the std_range parameterization of GaussNoise 
+
+and the fill /keep_ratio arguments of Affine ) belong to the 2.x API and differ from their 1.x equivalents. 
+
+Table A6. Complete specification of the selected mix policy, in application order. “ p” is the probability of applying the operator. OneOf blocks select exactly one of their members when the block fires; the per-member probabilities inside a block are relative weights. 
+
+Operator p Parameters 
+
+Transpose 0.5 —VerticalFlip 0.5 —
+
+continued on next page 26 of 27        
+
+> Table A6 continued.
+> Operator pParameters
+> HorizontalFlip 0.5 —Affine 0.4 translate
+
+±10%; scale 0.85–1.15; rotate ±360 ◦; shear 0; border constant, fill 0 Rotate 0.8 limit ±360 ◦, crop_border = true CLAHE 0.4 clip_limit = 4, tile grid 8 × 8   
+
+> OneOf (blur/noise), p
+
+= 0.7: MotionBlur 1.0 blur_limit = 5MedianBlur 1.0 blur_limit = 5GaussianBlur 1.0 blur_limit = 5GaussNoise 1.0 std_range = 0.02–0.11    
+
+> OneOf (geometric distortion), p
+
+= 0.7: OpticalDistortion 1.0 distort_limit = ±1.0 GridDistortion 1.0 num_steps = 5, distort_limit = ±1.0 ElasticTransform 1.0 α = 3   
+
+> OneOf (photometric), p
+
+= 0.7; each of the first five members is a two-operator Compose :ColorJitter + PlanckianJitter 0.5 / 0.3 see below ColorJitter + HueSaturationValue 0.5 / 0.3 see below HEStain + PlanckianJitter 0.2 / 0.3 see below HEStain + ColorJitter 0.2 / 0.5 see below HEStain + HueSaturationValue 0.2 / 0.3 see below PlanckianJitter 0.3 see below ColorJitter 0.5 see below ToGray 0.001 —   
+
+> Shared photometric parameters:
+> ColorJitter —brightness, contrast, saturation 0.9–1.1; hue
+
+±0.1 PlanckianJitter — temperature_limit = 3000–11 000 K HueSaturationValue — hue shift ±5; saturation shift ±30; value shift ±30 HEStain — method = preset, preset = macenko ; intensity scale 0.9–1.1, intensity shift ±0.1 ChromaticAberration 0.5 primary and secondary distortion limits ±0.1, mode random RandomGamma 0.5 gamma_limit = 40–160 Resize 1.0 224 × 224 Normalize 1.0 mean (0.658, 0.542, 0.499 ), std (0.237, 0.217, 0.219 )
+
+# References 
+
+1. Arnold, M.; Singh, D.; Laversanne, M.; Vignat, J.; Vaccarella, S.; Meheus, F.; Bray, F. Global Burden of Cutaneous Melanoma in 2020 and Projections to 2040. JAMA Dermatol. 2022 , 158 , 495–503. 2. Kittler, H.; Pehamberger, H.; Wolff, K.; Binder, M. Diagnostic Accuracy of Dermoscopy. Lancet Oncol. 2002 , 3, 159–165. 3. Esteva, A.; Kuprel, B.; Novoa, R.A.; Ko, J.; Swetter, S.M.; Blau, H.M.; Thrun, S. Dermatologist-Level Classification of Skin Cancer with Deep Neural Networks. Nature 2017 , 542 , 115–118. 4. Combalia, M.; Codella, N.C.F.; Rotemberg, V.; Helba, B.; Vilaplana, V.; Reiter, O.; Carrera, C.; Barreiro, A.; Halpern, A.C.; Puig, S.; et al. Validation of Artificial Intelligence Prediction Models for Skin Cancer Diagnosis Using Dermoscopy Images: The 2019 International Skin Imaging Collaboration Grand Challenge. Lancet Digit. Health 2022 , 4, e330–e339. 5. Geirhos, R.; Jacobsen, J.-H.; Michaelis, C.; Zemel, R.; Brendel, W.; Bethge, M.; Wichmann, F.A. Shortcut Learning in Deep Neural Networks. Nat. Mach. Intell. 2020 , 2, 665–673. 6. Nauta, M.; Walsh, R.; Dubowski, A.; Seifert, C. Uncovering and Correcting Shortcut Learning in Machine Learning Models for Skin Cancer Diagnosis. Diagnostics 2022 , 12 , 40. 7. Shorten, C.; Khoshgoftaar, T.M. A Survey on Image Data Augmentation for Deep Learning. J. Big Data 2019 , 6, 60. 8. Gutman, D.; Codella, N.C.F.; Celebi, M.E.; Helba, B.; Marchetti, M.A.; Mishra, N.; Halpern, A. Skin Lesion Analysis Toward Melanoma Detection: A Challenge at the International Symposium on Biomedical Imaging (ISBI) 2016, Hosted by the International Skin Imaging Collaboration (ISIC). arXiv 2016 , arXiv:1605.01397. 9. Codella, N.C.F.; Gutman, D.; Celebi, M.E.; Helba, B.; Marchetti, M.A.; Dusza, S.W.; Kalloo, A.; Liopyris, K.; Mishra, N.; Kittler, H.; et al. Skin Lesion Analysis Toward Melanoma Detection: A Challenge at the 2017 International Symposium on Biomedical 27 of 27 
+
+Imaging (ISBI), Hosted by the International Skin Imaging Collaboration (ISIC). In Proceedings of the 2018 IEEE 15th International Symposium on Biomedical Imaging (ISBI 2018) ; IEEE: Piscataway, NJ, USA, 2018; pp. 168–172. 10. Codella, N.; Rotemberg, V.; Tschandl, P.; Celebi, M.E.; Dusza, S.; Gutman, D.; Helba, B.; Kalloo, A.; Liopyris, K.; Marchetti, M.; et al. Skin Lesion Analysis Toward Melanoma Detection 2018: A Challenge Hosted by the International Skin Imaging Collaboration (ISIC). arXiv 2019 , arXiv:1902.03368. 11. Tschandl, P.; Rosendahl, C.; Kittler, H. The HAM10000 Dataset, a Large Collection of Multi-Source Dermatoscopic Images of Common Pigmented Skin Lesions. Sci. Data 2018 , 5, 180161. 12. Kawahara, J.; Daneshvar, S.; Argenziano, G.; Hamarneh, G. Seven-Point Checklist and Skin Lesion Classification Using Multitask Multimodal Neural Nets. IEEE J. Biomed. Health Inform. 2019 , 23 , 538–546. 13. Cassidy, B.; Kendrick, C.; Brodzicki, A.; Jaworek-Korjakowska, J.; Yap, M.H. Analysis of the ISIC Image Datasets: Usage, Benchmarks and Recommendations. Med. Image Anal. 2022 , 75 , 102305. 14. Perez, F.; Vasconcelos, C.; Avila, S.; Valle, E. Data Augmentation for Skin Lesion Analysis. In OR 2.0 Context-Aware Operating Theaters, Computer Assisted Robotic Endoscopy, Clinical Image-Based Procedures, and Skin Image Analysis (MICCAI 2018 Workshops) ;Lecture Notes in Computer Science, Vol. 11041; Springer: Cham, Switzerland, 2018; pp. 303–311. 15. Valle, E.; Fornaciali, M.; Menegola, A.; Tavares, J.; Bittencourt, F.V.; Li, L.T.; Avila, S. Data, Depth, and Design: Learning Reliable Models for Skin Lesion Analysis. Neurocomputing 2020 , 383 , 303–313. 16. Cubuk, E.D.; Zoph, B.; Shlens, J.; Le, Q.V. RandAugment: Practical Automated Data Augmentation with a Reduced Search Space. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW) ; IEEE: Piscataway, NJ, USA, 2020; pp. 702–703. 17. Zhang, H.; Cissé, M.; Dauphin, Y.N.; Lopez-Paz, D. mixup: Beyond Empirical Risk Minimization. In Proceedings of the International Conference on Learning Representations (ICLR) , Vancouver, BC, Canada, 30 April–3 May 2018. 18. Bissoto, A.; Fornaciali, M.; Valle, E.; Avila, S. (De)Constructing Bias on Skin Lesion Datasets. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW) ; IEEE: Piscataway, NJ, USA, 2019; pp. 2766–2774. 19. Daneshjou, R.; Vodrahalli, K.; Novoa, R.A.; Jenkins, M.; Liang, W.; Rotemberg, V.; Ko, J.; Swetter, S.M.; Bailey, E.E.; Gevaert, O.; et al. Disparities in Dermatology AI Performance on a Diverse, Curated Clinical Image Set. Sci. Adv. 2022 , 8, eabq6147. 20. Groh, M.; Harris, C.; Soenksen, L.; Lau, F.; Han, R.; Kim, A.; Koochek, A.; Badri, O. Evaluating Deep Neural Networks Trained on Clinical Images in Dermatology with the Fitzpatrick 17k Dataset. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW) ; IEEE: Piscataway, NJ, USA, 2021; pp. 1820–1828. 21. Ganin, Y.; Ustinova, E.; Ajakan, H.; Germain, P.; Larochelle, H.; Laviolette, F.; Marchand, M.; Lempitsky, V. Domain-Adversarial Training of Neural Networks. J. Mach. Learn. Res. 2016 , 17 , 1–35. 22. Wang, D.; Shelhamer, E.; Liu, S.; Olshausen, B.; Darrell, T. Tent: Fully Test-Time Adaptation by Entropy Minimization. In 
+
+Proceedings of the International Conference on Learning Representations (ICLR) , Virtual, 3–7 May 2021. 23. van der Maaten, L.; Hinton, G. Visualizing Data Using t-SNE. J. Mach. Learn. Res. 2008 , 9, 2579–2605. 24. Liu, Z.; Mao, H.; Wu, C.-Y.; Feichtenhofer, C.; Darrell, T.; Xie, S. A ConvNet for the 2020s. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) ; IEEE: Piscataway, NJ, USA, 2022; pp. 11976–11986. 25. Macenko, M.; Niethammer, M.; Marron, J.S.; Borland, D.; Woosley, J.T.; Guan, X.; Schmitt, C.; Thomas, N.E. A Method for Normalizing Histology Slides for Quantitative Analysis. In Proceedings of the 2009 IEEE International Symposium on Biomedical Imaging (ISBI) ; IEEE: Piscataway, NJ, USA, 2009; pp. 1107–1110. 26. Tellez, D.; Litjens, G.; Bándi, P.; Bulten, W.; Bokhorst, J.-M.; Ciompi, F.; van der Laak, J. Quantifying the Effects of Data Augmentation and Stain Color Normalization in Convolutional Neural Networks for Computational Pathology. Med. Image Anal. 
+
+2019 , 58 , 101544. 27. Hendrycks, D.; Mu, N.; Cubuk, E.D.; Zoph, B.; Gilmer, J.; Lakshminarayanan, B. AugMix: A Simple Data Processing Method to Improve Robustness and Uncertainty. In Proceedings of the International Conference on Learning Representations (ICLR) , Addis Ababa, Ethiopia, 26–30 April 2020. 28. Selvaraju, R.R.; Cogswell, M.; Das, A.; Vedantam, R.; Parikh, D.; Batra, D. Grad-CAM: Visual Explanations from Deep Networks via Gradient-Based Localization. In Proceedings of the IEEE International Conference on Computer Vision (ICCV) ; IEEE: Piscataway, NJ, USA, 2017; pp. 618–626. 29. Gulrajani, I.; Lopez-Paz, D. In Search of Lost Domain Generalization. In Proceedings of the International Conference on Learning Representations (ICLR) , Virtual, 3–7 May 2021. 30. Chen, T.; Kornblith, S.; Norouzi, M.; Hinton, G. A Simple Framework for Contrastive Learning of Visual Representations. In 
+
+Proceedings of the 37th International Conference on Machine Learning (ICML) ; PMLR: Cambridge, MA, USA, 2020; pp. 1597–1607. 31. Sun, Y.; Wang, X.; Liu, Z.; Miller, J.; Efros, A.A.; Hardt, M. Test-Time Training with Self-Supervision for Generalization under Distribution Shifts. In Proceedings of the 37th International Conference on Machine Learning (ICML) ; PMLR: Cambridge, MA, USA, 2020; pp. 9229–9248.
