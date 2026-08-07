@@ -6,63 +6,77 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-08-04
-- 运行时间：2026-08-04 21:35:18 UTC
+- 最新运行日期：2026-08-07
+- 运行时间：2026-08-07 02:11:59 UTC
 - 运行状态：成功
-- 本次总论文数：13
-- 精读区：7
-- 速读区：6
+- 本次总论文数：19
+- 精读区：9
+- 速读区：10
 
 ### 今日简报（AI）
-今日共读13篇论文，精读7篇、速读6篇，聚焦医学图像分析前沿。
-
-最值得关注：病理全玻片图像无需训练的分布外检测（10分）与脑肿瘤亚型三模态融合分类（9分）。
-
-建议优先精读这两篇高分工作，后续可延伸关注医学视觉基础模型与少样本提示学习方向。
-- 详情：[/202608/04/README](/202608/04/README)
+今日医学AI日报聚焦19篇新论文，精读2篇高分研究，覆盖病理基础模型与临床信息引导的生存预测。最值得关注的方向是乳腺穿刺病理诊断大模型《CorePath》，以及三模态生存预测模型《CIGTSurv》，两者均达满分水平。建议普通读者优先了解病理AI在核心活检中的应用，并留意视觉语言模型在医学影像中的鲁棒性挑战。
+- 详情：[/202608/07/README](/202608/07/README)
 
 ### 精读区论文标签
-1. [Training-Free Out-of-Distribution Detection for Pathology Whole-Slide Images](/202608/04/2608.01407v1-training-free-out-of-distribution-detection-for-pathology-whole-slide-images)  
+1. [CorePath: A Breast-Specialized Pathology Foundation Model for Core Needle Biopsy Diagnosis and Risk-Controlled Report Generation](/202608/07/2608.03079v1-corepath-a-breast-specialized-pathology-foundation-model-for-core-needle-biopsy-diagnosis-and-risk-controlled-report-generation)  
    标签：评分：10.0/10、query:cpath
-   evidence：利用视觉-语言病理基础模型对病理全切片图像进行无训练多模态分布外检测
-2. [DS@GT ARC at MEDIQA-CORE-Task-1 2026: Trimodal Model Fusion with Task-Specific Gates for Brain Tumor Subtype Classification](/202608/04/2608.00086v1-dsgt-arc-at-mediqa-core-task-1-2026-trimodal-model-fusion-with-task-specific-gates-for-brain-tumor-subtype-classification)  
+   evidence：基于全切片图像的乳腺癌诊断病理基础模型，并支持报告生成
+2. [CIGTSurv: Clinical Information Guided Tri-modal Survival Prediction with Local Prototype Association and Global Feature Alignment](/202608/07/2608.03247v1-cigtsurv-clinical-information-guided-tri-modal-survival-prediction-with-local-prototype-association-and-global-feature-alignment)  
+   标签：评分：10.0/10、query:cpath
+   evidence：融合病理图像、基因组与临床信息的三模态生存预测框架，直接对应病理-基因组预后任务
+3. [From Multi-Resolution Cells to Gigapixel Whole Slide Images Foundation Model for Computational Pathology](/202608/07/2608.03508v1-from-multi-resolution-cells-to-gigapixel-whole-slide-images-foundation-model-for-computational-pathology)  
+   标签：评分：10.0/10、query:cpath
+   evidence：面向计算病理学十亿像素全切片图像的多分辨率金字塔Transformer基础模型
+4. [What Carries the Signal in Pathology Foundation-Model Atlases? A Patient-Level Controlled Benchmark in Breast Cancer](/202608/07/2608.00105v1-what-carries-the-signal-in-pathology-foundation-model-atlases-a-patient-level-controlled-benchmark-in-breast-cancer)  
    标签：评分：9.0/10、query:cpath
-   evidence：结合MRI、组织病理和影像报告的嵌入，使用任务特定门控进行脑肿瘤亚型三模态融合分类
-3. [Gene Ontology-Guided Hierarchical Spatial Gene Expression Prediction from Histopathology Images](/202608/04/2608.00405v1-gene-ontology-guided-hierarchical-spatial-gene-expression-prediction-from-histopathology-images)  
+   evidence：基于配对切片与RNA-seq的病理基础模型患者级基准，检验嵌入中的分子信号
+5. [SAGE: Semantic Explainability of Attention-Based Survival Models in Computational Pathology](/202608/07/2608.02803v1-sage-semantic-explainability-of-attention-based-survival-models-in-computational-pathology)  
    标签：评分：9.0/10、query:cpath
-   evidence：利用基因本体结构整合组织病理图像与基因组数据，直接支持癌症预后等计算病理任务
-4. [Zero-Cost Virtual RNA: Approximating Immunotherapy Signatures via Cross-Modal WSI Retrieval](/202608/04/2608.00544v1-zero-cost-virtual-rna-approximating-immunotherapy-signatures-via-cross-modal-wsi-retrieval)  
+   evidence：计算病理学可解释性框架，结合病理视觉语言模型与注意力多实例学习
+6. [Spatial proteomics guided by H&E-based AI reveals recurrence-risk niches in triple-negative breast cancer](/202608/07/2608.03145v1-spatial-proteomics-guided-by-he-based-ai-reveals-recurrence-risk-niches-in-triple-negative-breast-cancer)  
    标签：评分：9.0/10、query:cpath
-   evidence：跨模态H&E与RNA对齐用于胃癌虚拟转录组分析
-5. [From Patches to Evidence Balls: Class-Conditioned Evidence Retrieval for Few-Shot Whole Slide Image Classification](/202608/04/2608.01104v1-from-patches-to-evidence-balls-class-conditioned-evidence-retrieval-for-few-shot-whole-slide-image-classification)  
+   evidence：整合H&E人工智能风险热图与空间蛋白质组学预测三阴性乳腺癌复发
+7. [S$^3$-Diff: Structural Semantic Synergy Diffusion Model for High Fidelity Super Resolution of Pathological Images](/202608/07/2608.03540v1-s3-diff-structural-semantic-synergy-diffusion-model-for-high-fidelity-super-resolution-of-pathological-images)  
    标签：评分：9.0/10、query:cpath
-   evidence：基于多实例学习的少样本全切片图像分类与类条件证据检索
-6. [Harnessing Adversarial Distillation to Customise Debiased, Disease-Specific Pathology Foundation Models for Breast Cancer](/202608/04/2608.01356v1-harnessing-adversarial-distillation-to-customise-debiased-disease-specific-pathology-foundation-models-for-breast-cancer)  
+   evidence：面向病理图像的超分辨率重建，关注全切片图像的高保真复原
+8. [Assessment of Conditional Diffusion Model for Synthetic Histopathology Image Generation](/202608/07/2608.03990v1-assessment-of-conditional-diffusion-model-for-synthetic-histopathology-image-generation)  
    标签：评分：9.0/10、query:cpath
-   evidence：通过对抗蒸馏定制去偏、疾病特异的乳腺癌病理基础模型
-7. [Understanding Synergistic Interactions among Pathology Foundation Models via Adaptive Fusion](/202608/04/2608.01370v1-understanding-synergistic-interactions-among-pathology-foundation-models-via-adaptive-fusion)  
+   evidence：计算病理学，合成组织病理学图像生成与评估
+9. [Bag-of-Visual-Words for Spatial Mapping of Lung Adenocarcinoma Growth Patterns](/202608/07/2608.05074v1-bag-of-visual-words-for-spatial-mapping-of-lung-adenocarcinoma-growth-patterns)  
    标签：评分：9.0/10、query:cpath
-   evidence：多种病理基础模型的自适应融合
+   evidence：利用基础模型嵌入对全切片图像中的肺腺癌生长模式进行弱监督空间映射
 
 ### 速读区论文标签
-1. [Location-Aware Fine-Grained Representation Learning for Medical Vision Foundation Models](/202608/04/2608.00976v1-location-aware-fine-grained-representation-learning-for-medical-vision-foundation-models)  
+1. [Evaluating the Diagnostic Robustness of Vision-Language Models Under Visual and Textual Perturbations](/202608/07/2608.04885v1-evaluating-the-diagnostic-robustness-of-vision-language-models-under-visual-and-textual-perturbations)  
    标签：评分：8.0/10、query:cpath
-   evidence：用于医学视觉基础模型的定位感知细粒度表征学习
-2. [Few-Shot Concept Prompt Learning for Segmentation Foundation Models via Visual Grounding](/202608/04/2608.01663v1-few-shot-concept-prompt-learning-for-segmentation-foundation-models-via-visual-grounding)  
+   evidence：在组织病理验证的医学数据集上评估视觉-语言模型在扰动下的诊断稳健性
+2. [HERMES: A Hybrid Ensemble for Head-and-Neck Tumor Segmentation, TN Staging, and Recurrence-Free Survival on PET/CT](/202608/07/2607.26498v1-hermes-a-hybrid-ensemble-for-head-and-neck-tumor-segmentation-tn-staging-and-recurrence-free-survival-on-petct)  
    标签：评分：7.0/10、query:cpath
-   evidence：面向医学图像分割基础模型，提出少样本概念提示学习以弥补自然语言提示的性能缺陷
-3. [Searching for Robust Augmentations to Improve Out-of-Domain Generalization in Dermoscopic Skin Cancer Classification](/202608/04/2607.26765v1-searching-for-robust-augmentations-to-improve-out-of-domain-generalization-in-dermoscopic-skin-cancer-classification)  
+   evidence：肿瘤分割、T/N分期及生存预测，属于癌症诊断与预后
+3. [Learning to See Locally and Align Clinically with Pathology Semantics for Radiology Report Generation](/202608/07/2608.00279v1-learning-to-see-locally-and-align-clinically-with-pathology-semantics-for-radiology-report-generation)  
+   标签：评分：7.0/10、query:cpath
+   evidence：用于放射学报告生成的视觉-语言模型与临床对齐
+4. [NeuroMosaic: Anatomically Grounded Multimodal Large Language Modeling for Molecularly Aware Glioma Reasoning from 3D MRI and Clinical Narratives](/202608/07/2608.03187v1-neuromosaic-anatomically-grounded-multimodal-large-language-modeling-for-molecularly-aware-glioma-reasoning-from-3d-mri-and-clinical-narratives)  
+   标签：评分：7.0/10、query:cpath
+   evidence：面向胶质瘤推理的多模态大语言模型，联合3D MRI与临床文本
+5. [Morphology-Aware Implicit Super-Resolution Network for Pathological Images](/202608/07/2608.03664v1-morphology-aware-implicit-super-resolution-network-for-pathological-images)  
+   标签：评分：7.0/10、query:cpath
+   evidence：面向病理全切片图像的超分辨率方法，服务于精准诊断
+6. [Empirical investigation of 3D CT Foundation Models and Unsupervised Adaptation for Head and Neck Cancer Recurrence Prediction](/202608/07/2608.00071v1-empirical-investigation-of-3d-ct-foundation-models-and-unsupervised-adaptation-for-head-and-neck-cancer-recurrence-prediction)  
    标签：评分：6.0/10、query:cpath
-   evidence：搜索鲁棒数据增强以提升皮肤镜皮肤癌分类的域外泛化能力
-4. [Visual Distribution Anchoring for Efficient Prompt Tuning](/202608/04/2607.28967v1-visual-distribution-anchoring-for-efficient-prompt-tuning)  
+   evidence：三维CT基础模型用于头颈癌复发预测
+7. [Beyond Static Anchors: Bounded Prototype Conditioning for Language-Free Medical Anomaly Detection](/202608/07/2608.00442v1-beyond-static-anchors-bounded-prototype-conditioning-for-language-free-medical-anomaly-detection)  
    标签：评分：6.0/10、query:cpath
-   evidence：基于视觉分布锚定的免训练提示调优方法，适用于视觉语言模型
-5. [Structured Proxy Features for Multimodal NSCLC Survival Prediction from Pretreatment CT](/202608/04/2608.00446v1-structured-proxy-features-for-multimodal-nsclc-survival-prediction-from-pretreatment-ct)  
+   evidence：基于CLIP视觉-语言参照的医学异常检测，并去语言化适配
+8. [PixVL: Self-Supervised Training of Pixel-Level MLLMs via a Unified Mask--Text Consistency Cycle](/202608/07/2608.01354v1-pixvl-self-supervised-training-of-pixel-level-mllms-via-a-unified-mask--text-consistency-cycle)  
    标签：评分：6.0/10、query:cpath
-   evidence：结合CT、影像组学与临床变量的多模态非小细胞肺癌生存预测
-6. [Representation Transfer of Foundation Models for Ultra-Widefield Retinal Imaging](/202608/04/2608.00586v1-representation-transfer-of-foundation-models-for-ultra-widefield-retinal-imaging)  
+   evidence：通过掩码-文本一致性周期自监督训练像素级多模态大语言模型
+9. [Open-Linguistic Concept Unified Learning for Cross-Site Interpretable Dermatology Image Diagnosis](/202608/07/2608.03225v1-open-linguistic-concept-unified-learning-for-cross-site-interpretable-dermatology-image-diagnosis)  
    标签：评分：6.0/10、query:cpath
-   evidence：面向医学影像的基础模型表征迁移与多示例学习
+   evidence：利用基础视觉-语言模型进行开放语言概念统一学习，支持跨中心可解释皮肤病诊断
+10. [DisMix: Order-Aware Mixup for Medical Imaging via Disentangling Ordinal and Non-Ordinal Features](/202608/07/2608.04652v1-dismix-order-aware-mixup-for-medical-imaging-via-disentangling-ordinal-and-non-ordinal-features)  
+   标签：评分：6.0/10、query:cpath
+   evidence：面向医学影像序数分类的顺序感知混合方法，可应用于癌症分级诊断
 
 
 <div class="dpr-home-promo-card">
