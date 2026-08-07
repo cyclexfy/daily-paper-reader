@@ -1,0 +1,735 @@
+Title: Beyond Relevance: Bayesian Evidence Acquisition for Agentic Whole-Slide Image Reasoning
+
+URL Source: https://arxiv.org/pdf/2608.05757v1
+
+Published Time: Fri, 07 Aug 2026 00:41:19 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+# Beyond Relevance: Bayesian Evidence Acquisition for Agentic Whole-Slide Image Reasoning 
+
+Bryan Wong 1,2 ∗, Xun Xu 2,3 †, Huazhu Fu 2, Nancy F. Chen 2,3 , Mun Yong Yi 1†
+
+1Korea Advanced Institute of Science and Technology (KAIST) 
+
+2Institute of Advanced Intelligence and Computing (IAIC), A*STAR 
+
+3Centre for Frontier AI Research (CFAR), A*STAR 
+
+Abstract 
+
+Whole-slide image (WSI) reasoning requires an agent to se-quentially acquire visual evidence before answering a di-agnostic question. Existing training-free agentic frameworks formulate this process as iterative patch retrieval based on semantic relevance to the question. However, semantic rele-vance does not necessarily imply diagnostic informativeness in computational pathology, where competing diagnoses of-ten exhibit similar and overlapping morphological patterns, making many patches semantically relevant yet diagnostically non-discriminative. Consequently, relevance-based retrieval may acquire redundant observations and leave diagnostic uncertainty unresolved. We propose BEACON , a plug-and-play agentic framework that reformulates WSI reasoning as a Bayesian evidence acquisition problem. BEACON maintains a probabilistic belief over competing diagnostic hypotheses and sequentially acquires patches by maximizing expected in-formation gain (EIG) to reduce diagnostic uncertainty. An ev-idence controller then determines whether to answer, acquire additional evidence, or perform higher-resolution inspection. Built entirely from off-the-shelf foundation models, BEACON requires no additional training or fine-tuning. Extensive zero-shot experiments across five WSI-VQA benchmarks demon-strate that BEACON achieves the strongest overall perfor-mance among training-free agentic frameworks while substan-tially improving evidence acquisition efficiency, establishing Bayesian evidence acquisition as a principled paradigm for uncertainty-aware agentic WSI reasoning. The code is avail-able at https://github.com/bryanwong17/BEACON. 
+
+1 Introduction 
+
+Multimodal large language models (MLLMs) have recently demonstrated remarkable capabilities in vision-language rea-soning by integrating visual perception with the reasoning ability of large language models (LLMs) (Alayrac et al. 2022; Liu et al. 2023). These advances have substantially improved performance on multimodal reasoning tasks, including visual question answering (VQA) (Antol et al. 2015; Goyal et al. 2017). However, extending MLLMs to whole-slide images (WSIs) remains fundamentally challenging. Unlike conven-tional images, WSIs are gigapixel in scale and are typically divided into thousands of image patches for computational processing (Cruz-Roa et al. 2014; Hou et al. 2016; Lu et al. 
+
+> ∗
+
+This work is partially done during attachment with A*STAR. 
+
+> †
+
+Corresponding authors. (b) Existing Agentic WSI Reasoning               
+
+> (Relevance-based)
+> Q: What is the tumor subtype?
+> ?
+> Iterative Relevant Patch Retrieval
+> Round 1 Round 2 Round 3
+> ⋯
+> Round T
+> Diagnostic Belief After Trounds
+> Adenocarcinoma 40%
+> Squamous Cell 35%
+> Small Cell 25%
+> High Uncertainty Remains
+> (a) Diagnostic Ambiguity in Computational Pathology
+> Relevance ≠ Diagnostic
+> Informativeness
+> (c) BEACON (Bayesian Evidence Acquisition)
+> Adenocarcinoma 45%
+> Squamous Cell 40%
+> Small Cell 15%
+> Uncertainty
+> (High)
+> expected
+> to reduce uncertainty
+> Updated Belief After 1~2 Rounds
+> Adenocarcinoma 92%
+> Squamous Cell 6%
+> Small Cell 2%
+> Uncertainty
+> (Low)
+> Diagnostic Uncertainty Resolved
+> EIG-Based Patch Acquisition
+> Requires Many Acquisition Rounds
+> Morphologically Similar Diagnoses
+> All Relevant, Yet Non-Discriminative
+> Diagnostic Ambiguity Remains
+> Maintain Belief Over Diagnoses
+> Fewer Acquisition Rounds
+> Uncertainty
+> (High)
+
+Figure 1: (a) Morphologically similar diagnoses are all se-mantically relevant yet diagnostically non-discriminative, re-sulting in diagnostic ambiguity. (b) Existing agentic WSI reasoning frameworks iteratively retrieve relevant but non-discriminative patches, leaving diagnostic uncertainty un-resolved. (c) BEACON acquires evidence by maximizing expected information gain (EIG), effectively reducing diag-nostic uncertainty in fewer acquisition rounds. 2021). Because current MLLMs cannot process all image patches simultaneously within their context window, WSI reasoning cannot rely on exhaustive slide observation. Instead, WSI reasoning requires adaptively selecting which image patches to inspect in order to answer the in-put question, naturally formulating the problem as sequen-tial decision making. Existing approaches can be broadly categorized into query-agnostic and query-aware methods. Query-agnostic methods rely on fixed, question-independent visual inputs, including downsampled thumbnail images, randomly sampled patches combined through majority vot-ing, and aggregated patch features used by recent WSI-level MLLMs (Chen et al. 2025b; Liang et al. 2025). However, they cannot adaptively acquire the fine-grained morphologi-cal evidence required for diagnosis. In contrast, query-aware methods dynamically acquire visual evidence conditioned on the input question and intermediate reasoning state. More recently, training-free agentic frameworks, such as PathA-gent (Chen et al. 2025a) and GIANT (Buckley et al. 2025), iteratively retrieve image patches based on the input question and accumulated evidence, enabling adaptive exploration of gigapixel WSIs. Consequently, agentic frameworks have arXiv:2608.05757v1 [cs.CV] 6 Aug 2026 emerged as a promising paradigm for WSI reasoning. Despite their different acquisition mechanisms, existing agentic frameworks largely rely on the same acquisition principle: selecting patches based on their semantic rele-vance to the question or previously acquired evidence. Al-though relevance-based strategies can efficiently reduce the search space, they implicitly assume that semantically rel-evant patches are diagnostically informative. This assump-tion often fails in computational pathology, where competing diagnostic hypotheses may exhibit similar and overlapping morphological patterns (Allsbrook Jr et al. 2001; Elmore et al. 2015), causing many patches to appear relevant while providing limited evidence for differentiating among them (Figure 1(a)). Consequently, existing agentic frameworks may acquire relevant yet non-discriminative patches, leav-ing diagnostic uncertainty unresolved after multiple rounds of exploration (Figure 1(b)). We therefore argue that the central challenge in agentic WSI reasoning is not merely to narrow the search space based on semantic relevance but to identify observations that are expected to reduce diagnostic uncertainty. Motivated by this perspective, we formulate sequential patch acqui-sition as a Bayesian decision-theoretic problem (Chaloner and Verdinelli 1995; Rainforth et al. 2024), maintaining a probabilistic belief over competing diagnostic hypotheses. Candidate patches are then evaluated according to their ex-pected information gain (EIG) (Lindley 1956; Houlsby et al. 2011), thereby prioritizing observations that are most likely to resolve diagnostic uncertainty rather than those merely semantically relevant (Figure 1(c)). Based on this formulation, we propose BEACON 
+
+(Bayesian Evidence Acquisition for CO mputational pathol-ogy reaso Ning), a training-free, plug-and-play framework for agentic WSI reasoning that explicitly represents competing diagnostic hypotheses and performs uncertainty-aware patch acquisition. An evidence controller assesses the acquired ev-idence and determines whether it is sufficient to answer the question, whether additional patches should be acquired, or whether selected patches require higher-resolution inspec-tion. Built entirely from off-the-shelf foundation models, BEACON requires no training or fine-tuning. Our key contributions are as follows: 
+
+• We formulate sequential patch acquisition in agentic WSI reasoning as a Bayesian evidence acquisition problem over competing diagnostic hypotheses and diagnostic un-certainty. 
+
+• We propose BEACON , a training-free, plug-and-play agentic framework that performs uncertainty-aware patch acquisition by combining Bayesian belief estimation with expected information gain (EIG), without requiring addi-tional training or fine-tuning. 
+
+• Extensive zero-shot experiments across five WSI-VQA benchmarks and diverse foundation model backbones demonstrate that BEACON achieves the strongest over-all performance among training-free agentic frameworks while requiring substantially fewer acquisition rounds. 
+
+2 Related Work 
+
+Multimodal Models for WSI Analysis. Pathology VLMs such as PLIP (Huang et al. 2023), QuiltNet (Ikezogwo et al. 2023), and CONCH (Lu et al. 2024) provide patch-level em-beddings for zero-shot retrieval, while pathology MLLMs, including Quilt-LLaVA (Seyfioglu et al. 2024), PathGen-LLaVA (Sun et al. 2025b), and Patho-R1 (Zhang et al. 2026), enable patch-level visual reasoning. At the slide level, ViLa-MIL (Shi et al. 2024) and HiVE-MIL (Wong et al. 2025) com-bine VLMs with MIL for slide-level prediction but are limited to classification and subtyping rather than general-purpose tasks such as VQA. Because entire WSIs cannot fit within the context window of current MLLMs, WSI-level methods rely on fixed, question-independent inputs, including thumb-nails, randomly sampled patches, or aggregated patch em-beddings projected into the LLM as in SlideChat (Chen et al. 2025b) and WSI-LLaVA (Liang et al. 2025). Consequently, question-specific evidence may never be observed, motivat-ing adaptive patch acquisition at inference time. 
+
+Agentic Gigapixel WSI Reasoning. Agentic frameworks iteratively acquire visual evidence rather than operating on fixed inputs. Training-based methods, such as CPathA-gent (Sun et al. 2025a), PathFinder (Ghezloo et al. 2025), and SlideSeek (Weishaupt et al. 2025), learn pathology-specific navigation policies but require costly curated training data. In contrast, training-free methods, including PathAgent (Chen et al. 2025a) and GIANT (Buckley et al. 2025), leverage off-the-shelf VLMs and MLLMs without additional train-ing. PathAgent retrieves patches based on vision-language similarity, whereas GIANT predicts patch coordinates con-ditioned on previously observed evidence using an MLLM. Despite these methodological differences, both ap-proaches implicitly assume that semantically relevant ob-servations are sufficient for effective evidence acquisition. This assumption is problematic in computational pathol-ogy, where competing diagnoses often exhibit subtle and overlapping morphological patterns. Consequently, seman-tically relevant patches may provide limited discrimina-tive evidence and leave diagnostic uncertainty unresolved. Prior work in active learning (Gal, Islam, and Ghahramani 2017) and Bayesian optimal experimental design (Chaloner and Verdinelli 1995; Rainforth et al. 2024) has shown that uncertainty-aware acquisition can prioritize informa-tive observations in sequential decision-making. However, these principles remain largely unexplored in gigapixel WSI reasoning. We therefore formulate patch acquisition as a Bayesian evidence acquisition problem targeting this ex-pected reduction in diagnostic uncertainty. 
+
+3 Methodology 
+
+3.1 Overview of BEACON 
+
+We formulate WSI reasoning as a Bayesian evidence acqui-sition problem. Unlike existing agentic frameworks that treat semantic relevance as the acquisition objective, BEACON uses relevance-based retrieval only to construct a compact candidate space and performs uncertainty-aware patch acqui-sition by maintaining a probabilistic belief over competing diagnostic hypotheses. Stage 2                             
+
+> Belief Construction
+> Competing Diagnostic Hypotheses { hk}
+> Hypothesis 1 (e.g., Adenocarcinoma)
+> Hypothesis 2 (e.g., Squamous Cell Carcinoma)
+> …
+> Hypothesis K(e.g., Small Cell Carcinoma)
+> Reranker
+> Prior Belief πt
+> …
+> Σkπt(k) = 1
+> Support Scores Rt(x, k)
+> Patch h1h2…hK
+> 0.82 0.12 0.06
+> 0.21 0.74 0.05
+> 0.07 0.15 0.78
+> …
+> Iterative Evidence Acquisition Loop
+> Round t+ 1 ••• Round ≤ TRound t
+> Stage 4
+> Evidence Controller
+> Is evidence sufficient?
+> Yes No, need
+> more evidence
+> No, need
+> more detail
+> Final Answer
+> Continue Retrieval
+> Zoom-In (Higher Mag)
+> LLM
+> Final Answer
+> Stage 1
+> Input
+> Diagnostic
+> Question
+> What is the tumor subtype?
+> Whole-Slide Image
+> (WSI)
+> 5x Patches
+> …
+> …
+> …
+> Stage 1
+> Coarse Candidate Retrieval
+> Text Encoder Image Encoder
+> Similarity Search
+> (Top-M)
+> Candidate Patches
+> …
+> Stage 3
+> Bayesian Evidence Acquisition
+> Compute EIG for Each Candidate Patch
+> Patch 1
+> …
+> 0.42
+> 0.18
+> 0.35
+> 0.05
+> 00.25 0.5
+> Expected Information Gain (EIG)
+> Patch 2
+> Patch 3
+> Patch M
+> Select Top-B Patches by EIG
+> Describe Patches
+> •••
+> MLLM
+
+Figure 2: Overview of the proposed BEACON agentic framework. Each acquisition round consists of four stages. (1) Coarse Candidate Retrieval (Section 3.3) uses a pathology VLM to restrict the search space to a compact candidate pool con-ditioned on the current retrieval query. (2) Belief Construc-tion (Section 3.4) estimates a probabilistic belief over com-peting diagnostic hypotheses from the retrieved candidates. 
+
+(3) Bayesian Evidence Acquisition (Section 3.5) evaluates candidate patches by their expected information gain and se-lects those providing the greatest expected uncertainty reduc-tion. Finally, (4) Evidence Control (Section 3.6) determines whether the accumulated evidence is sufficient to answer the question, whether higher-resolution inspection is required, or whether further exploration is needed. Figure 2 illustrates the overall framework, while the pseudocode is provided in the supplementary material. 
+
+3.2 Problem Formulation 
+
+A WSI is represented as a collection of image patches X =
+
+{xn}Nn=1 , where each patch xn is associated with spatial coordinates cn. Given a diagnostic question q and answer candidates Y = {y1, . . . , y K }, the objective is to predict the correct answer y∗ ∈ Y .We treat WSI reasoning as sequential evidence acquisition. At round t, let St, Ut denote the acquired and unobserved patch sets, with St ∩U t = ∅, St ∪U t = X . Starting from S1 =
+
+∅, BEACON iteratively acquires informative patches from 
+
+Ut, with each acquired patch yielding a question-specific description ˜dn = fMLLM (xn, q, Y, c n, mag) , where mag is the patch magnification level. 
+
+3.3 Stage 1: Coarse Candidate Retrieval 
+
+Evaluating every unobserved patch under the Bayesian ac-quisition rule is computationally prohibitive for gigapixel WSIs. BEACON therefore first performs coarse candidate retrieval to efficiently reduce the search space by identifying patches that are semantically relevant to the current query before Bayesian evidence acquisition. At round t, the retrieval query rt is initialized as the input question and iteratively refined by the evidence controller (Stage 3.6). Let ϕT (·) and ϕI (·) denote the frozen text and image encoders of the VLM, respectively. Given the precom-puted 5× patch embeddings ex = ϕI (x) ∈ Rd, the VLM encodes rt into a text embedding ϕT (rt) ∈ Rd, and cosine similarity is computed as 
+
+st(x) = ϕT (rt)⊤ex
+
+∥ϕT (rt)∥2 ∥ex∥2
+
+, x ∈ U t, (1) The top-M patches are selected to form the candidate pool, 
+
+Ct = TopM x∈U t st(x), M ≪ |U t|, (2) Subsequent Bayesian belief construction and evidence ac-quisition are performed exclusively over Ct, substantially re-ducing computational cost while enabling uncertainty-aware patch selection. 
+
+3.4 Stage 2: Belief Construction 
+
+BEACON next constructs a probabilistic belief over the com-peting diagnostic hypotheses, providing the prior required for Bayesian evidence acquisition. For each answer candidate yk ∈ Y , we define a diag-nostic hypothesis hk asserting that yk is correct. Negation-style questions invert the hypothesis template, and composite choices (e.g., “all of the above”) are expanded into logi-cal combinations of their constituent hypotheses, yielding a mutually exclusive, collectively exhaustive set {h1, . . . , h K }
+
+over which a belief can be defined (see the supplementary material for details). For every candidate patch x ∈ C t, a frozen reranker fR es-timates the support that the visual evidence provides for each hypothesis by contrasting its output logits for the affirmative (“yes”) and negative (“no”) response tokens: 
+
+Rt(x, k ) = exp( ℓyes (dx, h k, q )) exp( ℓyes (dx, h k, q )) + exp( ℓno (dx, h k, q )) ,
+
+(3) where dx is the offline-generated description of patch x;
+
+Rt(x, k ) is close to 1 when x supports hk and close to 0
+
+when it contradicts it. Since these scores are not calibrated, we retain only their relative support via L1 normalization, 
+
+¯Rt(x, k ) = Rt(x, k )
+
+PKℓ=1 Rt(x, ℓ ) ,
+
+> K
+
+X
+
+> k=1
+
+¯Rt(x, k ) = 1 , (4) so that ¯Rt(x, ·) is a categorical distribution over hypotheses for patch x. Aggregating over the candidate pool gives the belief, 
+
+πt(k) = ¯μt(k)
+
+PKℓ=1 ¯μt(ℓ) , s.t ¯μt(k) = 1
+
+M
+
+X
+
+> x∈C t
+
+¯Rt(x, k ),
+
+(5) where M = |C t| denotes the number of candidate patches in the retrieved candidate pool, and πt(k) is the current belief that hk is correct, serving as the prior for the next stage. 
+
+3.5 Stage 3: Bayesian Evidence Acquisition 
+
+Given the prior belief πt, BEACON selects the candidate patches expected to provide the greatest reduction in diag-nostic uncertainty. Specifically, each candidate patch is eval-uated according to the expected reduction in uncertainty that would result from inspecting it. Let Y ∈ Y denote the unknown correct diagnosis, whose prior distribution is given by 
+
+P (Y = yk) = πt(k). (6) For every candidate patch x ∈ C t, define a binary observa-tion variable Ox ∈ { +, −} , where Ox = + indicates that inspecting patch x provides evidence supporting the correct diagnosis. The normalized hypothesis support is interpreted as the observation likelihood, 
+
+P (Ox = + | Y = yk) ≜ ¯Rt(x, k ),P (Ox = − | Y = yk) = 1 − ¯Rt(x, k ). (7) Marginalizing over the prior yields the predictive probability of each observation, 
+
+P (Ox = +) = 
+
+> K
+
+X
+
+> k=1
+
+¯Rt(x, k )πt(k),P (Ox = −) = 1 − P (Ox = +) . (8) Once patch x is observed, the prior belief is updated accord-ing to Bayes’ rule, 
+
+P (Y = yk | Ox) = P (Ox | Y = yk) P (Y = yk)
+
+P (Ox) , (9) which yields the posterior beliefs 
+
+πt(k | Ox = +) = ¯Rt(x, k ) πt(k)
+
+P (Ox = +) ,πt(k | Ox = −) = (1 − ¯Rt(x, k )) πt(k)
+
+P (Ox = −) . (10) Diagnostic uncertainty before observing x is quantified by the entropy of the current belief, H(πt). Since the ob-servation outcome is unknown in advance, we evaluate the expected posterior entropy after observing x, weighted by the predictive probabilities in Eq. (8). The expected information gain (EIG) is therefore 
+
+EIG t(x) = H(πt) −
+
+h
+
+P (Ox=+) H πt(· | Ox=+) 
+
++ P (Ox=−) H πt(· | Ox=−)i
+
+, (11) where H(πt) = − PKk=1 πt(k) log πt(k) denotes the Shan-non entropy of the current belief. Equivalently, 
+
+EIG t(x) = H(πt)
+
+| {z } 
+
+> uncertainty now
+
+− EOx
+
+H(πt(· | Ox)) | {z } 
+
+> expected uncertainty after observing x
+
+.
+
+(12) By the chain rule of entropy, it can equivalently be written as 
+
+EIG t(x) = H(Y ) − H(Y | Ox) = I(Y ; Ox), (13) where I(Y ; Ox) denotes the mutual information between the unknown answer hypothesis and the potential observation obtained from inspecting patch x, following the information-theoretic formulation of Bayesian experimental design (Lind-ley 1956; Chaloner and Verdinelli 1995; Houlsby et al. 2011). This formulation shows that EIG quantifies the expected re-duction in diagnostic uncertainty, so patches expected to pro-vide greater discrimination among competing hypotheses re-ceive higher acquisition scores. At each round, the top-B candidate patches with the highest EIG scores are selected for inspection, Bt =TopB x∈C t EIG t(x). These patches are then passed to the MLLM to obtain question-specific descriptions, which con-stitute the newly acquired evidence for the current round, 
+
+Et = {fMLLM (x, q, Y, c x, mag) | x ∈ B t}, where cx and 
+
+mag denote the spatial coordinates and magnification level of patch x, respectively. 
+
+3.6 Stage 4: Evidence Control 
+
+We employ a frozen reasoning LLM Ψ to adaptively regulate the evidence acquisition process based on the accumulated evidence, determining whether the current evidence is suffi-cient for diagnosis or whether additional evidence acquisition is required (Chen et al. 2025a). 
+
+(state t, r t+1 ) = Ψ( Et, q, Y), (14) where state t ∈ { Sufficient , Continue , Zoom } denotes the control action and rt+1 is the refined retrieval query. Stage 3.5 determines which evidence to acquire, whereas the controller determines whether additional acquisition is needed and the next action. The controller performs one of three actions: 
+
+• Sufficient : The accumulated evidence is considered sufficient to answer the question, and the final answer is generated. 
+
+• Continue : The missing diagnostic evidence is summa-rized into a refined retrieval query rt+1 to guide the next round of coarse candidate retrieval (Stage 3.3). Mode Method ExpertVQA SlideBench TCGA GTEx PANDA Avg.                                                                                                                                    
+
+> ACC ACC BACC BACC BACC Thumbnail Qwen2.5-VL-Instruct-7B 35.16 42.64 5.24 14.57 15.82 22.69 LLaVA-v1.5-7B [CVPR‘24] 25.78 32.99 4.27 13.68 16.06 18.56 LLaVA-Med-1.5-7B [NeurIPS‘23] 36.72 24.87 3.33 5.00 16.06 17.20 MedGemma-1.5-4B 39.84 33.50 3.95 22.00 17.31 23.32 Quilt-LLaVA-1.5-7B [CVPR‘24] 34.38 31.98 5.91 11.40 17.55 20.24 Patho-R1-7B [AAAI‘26] 39.06 30.96 14.09 16.59 18.88 23.92 Patch Majority Vote Qwen2.5-VL-Instruct-7B 34.38 42.64 7.53 13.00 15.67 22.64 LLaVA-v1.5-7B [CVPR‘24] 28.12 34.01 3.33 19.13 16.67 20.25 LLaVA-Med-1.5-7B [NeurIPS‘23] 39.06 24.87 3.33 5.71 11.64 16.92 MedGemma-1.5-4B 35.94 31.98 3.75 19.66 17.31 21.73 Quilt-LLaVA-1.5-7B [CVPR‘24] 34.38 32.99 4.55 26.15 16.67 22.95 Patho-R1-7B [AAAI‘26] 32.81 32.49 8.83 28.44 15.67 23.65 WSI Features SlideChat [CVPR‘25] 38.89 70.56 ∗4.35 5.00 16.67 27.09 WSI-LLaVA [ICCV‘25] 44.53 56.85 ∗13.72 18.97 16.86 30.19 Agentic (Patho-R1-7B) GIANT ‡43.75 53.81 4.77 17.45 19.57 27.87 PathAgent [ECCV‘26] 42.19 51.27 8.14 46.10 16.41 32.82
+> BEACON (ours) 46.09 55.84 15.27 48.90 22.34 37.69
+> Agentic (GPT-5) GIANT (5 iters.) 46.88 51.27 11.36 45.39 16.41 34.26 GIANT (20 iters.) 54.69 53.81 15.27 45.67 19.54 37.80 PathAgent [ECCV‘26] 57.03 50.76 21.20 54.49 18.21 40.34
+> BEACON (ours) 53.12 58.88 22.89 65.27 17.52 43.54
+
+Table 1: Zero-shot comparison on five MultiPathQA benchmarks. The best and second-best results are highlighted in bold and underlined. ∗: both methods are trained on in-domain (TCGA) data, reported for reference only. GIANT ‡: Patho-R1-7B lacks multi-turn tool-calling, so we report single-turn reasoning. 
+
+• Zoom : Higher-resolution inspection is performed by sub-dividing an acquired patch, using the VLM to select an in-formative sub-patch, and obtaining an additional MLLM description to answer the question. 
+
+4 Experiments 
+
+4.1 Experimental Setup 
+
+Unless otherwise stated, PLIP (Huang et al. 2023) is used for coarse candidate retrieval, Qwen3-Reranker-4B (Zhang et al. 2025) for belief construction, and Quilt-LLaVA (Sey-fioglu et al. 2024) for offline generic patch description gen-eration. For question-conditioned patch description and ev-idence control, we consider two backbone configurations in Table 1: (1) Patho-R1-7B (Zhang et al. 2026) with Qwen3-4B (Yang et al. 2025), which serves as the default setting, and (2) GPT-5 (Singh et al. 2025), which replaces both com-ponents. Agentic baselines use the corresponding foundation model configurations for fair comparison. We fix the coarse candidate pool size to M = 25 , acquire B = 5 patches per round, and set the maximum acquisition budget to T = 5 
+
+across all experiments. We follow PathAgent (Chen et al. 2025a) for WSI preprocessing and patch extraction. All ex-periments are conducted on Ubuntu 20.04 using two NVIDIA RTX A5000 GPUs. GPT-5 API costs are estimated using OpenRouter pricing ($1.25/$10 per 1M input/output tokens) without prompt-caching discounts. 
+
+4.2 Comparison with State-of-the-Art Methods 
+
+Datasets and Evaluation. We evaluate BEACON on Mul-tiPathQA (Buckley et al. 2025), which comprises five WSI-VQA benchmarks with 932 WSI-question pairs cov-ering five clinical tasks: TCGA ExpertVQA (128, expert-authored questions), TCGA SlideBench (197, adopted from SlideChat (Chen et al. 2025b)), TCGA (Weinstein et al. 2013) (221, 30-way cancer-type diagnosis), GTEx (Carithers et al. 2015) (190, 20-way organ classification), and PANDA (Bul-ten et al. 2022) (196, 6-way ISUP grading). We report accu-racy (ACC) for TCGA ExpertVQA and TCGA SlideBench, and balanced accuracy (BACC) for TCGA, GTEx, and PANDA. Prior work (Chen et al. 2025a) uses string-similarity matching to map model outputs to answer choices. To avoid format-dependent mismatches and ensure consistent evalu-ation, we use an LLM-based evaluator to infer the intended answer choice for all methods (see supplementary materials). 
+
+Baseline Methods. We compare BEACON against 10 base-lines spanning three categories: (1) query-agnostic methods across six MLLM backbones (Bai et al. 2025; Liu et al. 2024; Li et al. 2023; Seyfioglu et al. 2024; Zhang et al. 2026; Sellergren et al. 2026) under the Thumbnail and Patch Ma-jority Vote settings, following prior work (Weishaupt et al. 2025; Chen et al. 2025b); (2) WSI-level trained MLLMs (SlideChat (Chen et al. 2025b) and WSI-LLaVA (Liang et al. 2025)); and (3) training-free agentic frameworks (PathA-gent (Chen et al. 2025a) and GIANT (Buckley et al. 2025)). 
+
+Main Results. As shown in Table 1, BEACON achieves the strongest overall zero-shot performance among training-Method ExpertVQA SlideBench PANDA ACC ACC BACC Random 38.28 49.23 15.67 PLIP 39.84 51.78 19.98 
+
+BEACON (PLIP) 46.09 55.84 22.34 
+
+CONCH 39.84 50.76 17.11 
+
+BEACON (CONCH) 45.31 52.79 23.40 
+
+Table 2: Comparison of Bayesian evidence acquisition with random sampling and relevance-based retrieval under the default acquisition budget ( B = 5 ). free agentic frameworks on MultiPathQA. Under the default Patho-R1-7B setting, BEACON achieves the best perfor-mance across all five benchmarks, outperforming PathAgent by 4.87% on average. These gains transfer to GPT-5, where BEACON achieves the highest average performance, outper-forming PathAgent by 3.20% on average. Together, these re-sults demonstrate the effectiveness of Bayesian evidence ac-quisition across both pathology-specific and general-purpose foundation models. 
+
+4.3 Bayesian Evidence Acquisition 
+
+Acquisition Strategy. Table 2 compares Bayesian evidence acquisition against random sampling and relevance-based re-trieval at the default acquisition budget ( B = 5 ). Bayesian evidence acquisition consistently outperforms both strate-gies across all benchmarks and pathology VLM backbones (PLIP (Huang et al. 2023) and CONCH (Lu et al. 2024)), with 2.03%–6.25% gains over relevance-based retrieval. These results suggest that semantic relevance alone is insufficient for selecting diagnostically informative evidence. We fur-ther investigate why semantic relevance is a poor proxy for diagnostic informativeness in Section 4.4. 
+
+Component Ablation. Table 3 removes each component in turn: (1) coarse retrieval (Stage 1), (2) EIG-based acquisition (Stage 3), (3) both belief construction and EIG (Stage 2+3), and (4) evidence control (Stage 4); see the supplementary ma-terial for detailed ablation settings. Removing any component degrades performance, indicating that all four stages con-tribute to BEACON’s overall effectiveness. The largest drop occurs when both belief construction and EIG are removed, confirming that Bayesian belief modeling and uncertainty-aware evidence acquisition are the primary drivers of BEA-CON’s performance. 
+
+Effect of Acquisition Budget. Figure 3 sweeps the per-round acquisition budget B ∈ { 1, 3, 5} across two VLMs and datasets. Larger acquisition budgets generally lead to higher accuracy, with the best performance achieved at B = 5 across all settings, suggesting that EIG-based acquisition benefits from inspecting additional informative evidence. 
+
+4.4 Why Does BEACON Work? 
+
+Table 2 shows that Bayesian evidence acquisition outper-forms relevance-based retrieval. To understand why, we com-pare both strategies under identical backbones, candidate pools, and belief states, differing only in the patch selection 
+
+Method ExpertVQA SlideBench ACC ACC 
+
+BEACON (Full) 46.09 55.84 
+
+w/o Stage 1 (Coarse Retrieval) 44.53 51.78 w/o Stage 3 (EIG) 45.31 53.30 w/o Stage 2+3 (Belief & EIG) 39.84 51.78 w/o Stage 4 (Evidence Control) 44.53 52.28 
+
+Table 3: Component ablation of BEACON by removing in-dividual components. B = 1 B = 3 B = 5 
+
+> Acquisition budget
+> 35
+> 40
+> 45
+> 50
+> 55
+> ACC (%)
+> BEACON (PLIP), ExpertVQA
+> BEACON (PLIP), SlideBench
+> BEACON (CONCH), ExpertVQA
+> BEACON (CONCH), SlideBench
+
+Figure 3: Accuracy of the proposed Bayesian evidence ac-quisition rule as the per-round acquisition budget B grows. criterion. Figure 4 summarizes the analysis over 329 ac-quisition rounds from ExpertVQA and SlideBench; detailed settings are provided in the supplementary material. 
+
+Relevance Does Not Predict Diagnostic Informativeness. 
+
+We rank the same candidate patches using cosine similarity (Eq. (1)) and EIG (Eq. (11)), which serves as our measure of diagnostic informativeness. Figure 4(a) shows that the two rankings are essentially uncorrelated (mean Spearman 
+
+ρ = −0.007 across 329 rounds), indicating that semantic relevance is a poor proxy for diagnostic informativeness. 
+
+EIG Selects More Informative Evidence. We next ask whether explicitly optimizing for information gain leads to more informative evidence acquisition. Figure 4(b) shows that EIG-selected patches achieve a 2.56 × larger expected uncertainty reduction than relevance-selected patches. 
+
+The Advantage is Adaptive to Diagnostic Uncertainty. 
+
+While EIG consistently selects more informative evidence, its benefit depends on the underlying diagnostic uncertainty. Stratifying acquisition rounds by prior diagnostic uncertainty 
+
+H(πt), Figure 4(c) shows that EIG’s advantage becomes more pronounced as diagnostic uncertainty increases. In low-uncertainty cases, the two strategies achieve comparable evi-dential diversity (Q1: 13% vs. 16% ). However, when multiple diagnostic hypotheses remain plausible, EIG increasingly se-lects patches that better discriminate among them, achieving 
+
+2.60 × higher evidential diversity in the most uncertain cases (Q4: 25% vs. 9% ). This matches the Bayesian formulation: the benefit of EIG is naturally limited when the belief is concentrated, but increases as diagnostic uncertainty grows. −0.5 0.0 0.5   
+
+> Spearman correlation
+> (relevance rank vs. EIG rank)
+> 0
+> 10
+> 20
+> 30
+> 40
+> 50
+> 60
+> Rounds
+> mean ρ= -0.007
+
+a      
+
+> 0% 10% 20% 30% 40% 50% 60%
+> Expected reduction in
+> diagnostic uncertainty
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Rounds
+
+b   
+
+> 2.56 ×greater on average
+> Relevance retrieval
+> BEACON (EIG)
+> Q1
+> (confident)
+> Q2 Q3 Q4
+> (uncertain)
+> Prior diagnostic uncertainty
+> 0%
+> 10%
+> 20%
+> 30%
+> 40%
+> Batch diversity
+> 2.60 ×
+
+c
+
+> Relevance retrieval
+> BEACON (EIG)
+
+Figure 4: Analysis of BEACON’s acquisition strategy. (a) Relevance and EIG rankings are nearly independent. (b) EIG-selected patches achieve greater uncertainty reduction. (c) EIG provides larger gains as diagnostic uncertainty increases. ExpertVQA                
+
+> SlideBench
+> TCGA
+> GTEx
+> PANDA
+> 0
+> 25
+> 50
+> 75
+> 100
+> Resolved in 1 round (%)
+> 77
+> 58 48
+> 67
+> 44
+> 96
+> 85 86
+> 100 97
+> (a)
+> PathAgent BEACON
+> 15 30 45
+> API cost ($, per benchmark)
+> 20
+> 40
+> 60
+> Acc. / Bal. Acc. (%)
+> (b)
+> ← better
+> ↑ better
+> BEACON $20 / 43.5% GIANT $37 / 37.8% PathAgent $38 / 40.3%
+> ExpertVQA SlideBench TCGA GTEx PANDA
+
+Figure 5: (GPT-5 setting) (a) BEACON resolves more cases within a single acquisition round than PathAgent. (b) BEA-CON achieves the best cost–accuracy trade-off, outperform-ing PathAgent and GIANT ( ⋆: five-benchmark average cost/accuracy). 
+
+4.5 Evidence Acquisition Efficiency 
+
+Beyond accuracy, we evaluate whether informative evidence acquisition helps agents reach predictions more quickly. 
+
+Acquisition Efficiency. BEACON resolves 85 –100% of cases within a single acquisition round across all bench-marks (Figure 5a), compared with only 44 –77% for PathA-gent, indicating that EIG-based acquisition reaches confident decisions in fewer rounds. 
+
+Cost–Accuracy Trade-off. By requiring fewer acquisition rounds, BEACON also achieves the best cost–accuracy trade-off across the five benchmarks (Figure 5b), reducing API cost by 46 .6% and 44 .3% compared with PathAgent and GIANT, 
+
+VLM/MLLM Method Exp. Sli. TCGA GTEx PANDA P/R1 PathAgent 42.19 51.27 8.14 46.10 16.41 
+
+BEACON 46.09 55.84 15.27 48.90 22.34 
+
+C/R1 PathAgent 41.41 48.22 12.62 46.73 23.40 BEACON 45.31 52.79 17.46 51.57 23.40 
+
+P/PG PathAgent 39.84 47.21 10.06 51.63 17.80 BEACON 45.31 45.69 19.24 57.99 16.67 C/PG PathAgent 43.75 47.72 14.09 51.71 17.08 BEACON 44.53 47.72 17.98 59.46 16.67 
+
+Table 4: Backbone compatibility of BEACON across pathol-ogy VLMs and MLLMs. P: PLIP, C: CONCH, R1: Patho-R1-7B, and PG: PathGen-LLaVA. respectively, while achieving higher average accuracy across all benchmarks (Table 1). 
+
+4.6 Plug-and-play Compatibility 
+
+Table 4 evaluates BEACON across four backbone combi-nations of pathology VLMs (PLIP, CONCH) and MLLMs (Patho-R1-7B, PathGen-LLaVA). BEACON matches or out-performs PathAgent in 17 of 20 combinations, indicating that its gains arise from the acquisition strategy itself rather than any particular backbone pairing. 
+
+5 Conclusion 
+
+We introduce BEACON, a training-free agentic framework that reframes WSI reasoning as Bayesian evidence acquisi-tion rather than relevance-driven retrieval. BEACON main-tains probabilistic beliefs over diagnostic hypotheses and se-quentially acquires evidence that maximizes expected infor-mation gain. Across five zero-shot WSI-VQA benchmarks and diverse foundation-model backbones, BEACON con-sistently improves reasoning accuracy and acquisition effi-ciency. Our analyses further reveal that semantic relevance is an unreliable proxy for diagnostic informativeness, high-lighting the importance of modeling diagnostic uncertainty during evidence acquisition. References 
+
+Alayrac, J.-B.; Donahue, J.; Luc, P.; Miech, A.; Barr, I.; Hasson, Y.; Lenc, K.; Mensch, A.; Millican, K.; Reynolds, M.; et al. 2022. Flamingo: a visual language model for few-shot learning. Advances in neural information processing systems , 35: 23716–23736. Allsbrook Jr, W. C.; Mangold, K. A.; Johnson, M. H.; Lane, R. B.; Lane, C. G.; Amin, M. B.; Bostwick, D. G.; Humphrey, P. A.; Jones, E. C.; Reuter, V. E.; et al. 2001. Interobserver reproducibility of Gleason grading of prostatic carcinoma: urologic pathologists. Human pathology , 32(1): 74–80. Antol, S.; Agrawal, A.; Lu, J.; Mitchell, M.; Batra, D.; Zit-nick, C. L.; and Parikh, D. 2015. Vqa: Visual question an-swering. In Proceedings of the IEEE international confer-ence on computer vision , 2425–2433. Bai, S.; Chen, K.; Liu, X.; Wang, J.; Ge, W.; Song, S.; Dang, K.; Wang, P.; Wang, S.; Tang, J.; et al. 2025. Qwen2.5-VL Technical Report. arXiv preprint arXiv:2502.13923 .Buckley, T. A.; Weihrauch, K. R.; Latham, K.; Zhou, A. Z.; Manrai, P. A.; and Manrai, A. K. 2025. Navigating gigapixel pathology images with large multimodal models. arXiv preprint arXiv:2511.19652 .Bulten, W.; Kartasalo, K.; Chen, P.-H. C.; Ström, P.; Pinck-aers, H.; Nagpal, K.; Cai, Y.; Steiner, D. F.; Van Boven, H.; Vink, R.; et al. 2022. Artificial intelligence for diagnosis and Gleason grading of prostate cancer: the PANDA challenge. 
+
+Nature medicine , 28(1): 154–163. Carithers, L. J.; Ardlie, K.; Barcus, M.; Branton, P. A.; Brit-ton, A.; Buia, S. A.; Compton, C. C.; DeLuca, D. S.; Peter-Demchok, J.; Gelfand, E. T.; et al. 2015. A novel approach to high-quality postmortem tissue procurement: the GTEx project. Biopreservation and biobanking , 13(5): 311–319. Chaloner, K.; and Verdinelli, I. 1995. Bayesian experimental design: A review. Statistical science , 273–304. Chen, J.; Cai, L.; Wang, Z.; Huang, Y.; Jiang, S.; Huang, S.; Wang, H.; and Zhang, Y. 2025a. Pathagent: Toward inter-pretable analysis of whole-slide pathology images via large language model-based agentic reasoning. arXiv preprint arXiv:2511.17052 .Chen, Y.; Wang, G.; Ji, Y.; Li, Y.; Ye, J.; Li, T.; Hu, M.; Yu, R.; Qiao, Y.; and He, J. 2025b. Slidechat: A large vision-language assistant for whole-slide pathology image understanding. In Proceedings of the Computer Vision and Pattern Recognition Conference , 5134–5143. Cruz-Roa, A.; Basavanhally, A.; González, F.; Gilmore, H.; Feldman, M.; Ganesan, S.; Shih, N.; Tomaszewski, J.; and Madabhushi, A. 2014. Automatic detection of invasive duc-tal carcinoma in whole slide images with convolutional neu-ral networks. In Medical imaging 2014: Digital pathology ,volume 9041, 904103. SPIE. Elmore, J. G.; Longton, G. M.; Carney, P. A.; Geller, B. M.; Onega, T.; Tosteson, A. N.; Nelson, H. D.; Pepe, M. S.; Allison, K. H.; Schnitt, S. J.; et al. 2015. Diagnostic concor-dance among pathologists interpreting breast biopsy speci-mens. Jama , 313(11): 1122–1132. Gal, Y.; Islam, R.; and Ghahramani, Z. 2017. Deep bayesian active learning with image data. In International conference on machine learning , 1183–1192. PMLR. Ghezloo, F.; Seyfioglu, M. S.; Soraki, R.; Ikezogwo, W. O.; Li, B.; Vivekanandan, T.; Elmore, J. G.; Krishna, R.; and Shapiro, L. 2025. Pathfinder: A multi-modal multi-agent system for medical diagnostic decision-making applied to histopathology. In Proceedings of the IEEE/CVF Interna-tional Conference on Computer Vision , 23431–23441. Goyal, Y.; Khot, T.; Summers-Stay, D.; Batra, D.; and Parikh, D. 2017. Making the v in vqa matter: Elevating the role of image understanding in visual question answering. In 
+
+Proceedings of the IEEE conference on computer vision and pattern recognition , 6904–6913. Hou, L.; Samaras, D.; Kurc, T. M.; Gao, Y.; Davis, J. E.; and Saltz, J. H. 2016. Patch-based convolutional neural network for whole slide tissue image classification. In Proceedings of the IEEE conference on computer vision and pattern recog-nition , 2424–2433. Houlsby, N.; Huszár, F.; Ghahramani, Z.; and Lengyel, M. 2011. Bayesian active learning for classification and prefer-ence learning. arXiv preprint arXiv:1112.5745 .Huang, Z.; Bianchi, F.; Yuksekgonul, M.; Montine, T. J.; and Zou, J. 2023. A visual–language foundation model for pathol-ogy image analysis using medical twitter. Nature medicine ,29(9): 2307–2316. Ikezogwo, W.; Seyfioglu, S.; Ghezloo, F.; Geva, D.; Sheikh Mohammed, F.; Anand, P. K.; Krishna, R.; and Shapiro, L. 2023. Quilt-1m: One million image-text pairs for histopathology. Advances in neural information process-ing systems , 36: 37995–38017. Li, C.; Wong, C.; Zhang, S.; Usuyama, N.; Liu, H.; Yang, J.; Naumann, T.; Poon, H.; and Gao, J. 2023. Llava-med: Train-ing a large language-and-vision assistant for biomedicine in one day. Advances in Neural Information Processing Sys-tems , 36: 28541–28564. Liang, Y.; Lyu, X.; Chen, W.; Ding, M.; Zhang, J.; He, X.; Wu, S.; Xing, X.; Yang, S.; Wang, X.; et al. 2025. Wsi-llava: A multimodal large language model for whole slide image. In Proceedings of the IEEE/CVF International Conference on Computer Vision , 22718–22727. Lindley, D. V. 1956. On a measure of the information pro-vided by an experiment. The Annals of Mathematical Statis-tics , 27(4): 986–1005. Liu, H.; Li, C.; Li, Y.; and Lee, Y. J. 2024. Improved base-lines with visual instruction tuning. In Proceedings of the IEEE/CVF conference on computer vision and pattern recog-nition , 26296–26306. Liu, H.; Li, C.; Wu, Q.; and Lee, Y. J. 2023. Visual instruction tuning. Advances in neural information processing systems ,36: 34892–34916. Lu, M. Y.; Chen, B.; Williamson, D. F.; Chen, R. J.; Liang, I.; Ding, T.; Jaume, G.; Odintsov, I.; Le, L. P.; Gerber, G.; et al. 2024. A visual-language foundation model for computational pathology. Nature medicine , 30(3): 863–874. Lu, M. Y.; Williamson, D. F.; Chen, T. Y.; Chen, R. J.; Barbieri, M.; and Mahmood, F. 2021. Data-efficient and weakly supervised computational pathology on whole-slide images. Nature biomedical engineering , 5(6): 555–570. Rainforth, T.; Foster, A.; Ivanova, D. R.; and Bickford Smith, F. 2024. Modern Bayesian experimental design. Statistical Science , 39(1): 100–114. Sellergren, A.; Gao, C.; Mahvar, F.; Kohlberger, T.; Jamil, F.; Traverse, M.; Tono, A.; Sadjad, B.; Yang, L.; Lau, C.; et al. 2026. Medgemma 1.5 technical report. arXiv preprint arXiv:2604.05081 .Seyfioglu, M. S.; Ikezogwo, W. O.; Ghezloo, F.; Krishna, R.; and Shapiro, L. 2024. Quilt-llava: Visual instruction tuning by extracting localized narratives from open-source histopathology videos. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition ,13183–13192. Shi, J.; Li, C.; Gong, T.; Zheng, Y.; and Fu, H. 2024. Vila-mil: Dual-scale vision-language multiple instance learning for whole slide image classification. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 11248–11258. Singh, A.; Fry, A.; Perelman, A.; Tart, A.; Ganesh, A.; El-Kishky, A.; McLaughlin, A.; Low, A.; Ostrow, A.; Anan-thram, A.; et al. 2025. Openai gpt-5 system card. arXiv preprint arXiv:2601.03267 .Sun, Y.; Si, Y.; Zhu, C.; Zhang, K.; Shui, Z.; Ding, B.; Lin, T.; and Yang, L. 2025a. CPathAgent: An Agent-based Foun-dation Model for Interpretable High-Resolution Pathology Image Analysis Mimicking Pathologists’ Diagnostic Logic. 
+
+Advances in Neural Information Processing Systems , 38: 101673–101731. Sun, Y.; Zhang, Y.; Si, Y.; Zhu, C.; Zhang, K.; Shui, Z.; Li, J.; Gong, X.; Lyu, X.; Lin, T.; et al. 2025b. Pathgen-1.6 m: 1.6 million pathology image-text pairs generation through multi-agent collaboration. In International Conference on Learning Representations , volume 2025, 94611–94653. Weinstein, J. N.; Collisson, E. A.; Mills, G. B.; Shaw, K. R.; Ozenberger, B. A.; Ellrott, K.; Shmulevich, I.; Sander, C.; and Stuart, J. M. 2013. The cancer genome atlas pan-cancer analysis project. Nature genetics , 45(10): 1113–1120. Weishaupt, L. L.; Chen, C.; Williamson, D. F.; Chen, R. J.; Jaume, G.; Ding, T.; Chen, B.; Vaidya, A.; Le, L. P.; Lu, M. Y.; et al. 2025. Evidence-based diagnostic reasoning with multi-agent copilot for human pathology. arXiv preprint arXiv:2506.20964 .Wong, B.; Kim, J.; Fu, H.; and Yi, M. 2025. Few-shot learn-ing from gigapixel images via hierarchical vision-language alignment and modeling. Advances in Neural Information Processing Systems , 38: 71313–71354. Yang, A.; Li, A.; Yang, B.; Zhang, B.; Hui, B.; Zheng, B.; Yu, B.; Gao, C.; Huang, C.; Lv, C.; et al. 2025. Qwen3 technical report. arXiv preprint arXiv:2505.09388 .Zhang, W.; Zhang, P.; Guo, J.; Cheng, T.; Chen, J.; Zhang, S.; Zhang, Z.; Yi, Y.; and Bu, H. 2026. Patho-r1: A multimodal reinforcement learning-based pathology expert reasoner. In 
+
+Proceedings of the AAAI Conference on Artificial Intelli-gence , volume 40, 28418–28426. Zhang, Y.; Li, M.; Long, D.; Zhang, X.; Lin, H.; Yang, B.; Xie, P.; Yang, A.; Liu, D.; Lin, J.; et al. 2025. Qwen3 em-bedding: Advancing text embedding and reranking through foundation models. arXiv preprint arXiv:2506.05176 .Algorithm 1 BEACON Inference Procedure                                                                                                           
+
+> Require: WSI patches X, question q, answer candidates Y, max-imum acquisition rounds T, candidate pool size M, patches per round B
+> Ensure: Predicted answer ˆy∈ Y
+> 1: S1← ∅ ,U1← X ,r1←q
+> 2: Construct hypotheses {h1, . . . , h K}from Y
+> 3: for t= 1 to Tdo
+> 4: {Stage 1: Coarse Candidate Retrieval} 5: Ct←TopM x∈U tst(x)
+> 6: {Stage 2: Belief Construction} 7: Compute ¯Rt(x, k )for x∈ C t,k= 1 , . . . , K
+> 8: Aggregate belief πt(k)for k= 1 , . . . , K
+> 9: {Stage 3: Bayesian Evidence Acquisition} 10: Compute EIG t(x)for x∈ C t
+> 11: Bt←TopB x∈C tEIG t(x)
+> 12: St+1 ← S t∪ B t,Ut+1 ← U t\ B t
+> 13: Obtain ˜dx←fMLLM (x, q, Y, c x,mag) for x∈ B t;Et←{˜dx|x∈ B t}
+> 14: {Stage 4: Evidence Control} 15: (state t, r t+1 )←Ψ( Et, q, Y)
+> 16: if state t=Sufficient then
+> 17: break
+> 18: else if state t=Zoom then
+> 19: Perform zoom-in inspection and update St+1 ;break
+> 20: end if
+> 21: end for
+> 22: ˆy←answer synthesized from the final acquired patch set 23: return ˆy
+
+A Diagnostic Hypothesis Construction 
+
+Stage 2 (Belief Construction) maintains one diagnostic hy-pothesis hk for each answer candidate yk ∈ Y . In the standard case, answer choices are converted directly into diagnostic hypotheses. Representing answer candidates as explicit hy-potheses enables the subsequent belief update and expected information gain computation to operate over a well-defined, mutually exclusive hypothesis space rather than free-form text. Most answer choices require no additional process-ing. This section describes the two special cases that require hypothesis construction rules: negation-style questions and composite answer choices. 
+
+Negation-Style Questions. Some questions ask which find-ing is absent or least likely (e.g., “Which of the following is not observed in the slide?”). We detect such questions using a predefined set of negation cues (e.g., “absent,” “not observed,” “least evident,” and “which is not”). For these questions, the constructed hypothesis is inverted such that 
+
+hk states that the finding specified by yk is absent or not observed. For example, given this question and the candi-date answer “necrosis,” the constructed hypothesis states that necrosis is absent from the tissue rather than present. The reranker is subsequently instructed to predict “yes” when the visual evidence supports this absence. This design ensures that the support score Rt(x, k ) is always interpretable as the degree to which patch x supports hypothesis hk, irrespective of question polarity. 
+
+Composite Answer Choices. Some multiple-choice ques-tions contain answer options such as “All of the above” or “Both A and B,” which do not correspond to a single visual finding. For these cases, we expand the answer choice into the corresponding combination of its constituent options before constructing hk. For example, if the composite option is “All of the above” and the preceding choices describe adenocar-cinoma, squamous cell carcinoma, and small cell carcinoma, the expanded hypothesis asserts that visual evidence for all three findings is simultaneously present. Similarly, a “None of the above” option is expanded into the joint negation of every other listed finding, requiring the reranker to confirm the absence of all findings rather than the presence of any single alternative. By expanding composite options into con-crete diagnostic findings, the reranker reasons over clinically meaningful hypotheses rather than abstract meta-labels. Ta-ble 7 summarizes the supported expansion rules, with any answer choice that matches no predefined pattern used as-is. All hypotheses for a given case are constructed once, prior to Bayesian evidence acquisition, so subsequent rounds reuse the same hk without re-derivation. 
+
+B Hypothesis Support Scoring 
+
+After constructing the diagnostic hypotheses, Stage 2 (Belief Construction) computes a support score for every candidate patch–hypothesis pair using a frozen reranker fR. The result-ing scores are subsequently row-normalized and aggregated to form the round belief distribution πt. This section de-scribes the reranker prompt template and the procedure used to extract the yes/no support probability. 
+
+B.1 Reranker Prompt Template 
+
+Hypothesis support is computed using a frozen text-only reranker that takes a pathology evidence description and a candidate hypothesis as input and predicts whether the ev-idence supports the hypothesis. Table 8 presents the exact prompt template. Given a candidate set Ct containing M
+
+patches and K diagnostic hypotheses, the reranker evaluates all M × K patch–hypothesis pairs in each acquisition round. The candidate patches in Ct are drawn from the unobserved set Ut and have not yet been inspected by the question-aware perceptor. Consequently, hypothesis support is computed us-ing the offline, question-agnostic pathology description dx.Question-specific descriptions generated after a patch is ac-quired are not used during belief construction. Two special cases affect how the prompt is assembled: 
+
+Negation-Style Questions. When the question contains negation cues (e.g., “absent,” “not observed, and “which is not”), the task instruction is replaced with the negation-aware variant. This ensures that a “yes” prediction still means the evidence supports the (negated) hypothesis hk.
+
+Composite Answer Choices. Composite options such as “All of the above”, “Both A and B”, or “None of the above” are expanded into concrete diagnostic statements before the prompt is assembled (see Section A). Consequently, the cat-egory description hk already contains the expanded form, and the prompt template itself does not require an additional variant for composites. As a result, a “yes” prediction is consistently interpreted as evidence supporting hypothesis hk, regardless of question Notation Definition Problem Formulation 
+
+X Set of N WSI patches, X = {xn}Nn=1 
+
+N Number of image patches in a WSI 
+
+cx Spatial coordinates of patch xex VLM embedding of patch x, ex ∈ Rd
+
+dx, ˜dx Offline and question specific descriptions of patch xq Diagnostic question 
+
+Y Set of K answer candidates, Y = {y1, . . . , y K }
+
+K Number of answer candidates 
+
+y∗ Ground truth answer 
+
+fMLLM MLLM used for question conditioned patch inspection 
+
+mag Patch magnification level 
+
+Sequential Evidence Acquisition 
+
+t Evidence acquisition round index 
+
+St, Ut Acquired and unobserved patch sets at round t
+
+Stage 1: Coarse Candidate Retrieval 
+
+rt Retrieval query at round tϕT (·) Frozen VLM text encoder 
+
+ϕI (·) Frozen VLM image encoder 
+
+st(x) Cosine similarity between rt and patch x
+
+Ct Top-M candidate pool retrieved at round t
+
+Stage 2: Belief Construction 
+
+hk Hypothesis that answer candidate yk is correct 
+
+fR Frozen reranker used for hypothesis support estimation 
+
+Rt(x, k ), ¯Rt(x, k ) Raw and normalized support of patch x for hypothesis hk
+
+πt(k) Belief that hypothesis hk is correct at round t
+
+Stage 3: Bayesian Evidence Acquisition 
+
+Y Unknown ground truth diagnosis 
+
+Ox Binary observation obtained from patch xH(πt) Entropy of the current belief distribution 
+
+EIG t(x) Expected information gain of inspecting patch x
+
+Bt Top-B patches selected by EIG at round t
+
+Stage 4: Evidence Control 
+
+Et Evidence acquired at round t
+
+Ψ Evidence controller 
+
+state t Controller decision: Sufficient , Continue , or Zoom 
+
+rt+1 Refined retrieval query for the next round 
+
+Hyperparameters 
+
+M Candidate pool size (default: 25) 
+
+B Number of acquired patches per round (default: 5) 
+
+T Maximum number of acquisition rounds (default: 5) 
+
+Table 5: Summary of the notations used in the main paper. polarity or whether the original answer choice was compos-ite. 
+
+B.2 Yes/No Probability Extraction 
+
+The full input shown in Table 8 follows the reranker’s chat template: a system turn containing the fixed system instruction Isys and a user turn containing the assembled <Instruct>/<Evidence Description>/<Category Description> block. An empty reasoning span ( <think></think> ) is inserted immediately before generation to encourage the model to di-rectly produce a single-token yes/no prediction. Given the templated input, we read the logits at the final input position and retain only the vocabulary entries cor-responding to the literal tokens yes and no . A two-way softmax over these logits yields the raw hypothesis support score Rt(x, k ). All M × K patch–hypothesis pairs are eval-uated using batched forward passes (default batch size of 4), with each input truncated to a maximum sequence length of 4096 tokens. 
+
+C Evaluation Protocol 
+
+PathAgent evaluates generated responses using character-level string similarity between the model output and the ground-truth answer text. Because this heuristic measures surface-level textual overlap rather than the semantic answer selected by the model, it can produce incorrect evaluations when responses are expressed as option identifiers (e.g., “A”), abbreviations, or free-form explanations. Table 9 presents a representative example from TCGA SlideBench. The model outputs “A” and justifies the pre-diction by describing “dense fibrous stroma” (choice A), Component Detail Hardware                
+
+> GPU 2×NVIDIA RTX A5000 (24 GB each) CPU 64 CPU cores RAM 386 GB
+> Operating System
+> Host OS Ubuntu 20.04 LTS Containerization Apptainer/Singularity
+> Software
+> Python 3.9 PyTorch 2.5.1 (CUDA 12.1) Transformers 4.51.0 Accelerate 1.10.0 scikit-learn 1.5.2 SciPy 1.13.1 OpenSlide-Python 1.4.2
+> External API
+> GPT-5 access OpenRouter API
+
+Table 6: Computing infrastructure used for all experiments.                               
+
+> Answer Choice Pattern Hypothesis Expansion
+> “All of the above” Conjunction of all remaining op-tions “None of the above” Negation of all remaining op-tions “Both Aand B”Conjunction of Aand B
+> “Aor B” / “Either Aor B”Disjunction of Aand B
+> “Neither Anor B”Both Aand Bare false “All except A”Conjunction of all remaining op-tions excluding A
+
+Table 7: Recognized composite answer-choice patterns and their corresponding hypothesis expansions. “Remaining op-tions” refers to the other, non-composite answer choices for the same question. whereas the correct answer is “amyloid-like stroma” (choice C). Under string similarity scoring, the character “A” par-tially matches the ground-truth text “Amyloid-like stroma”, causing the prediction to be incorrectly marked as correct despite selecting the wrong answer. This occurs because the evaluation protocol compares raw text strings without first re-solving the generated response to an explicit answer choice. To address this limitation, we use an LLM-based evalu-ator that maps each generated response, whether an option identifier, abbreviation, or free-form explanation, to its in-tended answer choice before computing accuracy. By eval-uating semantic answer selection rather than surface-level textual similarity, our protocol is format-agnostic and cor-rectly identifies the example as incorrect. 
+
+D Component Ablation Settings 
+
+We detail the component ablation settings used to isolate the contribution of each stage in BEACON. Each ablation removes the target component while keeping the remaining stages unchanged. Unless otherwise specified, all ablations use the default backbone configuration and hyperparameter settings ( M =25 , B=5 , and T =5 ). 
+
+• w/o Stage 1 (Coarse Candidate Retrieval): Stage 1 is removed by skipping the top-M candidate retrieval step. Consequently, both Stage 2 (Belief Construction) and Stage 3 (Bayesian Evidence Acquisition) operate over the entire unobserved patch set Ut at each round rather than the retrieved candidate pool Ct. All subsequent stages remain unchanged. 
+
+• w/o Stage 3 (Bayesian Evidence Acquisition): Stage 3 is removed while retaining Stage 2 (Belief Construction). Candidate patches are no longer ranked by expected infor-mation gain (EIG). Instead, each candidate in Ct is ranked by the Shannon entropy of its row normalized hypothe-sis support distribution ¯Rt(x, ·), and the top-B lowest entropy (i.e., most decisive) patches are selected for ac-quisition. This heuristic uses the same reranker outputs as BEACON but does not condition patch selection on the current belief distribution πt or simulate the expected posterior update. 
+
+• w/o Stage 2+3 (Belief Construction and Bayesian Ev-idence Acquisition): Both Stage 2 and Stage 3 are re-moved. Candidate patches are directly ranked by their VLM relevance scores st(x), and the top-B patches from 
+
+Ct are acquired at each round. This setting is equivalent to the relevance-based retrieval baseline. 
+
+• w/o Stage 4 (Evidence Control): Stage 4 is removed by disabling the evidence controller Ψ. The retrieval query is fixed to the original question q throughout inference, i.e., rt+1 = q for all rounds. Query refinement, early termination, and zoom operations are disabled, and ac-quisition proceeds until the maximum round budget T
+
+is exhausted. The final prediction is synthesized from all acquired evidence accumulated across the T rounds. 
+
+E Hyperparameter Sensitivity: Coarse Candidate Pool Size ( M )
+
+We evaluate the sensitivity of BEACON to the coarse candi-date pool size M used in Stage 1 (Coarse Candidate Retrieval; Section 3.3). At each acquisition round, Stage 1 retrieves the top-M patches most relevant to the current retrieval query and passes them to Stages 2–3 for belief construction and Bayesian evidence acquisition. The main paper uses M = 25 
+
+(Table 5) across all experiments. We sweep M ∈ { 0, 25 , 50 , 75 , 100 } while fixing all other hyperparameters ( B = 5 , T = 5 ), using the CONCH back-bone on TCGA SlideBench. Setting M = 0 disables Stage 1, causing Stages 2–3 to operate directly on the full unob-served patch set, equivalent to the “w/o Stage 1” ablation in Section D. Figure 6 shows that BEACON is robust to the choice of 
+
+M , with accuracy remaining within a narrow range (51.3– 53.3%) across the sweep. The lowest accuracy is obtained at 
+
+M = 0 (51.3%), suggesting that Stage 1 provides a modest but consistent performance benefit. Component Content 
+
+(1) System instruction Isys Judge whether the pathology evidence in <Evidence Description> supports the hypothesis in <Category Description>. Respond with only ‘yes’ if the evidence supports the hypothesis, otherwise ‘no’. 
+
+(2) Task instruction Itask 
+
+Standard question Assume the pathology option (hypothesis) is true. Evaluate how likely the observed evidence would be under this assumption. If the evidence is expected given the hypothesis, respond ‘yes’. If the evidence would be unlikely or contradictory, respond ‘no’. 
+
+Negation-style question Assume the pathology option (hypothesis) is true. This is anegation-style pathology question, so a correct hypothesis means the named feature is absent, not observed, or less evident than the alternatives in the slide. Evaluate how likely the observed evidence would be under this assumption. If the evidence matches this negation-style hypothesis, respond ‘yes’. If the evidence instead suggests the feature is present or prominent, respond ‘no’. 
+
+(3) Category description hk
+
+Standard question Pathology question: [QUESTION] Hypothesis: The correct answer is ‘[CHOICE]’. If this is true, the slide should show: [EXPANDED CHOICE TEXT] 
+
+Negation-style question Pathology question: [QUESTION] Hypothesis: The correct answer is ‘[CHOICE]’ because this feature is absent, not observed, or less evident than the alternatives in the slide. If this is true, the slide should indicate that ‘[EXPANDED CHOICE TEXT]’ is missing, not supported by the evidence, or less evident than the other options. 
+
+(4) Assembled reranker input (chat template) 
+
+Full input [System] [SYSTEM INSTRUCTION Isys ][User] <Instruct>:[TASK INSTRUCTION Itask ]<Evidence Description>:[EVIDENCE] <Category Description>:[ hk ]
+
+Table 8: Reranker prompt template used to compute the hypothesis support score Rt(x, k ).
+
+F Analysis Settings 
+
+This section details the experimental settings used to com-pare Bayesian (EIG based) and relevance based patch acqui-sition under identical conditions. 
+
+Experimental Setup. All analyses use the default backbone configuration (PLIP + Qwen3-Reranker-4B + Patho-R1-7B + Qwen3-4B) and are conducted on 325 cases from TCGA ExpertVQA (128) and TCGA SlideBench (197), yielding 329 total evidence acquisition rounds. The additional rounds arise from cases that require more than one acquisition round before reaching Sufficient or Zoom . For every acquisition round, we compare BEACON’s EIG selected patch batch with a counterfactual relevance selected batch constructed from the identical prior belief distribution πt, candidate pool 
+
+Ct (M =25 ), and reranker support matrix Rt. The only differ-ence between the two batches is the patch acquisition strategy used for selection (EIG versus relevance score st(x)). 
+
+Rank Correlation Analysis. For each acquisition round, candidate patches in Ct are independently ranked by rele-vance score st(x) and expected information gain EIG t(x).We compute the Spearman rank correlation coefficient be-tween the two rankings and report its distribution over all 329 acquisition rounds. 
+
+Expected Uncertainty Reduction Analysis. For each ac-quisition round, we compute the normalized expected re-duction in diagnostic uncertainty, EIG( B)/H (πt), for the EIG selected and relevance selected top-B patch batches. Both batches are constructed from the same candidate pool and prior belief distribution. The distribution of normalized uncertainty reduction is reported across all 329 acquisition rounds. 
+
+Uncertainty Stratified Batch Diversity Analysis. Batch di-versity is defined as one minus the mean pairwise cosine similarity between the normalized hypothesis support vec-tors ¯Rt(x, ·) of the selected patches. Higher diversity indi-cates that selected patches provide complementary diagnos-tic evidence by supporting different hypotheses. Acquisition rounds are stratified into quartiles based on prior diagnostic Question and Model Prediction 
+
+Dataset TCGA SlideBench (Slide ID: TCGA-50-6591-01Z-00-DX1) Question Examine the stroma pattern in the provided slide and identify which pattern is often associated with poorly differentiated adenocarcinoma featuring clear cell change. Answer Choices A. Dense fibrous stroma, B. Myxoid stroma, C. Amyloid-like stroma, D. Osteoid-like stroma Ground Truth Amyloid-like stroma (C) Generated Output “A” Generated Explanation “The dense fibrous stroma is associated with poorly differentiated adenocarcinoma featuring clear cell change...” Actual Correctness Incorrect (the model selected option A rather than the ground truth option C) 
+
+Evaluation Comparison 
+
+PathAgent (string similarity) Compares the generated output “A” directly with the ground truth text “Amyloid-like stroma” using character level string similarity; scored Correct 
+
+Ours (LLM based mapping) Resolves the generated output and explanation as selecting Dense fibrous stroma (A), then compares it against the ground truth Amyloid-like stroma (C); scored Incorrect 
+
+Table 9: Comparison of evaluation protocols on a representative example from TCGA SlideBench (Slide ID: TCGA-50-6591-01Z-00-DX1), where character level string similarity yields a false positive that our LLM based evaluator correctly resolves. 
+
+Figure 6: Sensitivity of BEACON (CONCH) to the coarse candidate pool size M on TCGA SlideBench. uncertainty H(πt), with quartile boundaries computed from the empirical distribution. We report the mean batch diversity together with 95% confidence intervals for both EIG selected and relevance selected patch batches within each uncertainty quartile. 
+
+G Token Usage and API Cost 
+
+Table 10 reports the full input/output token counts and esti-mated API cost for GIANT, PathAgent, and BEACON un-der the GPT-5 backbone across all five MultiPathQA bench-marks, computed at OpenRouter list pricing ($1.25 / $10 per 1M input/output tokens). All costs are computed from raw to-ken counts at list pricing, without prompt-caching discounts, and are therefore an upper bound on actual billed cost. 
+
+Method Dataset #Cases In Tok. Out Tok. Cost($) 
+
+GIANT ExpertVQA 128 14,110,057 670,338 24.34 SlideBench 197 22,537,014 1,108,821 39.26 TCGA 221 25,532,372 1,170,494 43.62 GTEx 190 20,909,732 923,118 35.37 PANDA 196 22,277,687 1,281,623 40.66 
+
+Total 932 105,366,862 5,154,394 183.25 PathAgent ExpertVQA 128 3,040,175 2,669,971 30.50 SlideBench 197 5,055,521 4,872,745 55.05 TCGA 221 5,338,371 4,451,973 51.19 GTEx 190 1,110,094 2,347,688 24.86 PANDA 196 1,057,701 2,797,950 29.30 
+
+Total 932 15,601,862 17,140,327 190.91 BEACON ExpertVQA 128 569,933 1,368,493 14.40 SlideBench 197 1,571,715 2,585,315 27.82 TCGA 221 1,334,412 2,720,955 28.88 GTEx 190 727,173 1,257,925 13.49 PANDA 196 798,685 1,612,052 17.12 
+
+Total 932 5,001,918 9,544,740 101.70 
+
+Table 10: Token usage and estimated API cost (OpenRouter 
+
+gpt-5 list pricing, $1.25/$10 per 1M in/out tokens) on MultiPathQA, with GIANT run for 20 iterations. All costs are computed from raw token counts at list pricing, without prompt-caching discounts, so reported values are an upper bound on actual billed cost.
