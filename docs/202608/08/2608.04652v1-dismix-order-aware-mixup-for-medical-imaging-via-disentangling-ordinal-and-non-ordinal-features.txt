@@ -1,0 +1,428 @@
+Title: DisMix: Order-Aware Mixup for Medical Imaging via Disentangling Ordinal and Non-Ordinal Features
+
+URL Source: https://arxiv.org/pdf/2608.04652v1
+
+Published Time: Thu, 06 Aug 2026 00:55:03 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# DisMix: Order-Aware Mixup for Medical Imaging via Disentangling Ordinal and Non-Ordinal Features 
+
+## Dileepa Pitawela 1 Gustavo Carneiro 2 Hsiang-Ting Chen 1
+
+> 1
+
+AIML, Adelaide University, Australia 2CVSSP, University of Surrey, UK 
+
+Abstract 
+
+Image mixup is a widely adopted data augmentation strategy, yet it is ill-suited for ordinal classification tasks such as med-ical disease grading, where labels encode a progression of severity. By indiscriminately blending disease-severity cues (ordinal) with appearance-level variation (non-ordinal), stan-dard mixup produces samples that distort the very ordinal structure that underpins clinical severity grading. We intro-duce DisMix, an order-aware mixup framework for ordinal classification. DisMix disentangles ordinal and non-ordinal features via a dual-codebook VQ-VAE, allowing each sub-space to be mixed independently: ordinal codes are interpo-lated to produce meaningful intermediate ranks, while non-ordinal codes are varied to introduce appearance diversity without corrupting the ordinal signal. Across four medical imaging datasets, DisMix shows the best aggregate perfor-mance among six image mixup baselines paired with six or-dinal classifiers and remains effective under data scarcity and clinical grading variability. Code: https://github.com/dpitawela/DisMix 
+
+## 1 Introduction 
+
+Image mixup augmentation is a widely used technique for training robust deep neural networks, improving general-ization by generating intermediate samples that encour-age smoother decision boundaries (Galdran, Carneiro, and González Ballester 2021). However, image mixup strate-gies (Zhang et al. 2018a; Kang and Kim 2023; Islam et al. 2024; Noh et al. 2023) are primarily developed for natural-image classification and are poorly suited for ordinal classifi-cation tasks such as medical imaging. In this domain, labels commonly follow an ordinal structure, reflecting a graded progression of disease severity rather than discrete, mutually independent categories. When conventional mixup is applied directly in this context, these methods indiscriminately blend ordinal cues (e.g., lesion severity) with non-ordinal visual factors such as imaging artifacts, background, or staining dif-ferences. This entangled mixing corrupts the very structure that ordinal labels are intended to capture. By ignoring the underlying features that carry the ordinal signal, the mixing can dilute or override rank-defining cues, producing samples with biologically implausible structures that deviate from the intended ordinal progression. Fig. 1 shows this failure mode. In the original Knee Os-teoarthritis (KOA) dataset (Chen et al. 2019), samples with the same rank organize into distinct clusters. After naive mix-ing, this structure deteriorates: samples from different ranks become entangled, intermediate points drift away from the ordinal trajectory, and the overall feature distribution loses its ordered structure. Rather than enriching the data distribu-tion, these mixed samples distort it, producing anatomically inconsistent samples (e.g., disoriented knee joint gap) that may hinder the learning of robust ordinal classifiers. In con-trast, mixing using disentangled latents produces biologically plausible and order consistent samples with DisMix. We address the fundamental incompatibility between con-ventional mixup and ordinal learning, recognizing that not all feature mixing is consistent with the underlying rank pro-gression and that order-aware mixing is therefore necessary. To this end, DisMix trains a dual-codebook VQ-VAE that factorizes each image into an ordinal latent capturing rank-defining structure and a non-ordinal latent encoding rank-independent variations. The separation is enforced using soft ordinal supervision on the ordinal branch and an adversarial rank-removal objective on the non-ordinal branch. Building on this factorization, we propose a set of order-aware mixup policies (Tab. 1) that operate separately on the two subspaces, generating order-consistent augmented samples without cor-rupting the underlying ordinal signal. To summarize, 
+
+• We introduce DisMix, an order-aware mixup method that disentangles ordinal and non-ordinal features into distinct latent subspaces, enabling synthesis of order-consistent augmented samples. 
+
+• We propose a set of order-aware mixup policies that op-erate in the disentangled latent space, allowing controlled mixing during downstream ordinal classifier training. 
+
+• We comprehensively evaluate DisMix on four medical imaging datasets, against six mixup baselines using six ordinal classifiers. Across 24 mixup-classifier combinations, DisMix achieves the best accuracy and MAE in 20 and 15 settings, respectively. Compared to the strongest mixup baseline, Dis-Mix delivers statistically significant aggregate accuracy gains (one-sided Wilcoxon signed-rank test, p = 0 .0075 ) and re-duces MAE by 4–6%, while remaining robust under data scarcity and grading variability. arXiv:2608.04652v1 [cs.CV] 5 Aug 2026 Original DiffuseMix Mixup DisMix (Ours) Disentangled Features by DisMix Rank 1 Rank 2    
+
+> With Other Mixup Methods Ordinal Features Non-Ordinal Features Rank 0 Rank 4 Rank 1.5
+> Non-ordinal Features Ordinal Features
+> Rank 1.5 Rank 2 Rank 1.5
+> Order Narrowed Joint Space of Image A
+> +Image A Image B
+> Co-Mixup
+
+Figure 1: Main panel (left): Original feature space of the Knee Osteoarthritis (KOA) dataset (Chen et al. 2019), features and images from Mixup (Zhang et al. 2018a), Co-Mixup (Kim et al. 2021), DiffuseMix (Islam et al. 2024), and our DisMix. Top row: 
+
+Existing mixup entangles features and collapses the structure of data that ordinal labels are meant to capture. DisMix preserves clusters of original data and enforces ordinal structure. Bottom row: Naive mixing produces distorted images or anatomically inconsistent structures (e.g., disoriented knee joint gaps), whereas mixing using disentangled latents, DisMix produces plausible, order consistent samples. Rightmost panel: DisMix disentangles ordinal and non-ordinal factors of data into separate latent spaces, learning an ordered manifold for former and a rank-invariant cluster for latter. (t-SNEs were produced by passing mixup images through an ILSVRC pretrained ResNet-50 (van der Maaten and Hinton 2008)). 
+
+## 2 Related Work 
+
+Ordinal Classification. Ordinal classification preserve class order using specialized objectives, as standard multi-class losses ignore the relationships between adjacent ranks. ORCNN decomposes prediction into cumulative binary thresholds (Niu et al. 2016); CNNPOR and MWR enforce pairwise and local-to-global ordinal constraints (Liu, Kong, and Goh 2018; Shin, Lee, and Kim 2022); POE models boundary uncertainty through probabilistic embeddings (Li et al. 2021); Ord2Seq recasts ranking as a sequence predic-tion (Wang et al. 2023); and GOL learns geometry-aware ordinal representations (Lee, Shin, and Kim 2022). To im-prove robustness to grading variability, SORD adopts soft labels (Diaz and Marathe 2019), RNC aligns embeddings with rank order via contrastive learning (Zha et al. 2023), and CLOC learns adaptive margins between neighboring ranks (Pitawela, Carneiro, and Chen 2025). While robust to mild grading variability, these methods do not explicitly address the grader disagreements common in medical imag-ing, which typically occur between adjacent ranks (Pitawela, Carneiro, and Chen 2025), especially when ordinal cues are entangled with appearance variations. Conventional image mixup worsens this by indiscriminately blending ordinal and non-ordinal features. We instead disentangle these fac-tors and apply controlled mixup: label-preserving by mixing non-ordinal factors and label-interpolating by mixing ordinal ones, improving supervision under grading variability. 
+
+Disentangled Representation Learning. Disentangled representation learning aims to separate data into latent fac-tors that capture distinct sources of variation. VQ-VAEs introduce discrete codebooks promoting organized latent representations (Van Den Oord, Vinyals et al. 2017), with conditional VQ-VAE, FactorQVAE, and QLAE extending this paradigm through conditional guidance, total-correlation regularization, and improved semantic organization (Zou et al. 2023; Baykal, Kandemir, and Unal 2025; Hsu et al. 2023, 2024). Adversarial methods disentangle factors using mutual information, attribute supervision, or pretrained gen-erators (Chen et al. 2016; Shen and Zhou 2021; Khrulkov et al. 2021; Wang et al. 2024). Architectural designs fur-ther promote factorized representations (Karras, Laine, and Aila 2019; Lample et al. 2017; Kim and Mnih 2018), en-abling applications such as anatomy/pathology separation, pose- and age-invariant face recognition, content-style de-composition, and ordinal content preservation (Kobayashi et al. 2021; Tran, Yin, and Liu 2017; Hou, Li, and Wang 2021; Zhu et al. 2017; Huang et al. 2018; Zheng et al. 2024). Diffusion models explore feature factorization (Jun et al. 2025; Kwon and Ye 2023), but aim high-quality generation at substantially higher computational cost. In contrast, we use relatively light-weight VQ-VAE and disentangle ordi-nal and non-ordinal features from class labels alone, without attribute supervision, and perform order-aware latent mixup. 
+
+Image Mixing Augmentation. Image mixing augments data by combining samples and labels; however, existing methods are largely semantics-agnostic on which factors are being mixed. Vanilla Mixup linearly blends pixels and labels (Zhang et al. 2018a); CutMix pastes image patches and mixes labels by area (Yun et al. 2019); PuzzleMix, Co-Mixup, and GuidedMixup preserve salient regions during mixing (Kim, Choo, and Song 2020; Kim et al. 2021; Kang and Kim 2023); and Manifold Mixup performs interpolation in latent space (Verma et al. 2019). RankMixup uses rank-informed labels (Noh et al. 2023); SUMix learns uncertainty-aware soft la-bels (Qin et al. 2024); MOM smooths ordinal targets for manifold mixup (Bae et al. 2020); and SGD-Mix and Dif-fuseMix propose label-preserving augmentation (Dong, Su, and Chiang 2026; Islam et al. 2024), but none explicitly separate ordinal and non-ordinal features for mixing. In ordi-nal settings, labels reflect ordinal features, while non-ordinal variations are expected to be irrelevant. Prior methods mix entangled latents, either corrupting labels or under-utilizing augmentation by ignoring appearance cues. Our method in-stead disentangles ordinal and non-ordinal features, enabling controlled mixing in separate latent subspaces for improved label fidelity and semantic control. 
+
+Grading Variability. Medical datasets frequently exhibit grading variability across assessments due to inherent ambi-guity in clinical interpretation (Carneiro 2024; Ji et al. 2021). Existing approaches address this through majority voting, probabilistic consensus models (Dawid and Skene 1979; Sinha, Rao, and Balasubramanian 2018; Goh, Tkachenko, and Mueller 2022), or by jointly estimating annotator relia-bility during training (Cao et al. 2023; Herde, Huseljic, and Sick 2024; Herde et al. 2024). However, these methods pri-marily estimate consensus, have seen limited study in ordinal settings (Zhou et al. 2014; Chen et al. 2017), and have not been explored for order-preserving latent mixup. The closest related work, CLOC (Pitawela, Carneiro, and Chen 2025), learns ordinal representations under grading variability but assumes a single assessment. In contrast, our method focuses on preserving ordinal geometry through order-aware latent mixup under grading variability. 
+
+## 3 Preliminaries 
+
+Ordinal classification. Ordinal classification is a special case of multi-class classification where classes follow a nat-ural ordering denoted by r0 ≺ r1 ≺ ... ≺ rC−1, where 
+
+C is the number of classes, and ≺ indicates the ranking relation. Ordinal classification assumes that images are com-posed of ordinal features, which determine the rank, and rank-invariant non-ordinal features (Zheng et al. 2024). Be-yond accuracy, ordinal consistency is measured by mean absolute error (MAE) accounting for the magnitude of rank errors. Throughout this paper, the terms class, label, grade, and rank are used interchangeably, while grading variability refers to disagreements among annotators. 
+
+Problem Setup. Let the training dataset be 
+
+D={(xi, {yi,a }a∈A )}Ni=1 , where each sample xi∈X 
+
+has a set of ordinal labels yi,a ∈Y ={0, 1, ..., C −1} that reflect grading variability among annotators A.
+
+Ordinal Soft Labels. Standard soft labels capture anno-tation uncertainty but ignore ordinal relationships between classes. Ordinal soft labels capture both uncertainty and or-dinal relation. For each xi with scalar ranks {yi,a }a∈A , each rank is first transformed into a progressive binary vector. These vectors are then averaged across annotators to compute the ordinal soft target ¨yi with ¨y(k) 
+
+> i
+
+= 1
+
+> |A|
+
+P 
+
+> a∈A
+
+I(k<y i,a ),
+
+for k ∈ { 0, ..., C −2}, where ¨yi ∈ ¨Y ⊂ RC−1 and I(·) is an indicator function. Examples are provided in App. A. Ordinal supervision is provided via the Soft Ordinal Re-gression (SOR) loss (Diaz and Marathe 2019), computed as binary cross-entropy over ordinal soft labels, which penal-izes prediction errors in proportion to their ordinal distance from the target during DisMix generator training. !e
+
+> +
+> nGRL
+> "̈
+> Real/Fake
+> Ÿ %%
+> Generator Discriminator
+
+## ...  
+
+> Ordinal Codebook Μ!
+
+## ...   
+
+> g
+> '̈ o
+> !"
+> %)!!
+> Ÿ Ÿ
+> Non-ordinal Codebook Μ#
+> d
+> %)
+
+Figure 2: Overview of DisMix architecture, featuring a dual-codebook VQ-VAE generator for modeling ordinal and non-ordinal feature spaces, and a multi-task discriminator for enforcing ordinal consistency and perceptual quality. 
+
+## 4 Methodology 
+
+Conventional mixing of ordinal images disrupts the under-lying ordinal structure by indiscriminately blending rank-defining ordinal and rank-independent non-ordinal features; DisMix instead learns separate latent subspaces for each, en-abling independent interpolation of ordinal features to gener-ate intermediate ranks and non-ordinal features to introduce appearance diversity without disrupting ordinal semantics. 
+
+Disentangling Ordinal and Non-Ordinal Factors 
+
+DisMix employs a dual-codebook VQ-VAE (Fig. 2) to dis-entangle ordinal and non-ordinal features. Formally, the en-coder e : X → Z maps an input image x to a latent feature map z, which is then factorized into an ordinal component 
+
+zo ∈ Z o and a non-ordinal component zn ∈ Z n via the ordinal and non-ordinal branches. Each branch maintains a dedicated discrete codebook to facilitate a compact repre-sentation. The decoder g : Zo × Z n → X reconstructs the image from the quantized codes ˆx = g(zo, z n), enabling the model to learn meaningful decompositions while preserving visual fidelity. The framework is optimized jointly with an adversarial discriminator d : X → { 0, 1}× ¨Y, which ensures perceptual realism and ordinal consistency. 
+
+Ordinal Quantizer. The ordinal branch maintains a learn-able codebook Mo ∈ R|Z|× Do
+
+, with Do vectors of dimen-sion |Z| , to capture ordinal features. To bias towards ordinal semantics, the encoder features are conditioned on the ordi-nal soft label ¨y. Specifically, the label is projected and added to the encoder output, followed by sigmoid gating to empha-size rank-relevant channels: ¨z = ( z + h1(¨ y)) ⊙ h2(h1(¨ y)) ,
+
+where h1 : ¨Y → Z , h2 : Z → [0 , 1] |Z| , and ⊙ denotes elementwise multiplication. Instead of the standard distance-based lookup, we adopt attention-based quantization (Chen et al. 2025), allowing the conditioned features to attend selectively to codebook en-tries by treating ¨z as queries and the codebook entries as 
+
+keys and values . To reduce over-smoothing of ordinal fea-tures, we replace soft attention with hard attention: zo =
+
+one _hot  softmax (¨ z⊤Mo) (Mo)⊤ , where one _hot (·) se-lects the highest-attention codebook entry. During training, hard assignments are used in the forward pass, with gradi-ents propagated through the soft attention weights using the straight-through estimator. To encourage the codebook to learn order-discriminative features, we attach a linear classifier o : Zo → ¨Y that pre-dicts rank from zo. This auxiliary supervision is imposed via the SOR loss ℓoC(zo, ¨y) = SOR (o(zo), ¨y) to align quantized embeddings with the ordinal structure of data. 
+
+Non-Ordinal Quantizer. The non-ordinal branch main-tains a learnable codebook Mn ∈ R|Z|× Dn
+
+paired with an adversarial classifier to capture order-invariant features. Given the encoder embedding z, the nearest codebook entry is selected to obtain the quantized representation zn.To suppress ordinal information from this branch, we attach a linear classifier n : Zn → ¨Y through a Gra-dient Reversal Layer (GRL) (Ganin and Lempitsky 2015) (Fig. 2). The classifier attempts to infer the ordinal label from zn, while the GRL inverts feedback during backpropa-gation, forcing the quantizer to suppress order-sensitive sig-nals. The classifier is supervised by SOR, with ℓnC(zn, ¨y) = SOR( n(GRL( zn)) , ¨y), thereby adversarially discouraging the non-ordinal codebook from encoding rank information. 
+
+Quantizer Losses. The ordinal and non-ordinal code-books are optimized with standard vector-quantization losses 
+
+ℓoQ(z1, z 2) and ℓnQ(z1, z 2) (Van Den Oord, Vinyals et al. 2017), both following ∥sg [z1] − z2∥22 + ∥z1 − sg [z2]∥22,where sg[ ·] denotes the stop-gradient. The ordinal loss uses (z1, z 2) = (¨ z, z o), while the non-ordinal loss uses 
+
+(z1, z 2) = ( z, z n). To discourage correlation and promote disentanglement, we additionally minimize the cosine simi-larity between the two latent representations, ℓsim =η(zo, z n)
+
+Decoder and Discriminator. The decoder g : Zo ×Z n →X reconstructs the image from the concatenated quantized representations as ˆx=g(zo, z n) and is optimized to mini-mize pixel reconstruction error and perceptual distance with 
+
+ℓrec (x, ˆx)= ∥x−ˆx∥22 + LPIPS (x, ˆx) (Zhang et al. 2018b). The discriminator d : X → { 0, 1}× ¨Y adopts a PatchGAN architecture (Isola et al. 2017) with shared convolutional layers and two task-specific heads. The real/fake head drf 
+
+is optimized with L2 objective, ℓdrf (x, ˆx)= drf (x) − 1 22 +
+
+drf (ˆ x) 22 while the classification head dclf is supervised with SOR, ℓdclf (x, ¨y)= SOR (dclf (x), ¨y). Together, these objectives encourage perceptually realistic reconstructions that preserve ordinal semantics. 
+
+DisMix Training 
+
+The generator, comprising encoder e(.), codebooks 
+
+Mo, Mn, and decoder g(.), is trained adversarially against the discriminator d(.) via: 
+
+min  
+
+> e,Mo,Mn,g
+
+max  
+
+> d
+
+Ex
+
+ℓ(e,Mo,Mn,g) − ℓd
+
+ (1) The generator loss ℓ(e,Mo,Mn,g) combines quantization (ℓoQ, ℓ nQ), classification ( ℓoC, ℓ nC), reconstruction ( ℓrec ), and sim-ilarity ( ℓsim ) terms, while the discriminator loss ℓd combines realism ( ℓdrf ) and ordinal classification ( ℓdclf ) objectives. All terms are weighted by learnable coefficients that are jointly Policy Latent Interpolation Label Assignment Ordinal Mix                                            
+
+> ˜zo=λz oi+ (1 −λ)zoj,˜y=λ¯yi+ (1 −λ)¯ yj
+> ˜zn∈ { zni, z nj}
+> Non-Ord-inal Mix
+> ˜zo∈ { zoi, z oj},˜y=¯yof sample
+> ˜zn=λz ni+ (1 −λ)znjproviding ˜zo
+> Order Swap
+> (˜ zo,˜zn)∈ { (zoj, z ni),˜y=¯yof sample
+> (zoi, z nj)}providing ˜zo
+> Generate & Mix
+> ˜zo=λz o, anc + (1 −λ)zo,x ′
+> ,˜y=λ¯yanc +˜zn∈ { zn, anc , z n,x ′
+> }(1 −λ)y′
+
+Table 1: Latent mixing and labels assignment in mixup poli-cies. The mixed sample is obtained by decoding ˜zo and ˜zn.optimized with the model under a unit-sum constraint, elim-inating the need for manual hyperparameter tuning. 
+
+Order Aware Mixup with Disentangled Latents 
+
+Once trained, DisMix is frozen and used to generate mixed samples during downstream ordinal classifier training. Given two images xi, x j from adjacent ranks ¯yi, ¯yj determined by majority grade (i.e., ¯yi=majority ({yi,a }a∈A ) and similarly for ¯yj ), with corresponding ordinal and non-ordinal codes 
+
+(zoi , z ni ) and (zoj , z nj ) extracted from quantizers, and a mixing ratio λ ∈ (0 , 1) , Tab. 1 defines four mixing policies. 
+
+Ordinal Mix interpolates ordinal factors while keeping non-ordinal features fixed. Formally, ˜zo=λz oi +(1 −λ)zoj ,
+
+˜zn∈{ zni , z nj }. Then we obtain the augmented sam-ple by, ˆx=g(˜ zo, ˜zn), and its label ˜y=λ¯yi+(1 −λ)¯ yj .
+
+Non-Ordinal Mix instead interpolates order-invariant fea-tures and takes the majority grade of the sample that provides the ordinal code. Order Swap swaps the ordi-nal and non-ordinal features between samples. (˜ zo, ˜zn) ∈{(zoj , z ni ), (zoi , z nj )}, ˆx = g(˜ zo, ˜zn), and ˜y is the rank as-sociated with the chosen ˜zo.
+
+Generate & Mix generates an adjacent-rank variant of an anchor and applies Ordinal Mix. We first select either xi
+
+or xj as an anchor and obtain an adjacent rank from its majority grade. By conditioning the anchor’s ordinal code on the adjacent rank, we obtain zo, cnd from the ordinal quantizer. The non-ordinal code zn,anc of the anchor is extracted via the non-ordinal quantizer to produce x′=g zo, cnd , z n, anc  ,
+
+with y′ corresponding to the conditioned rank. Ordinal Mix is then applied between the anchor and x′.Non-Ordinal Mix and Order Swap are label-preserving policies, retaining the rank of the source sample providing the ordinal code. Ordinal Mix and Generate & Mix are label-interpolating policies, assigning soft labels between the two source ranks. 
+
+## 5 Experiments 
+
+Datasets And Preparation. The Knee Osteoarthritis (KOA) dataset (Chen et al. 2019) includes knee X-ray images (6,604 train/1,656 test) graded on the Kellgren–Lawrence (KL) scale (0–4). The Indian Diabetic Retinopathy (IDRID) (Porwal et al. 2018) contains retinal fundus im-ages (413/103) graded on the DR scale (0–4). The Chaoyang Accuracy ↑ Mean Absolute Error (MAE) ↓
+
+POE GOL MWR RNC ORD2SEQ CLOC POE GOL MWR RNC ORD2SEQ CLOC IDRID Mixup 57.93 ± 4.05 55.34 ± 1.68 39.16 ± 1.13 54.04 ± 3.12 63.43 ± 0.56 64.08 ± 0.97 0.72 ± 0.06 0.52 ± 0.03 0.78 ± 0.02 0.79 ± 0.07 0.64 ± 0.04 1.11 ± 0.20 CutMix 58.27 ± 0.06 56.31 ± 2.57 40.76 ± 1.70 55.94 ± 2.06 65.37 ± 0.56 64.69 ± 1.53 0.64 ± 0.02 0.56 ± 0.05 0.78 ± 0.05 0.75 ± 0.05 0.62 ± 0.03 0.58 ± 0.01 PuzzleMix 59.80 ± 3.75 55.99 ± 1.48 39.16 ± 1.49 56.05 ± 3.34 66.00 ± 1.00 64.72 ± 2.97 0.59 ± 0.00 0.53 ± 0.02 0.81 ± 0.03 0.78 ± 0.04 0.62 ± 0.01 0.58 ± 0.08 CoMix 58.90 ± 2.14 58.58 ± 3.12 40.78 ± 1.68 54.04 ± 2.97 65.95 ± 1.74 64.39 ± 0.56 0.64 ± 0.00 0.50 ± 0.02 0.81 ± 0.03 0.82 ± 0.07 0.62 ± 0.03 0.58 ± 0.03 GuidedMix 56.33 ± 0.06 70.22 ± 2.02 38.83 ± 1.69 53.07 ± 2.02 64.73 ± 1.48 64.07 ± 2.57 0.73 ± 0.01 0.33 ± 0.02 0.84 ± 0.04 0.85 ± 0.04 0.68 ± 0.03 0.61 ± 0.05 DiffuseMix 58.27 ± 0.06 66.64 ± 2.03 40.77 ± 0.96 52.08 ± 1.14 65.70 ± 1.48 63.75 ± 1.12 0.69 ± 0.01 0.35 ± 0.03 0.83 ± 0.05 0.95 ± 0.05 0.62 ± 0.02 0.66 ± 0.02 DisMix 60.53 ± 1.99 73.46 ± 3.41 41.95 ± 0.35 56.31 ± 0.98 66.34 ± 1.12 66.02 ± 0.98 0.66 ± 0.01 0.29 ± 0.06 0.77 ± 0.02 0.73 ± 0.03 0.58 ± 0.02 0.57 ± 0.02 
+
+KOA Mixup 68.40 ± 0.26 76.89 ± 0.89 29.57 ± 25.23 63.96 ± 0.55 67.92 ± 0.26 67.16 ± 0.84 0.41 ± 0.01 0.23 ± 0.01 0.61 ± 0.02 0.49 ± 0.00 0.43 ± 0.01 0.42 ± 0.01 CutMix 68.20 ± 0.26 76.75 ± 0.26 44.40 ± 0.55 62.90 ± 0.24 69.03 ± 0.57 67.59 ± 0.24 0.38 ± 0.00 0.23 ± 0.00 0.61 ± 0.02 0.51 ± 0.00 0.43 ± 0.02 0.42 ± 0.00 PuzzleMix 68.37 ± 0.57 77.17 ± 0.10 43.56 ± 0.97 62.90 ± 0.23 69.18 ± 0.51 67.02 ± 0.21 0.40 ± 0.01 0.23 ± 0.00 0.63 ± 0.07 0.51 ± 0.01 0.41 ± 0.02 0.42 ± 0.01 CoMix 68.93 ± 0.75 77.21 ± 0.53 44.24 ± 0.49 63.58 ± 0.90 68.64 ± 0.24 67.79 ± 0.53 0.39 ± 0.03 0.23 ± 0.01 0.62 ± 0.04 0.49 ± 0.02 0.41 ± 0.01 0.40 ± 0.02 
+
+GuidedMix 68.07 ± 1.14 76.91 ± 0.15 44.40 ± 0.23 63.36 ± 0.35 68.92 ± 0.31 67.57 ± 0.43 0.41 ± 0.01 0.23 ± 0.00 0.61 ± 0.02 0.50 ± 0.01 0.43 ± 0.03 0.42 ± 0.01 DiffuseMix 68.40 ± 0.44 77.40 ± 0.46 43.98 ± 0.18 63.54 ± 0.43 68.68 ± 0.31 67.64 ± 0.98 0.39 ± 0.01 0.23 ± 0.00 0.60 ± 0.03 0.49 ± 0.01 0.43 ± 0.02 0.41 ± 0.01 DisMix 69.80 ± 1.04 77.72 ± 0.16 44.53 ± 0.25 63.28 ± 0.76 69.41 ± 0.45 68.41 ± 0.36 0.40 ± 0.01 0.22 ± 0.00 0.57 ± 0.05 0.49 ± 0.02 0.40 ± 0.02 0.41 ± 0.01 CHAOYANG Mixup 82.67 ± 0.65 88.29 ± 0.40 57.73 ± 1.20 82.53 ± 0.51 80.38 ± 2.66 85.36 ± 0.13 0.24 ± 0.01 0.13 ± 0.00 0.46 ± 0.01 0.25 ± 0.01 0.26 ± 0.02 0.21 ± 0.00 CutMix 82.40 ± 0.30 88.21 ± 0.27 56.64 ± 0.51 82.12 ± 0.64 53.06 ± 3.56 84.91 ± 0.10 0.24 ± 0.00 0.13 ± 0.00 0.48 ± 0.01 0.26 ± 0.01 0.86 ± 0.04 0.22 ± 0.00 PuzzleMix 83.17 ± 0.35 87.95 ± 0.35 57.71 ± 0.59 81.72 ± 0.57 54.81 ± 2.02 85.47 ± 0.49 0.23 ± 0.00 0.13 ± 0.00 0.47 ± 0.02 0.27 ± 0.01 0.84 ± 0.02 0.21 ± 0.01 CoMix 83.43 ± 0.25 88.10 ± 0.41 57.52 ± 0.71 81.84 ± 0.17 55.74 ± 3.51 85.18 ± 1.97 0.23 ± 0.01 0.13 ± 0.01 0.47 ± 0.00 0.26 ± 0.00 0.89 ± 0.02 0.21 ± 0.03 GuidedMix 83.13 ± 0.35 87.72 ± 0.38 56.80 ± 0.33 81.64 ± 0.10 57.95 ± 1.90 85.72 ± 0.33 0.23 ± 0.01 0.13 ± 0.00 0.47 ± 0.01 0.27 ± 0.00 0.83 ± 0.01 0.21 ± 0.00 
+
+DiffuseMix 82.23 ± 0.06 87.56 ± 0.14 57.57 ± 0.45 80.87 ± 0.35 83.67 ± 0.51 85.39 ± 0.48 0.24 ± 0.01 0.13 ± 0.00 0.46 ± 0.00 0.28 ± 0.02 0.25 ± 0.01 0.21 ± 0.01 DisMix 84.10 ± 0.52 88.58 ± 0.26 58.06 ± 0.19 83.30 ± 0.45 84.27 ± 0.17 84.88 ± 0.66 0.22 ± 0.01 0.12 ± 0.00 0.47 ± 0.00 0.24 ± 0.01 0.26 ± 0.00 0.22 ± 0.01 GLEASON Mixup 77.40 ± 0.62 93.96 ± 0.60 79.68 ± 6.27 87.78 ± 2.07 92.46 ± 0.57 88.93 ± 1.92 0.32 ± 0.01 0.05 ± 0.00 0.58 ± 0.29 0.17 ± 0.02 0.24 ± 0.06 0.15 ± 0.02 CutMix 83.30 ± 4.15 94.88 ± 0.05 84.19 ± 2.96 88.99 ± 1.01 92.65 ± 0.31 89.09 ± 0.65 0.33 ± 0.05 0.05 ± 0.00 0.21 ± 0.05 0.16 ± 0.02 0.28 ± 0.02 0.16 ± 0.02 PuzzleMix 81.43 ± 1.01 95.21 ± 0.39 71.60 ± 5.95 88.31 ± 0.45 92.23 ± 0.28 88.95 ± 1.73 0.33 ± 0.04 0.05 ± 0.00 0.22 ± 0.01 0.17 ± 0.01 0.24 ± 0.02 0.17 ± 0.03 CoMix 83.47 ± 1.67 94.77 ± 0.43 67.78 ± 1.43 88.88 ± 1.38 92.44 ± 0.28 88.45 ± 0.82 0.31 ± 0.05 0.06 ± 0.01 0.65 ± 0.10 0.16 ± 0.00 0.26 ± 0.02 0.17 ± 0.01 GuidedMix 84.10 ± 2.44 95.05 ± 0.45 78.57 ± 5.04 88.87 ± 0.45 92.25 ± 0.29 88.64 ± 0.77 0.34 ± 0.01 0.05 ± 0.01 0.25 ± 0.04 0.17 ± 0.01 0.26 ± 0.05 0.17 ± 0.01 DiffuseMix 85.63 ± 3.25 95.28 ± 0.36 77.94 ± 11.6 88.81 ± 0.81 92.74 ± 0.72 89.79 ± 1.78 0.33 ± 0.04 0.05 ± 0.00 0.46 ± 0.15 0.16 ± 0.02 0.28 ± 0.03 0.15 ± 0.02 DisMix 86.30 ± 3.84 94.77 ± 0.23 76.89 ± 8.60 89.22 ± 0.42 93.26 ± 1.15 90.77 ± 0.93 0.30 ± 0.03 0.04 ± 0.01 0.23 ± 0.01 0.15 ± 0.01 0.27 ± 0.06 0.14 ± 0.02 
+
+Table 2: Comparing DisMix against six image mixup baselines—Mixup, CutMix, PuzzleMix, CoMix, GuidedMix, DiffuseMix across six ordinal classification methods—POE, GOL, MWR, RnC, ORD2SEQ, CLOC using four datasets—IDRID, KOA, Chaoyang and Gleason. dataset (Zhu et al. 2022) has colorectal histopathology im-ages (4,021/2,139) graded by three pathologists, with ∼40% disagreement in training and consensus test labels. The 
+
+Crowd Gleason dataset (López-Pérez et al. 2024) contains prostate histopathology patches (16,151/2,926) graded by seven residents (mean κ=0 .54 ) on the Gleason scale (NC, G3–G5), with consensus test labels. More in App. B. Images are resized to 256 ×256 , normalized to [−1, 1] ,and augmented with random flips and rotations < 20 ◦; with histogram equalization for KOA. IDRID and KOA simulate five labelers following (Pitawela, Carneiro, and Chen 2025), randomly flipping 60% grade 1 →2 and 20% grade 2 →1, resulting in an overall 30% grading variability in the dataset. Chaoyang and Gleason contain real grading variability. Each training image was assigned an ordinal soft label for DisMix and a generic soft label for downstream classifiers (POE, GOL, etc.) during training, while test labels remained fixed. 
+
+DisMix Setup. We adopt the encoder, decoder, and quan-tizer architectures of (Rombach et al. 2022) with pre-trained vq-f8 weights. The non-ordinal and ordinal code-books use 16 ,384 and 512 , 4-dim entries, respectively, fol-lowing pretrained compatibility and the smaller ordinal subspace (Zheng et al. 2024). The discriminator imple-ments (Rombach et al. 2022), with a linear classifier attached before the real/fake convolution for rank prediction. DisMix is trained for 400 epochs using Adam ( 1×10 −5, batch size 11), freezing encoder downsampling blocks. The checkpoint that maximizes mixing accuracy, measuring agreement be-tween discriminator-predicted ranks and ranks expected from random latent interpolation, is selected for downstream tasks. 
+
+Downstream Ordinal Model Setup. Ordinal baselines use their original implementation, extending loss functions to support generic soft labels where necessary. Models are trained for 200 epochs using Adam (batch size 64), with 15% of the training set reserved for validation and the best validation checkpoint used for testing. 
+
+Baselines. We evaluate on six ordinal classification meth-ods (POE(Li et al. 2021), GOL(Lee, Shin, and Kim 2022), MWR(Shin, Lee, and Kim 2022), RnC(Zha et al. 2023), ORD2SEQ(Wang et al. 2023), and CLOC(Pitawela, Carneiro, and Chen 2025)) across four datasets, com-paring DisMix with six state-of-the-art (SOTA) mixup methods: Mixup(Zhang et al. 2018a), CutMix(Yun et al. 2019), PuzzleMix(Kim, Choo, and Song 2020), CoMix(Kim et al. 2021), GuidedMix(Kang and Kim 2023), and Dif-fuseMix(Islam et al. 2024). 
+
+Evaluation Criteria. We report the mean and standard deviation of Accuracy and MAE over three runs, using a mixing probability of 0.5 unless otherwise specified. DisMix is evaluated by comparing the gains of ordinal algorithms when paired with DisMix versus alternative mixup methods. 
+
+Comparison with SOTA. Table 2 shows that, DisMix achieves the best mean accuracy and MAE in 20 and 15 of 24 settings, each defined by applying DisMix with an or-dinal algorithm on a dataset. Compared with the strongest baseline, DisMix significantly improves accuracy (one-sided Wilcoxon signed-rank test, p = 0 .0075 ) while typically re-ducing MAE by 4–6%, whereas other mixups often trade accuracy for MAE. Surpassing diffusion-based methods like CutMix DisMix (Ours) Co-Mixup PuzzleMix GuidedMix Original Samples Mixup DiffuseMix         
+
+> Rank 1 Rank 2
+> Rank 1 Rank 2
+> Rank 1.5 Rank 1.5 Rank 1.5 Rank 1.5 Rank 1.5 Rank 1 Rank 1.5 Rank After Mixing With Each Method
+
+Figure 3: Mixing a severe (rank 2) sample into a mild (rank 1) sample from IDRID (top) and KOA (bottom). DisMix pro-duces plausible ordinal transitions from mild samples—such as darker lesion regions in IDRID and reduced bone gap in KOA—while preserving non-ordinal attributes like eye ori-entation and bone structure. In contrast, other mixup often generate unrealistic structures, including multiple retinal op-tic discs, disoriented bone gaps, and imaging artifacts. DiffuseMix underscores the benefit of explicitly modeling ordinal features. Figure 3 compares mixed samples generated by different methods on IDRID and KOA. Existing methods often pro-duce unrealistic outputs, including duplicate optic discs and abnormal anatomical structures. In contrast, DisMix gen-erates plausible severity transitions, such as darker lesions and narrower joint spaces, while preserving non-ordinal at-tributes including eye orientation and bone structure, demon-strating the benefit of mixing in disentangled latent spaces. 
+
+Boundary Error Reduction. Beyond accuracy and MAE, we evaluate boundary-level classification errors using CLOC across datasets. Figure 5 shows that DisMix consistently achieves the lowest boundary errors, notably reducing IDRID C2 ↔C3 by 9%, Chaoyang C1 ↔C2 by 4%, Gleason C2 ↔C3 6% over to the best mixup baseline. 
+
+Performance with Scarce Data. We restrict the training set to 10% of samples per class (minimum 10 images) for both DisMix and CLOC. Table 3 shows that DisMix outper-forms baseline mixup methods. Notably, on IDRID, DisMix improves accuracy by ≈1.5% over the best baseline with only 60 original training images, demonstrating strong data effi-ciency and robustness in low-data regimes. More in App. C. 
+
+Robustness to Grading Variability. Following (Pitawela, Carneiro, and Chen 2025), we increase the boundary grade variability in IDRID and KOA by flipping 70/40% and 90/60% of grade 1 →2 / 2 →1 (yielding two settings with 50% and 70% overall grading variability for each dataset), and vary the mixup probability to 0.3, 0.5, and 0.7 with CLOC. Tab. 4 shows DisMix performs best overall with a mix probability of 0.5, whereas 0.3 is preferable under mild grading variability (30%) by providing sufficient data diver-sification. Under severe variability (70%), accuracy drops and MAE increases, especially at 0.7, indicating excessive mixing amplifies boundary-level variability. More in App. C. 
+
+## 6 Ablation Studies and Discussion 
+
+Quality of Disentanglement. The rightmost panel of Fig.1 shows the disentanglement on KOA, with the ordinal code-book exhibiting a rank-aligned structure and the non-ordinal Accuracy ↑ MAE ↓                                                
+
+> IDRID Mixup 43.36 ±1.49 1.06 ±0.04 GuidedMix 46.09 ±1.77 1.00 ±0.09 DiffuseMix 45.26 ±2.84 1.13 ±0.08 DisMix 47.91 ±2.82 0.99 ±0.09
+> GLEASON Mixup 84.82 ±0.95 0.21 ±0.02 GuidedMix 84.22 ±0.22 0.23 ±0.01 DiffuseMix 84.67 ±1.46 0.23 ±0.01 DisMix 85.38 ±0.76 0.21 ±0.01
+
+Table 3: Performance under data scarcity, training set limited to 10% of samples/-class ( ≥10 images/class). Vari. Level Accuracy ↑ MAE ↓                                          
+
+> IDRID 70% 56.99 58.89 55.33 0.67 0.65 0.72 50% 65.37 62.78 67.98 0.57 0.61 0.52 30% 66.92 66.02 64.73 0.57 0.57 0.64 KOA 70% 64.46 65.57 64.85 0.47 0.45 0.46 50% 67.93 68.19 68.55 0.42 0.41 0.41 30% 68.03 68.41 68.09 0.42 0.41 0.41 Mix Prob. 0.3 0.5 0.7 0.3 0.5 0.7
+
+Table 4: DisMix’s performance heatmaps under grading vari-ability (30%, 50%, 70%) and mix probabilities (0.3, 0.5, 0.7). 100% 75% 50% 25% 
+
+> Mixing Images From Different Ranks
+> Mixing Only Non-ordinal features of B to A Mixing Only Ordinal features of B to A
+> Mixing Images From The Same Rank
+> Image A Rank 1 Image B Rank 1 Image A Rank 1 Image C Rank 2 Mixing Only Non-ordinal features of C to A Mixing Only Ordinal features of C to A Ordinal and Non-ordinal visual cues
+
+Figure 4: Mixing either Ordinal or Non-ordinal features into the reference image (A) from the same rank (B) and severe rank (C) samples from KOA dataset according to the percent-age in x-axis. Mixing ordinal features from (B) preserves the joint space, whereas mixing from (C) narrows it. In contrast, mixing non-ordinal features primarily changes visual appear-ance, including attributes such as nails. codebook no apparent rank organization. We quantify this by training linear probes on the frozen latent features ( zo and 
+
+zn) and reporting test-set rank prediction accuracy. As shown in Tab.5, the probe achieves 65.04% on zo vs. 19.65% on zn,confirming that ordinal information is concentrated in zo,while zn remains at chance for five-class KOA. An ablation study further shows that removing the GRL or ℓsim increases rank leakage into zn, whereas removing the dual codebooks collapses accuracy to 33%, validating the proposed design. Figure 4 illustrates that the disentanglement captures clini-cally meaningful factors of knee osteoarthritis grading. Joint-space narrowing, a key severity indicator, is encoded in the ordinal latent, whereas the surgical nail, unrelated to grading, is captured in the non-ordinal latent (Braun and Gold 2012; Hayashi et al. 2017). Accordingly, modifying the non-ordinal latent alters the nail (rows 2 and 4), while modifying the or-dinal latent changes the joint space (row 3), demonstrating a controllable and semantically meaningful decomposition. Accuracy ↑ MAE ↓                      
+
+> on zoon znon zoon zn
+> DisMix 65.04 19.65 0.45 1.42 Without GRL 62.13 22.95 0.48 1.36 Without ℓorth 59.22 24.35 0.59 1.38 One codebook 33.01 1.72
+
+Table 5: Probe classifier perfor-mance with DisMix variants. Accuracy ↑ MAE ↓                                                
+
+> IDRID Ordinal Mix 65.09 ±1.73 0.56 ±0.02 Generate & Mix 67.01 ±2.56 0.55 ±0.04 Non-Ordinal Mix 64.74 ±1.17 0.60 ±0.01 Order Swap 66.69 ±2.96 0.54 ±0.06 GLEASON Ordinal Mix 88.96 ±1.31 0.17 ±0.01 Generate & Mix 90.34 ±1.43 0.13 ±0.02 Non-Ordinal Mix 89.62 ±1.19 0.16 ±0.02 Order Swap 90.39 ±0.97 0.14 ±0.02
+
+Table 6: Performance vs. individual mixing policies with CLOC. C1-C2 C2-C3 C3-C4 C4-C5          
+
+> Class Boundary
+> 0% 2% 4% 6% 8% 10% 12% 14% 16% 18% 20%
+> Classification Error (%)  IDRID
+> 10% 10% 15% 7% 14% 10% 10% 1% 14% 16% 11% 8% 16% 16% 15% 6%
+> C1-C2 C2-C3 C3-C4
+> Class Boundary
+> 0% 2% 4% 6% 8% 10% 12% 14% 16% 18% 20% 22% 24% 26% 28%
+> Classification Error (%)  CHAOYANG
+> 21% 15% 17% 11% 10% 6% 5% 1% 5% 2% 2% 1%
+> Mixup GuidedMix DiffuseMix DisMix
+> C1-C2 C2-C3 C3-C4 C4-C5
+> Class Boundary
+> 2% 4% 6% 8% 10% 12% 14% 16% 18% 20% 22% 24% 26%
+> Classification Error (%)  KOA
+> 19% 17% 17% 16% 21% 19% 20% 18% 13% 12% 13% 11% 7% 5% 5% 5%
+> C1-C2 C2-C3 C3-C4
+> Class Boundary
+> 2% 4% 6% 8% 10% 12% 14% 16% 18% 20%
+> Classification Error (%)  GLEASON
+> 10% 9% 7% 3% 17% 16% 17% 10% 15% 12% 13% 8%
+
+Figure 5: Per-boundary classification error rates of DisMix vs. baseline mixup methods. Accuracy ↑ MAE ↓
+
+IDRID Mixup 65.37 ± 2.25 0.58 ± 0.02 CutMix 64.39 ± 0.56 0.59 ± 0.06 PuzzleMix 65.69 ± 0.56 0.56 ± 0.00 CoMix 65.04 ± 0.00 0.56 ± 0.02 GuidedMix 64.72 ± 1.48 0.56 ± 0.01 DiffuseMix 65.69 ± 2.02 0.58 ± 0.06 DisMix 66.01 ± 0.98 0.55 ± 0.03 
+
+KOA Mixup 68.55 ± 0.37 0.39 ± 0.01 CutMix 68.97 ± 0.82 0.38 ± 0.02 PuzzleMix 68.45 ± 0.35 0.38 ± 0.02 CoMix 68.37 ± 0.69 0.39 ± 0.01 GuidedMix 68.49 ± 0.09 0.39 ± 0.01 DiffuseMix 68.35 ± 0.38 0.39 ± 0.02 DisMix 69.53 ± 0.47 0.38 ± 0.01 
+
+Table 7: DisMix vs. mixup base-lines with CLOC with no grading variability. 
+
+Analysis of DisMix Components and Policies. To as-sess the contribution of each component, we evaluate the proposed mixup policies individually. Ordinal Mix, Non-Ordinal Mix, Generate & Mix, and Order Swap isolate the ordinal branch, non-ordinal branch, conditional rank gen-eration, and learned feature exchange, respectively. Table 6 shows, each policy is competitive against each other, but re-mains weaker than their combined use in Tab.2, highlighting their complementary roles. Tab.10 (App. C) finds that Gen-erate & Mix achieves higher accuracy in severe data scarcity (10% images/class) and extreme grading variability (70%) likely due to its two-stage process of generating a clean adja-cent rank before mixing, highlighting the benefit of ordinal-conditioned synthesis. Tab.11 (App. C) further group policies based on label-preserving and label-interpolating and show that label-preserving policies slightly outperform interpolat-ing policies when used individually. 
+
+Without Grading Variability. Although DisMix was evaluated primarily with grading variability, we also eval-uate without grading variability (i.e. a single label per im-age). Table 7 shows that DisMix achieves the best accuracy and MAE on both IDRID and KOA, indicating that DisMix remains effective even in the absence of grading variability. 
+
+Scope of Generations. Although Fig. 3 and 4 show that DisMix produces visually plausible ordinal and non-ordinal variations, the generated images are intended for data aug-mentation rather than direct clinical interpretation, as the generator prioritizes preserving ordinal semantics over high-fidelity image synthesis. Furthermore, the interpolated ranks are used solely for soft supervision and should not be inter-preted as new clinically defined grades. 
+
+Limitations. We measure mixup augmentation overhead as the percentage increase in downstream training time rel-ative to vanilla training (without mixup) on IDRID using GOL. Figure 6 shows that DisMix offers a good accuracy– efficiency trade-off, outperforming mixup baselines while in-curring lower overhead than DiffuseMix and Co-Mixup. This can be further mitigated by generating and caching mixed 0% 100% 200% 300%  
+
+> Augmentation Overhead (+%)
+> 55 60 65 70 75
+> Accuracy (%)
+> Vanilla MixUp CutMix PuzzleMix CoMix GuidedMix DiffuseMix DisMix (Ours)
+
+Figure 6: Accuracy vs. augmentation overhead of DisMix vs. mixup baselines on IDRID. samples offline before downstream training. Furthermore, training DisMix incurs a one-time, per-dataset overhead to learn the disentangled representation, which is amortized across all downstream classifiers (see App. C). Future work will explore foundation models for few-shot ordinal disen-tanglement to reduce per-dataset training. 
+
+## 7 Conclusion 
+
+We presented DisMix, a latent mixup method for ordinal data motivated by the observation that conventional image mixup entangles order-relevant and order-irrelevant factors, thereby weakening the ordinal signal. DisMix disentangles ordinal and non-ordinal features into separate latent sub-spaces via a dual-codebook VQ-VAE, enabling order-aware mixing within dedicated subspaces. Extensive experiments show that DisMix achieves strongest aggregate performance among six SOTA mixup baselines across six ordinal classi-fiers, improving both accuracy and MAE. Our results under-score the importance of order-aware mixup for ordinal data highlighting disentanglement-based methods as a promising direction for robust ordinal learning in medical imaging. 
+
+## References 
+
+Bae, B.; Lee, J.; Kong, S. T.; Sung, J.; and Jung, K.-H. 2020. Man-ifold Ordinal-Mixup for Ordered Classes in TW3-Based Bone Age Assessment. In Martel, A. L.; Abolmaesumi, P.; Stoyanov, D.; Ma-teus, D.; Zuluaga, M. A.; Zhou, S. K.; Racoceanu, D.; and Joskow-icz, L., eds., Medical Image Computing and Computer Assisted Intervention – MICCAI 2020 , 662–670. Cham: Springer Interna-tional Publishing. ISBN 978-3-030-59725-2. Baykal, G.; Kandemir, M.; and Unal, G. 2025. Disen-tanglement with Factor Quantized Variational Autoencoders. arXiv:2409.14851. Braun, H. J.; and Gold, G. E. 2012. Diagnosis of Osteoarthritis: Imaging. Bone , 51(2): 278–288. Cao, Z.; Chen, E.; Huang, Y.; Shen, S.; and Huang, Z. 2023. Learn-ing from Crowds with Annotation Reliability. In Proceedings of the 46th International ACM SIGIR Conference on Research and Development in Information Retrieval . Taipei Taiwan: ACM. ISBN 978-1-4503-9408-6. Carneiro, G. 2024. Machine Learning with Noisy Labels: Defini-tions, Theory, Techniques and Solutions . Elsevier. Chen, G.; Zhang, S.; Lin, D.; Huang, H.; and Heng, P. A. 2017. Learning to Aggregate Ordinal Labels by Maximizing Separating Width. In Precup, D.; and Teh, Y. W., eds., Proceedings of the 34th International Conference on Machine Learning , volume 70 of 
+
+Proceedings of Machine Learning Research , 787–796. PMLR. Chen, H.; Wang, Z.; Li, X.; Sun, X.; Chen, F.; Liu, J.; Wang, J.; Raj, B.; Liu, Z.; and Barsoum, E. 2025. Softvq-vae: Efficient 1-dimensional continuous tokenizer. In Proceedings of the Computer Vision and Pattern Recognition Conference , 28358–28370. Chen, P.; Gao, L.; Shi, X.; Allen, K.; and Lin, Y. 2019. Fully Automatic Knee Osteoarthritis Severity Grading Using Deep Neu-ral Networks with a Novel Ordinal Loss. Computerized Medical Imaging and Graphics , 75: 84–92. Chen, X.; Duan, Y.; Houthooft, R.; Schulman, J.; Sutskever, I.; and Abbeel, P. 2016. Infogan: Interpretable representation learning by information maximizing generative adversarial nets. Advances in neural information processing systems , 29. Dawid, A. P.; and Skene, A. M. 1979. Maximum likelihood esti-mation of observer error-rates using the EM algorithm. Journal of the Royal Statistical Society: Series C (Applied Statistics) , 28(1): 20–28. Diaz, R.; and Marathe, A. 2019. Soft labels for ordinal regression. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 4738–4747. Dong, Y.; Su, F.-Y.; and Chiang, J.-H. 2026. SGD-Mix: Enhancing Domain-Specific Image Classification with Label-Preserving Data Augmentation. In Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV) , 7051–7061. Galdran, A.; Carneiro, G.; and González Ballester, M. A. 2021. Balanced-mixup for highly imbalanced medical image classifica-tion. In International Conference on Medical Image Computing and Computer-Assisted Intervention , 323–333. Springer. Ganin, Y.; and Lempitsky, V. 2015. Unsupervised domain adapta-tion by backpropagation. In International conference on machine learning , 1180–1189. PMLR. Goh, H. W.; Tkachenko, U.; and Mueller, J. 2022. CROWDLAB: Supervised learning to infer consensus labels and quality scores for data with multiple annotators. In NeurIPS Human in the Loop Learning Workshop .Hayashi, D.; Roemer, F. W.; Jarraya, M.; and Guermazi, A. 2017. Imaging in Osteoarthritis. Radiologic Clinics of North America ,55(5): 1085–1102. Herde, M.; Huseljic, D.; and Sick, B. 2024. Multi-annotator deep learning: A probabilistic framework for classification. Transactions on Machine Learning Research .Herde, M.; Lührs, L.; Huseljic, D.; and Sick, B. 2024. Annot-Mix: Learning with Noisy Class Labels from Multiple Annotators via a Mixup Extension. In European Conference on Artificial Intelli-gence .Hou, X.; Li, Y.; and Wang, S. 2021. Disentangled representation for age-invariant face recognition: A mutual information minimiza-tion perspective. In Proceedings of the IEEE/CVF International Conference on Computer Vision , 3692–3701. Hsu, K.; Dorrell, W.; Whittington, J. C. R.; Wu, J.; and Finn, C. 2023. Disentanglement via Latent Quantization. In Thirty-seventh Conference on Neural Information Processing Systems .Hsu, K.; Hamid, J. I.; Burns, K.; Finn, C.; and Wu, J. 2024. Tripod: Three Complementary Inductive Biases for Disentangled Represen-tation Learning. In Salakhutdinov, R.; Kolter, Z.; Heller, K.; Weller, A.; Oliver, N.; Scarlett, J.; and Berkenkamp, F., eds., Proceedings of the 41st International Conference on Machine Learning , volume 235 of Proceedings of Machine Learning Research , 19101–19122. PMLR. Huang, X.; Liu, M.-Y.; Belongie, S.; and Kautz, J. 2018. Multimodal unsupervised image-to-image translation. In Proceedings of the European conference on computer vision (ECCV) , 172–189. Islam, K.; Zaheer, M. Z.; Mahmood, A.; and Nandakumar, K. 2024. Diffusemix: Label-preserving data augmentation with dif-fusion models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 27621–27630. Isola, P.; Zhu, J.-Y.; Zhou, T.; and Efros, A. A. 2017. Image-to-image translation with conditional adversarial networks. In Proceedings of the IEEE conference on computer vision and pattern recognition ,1125–1134. Ji, W.; Yu, S.; Wu, J.; Ma, K.; Bian, C.; Bi, Q.; Li, J.; Liu, H.; Cheng, L.; and Zheng, Y. 2021. Learning calibrated medical image segmentation via multi-rater agreement modeling. In Proceedings of the IEEE/CVF conference on computer vision and pattern recog-nition , 12341–12351. Jun, Y.; Park, J.; Choo, K.; Choi, T. E.; and Hwang, S. J. 2025. Dis-entangling Disentangled Representations: Towards Improved La-tent Units via Diffusion Models. In 2025 IEEE/CVF Winter Con-ference on Applications of Computer Vision (WACV) , 3559–3569. IEEE. Kang, M.; and Kim, S. 2023. Guidedmixup: an efficient mixup strategy guided by saliency maps. In Proceedings of the AAAI conference on artificial intelligence , volume 37, 1096–1104. Karras, T.; Laine, S.; and Aila, T. 2019. A style-based generator ar-chitecture for generative adversarial networks. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition ,4401–4410. Khrulkov, V.; Mirvakhabova, L.; Oseledets, I.; and Babenko, A. 2021. Disentangled representations from non-disentangled models. 
+
+arXiv preprint arXiv:2102.06204 .Kim, H.; and Mnih, A. 2018. Disentangling by factorising. In 
+
+International conference on machine learning , 2649–2658. PMLR. Kim, J.; Choo, W.; Jeong, H.; and Song, H. O. 2021. Co-Mixup: Saliency Guided Joint Mixup with Supermodular Diversity. In 
+
+International Conference on Learning Representations .Kim, J.-H.; Choo, W.; and Song, H. O. 2020. Puzzle mix: Exploiting saliency and local statistics for optimal mixup. In International conference on machine learning , 5275–5285. PMLR. Kobayashi, K.; Hataya, R.; Kurose, Y.; Miyake, M.; Takahashi, M.; Nakagawa, A.; Harada, T.; and Hamamoto, R. 2021. Decomposing normal and abnormal features of medical images for content-based image retrieval of glioma imaging. Medical Image Analysis , 74: 102227. Kwon, G.; and Ye, J. C. 2023. Diffusion-based Image Translation using disentangled style and content representation. In The Eleventh International Conference on Learning Representations .Lample, G.; Zeghidour, N.; Usunier, N.; Bordes, A.; Denoyer, L.; and Ranzato, M. 2017. Fader networks: Manipulating images by sliding attributes. Advances in neural information processing sys-tems , 30. Lee, S.-H.; Shin, N. H.; and Kim, C.-S. 2022. Geometric Order Learning for Rank Estimation. In Oh, A. H.; Agarwal, A.; Belgrave, D.; and Cho, K., eds., Advances in Neural Information Processing Systems .Li, W.; Huang, X.; Lu, J.; Feng, J.; and Zhou, J. 2021. Learning probabilistic ordinal embeddings for uncertainty-aware regression. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 13896–13905. Liu, Y.; Kong, A. W. K.; and Goh, C. K. 2018. A constrained deep neural network for ordinal regression. In Proceedings of the IEEE conference on computer vision and pattern recognition , 831–839. López-Pérez, M.; Morquecho, A.; Schmidt, A.; Pérez-Bueno, F.; Martín-Castro, A.; Mateos, J.; and Molina, R. 2024. The Crowd-Gleason dataset: Learning the Gleason grade from crowds and experts. Computer Methods and Programs in Biomedicine , 257: 108472. Niu, Z.; Zhou, M.; Wang, L.; Gao, X.; and Hua, G. 2016. Ordinal Regression With Multiple Output CNN for Age Estimation. In Pro-ceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR) .Noh, J.; Park, H.; Lee, J.; and Ham, B. 2023. Rankmixup: Ranking-based mixup training for network calibration. In Proceedings of the IEEE/CVF International Conference on Computer Vision , 1358– 1368. Pitawela, D.; Carneiro, G.; and Chen, H.-T. 2025. CLOC: Con-trastive Learning for Ordinal Classification with Multi-Margin N-pair Loss. In Proceedings of the Computer Vision and Pattern Recognition Conference , 15538–15548. Porwal, P.; Pachade, S.; Kamble, R.; Kokare, M.; Deshmukh, G.; Sahasrabuddhe, V.; and Meriaudeau, F. 2018. Indian Dia-betic Retinopathy Image Dataset (IDRiD): A Database for Diabetic Retinopathy Screening Research. Data , 3(3). Qin, H.; Jin, X.; Zhu, H.; Liao, H.; El-Yacoubi, M. A.; and Gao, X. 2024. Sumix: Mixup with semantic and uncertain information. In 
+
+European Conference on Computer Vision , 70–88. Springer. Rombach, R.; Blattmann, A.; Lorenz, D.; Esser, P.; and Ommer, B. 2022. High-resolution image synthesis with latent diffusion models. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 10684–10695. Shen, Y.; and Zhou, B. 2021. Closed-form factorization of latent semantics in gans. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 1532–1540. Shin, N.-H.; Lee, S.-H.; and Kim, C.-S. 2022. Moving window regression: A novel approach to ordinal regression. In Proceed-ings of the IEEE/CVF conference on computer vision and pattern recognition , 18760–18769. Sinha, V. B.; Rao, S.; and Balasubramanian, V. N. 2018. Fast Dawid-Skene: A fast vote aggregation scheme for sentiment classification. In KDD Workshop on Issues of Sentiment Discovery and Opinion Mining (WISDOM) .Tran, L.; Yin, X.; and Liu, X. 2017. Disentangled representation learning gan for pose-invariant face recognition. In Proceedings of the IEEE conference on computer vision and pattern recognition ,1415–1424. Van Den Oord, A.; Vinyals, O.; et al. 2017. Neural discrete rep-resentation learning. Advances in neural information processing systems , 30. van der Maaten, L.; and Hinton, G. 2008. Visualizing Data using t-SNE. Journal of Machine Learning Research , 9(86): 2579–2605. Verma, V.; Lamb, A.; Beckham, C.; Najafi, A.; Mitliagkas, I.; Lopez-Paz, D.; and Bengio, Y. 2019. Manifold mixup: Better rep-resentations by interpolating hidden states. In International confer-ence on machine learning , 6438–6447. PMLR. Wang, J.; Cheng, Y.; Chen, J.; Chen, T.; Chen, D.; and Wu, J. 2023. Ord2seq: Regarding ordinal regression as label sequence predic-tion. In Proceedings of the IEEE/CVF International Conference on Computer Vision , 5865–5875. Wang, X.; Chen, H.; Tang, S.; Wu, Z.; and Zhu, W. 2024. Dis-entangled representation learning. IEEE Transactions on Pattern Analysis and Machine Intelligence , 46(12): 9677–9696. Yun, S.; Han, D.; Oh, S. J.; Chun, S.; Choe, J.; and Yoo, Y. 2019. Cutmix: Regularization strategy to train strong classifiers with lo-calizable features. In Proceedings of the IEEE/CVF international conference on computer vision , 6023–6032. Zha, K.; Cao, P.; Son, J.; Yang, Y.; and Katabi, D. 2023. Rank-N-Contrast: Learning Continuous Representations for Regression. In Thirty-seventh Conference on Neural Information Processing Systems .Zhang, H.; Cisse, M.; Dauphin, Y. N.; and Lopez-Paz, D. 2018a. mixup: Beyond Empirical Risk Minimization. In International Conference on Learning Representations .Zhang, R.; Isola, P.; Efros, A. A.; Shechtman, E.; and Wang, O. 2018b. The unreasonable effectiveness of deep features as a per-ceptual metric. In Proceedings of the IEEE conference on computer vision and pattern recognition , 586–595. Zheng, J.; Yao, Y.; Han, B.; Wang, D.; and Liu, T. 2024. Enhancing Contrastive Learning for Ordinal Regression via Ordinal Content Preserved Data Augmentation. In The Twelfth International Con-ference on Learning Representations .Zhou, D.; Liu, Q.; Platt, J.; and Meek, C. 2014. Aggregating Ordinal Labels from Crowds by Minimax Conditional Entropy. In Xing, E. P.; and Jebara, T., eds., Proceedings of the 31st International Conference on Machine Learning , volume 32 of Proceedings of Machine Learning Research , 262–270. Bejing, China: PMLR. Zhu, C.; Chen, W.; Peng, T.; Wang, Y.; and Jin, M. 2022. Hard Sample Aware Noise Robust Learning for Histopathology Image Classification. IEEE Transactions on Medical Imaging , 41(4): 881– 894. Zhu, J.-Y.; Zhang, R.; Pathak, D.; Darrell, T.; Efros, A. A.; Wang, O.; and Shechtman, E. 2017. Toward multimodal image-to-image translation. Advances in neural information processing systems , 30. Zou, K.; Faisan, S.; Heitz, F.; and Valette, S. 2023. Disentangling high-level factors and their features with conditional vector quan-tized VAEs. Pattern Recognition Letters , 172: 172–180. Appendix A Ordinal Soft Label 
+
+This section elaborates on the ordinal soft-label creation pro-cess with a fail-safe mechanism and examples. Each sample xi, graded by more than one annotators with scalar ranks {yi,a }a∈A , is assigned a single ordinal soft la-bel. Firstly, each label yi,a is converted into a progressive vector p(k) 
+
+> i,a
+
+= I(k < ˜yi,a ) for k ∈ [0 , C −2] . Secondly, taking the element-wise average across annotators yields 
+
+s(k) 
+
+> i
+
+= 1
+
+> |A|
+
+P 
+
+> a∈A
+
+p(k) 
+
+> i,a
+
+, forming si=[ s(0)  
+
+> i
+
+, . . . , s (C−2)  
+
+> i
+
+]. Lastly, to ensure a non-increasing progression, an optional mono-tonicity constraint is applied to si, ensuring s(k+1)  
+
+> i
+
+≤ s(k)
+
+> i
+
+for all k. The resulting target ¨yi reflects that belonging to a higher rank (e.g., 4) implies inclusion in all preceding ranks. For instance, if C=5 , |A| =4 , and annotations, 
+
+• {yi,a }a∈A ={3, 3, 4, 4} → ¨yi=[1 , 1, 1, 0.5] 
+
+• {yi,a }a∈A ={0, 1, 2, 2} → ¨yi=[0 .75 , 0.5, 0, 0] 
+
+If C=5 , |A| =3 , and annotations, 
+
+• {yi,a }a∈A ={0, 1, 1} → ¨yi=[0 .66 , 0, 0, 0] 
+
+## B Datasets 
+
+Knee Osteoarthritis (KOA) dataset. The training set in-cludes 2,286, 1,046, 1,516, 757, and 173 x-ray images for grades 0–4. The validation set contains 328, 153, 212, 106, and 27 respectively. We combine the above into a single train-ing set for DisMix training. The testing split has 639, 296, 447, 223, and 51 respectively. 
+
+Indian Diabetic Retinopathy Image Dataset (IDRID). 
+
+The training set contains 134, 20, 136, 74, and 49 fundus images for grades 0–4, respectively. The official test set in-cludes 34, 5, 32, 19, and 13 images for grades 0–4. 
+
+Chaoyang dataset. The training set contains 1,111 nor-mal, 842 serrated, 1,404 adenocarcinoma, and 664 adenoma images. The consensus-labeled test set includes 705, 321, 840, and 273 images, respectively. 
+
+Crowd Gleason dataset. The majority-vote training set contains 7,974 non-cancer, 2,038 grade 3, 2,840 grade 4, and 972 grade 5 images. The expert–resident consensus test set includes 2,157, 548, 164, and 57 images, respectively. 
+
+## C Extended Results 
+
+Extended Analysis with Data Scarcity. We extend the analysis under data scarcity to more datasets and methods in Tab. 8 and show that DisMix performs well under data scarce conditions. 
+
+Extended Analysis of DisMix Components and Policies. 
+
+We extend the analysis of DisMix components and policies to more datasets and ordinal methods in Tab. 9 and show that policies are competitive against each other but remains suboptimal to their combined use in Tab. 2. Accuracy ↑ Mean Absolute Error ↓                                                                                                                                                                                                   
+
+> ORD2SEQ CLOC ORD2SEQ CLOC IDRID Mixup 49.92 ±1.06 43.36 ±1.49 0.88 ±0.05 1.06 ±0.04 GuidedMix 49.82 ±2.41 46.09 ±1.77 0.88 ±0.08 1.00 ±0.09 DiffuseMix 48.22 ±1.12 45.26 ±2.84 0.93 ±0.02 1.13 ±0.08 DisMix 51.44 ±1.67 47.91 ±2.82 0.86 ±0.06 0.99 ±0.09
+> KOA Mixup 58.22 ±1.19 58.77 ±1.03 0.58 ±0.02 0.57 ±0.02 GuidedMix 58.01 ±1.40 57.93 ±0.07 0.60 ±0.01 0.59 ±0.03 DiffuseMix 58.13 ±1.14 59.00 ±0.98 0.59 ±0.02 0.56 ±0.00
+> DisMix 58.58 ±0.32 59.53 ±1.40 0.58 ±0.01 0.58 ±0.04 CHAOYANG Mixup 78.37 ±0.20 79.52 ±0.42 0.33 ±0.01 0.31 ±0.00 GuidedMix 78.99 ±0.56 80.02 ±0.60 0.33 ±0.01 0.30 ±0.01
+> DiffuseMix 78.20 ±0.18 78.68 ±0.74 0.33 ±0.00 0.32 ±0.02 DisMix 79.38 ±0.48 78.77 ±0.70 0.32 ±0.03 0.32 ±0.01 GLEASON Mixup 86.15 ±1.19 84.82 ±0.95 0.23 ±0.01 0.21 ±0.02 GuidedMix 86.35 ±0.71 84.22 ±0.22 0.21 ±0.00 0.23 ±0.01 DiffuseMix 87.07 ±0.52 84.67 ±1.46 0.23 ±0.03 0.23 ±0.01 DisMix 87.54 ±0.62 85.38 ±0.76 0.20 ±0.01 0.21 ±0.01
+
+Table 8: Extended results of performance under data scarcity, with the training set limited to 10% of samples per class ( ≥10 images/class). 
+
+Extended Analysis of Policy Behavior Under Extreme Conditions. We examine policy behavior under severe data scarcity (10% per class) and extreme grading variabil-ity (70% of boundary grade variability) using CLOC on KOA dataset. As shown in Tab.10, Generate & Mix achieves 
+
+≈1−2% higher accuracy than the respective combined-policies setting for CLOC in Tab. 8 (with data scarcity) and Tab. 4 (70% grading variability with 0.5 mix proba-bility), likely due to its two-stage process of generating a clean adjacent rank before mixing. This highlights the ad-vantage of ordinal-conditioned synthesis over interpolation between available samples under extreme conditions. Order Swap, the second-best, indicates that label-preserving mixup remains effective even under extreme settings. 
+
+Extended Analysis of Label-Preserving vs. Interpolating Mixup. Table 11 groups policies based on label-preserving (Non-ordinal Mix and Order Swap) and label-interpolating (Ordinal Mix and Generate & Mix) and show that label-preserving policies slightly outperform interpolating policies when used individually on KOA, Chaoyang and Gleason. 
+
+DisMix Training Overhead. We compare the training overhead of DisMix and DiffuseMix on IDRID using a sin-gle RTX 4090 GPU. DisMix trains in only ≈1.3 hours, over 6× faster than DiffuseMix fine-tuning ( ≈8.5 hours), while achieving higher accuracy and lower MAE as shown in Tab. 12. Accuracy ↑ Mean Absolute Error ↓
+
+ORD2SEQ CLOC ORD2SEQ CLOC IDRID Ordinal Mix 66.67 ± 0.56 65.09 ± 1.73 0.61 ± 0.02 0.56 ± 0.02 Generate & Mix 64.73 ± 0.56 67.01 ± 2.56 0.62 ± 0.02 0.55 ± 0.04 Non-Ordinal Mix 64.73 ± 2.02 64.74 ± 1.17 0.59 ± 0.05 0.60 ± 0.01 Order Swap 65.37 ± 2.44 66.69 ± 2.96 0.65 ± 0.04 0.54 ± 0.06 KOA Ordinal Mix 68.90 ± 0.27 68.35 ± 0.79 0.43 ± 0.01 0.41 ± 0.01 Generate & Mix 68.72 ± 0.22 68.27 ± 0.40 0.42 ± 0.02 0.41 ± 0.01 Non-Ordinal Mix 68.36 ± 0.27 67.71 ± 0.33 0.42 ± 0.01 0.42 ± 0.01 Order Swap 68.88 ± 0.48 67.93 ± 0.36 0.43 ± 0.00 0.41 ± 0.00 CHAOYANG Ordinal Mix 84.29 ± 0.29 84.77 ± 0.39 0.27 ± 0.00 0.22 ± 0.01 Generate & Mix 84.14 ± 0.59 84.07 ± 0.71 0.26 ± 0.02 0.23 ± 0.02 Non-Ordinal Mix 84.10 ± 0.13 84.27 ± 0.88 0.25 ± 0.01 0.23 ± 0.01 Order Swap 83.54 ± 0.00 84.44 ± 1.11 0.26 ± 0.00 0.24 ± 0.03 GLEASON Ordinal Mix 92.12 ± 0.67 88.96 ± 1.31 0.23 ± 0.04 0.17 ± 0.01 Generate & Mix 91.89 ± 0.24 90.34 ± 1.43 0.27 ± 0.07 0.13 ± 0.02 Non-Ordinal Mix 91.81 ± 0.44 89.62 ± 1.19 0.26 ± 0.04 0.16 ± 0.02 Order Swap 92.32 ± 0.55 90.39 ± 0.97 0.29 ± 0.02 0.14 ± 0.02 Table 9: Extended performance comparison of individual mixing policies. Severe Scarcity Extreme Grading Variability Accuracy ↑ MAE ↓ Accuracy ↑ MAE ↓
+
+Ordinal Mix 59.75 ± 0.47 0.57 ± 0.00 64.45 ± 2.11 0.45 ± 0.02 Generate & Mix 60.28 ± 1.13 0.56 ± 0.02 66.57 ± 2.11 0.44 ± 0.02 
+
+Non-Ordinal Mix 59.60 ± 1.05 0.58 ± 0.02 65.27 ± 1.47 0.46 ± 0.02 Order Swap 59.90 ± 0.27 0.57 ± 0.02 65.88 ± 0.07 0.45 ± 0.00 
+
+Table 10: Performance of mixup policies in severe data scarcity (10% data per class) and extreme grading variability (≈70% ) with CLOC on KOA dataset. Accuracy ↑ Mean Absolute Error ↓
+
+ORD2SEQ CLOC ORD2SEQ CLOC IDRID Interpolating 65.70 ± 2.02 65.36 ± 0.56 0.65 ± 0.03 0.59 ± 0.02 Preserving 64.08 ± 2.57 65.04 ± 0.00 0.62 ± 0.05 0.58 ± 0.02 
+
+KOA Interpolating 68.56 ± 0.18 67.89 ± 0.25 0.41 ± 0.01 0.42 ± 0.00 Preserving 68.62 ± 0.17 68.13 ± 0.41 0.41 ± 0.00 0.41 ± 0.00 
+
+CHAOYANG Interpolating 83.79 ± 0.58 83.99 ± 0.59 0.28 ± 0.03 0.23 ± 0.01 Preserving 83.82 ± 0.05 84.63 ± 0.41 0.27 ± 0.01 0.23 ± 0.00 
+
+GLEASON Interpolating 91.37 ± 0.59 88.85 ± 0.89 0.24 ± 0.09 0.17 ± 0.02 Preserving 91.65 ± 0.54 89.86 ± 0.34 0.27 ± 0.05 0.16 ± 0.00 
+
+Table 11: DisMix performance with label-preserving vs. in-terpolating Mixups. Accuracy ↑ MAE ↓
+
+Base 63.75 0.66 FT 64.30 0.61 DisMix 66.02 0.57 Table 12: DisMix vs. base and fine-tuned (FT) DiffuseMix with CLOC on IDRID.
