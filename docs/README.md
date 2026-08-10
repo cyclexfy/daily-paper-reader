@@ -6,46 +6,35 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-08-09
-- 运行时间：2026-08-09 19:42:28 UTC
+- 最新运行日期：2026-08-10
+- 运行时间：2026-08-10 20:29:37 UTC
 - 运行状态：成功
-- 本次总论文数：8
-- 精读区：4
+- 本次总论文数：5
+- 精读区：1
 - 速读区：4
 
 ### 今日简报（AI）
-今日精选8篇医学多模态与视觉语言模型论文，其中2篇精读、4篇速读。  
-最值得关注的是NeuroMosaic（3D MRI+临床文本的胶质瘤分子推理）与iStructTab（图像+表格结构化特征学习），二者均获8.0分。  
-建议优先精读这两篇，速读可顺带掌握医学图像定位、段落级文本监督检索及3D分割预训练方向。
-- 详情：[/202608/09/README](/202608/09/README)
+今日精读病理学测试时适应稳定性基准（9.0分），速读患者多模态表征、特征上采样与医学影像增量学习三篇。最值得关注的是病理AI在测试时适应中的可解释性稳定性，以及零样本特征上采样对细粒度任务的提升。下一步可优先复现精读基准，并评估其方法在自有病理数据上的适用性。
+- 详情：[/202608/10/README](/202608/10/README)
 
 ### 精读区论文标签
-1. [NeuroMosaic: Anatomically Grounded Multimodal Large Language Modeling for Molecularly Aware Glioma Reasoning from 3D MRI and Clinical Narratives](/202608/09/2608.03187v1-neuromosaic-anatomically-grounded-multimodal-large-language-modeling-for-molecularly-aware-glioma-reasoning-from-3d-mri-and-clinical-narratives)  
-   标签：评分：8.0/10、query:cpath
-   evidence：结合3D MRI与临床叙述进行胶质瘤分子分型推理，属于癌症诊断范畴
-2. [iStructTab: Structured Feature Sequencing for Multimodal Learning of Image and Tabular Data](/202608/09/2608.04348v1-istructtab-structured-feature-sequencing-for-multimodal-learning-of-image-and-tabular-data)  
-   标签：评分：8.0/10、query:cpath
-   evidence：面向图像与表格数据多模态学习的图增强描述符序列化方法
-3. [Positive-Unlabeled Preference Optimization For Chest X-ray Report Generation](/202608/09/2608.05341v1-positive-unlabeled-preference-optimization-for-chest-x-ray-report-generation)  
-   标签：评分：8.0/10、query:cpath
-   evidence：基于正-未标记偏好优化的胸片报告生成视觉语言模型
-4. [DistMedVL: Distributional Vision-Language Alignment for Uncertainty-Aware Medical Image Segmentation](/202608/09/2608.05683v1-distmedvl-distributional-vision-language-alignment-for-uncertainty-aware-medical-image-segmentation)  
-   标签：评分：8.0/10、query:cpath
-   evidence：提出概率视觉-语言框架，为医学图像分割建模表征不确定性
+1. [Explanation Stability of Test-Time Adaptation in Computational Pathology: A Large-Scale Benchmark](/202608/10/2608.07062v1-explanation-stability-of-test-time-adaptation-in-computational-pathology-a-large-scale-benchmark)  
+   标签：评分：9.0/10、query:cpath
+   evidence：关于测试时适应下解释稳定性的计算病理学基准研究
 
 ### 速读区论文标签
-1. [LocAnyMed: Vision-Language Grounding for Multimodal Medical Images](/202608/09/2608.03322v1-locanymed-vision-language-grounding-for-multimodal-medical-images)  
+1. [PatTree: a novel approach for automated creation of multimodal, graph-based patient representations for medical classification tasks](/202608/10/2608.02692v1-pattree-a-novel-approach-for-automated-creation-of-multimodal-graph-based-patient-representations-for-medical-classification-tasks)  
    标签：评分：7.0/10、query:cpath
-   evidence：多模态医学视觉语言定位数据集
-2. [A Paragraph is Worth a Thousand Captions: Rethinking Text Supervision for Vision-Language Retrieval](/202608/09/2608.05260v1-a-paragraph-is-worth-a-thousand-captions-rethinking-text-supervision-for-vision-language-retrieval)  
-   标签：评分：7.0/10、query:cpath
-   evidence：研究对比视觉-语言模型的文本监督粒度与检索性能
-3. [Curia-MAE: Multi-Modal Multi-Anatomy MAE Pre-Training for 3D Medical Image Segmentation](/202608/09/2608.05844v1-curia-mae-multi-modal-multi-anatomy-mae-pre-training-for-3d-medical-image-segmentation)  
-   标签：评分：7.0/10、query:cpath
-   evidence：多模态医学基础模型预训练用于分割
-4. [HexMIL: Hierarchical Attention MIL for Ante-Hoc Explainable Detection of AI-Manipulated CT Volumes](/202608/09/2608.05101v1-hexmil-hierarchical-attention-mil-for-ante-hoc-explainable-detection-of-ai-manipulated-ct-volumes)  
+   evidence：为医学分类任务自动构建基于图的多模态患者表示
+2. [PixelUp: Zero-Shot Semantic Feature Upsampling for Fine-Grained Vision Tasks](/202608/10/2608.02792v1-pixelup-zero-shot-semantic-feature-upsampling-for-fine-grained-vision-tasks)  
    标签：评分：6.0/10、query:cpath
-   evidence：分层注意力多实例学习，仅用弱体积级监督，可迁移至全切片图像分类
+   evidence：面向视觉基础模型的零样本语义特征上采样，可增强病理图像细粒度分析
+3. [STAIL: Semantic Text-Anchored Incremental Learning for Medical Imaging via Large Language Models](/202608/10/2608.05808v1-stail-semantic-text-anchored-incremental-learning-for-medical-imaging-via-large-language-models)  
+   标签：评分：6.0/10、query:cpath
+   evidence：利用大语言模型语义文本锚实现医学影像持续学习，与视觉-语言模型方向相关
+4. [Recent advances in weakly supervised learning: New supervision paradigms, assumption relaxations, and practical solutions](/202608/10/2608.06896v1-recent-advances-in-weakly-supervised-learning-new-supervision-paradigms-assumption-relaxations-and-practical-solutions)  
+   标签：评分：6.0/10、query:cpath
+   evidence：弱监督学习方法，与全切片图像分类中的多示例学习相关
 
 
 <div class="dpr-home-promo-card">

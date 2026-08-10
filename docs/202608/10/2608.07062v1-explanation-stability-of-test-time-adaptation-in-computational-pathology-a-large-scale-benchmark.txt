@@ -1,0 +1,242 @@
+Title: Explanation Stability of Test-Time Adaptation in Computational Pathology: A Large-Scale Benchmark
+
+URL Source: https://arxiv.org/pdf/2608.07062v1
+
+Published Time: Mon, 10 Aug 2026 00:45:25 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+> IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. XX, NO. X, 2026 1
+
+# Explanation Stability of Test-Time Adaptation in Computational Pathology: A Large-Scale Benchmark 
+
+R. G. Bahumanya, Harshith V. M., Shreyank N. Gowda, and Anala M. R. 
+
+Abstract —Test-time adaptation (TTA) has become a practical way to adapt deployed models to unlabeled target data, a setting that is especially relevant in computational pathology where staining, scanner, and cohort shifts are routine. While most TTA methods are evaluated by their effect on accuracy, clinical use also depends on whether the model’s explanations remain reliable after adaptation. In this paper, we take a closer look at this largely unmeasured effect. We study explanation stability under TTA across two histopathology benchmarks, Camelyon17 and NCT-CRC-HE, using five architectures ranging from convolutional networks to vision transformers and a pathology foundation model, seventeen TTA methods, and four attribution families. Across 2,958 adaptation runs, we observe a clear and systematic pattern: TTA methods differ sharply in how much they move model explanations, with frozen-backbone methods leaving attri-butions almost unchanged and continual methods such as CoTTA and RoTTA causing the largest drift. This effect is not uniform. Convolutional networks are substantially more sensitive than transformer and foundation-model backbones, and explanation drift increases with adaptation strength while remaining largely insensitive to batch size. Surprisingly, explanation stability is only weakly coupled to adaptation quality. Some methods preserve explanations almost perfectly while degrading calibration or accuracy, producing silent failures that would be missed by accuracy-only or explanation-only evaluation. These findings show that explanation stability is a distinct reliability axis for TTA in computational pathology. We release the metric, protocol, and full benchmark to support future work on adapta-tion methods that are not only accurate, but also stable and clinically auditable. Code: https://github.com/bahumanyarg11/ tta-explanation-stability-pipeline 
+
+Index Terms —Test-time adaptation, explainability, saliency maps, computational pathology, domain shift, calibration, trust-worthy AI. 
+
+I. I NTRODUCTION 
+
+# DEEP learning has become a central tool in computational pathology, enabling tumour detection, tissue classifica-tion, and large-scale analysis of digitised histology. Yet these models remain sensitive to domain shift. A model trained on one cohort, scanner, staining protocol, or hospital site can 
+
+Manuscript submitted 2026. This work was did not receive any external funding. R. G. Bahumanya, Harshith V. M., and Anala M. R. are with the Department of Computer Science and Engineering, R.V. College of Engi-neering, Bengaluru, India. Emails: bahumanyarg.ci25@rvce.edu.in ,
+
+harshithvm.ci25@rvce.edu.in , analamr@rvce.edu.in .Shreyank N. Gowda is with the School of Computer Science, University of Nottingham, Nottingham, United Kingdom. Email: 
+
+shreyank.narayanagowda@nottingham.ac.uk .R. G. Bahumanya and Harshith V. M. contributed equally. Corresponding author: Anala M. R. analamr@rvce.edu.in .
+
+degrade when deployed elsewhere [1], [2]. This problem is especially acute in pathology, where acquiring labelled target data for every deployment setting is expensive, slow, and often impractical. 
+
+Test-time adaptation (TTA) offers a practical response to this setting. Rather than retraining a model with labelled target data, TTA updates the model or its prediction rule online using only the unlabelled target stream. Existing methods include batch-normalisation statistic recalibration [3], entropy minimisation [4], continual teacher–student adaptation [5], [6], and reliability-aware objectives [7], [8]. These methods are usually judged by whether they improve target-domain accuracy. Accuracy alone is not enough for clinical use. A pathologist or clinical auditor may also ask where the model looked. Post-hoc explanations such as Grad-CAM [9] and Integrated Gradients [10] are commonly used to inspect whether a model attends to plausible tissue regions. Although such explanations have known limitations [11], [12], they remain part of the practical trust pipeline around medical AI systems. This raises a simple question. When TTA changes a model at deployment time, does it also change the explanations that clinicians may inspect? This question matters because explanation stability is not guaranteed by accuracy. A method may preserve accuracy while moving attention to different tissue regions. A method may also preserve explanations while degrading calibration or discrimination. In both cases, standard TTA evaluation can miss relevant behaviour. Accuracy, calibration, and explana-tion stability should therefore be treated as distinct axes of reliability. In this work, we study explanation stability under TTA at scale. We evaluate 17 TTA methods across five architectures, ResNet-50, EfficientNet-B3, Swin-T, ViT-B/16, and Phikon-v2, on two histopathology benchmarks. Camelyon17 captures multi-hospital domain shift, while NCT-CRC-HE provides a nine-class colorectal tissue classification task. Across 2,958 adaptation runs, we measure discrimination, calibration, and explanation movement using four attribution families and a bounded Explanation Stability Index (ESI). Our study leads to three main findings. First, TTA methods differ systematically in how much they perturb explanations. Frozen-backbone methods leave attributions nearly unchanged, while continual methods such as CoTTA and RoTTA produce the largest shifts. Second, explanation drift depends strongly on architecture and task difficulty. Convolutional networks are arXiv:2608.07062v1 [cs.CV] 7 Aug 2026 IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. XX, NO. X, 2026 2
+
+more vulnerable than transformer and foundation-model back-bones, and the harder multi-class setting induces larger drift. Third, explanation stability is largely decoupled from adap-tation quality. Some methods preserve explanations almost perfectly while degrading calibration or accuracy, creating failures that would be missed by accuracy-only or explanation-only evaluation. Our contributions are as follows. 1) Explanation stability under TTA. We formalise expla-nation stability as a reliability axis for test-time adapta-tion and introduce ESI, an equal-weighted bounded in-dex combining complementary similarity and divergence measures. 2) Large-scale pathology benchmark. We evaluate 17 TTA methods across five architectures, two histopathol-ogy datasets, multiple domains, and repeated seeds, yielding 2,958 adaptation runs with paired accuracy, calibration, and explanation measurements. 3) Empirical findings and deployment implications. 
+
+We show that explanation drift is method-dependent, architecture-dependent, and shift-dependent. We also show that drift increases with adaptation strength, and that explanation stability does not substitute for calibra-tion or accuracy monitoring. II. R ELATED WORK 
+
+Test-time adaptation. Test-time adaptation (TTA) adapts a source model to an unlabelled target stream without access to target labels [13]. Existing methods differ in what they update and how much of the model they modify. Normalisation-based methods recalibrate batch-normalisation statistics on target batches [3]. Entropy-based methods update affine normalisa-tion parameters by minimizing prediction entropy [4], often with anti-forgetting terms or reliable-sample filtering [14], [7]. Continual methods use teacher–student updates, stochastic restoration, or memory mechanisms to adapt over a stream [5], [6], [15]. Other approaches use prototype adaptation, graph-based label propagation, weight ensembling, adapter injection, or recent calibration-aware objectives [16], [17], [18], [19], [20], [8], [21]. These methods are usually evaluated by target-domain accuracy, with calibration reported less often. Their effect on post-hoc explanations is largely unmeasured. Our work does not propose a new adaptation rule. Instead, it eval-uates how existing TTA methods change model explanations. 
+
+Explainability and explanation fragility. Post-hoc attribution methods are widely used to inspect image classifiers. CAM-based methods such as Grad-CAM, Grad-CAM++, and Score-CAM produce spatial heatmaps from activation and gradient information [9], [22], [23]. Integrated Gradients provides an axiomatic gradient-based attribution method [10]. Transformer models are often analysed with attention rollout and related attention aggregation methods [24]. At the same time, expla-nation methods are known to be fragile. Saliency maps can be sensitive to model randomisation, input perturbation, and implementation choices [11]. This has motivated faithfulness tests such as insertion and deletion curves [25]. Existing work studies explanation fragility under perturbations, randomisa-tion, or masking. We instead study explanation change caused by online model adaptation. 
+
+Calibration and trustworthy medical AI. Accuracy is not the only requirement for safe medical AI. Modern neural networks are often miscalibrated, meaning that their confidence scores do not reliably match empirical correctness [26]. Calibration is therefore a distinct reliability axis, especially when predictions may support clinical triage or quality assurance. Medical-imaging benchmarks also show that distribution shift can affect models differently across sites, scanners, and cohorts [2], [1]. Our study treats explanation stability as a third axis beside accuracy and calibration. We show that it is not reducible to either one, since a TTA method can preserve explanations while degrading calibration, or move explanations without a corresponding accuracy change. III. M ETHODS 
+
+A. Problem setup 
+
+Let fθ denote a source model trained before deployment. A TTA method A uses an unlabelled target stream to produce an adapted model fθ′ , or an adapted prediction rule, without access to target labels. For an input image x and an attribution operator ϕ, we define the pre-adaptation and post-adaptation saliency maps as 
+
+Spre = ϕ(fθ , x ), Spost = ϕ(fθ′ , x ). (1) We study three coupled effects of adaptation. These are the change in explanation from Spre to Spost , the change in discriminative performance measured by ∆AUC , and the change in calibration measured by ∆ECE .
+
+B. Explanation Stability Index 
+
+We quantify explanation movement with the Explanation Stability Index (ESI). Each saliency map is min-max nor-malised to [0 , 1] and resized to a common 224 × 224 grid. For divergence-based terms, the map is also converted to a probability distribution with additive smoothing ε = 10 −8 to avoid unstable values in near-zero background regions. ESI combines six agreement measures. Four are similarity terms, namely structural similarity SSIM [27], cosine sim-ilarity, rescaled Spearman rank correlation ρ′ = 12 (ρ + 1) ,and top-20% region-of-interest IoU. Two are divergence terms, namely symmetric KL divergence and Wasserstein-1 distance, also referred to as EMD. The symmetric KL term is 
+
+KL sym (p, q ) = 12 [KL( p∥q) + KL( q∥p)] . (2) Both divergence terms are normalised to [0 , 1] using fixed caps and then complemented so that larger values always denote greater stability. We use equal weights to avoid tuning the index toward any particular method ordering: 
+
+ESI = 16 (SSIM + cos + ρ′ + IoU + (1 − KL n) + (1 − EMD n)) .
+
+(3) All terms lie in [0 , 1] , so ESI is bounded in [0 , 1] , with ESI = 1 
+
+for an unchanged explanation. IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. XX, NO. X, 2026 3
+
+C. Datasets and models 
+
+We use two public histopathology benchmarks with natural domain shift rather than synthetic corruption. Camelyon17 
+
+contains lymph-node tumour and normal patches from five hospital centres [1], [2]. The source model is trained on PatchCamelyon [28] and adapted and evaluated separately on each Camelyon17 centre. Each centre contains 59k to 147k patches, with 493 evaluation runs per centre after subsampling. 
+
+NCT-CRC-HE is a nine-class colorectal tissue classification benchmark [29]. We train on the 100k-image cohort and adapt to the independent 7k-image cohort, which provides a multi-class cohort-shift setting. We evaluate five architectures that span convolutional, trans-former, and foundation-model backbones. The convolutional models are ResNet-50 [30] and EfficientNet-B3 [31]. The transformer models are Swin-T [32] and ViT-B/16 [33]. The pathology foundation model is Phikon-v2 [34]. For trans-former and foundation models, the backbone is frozen except for the final normalisation blocks and the linear head, follow-ing common practice for adapting large models. 
+
+D. Adaptation and attribution methods 
+
+Table I lists the seventeen TTA methods grouped by mecha-nism. Explanations are computed with four attribution fami-lies. Integrated Gradients [10] is our primary explainer because it is architecture-agnostic and avoids target-layer selection. We also use Grad-CAM [9], Grad-CAM++ [22], and attention roll-out [24]. Faithfulness is evaluated with insertion and deletion AUC [25]. We briefly summarise the mechanisms of the evaluated TTA families. Let p = σ(fθ (x)) denote the softmax prediction and let 
+
+H(p) = − X
+
+> k
+
+pk log pk (4) denote prediction entropy. 
+
+Normalisation methods. BN-Adapt replaces source batch-normalisation statistics (μs, σ 2 
+
+> s
+
+) with target-batch statistics 
+
+(μt, σ 2 
+
+> t
+
+) while leaving the learned weights fixed [3]. 
+
+Entropy methods. Tent minimises prediction entropy over affine normalisation parameters [4]. EATA adds sample filter-ing and a Fisher anti-forgetting penalty [14]. DeYO weights samples using a patch-shuffling disentanglement score [20]. ROID combines certainty and diversity weighting with weight ensembling and prior correction [18]. COME uses an eviden-tial entropy objective to reduce overconfidence [8]. REM ranks entropy across progressively masked views [21]. 
+
+Sharpness and continual methods. SAR applies sharpness-aware minimisation with reliable-sample selection [7]. SoTTA combines a high-confidence uniform-class memory with en-tropy and sharpness minimisation [15]. CoTTA uses a weight-averaged teacher with augmentation consistency and stochastic weight restoration [5]. RoTTA adds category-balanced mem-ory with timeliness-aware and uncertainty-aware reweight-ing [6]. RMemSafe gates source anchoring by predictive reliability [35]. 
+
+Prototype, gradient-free, and adapter methods. T3A up-dates class templates from confident test features without gradient updates [16]. LAME performs Laplacian-regularised label smoothing over a feature-similarity graph [17]. SICL rescales confidence using style-invariance [36]. ViDA injects low-rank and high-rank adapters updated with a teacher [19]. These families differ in how much of the network they modify. Normalisation and entropy methods update parameters that affect the feature hierarchy. Continual methods add teacher drift and memory effects. Prototype and gradient-free methods leave the backbone unchanged, which means their attribution maps can remain unchanged even when predictions or calibra-tion change. 
+
+E. Attribution operators 
+
+Integrated Gradients attributes a prediction to input dimensions by integrating gradients along a straight path from a baseline input x′ to the image x [10]: 
+
+IG i(x) = ( xi − x′
+
+> i
+
+)
+
+Z 10
+
+∂if (x′ + α(x − x′)) dα. (5) We use Integrated Gradients as the primary explainer because it applies to all evaluated architectures without choosing a target layer. Grad-CAM and Grad-CAM++ compute class-discriminative heatmaps by weighting activations from a target convolutional or transformer block using first-order or higher-order gradi-ents [9], [22]. Attention rollout multiplies layer-wise attention matrices to obtain transformer-native attribution maps [24]. Using multiple attribution families lets us test whether the ranking of TTA methods is an explainer artifact. 
+
+F. Evaluation protocol and implementation 
+
+For each dataset, model, TTA method, domain, and seed, we adapt on the full target stream. We then compute AUC, ECE [26], and ESI on a fixed random subset that is iden-tical across methods within a domain. This preserves paired comparisons. We repeat the evaluation over five prime-number seeds, and over seven seeds for the convolutional models. The full benchmark contains 2,958 adaptation runs. Source models are trained with AdamW under a cosine learning-rate schedule, with early stopping based on validation AUC. For convolutional models, the classifier heads are train-able. For transformer and foundation backbones, only the final normalisation blocks and the linear head are trainable. TTA hyperparameters follow the authors’ recommended defaults, and adaptation uses one gradient step per batch except in the step-ablation. All test-time inference is performed in single precision. As a correctness check, the No-TTA condition produces nu-merically identical pre-adaptation and post-adaptation logits, with maximum |∆AUC | = 0 across all No-TTA runs. Each Camelyon17 evaluation uses a fixed 15,000-patch stream per hospital centre, identical across methods and seeds. For NCT-CRC-HE, we use the full independent cohort. Saliency statis-tics are accumulated over a fixed patch set for each run. Statistical analyses use statsmodels for linear mixed-effects models, scipy and scikit-posthocs for Fried-man and Nemenyi tests, and 2,000-sample bootstrap resam-pling for confidence intervals. We model ∆ECE using ESI IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. XX, NO. X, 2026 4
+
+TABLE I THE SEVENTEEN EVALUATED TTA METHODS GROUPED BY MECHANISTIC FAMILY .Family Methods Representative venues Baseline No-TTA –Normalisation BN-Adapt [3] NeurIPS 2020 Entropy Tent [4], EATA [14], DeYO [20], ROID [18], COME [8], REM [21] ICLR 2021 to 2025 Sharpness SAR [7], SoTTA [15] ICLR 2023 Continual CoTTA [5], RoTTA [6], RMemSafe [35] CVPR 2022 to 2026 Prototype T3A [16] NeurIPS 2021 Gradient-free LAME [17], SICL [36] CVPR 2022, WACV 2026 Adapter ViDA [19] ICLR 2024 LAME SICL T3A No-TTA SAR SoTTA COME ViDA EATA DeYO ROID RMemSafe REM RoTTA CoTTA Tent BN-Adapt ResNet-50 EfficientNet-B3 Swin-T ViT-B/16 Phikon-v2                                                                                 
+
+> 1.00 1.00 1.00 1.00 0.89 0.90 0.90 0.89 0.90 0.89 0.90 0.89 0.89 0.84 0.84 0.90 0.63 1.00 1.00 1.00 1.00 0.83 0.81 0.81 0.81 0.79 0.80 0.79 0.79 0.75 0.78 0.78 0.48 0.48 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 0.98 0.98 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 1.00 0.99 0.99 1.00 1.00
+> 0.70 0.75 0.80 0.85 0.90 0.95 1.00 Mean ESI (equal weights)
+
+Fig. 1. Mean ESI across architectures and TTA methods. Higher values indicate greater explanation stability. Frozen-backbone methods preserve ex-planations, while continual methods and BN-based adaptation are the primary disruptors. 
+
+and ∆AUC as fixed effects with random intercepts for model and dataset. We also report the partial Spearman correlation between ESI and ∆ECE after controlling for ∆AUC . Method comparisons use the Friedman test over matched blocks and a Nemenyi critical-difference analysis [37]. IV. R ESULTS 
+
+A. TTA methods form a clear hierarchy of explanation stability 
+
+Fig. 1 and Table II summarize the main benchmark results across 2,958 adaptation runs. TTA methods differ strongly in how much they perturb explanations. The Friedman test rejects equality across methods with χ216 = 1828 , p < 10 −300 , over 
+
+174 matched blocks. The Nemenyi analysis gives a critical difference of 1.86 and separates the most stable methods from the strongest disruptors, as shown in Fig. 2. The ordering is mechanistically interpretable. Methods that leave the backbone fixed, including No-TTA, LAME, T3A, and SICL, preserve explanations almost perfectly with ESI = 1.000 . Continual methods are the most consistent disruptors. CoTTA and RoTTA obtain the worst mean ranks, 15 .5 and 
+
+15 .2, because they perturb explanations across architectures. BN-Adapt and Tent have low pooled ESI values, 0.786 and 
+
+0.849 , but their ranks are less extreme because their disruption is concentrated on convolutional models. 
+
+B. Architecture and shift severity control explanation drift 
+
+Explanation drift is not uniform across backbones. Table III shows that convolutional models are substantially more af-fected than transformer and foundation-model backbones. EfficientNet-B3 has the lowest mean ESI at 0.806 , followed by ResNet-50 at 0.898 . In contrast, Swin-T, ViT-B/16, and 0 2 4 6 8 10 12 14 16 18 
+
+Mean rank (1 = most stable) 
+
+> LAME No-TTA T3A SICL SoTTA EATA ROID COME SAR BN-Adapt ViDA REM DeYO Tent RMemSafe RoTTA CoTTA
+> 2.3 2.9 3.0 3.1 8.2 8.9 8.9 9.1 9.5 9.7 10.1 11.3 11.5 11.8 12.1 15.2 15.5 CD=1.86
+
+Fig. 2. Nemenyi mean-rank ranking by ESI. Rank 1 denotes the most stable method. The critical difference is 1.86 , showing that continual methods separate clearly from the most stable group. TABLE II MAIN POOLED RESULTS ACROSS FIVE ARCHITECTURES AND TWO DATASETS . ESI DENOTES EXPLANATION STABILITY , WHERE 1 MEANS UNCHANGED . R ANK IS THE NEMENYI MEAN RANK , WHERE LOWER IS MORE STABLE .Method ∆AUC ∆ECE ESI Rank LAME +0.000 +0.027 1.000 2.3 No-TTA +0.000 +0.000 1.000 2.9 T3A -0.134 +0.199 1.000 3.0 SICL +0.000 -0.001 1.000 3.1 SoTTA +0.000 -0.000 0.928 8.2 EATA +0.000 +0.000 0.925 8.9 ROID -0.039 +0.020 0.924 8.9 COME +0.001 -0.000 0.928 9.1 SAR +0.001 -0.000 0.934 9.5 BN-Adapt -0.016 +0.010 0.786 9.7 ViDA +0.000 +0.002 0.928 10.1 REM -0.000 +0.001 0.915 11.3 DeYO +0.001 -0.000 0.925 11.5 Tent +0.001 -0.000 0.849 11.8 RMemSafe +0.000 -0.000 0.922 12.1 RoTTA -0.002 -0.000 0.903 15.2 CoTTA +0.001 -0.000 0.900 15.5 
+
+Phikon-v2 remain close to 1.00 . This pattern matches the adap-tation mechanisms. In convolutional networks, BN-statistic and affine-parameter updates affect the feature hierarchy broadly. In the transformer and foundation-model settings, adaptation modifies only a small norm-affine subset while the IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. XX, NO. X, 2026 5
+
+TABLE III ARCHITECTURE -LEVEL STABILITY AND SILENT CALIBRATION FAILURES .SILENT FAILURES HAVE STABLE ACCURACY , |∆AUC | < 0.02 , BUT DEGRADED CALIBRATION , ∆ECE > 0.05 .
+
+A. Architecture B. Silent failures 
+
+Backbone ESI Runs Source Count ResNet-50 0.898 714 LAME 31 EfficientNet-B3 0.806 714 T3A 20 Swin-T 0.997 510 Other 3ViT-B/16 0.999 510 Total 54 Phikon-v2 0.998 510 patch 1    
+
+> H&E input pre-TTA post-TTA |post − pre|
+> patch 2 patch 3
+
+Fig. 3. Grad-CAM attributions before and after CoTTA on ResNet-50 for representative Camelyon17 patches. Difference maps show that continual adaptation relocates high-attention regions. 
+
+backbone remains mostly frozen. Shift difficulty also affects drift. Across Camelyon17 hospital centres, frozen methods remain flat while disruptive methods vary with site. The harder nine-class NCT-CRC-HE task increases drift for continual methods. CoTTA changes from ESI 0.907 on Camelyon17 to 0.868 on NCT-CRC-HE, and RoTTA changes from 0.909 to 0.870 . These results show that explanation stability depends on both the adaptation rule and the deployment shift. 
+
+C. Adaptation changes where the model attends 
+
+The qualitative examples in Fig. 3 show that explanation drift corresponds to spatial relocation. For CoTTA on ResNet-50, high-attribution regions split, shift, or expand after adaptation. These changes occur on the same input image, so they reflect adaptation-induced changes in the model rather than changes in tissue content. The component analysis in Fig. 4 confirms this interpretation quantitatively. Continual methods reduce top-region IoU and increase KL and EMD, indicating movement of attribution mass rather than simple heatmap rescaling. BN-Adapt shows the strongest distributional shift among the representative methods, with reduced SSIM, cosine similarity, Spearman correlation, and IoU. SSIM Cosine Spearman ROI-IoU 0.0 0.2 0.4 0.6 0.8 1.0     
+
+> similarity (1=identical)
+> Similarity terms
+> KL EMD 0.00 0.02 0.04 0.06 0.08 0.10 0.12
+> divergence (0=identical)
+> Divergence terms
+> No-TTA Tent RoTTA CoTTA
+
+Fig. 4. ESI component decomposition for representative methods. Continual methods reduce region overlap and increase distributional divergence, indi-cating spatial relocation of attention. 0.60 0.65 0.70 0.75 0.80 0.85 0.90 0.95 1.00 ESI (explanation stability) −0.1 0.0 0.1 0.2 0.3 0.4 0.5 ΔECE (calibration change) 
+
+> Continual Sharpness Entropy Adapter Norm Prototype Grad-free Baseline
+
+Fig. 5. Explanation stability versus calibration change. Stable explanations do not guarantee safe adaptation. Several methods preserve explanations while degrading calibration. 
+
+Ablations support adaptation as the driver of this effect. Increasing the number of Tent adaptation steps monotonically decreases ESI from 0.890 to 0.883 , 0.875 , and 0.864 for 1,
+
+2, 4, and 8 steps. By contrast, changing batch size has little effect on ESI. Explanation drift therefore follows adaptation strength rather than batch size alone. 
+
+D. Explanation stability is distinct from adaptation quality 
+
+The central reliability finding is that explanation stability does not imply safe adaptation. T3A preserves explanations perfectly with ESI = 1 .000 , but loses accuracy and calibration, with ∆AUC = −0.134 and ∆ECE = +0 .199 . LAME also preserves explanations while increasing ECE by +0 .027 .These methods leave the backbone unchanged, so attribution maps can remain stable even when predictions or confidence values degrade. This decoupling produces silent calibration failures. We define such a failure as stable accuracy, |∆AUC | < 0.02 , with degraded calibration, ∆ECE > 0.05 . We observe 54 fail-ures, of which 51 come from LAME or T3A. Thus, 94% 
+
+of silent calibration failures arise from methods that appear explanation-stable. IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. XX, NO. X, 2026 6                                                                                               
+
+> TABLE IV MEAN ESI FOR EVERY ARCHITECTURE AND TTA METHOD . T HIS IS THE NUMERIC COUNTERPART OF FIG . 1. Method ResNet Eff.-B3 Swin ViT Phikon LAME 1.000 1.000 1.000 1.000 1.000 No-TTA 1.000 1.000 1.000 1.000 1.000 T3A 1.000 1.000 1.000 1.000 1.000 SICL 1.000 1.000 1.000 1.000 1.000 SoTTA 0.897 0.808 0.999 1.000 1.000 EATA 0.901 0.792 0.999 1.000 1.000 ROID 0.898 0.787 0.999 1.000 1.000 COME 0.897 0.807 0.999 1.000 1.000 SAR 0.893 0.834 0.999 1.000 1.000 BN-Adapt 0.633 0.479 1.000 1.000 1.000 ViDA 0.891 0.810 0.999 1.000 1.000 REM 0.895 0.754 0.999 1.000 1.000 DeYO 0.890 0.802 0.997 1.000 1.000 Tent 0.895 0.482 0.999 1.000 1.000 RMemSafe 0.892 0.788 0.998 1.000 1.000 RoTTA 0.845 0.779 0.982 0.995 0.986 CoTTA 0.839 0.776 0.980 0.995 0.985
+
+A mixed-effects analysis gives the same conclusion. After controlling for ∆AUC , the partial Spearman correlation be-tween ESI and ∆ECE is small, with ρ = +0 .089 and 
+
+p = 1 .3 × 10 −6. The coefficient on ∆AUC is much larger than the coefficient on ESI, with −0.952 compared with 
+
++0 .055 . Accuracy change dominates calibration change, while explanation stability remains a separate reliability axis. 
+
+E. Robustness checks 
+
+The explanation-stability ranking is not an artifact of one at-tribution method. Method rankings under Integrated Gradients correlate with Grad-CAM and Grad-CAM++ with Spearman correlations of 0.56 and 0.59 , both with p < 0.02 . Attention rollout is evaluated only for transformer models and is used as an architecture-specific check rather than as the primary ranking signal. The ranking is also robust to the ESI weighting. Reweighting similarity and divergence terms over {0.5, 0.6, 0.7, 0.8, 0.9}
+
+leaves the method ranking unchanged, with Spearman rank correlation 1.00 between every pair of settings. Faithfulness checks using insertion and deletion AUC show that post-adaptation attributions remain usable, while saliency KL tracks accuracy degradation only moderately with ρ = 0 .33 against 
+
+|∆AUC |. Together, these checks support the main conclusion that accuracy, calibration, and explanation stability must be measured together. Table IV gives the complete numeric ESI matrix corresponding to Fig. 1. The convolutional and transformer gap is con-sistent across methods. BN-Adapt and Tent strongly disrupt EfficientNet-B3 and ResNet-50, while Swin-T, ViT-B/16, and Phikon-v2 remain close to unchanged. Continual methods form the lowest-stability group on convolutional backbones but are less disruptive on transformer and foundation-model architectures. V. D ISCUSSION 
+
+Our experiments show that TTA can change model expla-nations in a systematic and measurable way. This change is not random. It depends on the adaptation method, the model architecture, the deployment shift, and the strength of adapta-tion. The central finding is that explanation stability cannot be inferred from accuracy or calibration alone. Accuracy, calibration, and explanation stability therefore describe distinct aspects of TTA reliability. 
+
+A. Implications for deployment 
+
+The results have two practical implications. First, method choice affects interpretability independently of accuracy. Con-tinual methods such as CoTTA and RoTTA are the most consistent explanation disruptors, while BN-Adapt and Tent are particularly disruptive on convolutional backbones. In con-trast, reliable-sample, sharpness-aware, and frozen-backbone methods tend to move attributions less. Second, explanation stability does not guarantee safe adaptation. T3A and LAME preserve attributions almost perfectly, yet both can degrade calibration, and T3A also reduces accuracy. This creates a failure mode in which the explanation appears unchanged while the predictive behaviour becomes less reliable. These findings suggest that explanation stability should be reported alongside accuracy and calibration when evaluating TTA in medical imaging. For deployment, an ESI-like statistic can be logged against the frozen source model as a label-free integrity check. Such a statistic should not replace calibration monitoring or performance validation. Rather, it should act as an additional signal that the adapted model may no longer be using the same visual evidence as the source model. 
+
+B. Why some methods disrupt explanations more 
+
+The method ordering is largely explained by how much of the representation is modified. Continual methods accumulate updates over the target stream, which can gradually move the teacher and student away from the source model. BN-Adapt replaces batch-normalisation statistics, and Tent updates normalisation parameters through entropy minimisation. These changes affect features throughout convolutional networks, which explains why ResNet-50 and EfficientNet-B3 show the largest explanation drift. Transformer and foundation-model backbones are more stable in our benchmark. In these models, adaptation is restricted to a small set of normalisation parameters and the linear head, while most of the backbone remains frozen. This limits how much the internal representation can move and helps explain the near-perfect ESI values observed for Swin-T, ViT-B/16, and Phikon-v2. Architecture is therefore not only a source of variation. It is also a design choice that can reduce explanation drift under adaptation. 
+
+C. Relation to calibration 
+
+The decoupling between explanation stability and calibration is one of the most important findings. A simple hypothesis would be that unstable explanations cause miscalibration, or that stable explanations imply reliable confidence. Our results do not support either interpretation. In the mixed-effects analysis, calibration change is dominated by accuracy change, IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. XX, NO. X, 2026 7
+
+while the association between ESI and ∆ECE is small. More importantly, the strongest calibration failures occur in methods whose explanations remain stable. This result changes how ESI should be interpreted. ESI is not a calibration predictor. It measures whether the visual evidence used by the adapted model remains close to that of the source model. A high ESI means that the attribution map is stable, not that the prediction is correct or well calibrated. A low ESI means that adaptation has moved the explanation, not necessarily that the adapted prediction is worse. This is why the three quantities must be measured together. 
+
+D. Toward explanation-stable adaptation 
+
+The benchmark also suggests a path toward more reliable TTA methods. Explanation drift increases with adaptation strength and is most visible in methods that update broad parts of the feature hierarchy. Future methods could therefore regularise explanation movement directly, constrain updates to smaller parameter subsets, or combine adaptation with a source-reference stability penalty. The goal would not be to freeze explanations completely, since some change may be appropriate under real domain shift. The goal is to prevent unnecessary relocation of attention while retaining the benefits of adaptation. This direction is especially relevant in computational pathol-ogy, where explanations may be inspected for tissue plausibil-ity. A useful adaptation method should improve target-domain performance without moving attention toward irrelevant struc-tures or away from diagnostically meaningful tissue. Our metric and protocol provide a way to measure this behaviour across methods, architectures, and shifts. 
+
+E. Practical recommendations 
+
+For diagnostic pipelines that expose explanations to clinicians or auditors, we recommend evaluating TTA with three quanti-ties rather than one. These are discrimination, calibration, and explanation stability. When explanation stability is important, reliable-sample and sharpness-aware methods are preferable to plain BN recalibration, plain entropy minimisation, or con-tinual adaptation on convolutional backbones. When continual adaptation is used, the number of adaptation steps should be kept small unless a stability budget is explicitly enforced. We also recommend treating preserved explanations with caution. Methods such as T3A and LAME can leave saliency maps unchanged while degrading calibration. Stable expla-nations should therefore not be interpreted as evidence of safe adaptation. They should instead be read together with calibration and performance metrics. Table V summarizes the reporting items that follow from our results. The key point is not that ESI should replace existing metrics, but that it should be reported beside them. A TTA method can preserve explanations while degrading calibration, or alter explanations without a large accuracy change. Report-ing these quantities together makes such failures visible.             
+
+> TABLE V RECOMMENDED REPORTING ITEMS FOR TEST -TIME ADAPTATION IN COMPUTATIONAL PATHOLOGY .Item Purpose Discrimination Report pre- and post-TTA AUC or task-specific operating-point metrics. Calibration Report ECE or reliability curves before and after adaptation. Explanation stability Report ESI or an equivalent source-referenced stability measure. Architecture State which parameters are adapted and whether the backbone is frozen. Adaptation strength Report batch size, update steps, stream mode, and reset policy. Failure screening Flag runs with stable accuracy but degraded calibration or explanation drift.
+
+F. Clinical interpretation 
+
+In computational pathology, explanation drift should be inter-preted as a change in the visual evidence used by the model, not as proof that the adapted model is clinically wrong. Some movement may be appropriate when target slides differ in stain, scanner, or tissue preparation. The concern is unmanaged movement. If adaptation shifts attribution away from tumour regions, glandular structure, lymphocyte-rich areas, or other diagnostically plausible tissue patterns, then the model may remain numerically strong while becoming harder to audit. This is why we frame ESI as an integrity measure rather than a safety certificate. It identifies cases where adaptation has changed the model’s visual rationale enough to justify closer inspection. In a clinical workflow, such a signal could be used to trigger review, recalibration, or rollback to the frozen source model. 
+
+G. Limitations 
+
+This study has some limitations. First, ESI is a summary index. Although its method ordering is stable under reweighting and across attribution families, its absolute value should not be interpreted as a clinical safety score. Second, perfect stability for frozen-backbone methods is partly expected, since these methods do not modify the feature extractor. This is why we emphasize the decoupling between ESI, accuracy, and calibra-tion rather than treating high ESI as universally desirable. Third, our experiments use patch-level benchmarks rather than full whole-slide inference pipelines. Whole-slide aggregation, tissue sampling, and slide-level decision thresholds may intro-duce additional failure modes. Finally, our evaluation is com-putational rather than reader-based. Future work should test whether adaptation-induced explanation drift changes pathol-ogist trust, review time, or diagnostic decisions in prospective reader studies. VI. C ONCLUSION 
+
+We studied what test-time adaptation does to model expla-nations in computational pathology. Across 2,958 runs cov-ering 17 methods, five architectures, and two histopathology datasets, TTA methods separate clearly by how much they perturb attributions. Explanation drift is method-dependent, IEEE TRANSACTIONS ON MEDICAL IMAGING, VOL. XX, NO. X, 2026 8
+
+architecture-dependent, and shift-dependent. It also increases with adaptation strength. The central finding is that explanation stability is distinct from adaptation quality. Some methods move explanations substantially, while others preserve ex-planations almost perfectly yet still degrade calibration or accuracy. This means that accuracy, calibration, and expla-nation stability should be measured together when evaluating TTA for medical imaging. We release the metric, protocol, and benchmark results to support future work on adaptation methods that remain accurate, calibrated, and explanation-stable under deployment shift. REFERENCES [1] P. Bandi, O. Geessink, Q. Manson et al. , “From detection of individual metastases to classification of lymph node status at the patient level: The camelyon17 challenge,” IEEE Transactions on Medical Imaging ,vol. 38, no. 2, pp. 550–560, 2019. [2] P. W. Koh, S. Sagawa, H. Marklund et al. , “WILDS: A benchmark of in-the-wild distribution shifts,” in International Conference on Machine Learning (ICML) , 2021. [3] S. Schneider, E. Rusak, L. Eck, O. Bringmann, W. Brendel, and M. Bethge, “Improving robustness against common corruptions by co-variate shift adaptation,” in Advances in Neural Information Processing Systems (NeurIPS) , 2020. [4] D. Wang, E. Shelhamer, S. Liu, B. Olshausen, and T. Darrell, “Tent: Fully test-time adaptation by entropy minimization,” in International Conference on Learning Representations (ICLR) , 2021. [5] Q. Wang, O. Fink, L. Van Gool, and D. Dai, “Continual test-time domain adaptation,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2022. [6] L. Yuan, B. Xie, and S. Li, “Robust test-time adaptation in dynamic scenarios,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2023. [7] S. Niu, J. Wu, Y. Zhang, Z. Wen, Y. Chen, P. Zhao, and M. Tan, “Towards stable test-time adaptation in dynamic wild world,” in International Conference on Learning Representations (ICLR) , 2023. [8] Q. Zhang, Y. Bian, X. Kong, P. Zhao, and C. Zhang, “Come: Test-time adaption by conservatively minimizing entropy,” in International Conference on Learning Representations (ICLR) , 2025. [9] R. R. Selvaraju, M. Cogswell, A. Das, R. Vedantam, D. Parikh, and D. Batra, “Grad-cam: Visual explanations from deep networks via gradient-based localization,” in IEEE International Conference on Computer Vision (ICCV) , 2017. [10] M. Sundararajan, A. Taly, and Q. Yan, “Axiomatic attribution for deep networks,” in International Conference on Machine Learning (ICML) ,2017. [11] J. Adebayo, J. Gilmer, M. Muelly, I. Goodfellow, M. Hardt, and B. Kim, “Sanity checks for saliency maps,” Advances in Neural Information Processing Systems (NeurIPS) , 2018. [12] C. Rudin, “Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead,” Nature Machine Intelligence , vol. 1, no. 5, pp. 206–215, 2019. [13] J. Liang, R. He, and T. Tan, “A comprehensive survey on test-time adaptation under distribution shifts,” International Journal of Computer Vision , vol. 133, pp. 31–64, 2025. [14] S. Niu, J. Wu, Y. Zhang, Y. Chen, S. Zheng, P. Zhao, and M. Tan, “Ef-ficient test-time model adaptation without forgetting,” in International Conference on Machine Learning (ICML) , 2022. [15] T. Gong, Y. Kim, T. Lee, S. Chottananurak, and S.-J. Lee, “Sotta: Robust test-time adaptation on noisy data streams,” in Advances in Neural Information Processing Systems (NeurIPS) , 2023. [16] Y. Iwasawa and Y. Matsuo, “Test-time classifier adjustment module for model-agnostic domain generalization,” in Advances in Neural Information Processing Systems (NeurIPS) , 2021. [17] M. Boudiaf, R. Mueller, I. Ben Ayed, and L. Bertinetto, “Parameter-free online test-time adaptation,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2022. [18] R. A. Marsden, M. D¨ obler, and B. Yang, “Universal test-time adaptation through weight ensembling, diversity weighting, and prior correction,” in IEEE/CVF Winter Conference on Applications of Computer Vision (WACV) , 2024. [19] J. Liu, S. Yang, P. Jia, R. Zhang, M. Lu, Y. Guo, W. Xue, and S. Zhang, “Vida: Homeostatic visual domain adapter for continual test time adapta-tion,” in International Conference on Learning Representations (ICLR) ,2024. [20] J. Lee, D. Jung, S. Lee, J. Park, J. Shin, U. Hwang, and S. Yoon, “Entropy is not enough for test-time adaptation: From the perspective of disentangled factors,” in International Conference on Learning Rep-resentations (ICLR) , 2024. [21] J. Han, J. Na, and W. Hwang, “Ranked entropy minimization for continual test-time adaptation,” International Conference on Machine Learning (ICML) , 2025. [22] A. Chattopadhay, A. Sarkar, P. Howlader, and V. N. Balasubramanian, “Grad-cam++: Generalized gradient-based visual explanations for deep convolutional networks,” in IEEE Winter Conference on Applications of Computer Vision (WACV) , 2018. [23] H. Wang, Z. Wang, M. Du, F. Yang, Z. Zhang, S. Ding, P. Mardziel, and X. Hu, “Score-cam: Score-weighted visual explanations for convo-lutional neural networks,” in IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW) , 2020. [24] S. Abnar and W. Zuidema, “Quantifying attention flow in transformers,” in Annual Meeting of the Association for Computational Linguistics (ACL) , 2020. [25] V. Petsiuk, A. Das, and K. Saenko, “RISE: Randomized input sampling for explanation of black-box models,” in British Machine Vision Con-ference (BMVC) , 2018. [26] C. Guo, G. Pleiss, Y. Sun, and K. Q. Weinberger, “On calibration of modern neural networks,” in International Conference on Machine Learning (ICML) , 2017. [27] Z. Wang, A. C. Bovik, H. R. Sheikh, and E. P. Simoncelli, “Image quality assessment: From error visibility to structural similarity,” IEEE Transactions on Image Processing , vol. 13, no. 4, pp. 600–612, 2004. [28] B. S. Veeling, J. Linmans, J. Winkens, T. Cohen, and M. Welling, “Rotation equivariant cnns for digital pathology,” in Medical Image Computing and Computer Assisted Intervention (MICCAI) , 2018. [29] J. N. Kather, J. Krisam, P. Charoentong et al. , “Predicting survival from colorectal cancer histology slides using deep learning: A retrospective multicenter study,” PLOS Medicine , vol. 16, no. 1, p. e1002730, 2019. [30] K. He, X. Zhang, S. Ren, and J. Sun, “Deep residual learning for image recognition,” in IEEE Conference on Computer Vision and Pattern Recognition (CVPR) , 2016. [31] M. Tan and Q. V. Le, “Efficientnet: Rethinking model scaling for convolutional neural networks,” in International Conference on Machine Learning (ICML) , 2019. [32] Z. Liu, Y. Lin, Y. Cao, H. Hu, Y. Wei, Z. Zhang, S. Lin, and B. Guo, “Swin transformer: Hierarchical vision transformer using shifted windows,” in IEEE/CVF International Conference on Computer Vision (ICCV) , 2021. [33] A. Dosovitskiy, L. Beyer, A. Kolesnikov et al. , “An image is worth 16x16 words: Transformers for image recognition at scale,” in Interna-tional Conference on Learning Representations (ICLR) , 2021. [34] A. Filiot, R. Ghermi, A. Olivier, P. Jacob et al. , “Scaling self-supervised learning for histopathology with masked image modeling,” medRxiv ,2023. [35] V. Singh, D. Ganguly, W. Chen, S. Sahoo, S. Sankar, B. Zhang, M. Hariri, S. Wang, O. Zafar, C. Gagn´ e, and V. Chaudhary, “Reliability-gated source anchoring for continual test-time adaptation,” arXiv preprint arXiv:2605.14063 , 2026. [36] G. Nam, T. Kim, J. Jeong, and E. Yang, “Towards reliable test-time adaptation: Style invariance as a correctness likelihood,” in IEEE/CVF Winter Conference on Applications of Computer Vision (WACV) , 2026. [37] J. Demˇ sar, “Statistical comparisons of classifiers over multiple data sets,” 
+
+Journal of Machine Learning Research , vol. 7, pp. 1–30, 2006.

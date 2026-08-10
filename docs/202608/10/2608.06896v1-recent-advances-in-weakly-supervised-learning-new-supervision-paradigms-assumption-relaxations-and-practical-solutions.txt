@@ -1,0 +1,1620 @@
+Title: Recent advances in weakly supervised learning: New supervision paradigms, assumption relaxations, and practical solutions
+
+URL Source: https://arxiv.org/pdf/2608.06896v1
+
+Published Time: Mon, 10 Aug 2026 00:34:40 GMT
+
+Number of Pages: 32
+
+Markdown Content:
+# Chapter 10 
+
+# Recent advances in weakly supervised learning 
+
+# New supervision paradigms, assumption relaxations, and practical solutions 
+
+Wei Wang a,b,* , Gang Niu a, and Masashi Sugiyama a,b 
+
+> a
+
+RIKEN, Tokyo, Japan, bThe University of Tokyo, Chiba, Japan 
+
+> *
+
+Corresponding author. e-mail address: wwangwitsel@gmail.com 
+
+ABSTRACT 
+
+Deep learning has achieved great success in recent years thanks to the availability of high-quality, well-annotated training data. However, this requirement is often not met in real-world applications. Weakly supervised learning aims to train an accurate model with incomplete, inexact, or inaccurate supervision. In this chapter, we will discuss recent advances in this field, including new supervision paradigms, relaxed assumptions, and practical solutions. First, we introduce a new weakly supervised binary classification problem called confidence-difference classification and propose consistent approaches to solve it. Next, we investigate complementary-label learning, a weakly supervised multi-class classification problem. Our proposed approaches are based on more relaxed assumptions about the data generation process than existing consistent approaches. Lastly, we present an evaluation framework for partial-label learning, another popular multi-class weakly supervised learning problem, in order to promote fair and realistic evaluation of algorithms in this field. 
+
+289 arXiv:2608.06896v1 [cs.LG] 7 Aug 2026 290 
+
+1 INTRODUCTION 
+
+In recent years, deep learning has achieved remarkable success in various real-world applications thanks to its strong generalization capabilities. However, this success depends heavily on the availability of large-scale, accurately labeled training data, which is often costly or impractical to obtain in real-world scenarios. Weakly supervised learning offers a promising solution, allowing models to be trained with imperfect supervision while maintaining performance comparable to that of fully supervised approaches [Sugiyama et al., 2022]. Weakly supervised learning (WSL) lies at the intersection of supervised and unsupervised learning. In this chapter, we will focus primarily on weakly supervised classification, which involves constructing a binary or multi-class classifier that assigns discrete labels to test data using only weakly supervised data. According to the types of weak supervision, WSL can be roughly categorized into learning with incomplete, inexact, or inaccurate supervision [Zhou, 2018]. This chapter introduces several recent advances in weakly supervised learning, including new supervision paradigms, assumption relaxations, and practical solutions. Section 3 investigates a novel weakly supervised binary classification frame-work called confidence-difference classification , which weakens the supervision requirements when leveraging soft-label information. While soft-label learning has demonstrated superior performance over hard-label approaches in various domains [Szegedy et al., 2016, Yuan et al., 2023], the acquisition of pointwise confidence labels for all training examples remains impractical in real-world applications [Collins et al., 2022, Shinoda et al., 2020, Sucholutsky et al., 2023]. To address this limitation, the confidence-difference paradigm operates on unla-beled data pairs annotated only with relative confidence differences indicating the probability difference of being positive rather than absolute confidence values (see Figure 1). We introduce unbiased (see Section 3.3.1) and corrected risk estima-tors (see Section 3.3.4) for this problem, which have both consistency guarantees and convergence properties. In addition, we provide theoretical analysis that quantifies how estimation errors in confidence values and class priors affect the final classifier performance (see Section 3.3.3). Section 4 introduces a novel consistent learning approach for complementary-label (CL) learning which attempts to relax the restrictive assumptions for CL learning [Wang et al., 2024b]. CL learning is a multi-class weakly supervised learning problem where training examples are annotated only with labels to which they do not belong (see Figure 2) [Ishida et al., 2017]. While existing consistent methods either require restrictive uniform distribution assumptions [Ishida et al., 2019, Feng et al., 2020a] or depend on ordinary-label data to estimate transition matrices [Yu et al., 2018], such conditions often fail in practical settings [Wang et al., 2025a]. Our work breaks this dependency by deriving an unbiased risk estimator based on a more practical data generation assumption (see Section 4.3.1). Then, we propose a risk-correction approach to combat overfitting problems when Recent advances in weakly supervised learning Chapter | 10 291 Positive Negative Confidence Difference Value Unlabeled Pairwise Comparison a) Binary Classification b) Confidence-Difference Classification  
+
+> FIGURE 1 Comparison of ordinary binary classification and confidence-difference classification investigated in Section 3. In confidence-difference classification, we are given unlabeled data pairs with confidence difference. The goal is the same as that in binary classification. Here, the color of the directional line indicates the value of the confidence difference.
+
+using deep models (see Section 4.3.3). The consistency and convergence rate of the estimation error are also established. Section 5 presents the first comprehensive benchmarking framework for the realistic evaluation of partial-label (PL) learning [Wang et al., 2025b]. In PL learning, each training example is associated with multiple candidate labels, one of which is the ground truth (see Figure 2) [Cour et al., 2011, Lv et al., 2020, Feng et al., 2020b]. Despite significant algorithmic advances in PL learning in recent years, our analysis reveals critical gaps in current evaluation practices: First, there is an absence of principled model selection methods, despite their substantial impact on performance [Wang et al., 2025b]. Second, there are inconsistent experimental protocols that compromise fair comparisons. These shortcomings have led to a systematic underestimation of earlier, simpler algorithms relative to more complex, recent approaches [Lv et al., 2020, Feng et al., 2020b]. We address these limitations by providing theoretically grounded model selection criteria designed specifically for PL learning and PLENCH (PL learning bENCHmark), a standardized evaluation protocol (see Section 5.2). PLENCH provides a reproducible and fair comparison of PL learning algorithms under realistic conditions and serves as an essential testbed for future research in this field (see Section 5.3). We anticipate that PLENCH will lay the groundwork for the more rigorous development and evaluation of PL learning methods. In summary, this chapter presents several recent advances in weakly supervised learning, including new supervision paradigms (confidence difference classifica-tion), assumption relaxations (selected-completely-at-random CL learning), and practical solutions (the first PL learning benchmark). 292 Label 1 Label 2 Label 3 Instance 1 Instance 2 Instance 3 Instance 4      
+
+> Incorrect Label True Label Partial Label Complementary Label a) Supervised Learning c) Partial-Label Learning b) Complementary-Label Learning
+> FIGURE 2
+
+Comparison of ordinary multi-class classification, complementary-label learning investigated in Section 4, and partial-label learning investigated in Section 5. Complementary-label learning and partial-label learning are two types of weakly supervised, multi-class classification problems involving inexact supervision. 
+
+2 PRELIMINARIES 
+
+In this section, we introduce the basic notation and background of binary and multi-class classification, as well as complementary-label and partial-label learning. 
+
+2.1 Notations 
+
+Let X = R𝑑 denote the 𝑑 -dimensional feature space and Y denote the label space. For binary classification, we have Y = {+ 1, −1}. For multi-class classification, we have Y = {1, 2, . . . , 𝑞 }. Let 𝑝 (𝒙 , 𝑦 ) denote the unknown joint probability density over the random variables (𝒙 , 𝑦 ) ∈ X × Y . An example is denoted by 
+
+(𝒙 , 𝑦 ). Here, 𝒙 ∈ X denotes an instance that characterizes the properties of this example. Besides, 𝑦 ∈ Y denotes the label of this example, which encodes the corresponding semantic information. Let 𝑝 (𝒙 ) denote the marginal density of the instances. For binary classification, let 𝜋 + = 𝑝 (𝑦 = +1) and 𝜋 − = 𝑝 (𝑦 = −1)
+
+denote the class prior probabilities for the positive and negative classes respectively. Furthermore, let 𝑝 + (𝒙 ) = 𝑝 (𝒙 |𝑦 = +1) and 𝑝 − (𝒙 ) = 𝑝 (𝒙 |𝑦 = −1) denote the class-conditional probability densities of positive and negative data respectively. For multi-class classification, we use 𝜋 𝑘 = 𝑝 (𝑦 = 𝑘 ) to denote the class prior probability for the 𝑘 -th class. The goal of binary or multi-class classification is to learn a mapping from the feature space X to the label space Y. For binary classification, let 𝑔 : X → R denote the binary classifier to learn. Then, we use ℓ (𝑔 (𝒙 ), 𝑦 ) to denote a binary loss function that characterizes the differences between the model output 𝑔 (𝒙 ) and the ground-truth 𝑦 for 𝑥 . For multi-class classification, let 𝒇 : X → R𝑞 denote the multi-class classifier to be learned. Here, 𝒇 (𝒙 ) =  𝑓 1 (𝒙 ), 𝑓 2 (𝒙 ), . . . , 𝑓 𝑞 (𝒙 ) is a 𝑞 -dimensional vector which denotes the model output. We use 𝑓 : X → Y to denote the label predicted by the model, Recent advances in weakly supervised learning Chapter | 10 293 
+
+which corresponds to the dimension of the maximum model output, i.e., 
+
+𝑓 (𝒙 ) = arg max  
+
+> 𝑘 ∈ Y
+
+𝑓 𝑘 (𝒙 ). (1) Then, we use L ( 𝒇 (𝒙 ), 𝑦 ) to denote a multi-class loss function which characterizes the difference between the model output 𝒇 (𝒙 ) and the ground-truth label 𝑦 for 𝑥 .
+
+2.2 Ordinary Binary Classification 
+
+In ordinary binary (OB) classification, our goal is to learn a binary classifier 𝑔 (𝒙 )
+
+which minimizes the following test error for binary classification: 
+
+𝑅 OB 0−1 (𝑔 ) = E𝑝 ( 𝒙 ,𝑦 ) I(𝑦𝑔 (𝒙 ) < 0), (2) where I is an indicator function that returns 1 if the predicate holds; otherwise it returns 0. However, the 0-1 loss function is non-smooth and difficult to optimize. Therefore, we replace the 0-1 loss function with a classification-calibrated loss function ℓ, and the classification risk for binary classification is defined as 
+
+𝑅 OB (𝑔 ) = E𝑝 ( 𝒙 ,𝑦 ) [ℓ (𝑔 (𝒙 ), 𝑦 )] . (3) For binary classification, a margin loss ℓM is often adopted to instantiate the loss function, such as the logistic loss. The classification risk can also be expressed as 
+
+𝑅 OB (𝑔 ) = E𝑝 ( 𝒙 ,𝑦 ) [ℓM (𝑦𝑔 (𝒙 ))] . (4) We cannot compute the expectation in Eq. (3) directly. To cope with this problem, we typically assume that we are given a training set i.i.d. sampled from 
+
+𝑝 (𝒙 , 𝑦 ):
+
+DOB =
+
+n 
+
+𝒙 OB  
+
+> 𝑖
+
+, 𝑦 OB 
+
+> 𝑖
+
+o 𝑛 OB 
+
+> 𝑖 =1i.i.d.
+
+∼ 𝑝 (𝒙 , 𝑦 ) . (5) Then, we conduct empirical risk minimization by minimizing the following empirical risk: 
+
+b𝑅 OB (𝑔 ) = 1
+
+𝑛 OB ∑︁  
+
+> 𝑛 OB
+> 𝑖 =1
+
+ℓ
+
+
+
+𝑔 
+
+
+
+𝒙 OB 
+
+> 𝑖
+
+
+
+, 𝑦 OB 
+
+> 𝑖
+
+
+
+. (6) 
+
+2.3 Ordinary Multi-Class Classification 
+
+In ordinary multi-class (OM) classification, our goal is to learn a multi-class clas-sifier 𝑓 (𝒙 ) which minimizes the following test error for multi-class classification: 
+
+𝑅 OM 0−1 ( 𝑓 ) = E𝑝 ( 𝒙 ,𝑦 ) I( 𝑓 (𝒙 ) ≠ 𝑦 ). (7) Similar to binary classification, we replace the 0-1 loss function with a classification-calibrated loss function L, and the classification risk for multi-class classification is defined as 
+
+𝑅 OM (𝑔 ) = E𝑝 ( 𝒙 ,𝑦 ) [L ( 𝑓 (𝒙 ), 𝑦 )] . (8) 294 
+
+We cannot compute the expectation in Eq. (8) directly. To cope with this problem, we typically assume that we are given a training set i.i.d. sampled from 𝑝 (𝒙 , 𝑦 ):
+
+DOM =
+
+n 
+
+𝒙 OM  
+
+> 𝑖
+
+, 𝑦 OM 
+
+> 𝑖
+
+o 𝑛 OM 
+
+> 𝑖 =1i.i.d.
+
+∼ 𝑝 (𝒙 , 𝑦 ) . (9) Then, we conduct empirical risk minimization by minimizing the following empirical risk for multi-class classification: 
+
+b𝑅 OM (𝑔 ) = 1
+
+𝑛 OM ∑︁  
+
+> 𝑛 OM
+> 𝑖 =1
+
+L
+
+
+
+𝑓 
+
+
+
+𝒙 OM 
+
+> 𝑖
+
+
+
+, 𝑦 OM 
+
+> 𝑖
+
+
+
+. (10) 
+
+2.4 Complementary-Label Learning 
+
+In CL learning, each training example is associated with one or multiple comple-mentary labels specifying the classes to which the example does not belong. Let 
+
+DCL =   𝒙 CL  
+
+> 𝑖
+
+, ¯𝑌 CL 
+
+> 𝑖
+
+ 𝑛 CL  
+
+> 𝑖 =1
+
+denote a CL training set sampled i.i.d. from an unknown density 𝑝 (𝒙 , ¯𝑌 ). Here, 𝒙 ∈ X is a feature vector, and ¯ 𝑌 ⊆ Y is a CL set associated with 𝒙 . In the literature, CL learning can be categorized into single CL learning when we have ¯ 𝑌 = { ¯𝑦 } and | ¯𝑌 | = 1 [Ishida et al., 2017, Gao and Zhang, 2021, Liu et al., 2023], and multiple CL learning when we have 1 ≤ | ¯𝑌 | ≤ 𝑞 − 1 [Feng et al., 2020a]. The task of CL learning is to learn a multi-class classifier 𝑓 : X → Y 
+
+from DCL .
+
+2.5 Partial-Label Learning 
+
+Let (𝒙 , 𝑆 ) denote a PL example where 𝒙 ∈ X is a feature vector and 𝑆 ⊆ Y is a candidate label set associated with 𝒙 . The basic assumption of PLL is that the ground-truth label 𝑦 of 𝒙 is concealed within its candidate label set 𝑆 , i.e., 
+
+𝑦 ∈ 𝑆 . The task of PLL is to learn a multi-class classifier 𝑓 from a PL training set DTr = {  𝒙 Tr  
+
+> 𝑖
+
+, 𝑆 Tr 
+
+> 𝑖
+
+ }𝑛 Tr 
+
+> 𝑖 =1
+
+.
+
+3 CONFDIFF CLASSIFICATION 
+
+Recently, learning with soft labels has been shown to achieve better performance than learning with hard labels in terms of model generalization, calibration, and robustness. However, collecting pointwise labeling confidence for all training examples can be challenging and time-consuming in real-world scenarios. This section delves into a novel weakly supervised binary classification problem called confidence-difference (ConfDiff) classification [Wang et al., 2023]. Instead of pointwise labeling confidence, we are given only unlabeled data pairs with confidence difference that specifies the difference in the probabilities of being positive. We propose a risk-consistent approach to tackle this problem and show that the estimation error bound achieves the optimal convergence rate. We also introduce a risk-correction approach to mitigate overfitting problems, whose consistency and convergence rate are also proven. Recent advances in weakly supervised learning Chapter | 10 295 
+
+3.1 Motivation 
+
+Learning with soft labels has been shown to achieve better performance than learning with hard labels in the context of supervised learning [Yuan et al., 2023], where each example is equipped with pointwise labeling confidence indicating the degree to which the labels describe the example. The advantages have been validated in many aspects, including model generalization [Yuan et al., 2020, Ishida et al., 2023], calibration [Müller et al., 2019, Wang et al., 2021b], and robustness [Lukasik et al., 2020, Pang et al., 2021]. For example, with the help of soft labels, knowledge distillation [Yuan et al., 2020, Hinton et al., 2015] transfers knowledge from a large teacher network to a small student network. The student network can be trained more efficiently and reliably with the soft labels generated by the teacher network [Phuong and Lampert, 2019, Park et al., 2019, Gou et al., 2021]. However, collecting a large number of training examples with pointwise labeling confidence may be demanding under many circumstances since it is challenging to describe the labeling confidence for each training example exactly [Collins et al., 2022, Shinoda et al., 2020, Sucholutsky et al., 2023]. Different annotators may give different values of pointwise labeling confidence to the same example due to personal biases, and it has been demonstrated that skewed confidence values can harm classification performance [Shinoda et al., 2020]. Besides, giving pointwise labeling information to large-scale datasets is also expensive, laborious, and even unrealistic in many real-world scenarios [Wei et al., 2022a, Karimi et al., 2020, Ratner et al., 2016]. On the contrary, leveraging supervision information of pairwise comparisons may ameliorate the biases of skewed pointwise labeling confidence and save labeling costs. Following this idea, we investigate a more practical problem setting for binary classification in this section, where we are given unlabeled data pairs with confidence difference indicating the difference in the probabilities of being positive. Collecting confidence difference for training examples in pairs is much cheaper and more accessible than collecting pointwise labeling confidence for all the training examples. Take click-through rate prediction in recommender systems [Zhang et al., 2019, Jiang et al., 2022] for example. The combinations of users and their favorite/disliked items can be regarded as positive/negative data. Collecting training data takes work to distinguish between positive and negative data. Furthermore, the pointwise labeling confidence of training data may be difficult to be determined due to the extraordinarily sparse and class-imbalance problems [Yao et al., 2021]. Therefore, the collected confidence values may be biased. However, collecting the difference in the preference between a pair of candidate items for a given user is more accessible and may alleviate the biases. In Wang et al. [2023], we provided an experiment on recommender systems to illustrate it. Take the disease risk estimation problem for another example. Given a person’s attributes, the goal is to predict the risk of having some disease. When 296 
+
+asking doctors to annotate the probabilities of having the disease for patients, it takes work to determine the exact values of the probabilities. Furthermore, the probability values given by different doctors may differ due to their diverse backgrounds. On the other hand, it is much easier and less biased to estimate the relative difference in the probabilities of having the disease between two patients. Therefore, the problem of learning with confidence difference is of practical research value, but has yet to be investigated in the literature. 
+
+3.2 Problem Definition 
+
+In this subsection, the formal definition of confidence difference is given firstly. Then, we elaborate the data generation process of ConfDiff data. 
+
+Definition 1 (Confidence Difference) . The confidence difference 𝑐 (𝒙 , 𝒙 ′) be-tween an unlabeled data pair (𝒙 , 𝒙 ′) is defined as 
+
+𝑐 (𝒙 , 𝒙 ′) = 𝑝 (𝑦 ′ = +1|𝒙 ′) − 𝑝 (𝑦 = +1|𝒙 ) . (11) As shown in the definition above, the confidence difference denotes the difference in the class posterior probabilities between the unlabeled data pair, which can measure how confident the pairwise comparison is. In ConfDiff classification, we are only given 𝑛 unlabeled data pairs with confidence difference 
+
+DCD =
+
+n 
+
+𝒙 CD  
+
+> 𝑖
+
+, 𝒙 CD ′
+
+> 𝑖
+
+
+
+, 𝑐 𝑖 
+
+o 𝑛 𝑖 =1. Here, 𝑐 𝑖 = 𝑐 
+
+
+
+𝒙 CD  
+
+> 𝑖
+
+, 𝒙 CD ′
+
+> 𝑖
+
+
+
+is the confidence difference for the unlabeled data pair 
+
+
+
+𝒙 CD  
+
+> 𝑖
+
+, 𝒙 CD ′
+
+> 𝑖
+
+
+
+. Furthermore, the unla-beled data pair 
+
+
+
+𝒙 CD  
+
+> 𝑖
+
+, 𝒙 CD ′
+
+> 𝑖
+
+
+
+is assumed to be drawn from a probability density 
+
+𝑝 (𝒙 , 𝒙 ′) = 𝑝 (𝒙 ) 𝑝 (𝒙 ′). This indicates that 𝒙 CD  
+
+> 𝑖
+
+and 𝒙 CD ′ 
+
+> 𝑖
+
+are two i.i.d. instances sampled from 𝑝 (𝒙 ). It is worth noting that the confidence difference 𝑐 𝑖 will be positive if the second instance 𝒙 CD ′ 
+
+> 𝑖
+
+has a higher probability to be positive than the first instance 𝒙 CD  
+
+> 𝑖
+
+, and will be negative otherwise. During the data collection process, the labeler can first sample two unlabeled data independently from the marginal distribution 𝑝 (𝒙 ), then provide the confidence difference for them. 
+
+3.3 Methodology 
+
+In this section, we introduce our proposed approaches with theoretical guarantees. Besides, we show the influence of an inaccurate class prior probability and noisy confidence difference theoretically. Furthermore, we introduce a risk-correction approach to improve the generalization performance. Due to page limitations, detailed proofs of theorems and lemmas, as well as experimental results, can be found in Wang et al. [2023]. 
+
+3.3.1 Unbiased Risk Estimator 
+
+In this subsection, we show that the classification risk in Eq. (3) can be expressed with ConfDiff data in an equivalent way. We rewrite the classification risk as Recent advances in weakly supervised learning Chapter | 10 297 
+
+the expectation w.r.t. the densities of unlabeled data pairs of a loss function containing confidence difference. The detailed proof can be found in Wang et al. [2023]. 
+
+Theorem 1. The classification risk in Eq. (3) can be equivalently expressed as 
+
+𝑅 CD (𝑔 ) = E𝑝 ( 𝒙 , 𝒙 ′ )
+
+ 12 (L CD (𝒙 , 𝒙 ′) + L CD (𝒙 ′, 𝒙 )) 
+
+
+
+, (12) 
+
+where 
+
+LCD (𝒙 , 𝒙 ′) = (𝜋 + − 𝑐 (𝒙 , 𝒙 ′)) ℓ (𝑔 (𝒙 ), +1) + ( 𝜋 − − 𝑐 (𝒙 , 𝒙 ′)) ℓ (𝑔 (𝒙 ′), −1) .
+
+Accordingly, we can derive an unbiased risk estimator for ConfDiff classifica-tion: 
+
+b𝑅 CD (𝑔 ) = 12𝑛 ∑︁ 
+
+> 𝑛 𝑖 =1
+
+
+
+LCD 
+
+
+
+𝒙 CD  
+
+> 𝑖
+
+, 𝒙 CD ′
+
+> 𝑖
+
+
+
++ L CD 
+
+
+
+𝒙 CD ′ 
+
+> 𝑖
+
+, 𝒙 CD 
+
+> 𝑖
+
+ 
+
+. (13) Actually, Eq. (13) is one of the candidates of the unbiased risk estimator. We introduce the following lemma: 
+
+Lemma 1. The following expression is also an unbiased risk estimator: 
+
+1
+
+𝑛 ∑︁ 
+
+> 𝑛 𝑖 =1
+
+
+
+𝛼 LCD 
+
+
+
+𝒙 CD  
+
+> 𝑖
+
+, 𝒙 CD ′
+
+> 𝑖
+
+
+
++ ( 1 − 𝛼 )L CD 
+
+
+
+𝒙 CD ′ 
+
+> 𝑖
+
+, 𝒙 CD 
+
+> 𝑖
+
+ 
+
+, (14) 
+
+where 𝛼 ∈ [ 0, 1] is an arbitrary weight. 
+
+Then, we introduce the following theorem: 
+
+Theorem 2. The unbiased risk estimator in Eq. (13) has the minimum variance among all the candidate unbiased risk estimators in the form of Eq. (14) w.r.t. 𝛼 ∈[0, 1].
+
+Theorem 2 indicates the variance minimality of the proposed unbiased risk estimator in Eq. (13), and we adopt this risk estimator in the following sections. 
+
+3.3.2 Estimation Error Bound 
+
+In this subsection, we elaborate the convergence property of the proposed risk estimator b𝑅 CD (𝑔 ) by giving an estimation error bound. Let G = {𝑔 : X ↦ → R}
+
+denote the model class. It is assumed that there exists some constant 𝐶 G such that sup 𝑔 ∈ G ∥𝑔 ∥∞ ≤ 𝐶 G and some constant 𝐶 ℓ such that sup | 𝑧 | ≤ 𝐶 G ℓ(𝑧, 𝑦 ) ≤ 𝐶 ℓ .We also assume that the binary loss function ℓ(𝑧, 𝑦 ) is Lipschitz continuous for 𝑧 
+
+with a Lipschitz constant 𝐿 ℓ . Let 𝑔 ∗ = arg min 𝑔 ∈ G 𝑅 B (𝑔 ) denote the minimizer of the classification risk in Eq. (3) and b𝑔 CD = arg min 𝑔 ∈ G b𝑅 CD (𝑔 ) denote the minimizer of the unbiased risk estimator in Eq. (13). The following theorem can be derived: 298 
+
+Theorem 3. For any 𝛿 > 0, the following inequality holds with probability at least 1 − 𝛿 :
+
+𝑅 B (b𝑔 CD ) − 𝑅 B (𝑔 ∗) ≤ 8𝐿 ℓ ℜ𝑛 (G) + 4𝐶 ℓ√︂ ln 2 /𝛿 
+
+2𝑛 , (15) 
+
+where ℜ𝑛 (G) denotes the Rademacher complexity of G for unlabeled data with size 𝑛 .
+
+From Theorem 3, we can observe that as 𝑛 → ∞ , 𝑅 B (b𝑔 CD ) → 𝑅 B (𝑔 ∗)
+
+because R𝑛 (G) → 0 for all parametric models with a bounded norm, such as deep neural networks trained with weight decay [Golowich et al., 2018]. Furthermore, the estimation error bound converges in O𝑝 
+
+ 1/√𝑛 , where O𝑝 
+
+denotes the order in probability, which is the optimal parametric rate for empirical risk minimization without making additional assumptions [Mendelson, 2008]. 
+
+3.3.3 Robustness of Risk Estimator 
+
+In the previous subsections, it was assumed that the class prior probability is known in advance. In addition, it was assumed that the ground-truth confidence difference of each unlabeled data pair is accessible. However, these assumptions can rarely be satisfied in real-world scenarios, since the collection of confidence difference is inevitably injected with noise. In this subsection, we theoretically analyze the influence of an inaccurate class prior probability and noisy confidence difference on the learning procedure. Let ¯DCD = (( 𝒙 CD  
+
+> 𝑖
+
+, 𝒙 CD ′ 
+
+> 𝑖
+
+), ¯𝑐 𝑖 ) 𝑛 𝑖 =1 denote 𝑛 unlabeled data pairs with noisy confidence difference, where ¯ 𝑐 𝑖 is generated by corrupting the ground-truth confidence difference 𝑐 𝑖 with noise. Besides, let ¯ 𝜋 + denote the inaccurate class prior probability accessible to the learning algorithm. Furthermore, let ¯ 𝑅 CD (𝑔 )
+
+denote the empirical risk calculated based on the inaccurate class prior probability and noisy confidence difference. Let ¯ 𝑔 CD = arg min 𝑔 ∈ G ¯𝑅 CD (𝑔 ) denote the minimizer of ¯𝑅 CD (𝑔 ). Then the following theorem gives an estimation error bound: 
+
+Theorem 4. Based on the assumptions of Theorem 3, for any 𝛿 > 0, the following inequality holds with probability at least 1 − 𝛿 :
+
+𝑅 B ( ¯𝑔 CD ) − 𝑅 B (𝑔 ∗) ≤ 16 𝐿 ℓ ℜ𝑛 (G) + 8𝐶 ℓ√︂ ln 2 /𝛿 
+
+2𝑛 
+
++ 4𝐶 ℓ
+
+Í𝑛 𝑖 =1 | ¯𝑐 𝑖 − 𝑐 𝑖 |
+
+𝑛 + 4𝐶 ℓ | ¯𝜋 + − 𝜋 + | . (16) Theorem 4 indicates that the estimation error is bounded by twice the original bound in Theorem 3 with the mean absolute error of the noisy confidence difference and the inaccurate class prior probability. Furthermore, if Í𝑛 𝑖 =1 | ¯𝑐 𝑖 − 𝑐 𝑖 |
+
+has a sublinear growth rate with high probability and the class prior probability is estimated consistently, the risk estimator can be even consistent. This elaborates the robustness of the proposed approach. Recent advances in weakly supervised learning Chapter | 10 299 
+
+3.3.4 Risk-Correction Approach 
+
+It is worth noting that the empirical risk in Eq. (13) may be negative due to negative terms, which is unreasonable because of the non-negative property of loss functions. This phenomenon will result in severe overfitting problems when complex models are adopted [Lu et al., 2020, Cao et al., 2021, Feng et al., 2021]. To circumvent this difficulty, we wrap the individual loss terms in Eq. (13) with risk-correction functions proposed in Lu et al. [2020], such as the rectified linear unit (ReLU) function ℎ(𝑧 ) = max (0, 𝑧 ) and the absolute value function 
+
+ℎ(𝑧 ) = |𝑧 |. In this way, the corrected risk estimator for ConfDiff classification can be expressed as follows: 
+
+e𝑅 CD (𝑔 ) = 12𝑛 ℎ
+
+∑︁ 𝑛 𝑖 =1 (𝜋 + − 𝑐 𝑖 ) ℓ
+
+
+
+𝑔 
+
+
+
+𝒙 CD 
+
+> 𝑖
+
+
+
+, +1
+
+ 
+
++ 12𝑛 ℎ
+
+∑︁ 𝑛 𝑖 =1 (𝜋 − − 𝑐 𝑖 ) ℓ
+
+
+
+𝑔 
+
+
+
+𝒙 CD ′
+
+> 𝑖
+
+
+
+, −1
+
+ 
+
++ 12𝑛 ℎ
+
+∑︁ 𝑛 𝑖 =1 (𝜋 + + 𝑐 𝑖 ) ℓ
+
+
+
+𝑔 
+
+
+
+𝒙 CD ′
+
+> 𝑖
+
+
+
+, +1
+
+ 
+
++ 12𝑛 ℎ
+
+∑︁ 𝑛 𝑖 =1 (𝜋 − + 𝑐 𝑖 ) ℓ
+
+
+
+𝑔 
+
+
+
+𝒙 CD 
+
+> 𝑖
+
+
+
+, −1
+
+ 
+
+. (17) We assume that the risk-correction function ℎ(𝑧 ) is Lipschitz continuous with Lipschitz constant 𝐿 ℎ. For ease of notation, we introduce 
+
+b𝐴 (𝑔 ) = 12𝑛 ∑︁  
+
+> 𝑛 𝑖 =1
+
+(𝜋 + − 𝑐 𝑖 )ℓ
+
+
+
+𝑔 
+
+
+
+𝒙 CD 
+
+> 𝑖
+
+
+
+, +1
+
+
+
+,
+
+b𝐵 (𝑔 ) = 12𝑛 ∑︁  
+
+> 𝑛 𝑖 =1
+
+(𝜋 − − 𝑐 𝑖 )ℓ
+
+
+
+𝑔 
+
+
+
+𝒙 CD ′
+
+> 𝑖
+
+
+
+, −1
+
+
+
+,
+
+b𝐶 (𝑔 ) = 12𝑛 ∑︁  
+
+> 𝑛 𝑖 =1
+
+(𝜋 + + 𝑐 𝑖 )ℓ
+
+
+
+𝑔 
+
+
+
+𝒙 CD ′
+
+> 𝑖
+
+
+
+, +1
+
+
+
+,
+
+b𝐷 (𝑔 ) = 12𝑛 ∑︁  
+
+> 𝑛 𝑖 =1
+
+(𝜋 − + 𝑐 𝑖 )ℓ
+
+
+
+𝑔 
+
+
+
+𝒙 CD 
+
+> 𝑖
+
+
+
+, −1
+
+
+
+. (18) We assume that there exist positive constants 𝑎, 𝑏, 𝑐, and 𝑑 such that E
+
+h b𝐴 (𝑔 )
+
+i
+
+≥
+
+𝑎, E
+
+h b𝐵 (𝑔 )
+
+i
+
+≥ 𝑏, E
+
+h b𝐶 (𝑔 )
+
+i
+
+≥ 𝑐, and E
+
+h b𝐷 (𝑔 )
+
+i
+
+≥ 𝑑 . Besides, let e𝑔 CD =
+
+arg min 𝑔 ∈ G e𝑅 CD (𝑔 ) denote the minimizer of e𝑅 CD (𝑔 ). Then, Theorem 5 is provided to elaborate the bias and consistency of e𝑅 CD (𝑔 ).
+
+Theorem 5. Based on the assumptions of Theorem 3, the bias of the risk estimator 
+
+e𝑅 CD (𝑔 ) decays exponentially as 𝑛 → ∞ :
+
+0 ≤ E  e𝑅 CD (𝑔 ) − 𝑅 B (𝑔 ) ≤ 2 (𝐿 ℎ + 1) 𝐶 ℓ Δ, (19) 
+
+where Δ = exp  −2𝑎 2𝑛 /𝐶 2
+
+> ℓ
+
++exp  −2𝑏 2𝑛 /𝐶 2
+
+> ℓ
+
++exp  −2𝑐 2𝑛 /𝐶 2
+
+> ℓ
+
++exp  −2𝑑 2𝑛 /𝐶 2
+
+> ℓ
+
+.Furthermore, with probability at least 1 − 𝛿 , we have 
+
+| e𝑅 CD (𝑔 ) − 𝑅 B (𝑔 )| ≤ 2𝐶 ℓ 𝐿 ℎ√︂ ln 2 /𝛿 
+
+2𝑛 + 2 (𝐿 ℎ + 1) 𝐶 ℓ Δ. (20) 300 
+
+Theorem 5 demonstrates that e𝑅 CD (𝑔 ) → 𝑅 B (𝑔 ) in O𝑝 (1/√𝑛 ), which means that e𝑅 CD (𝑔 ) is biased yet consistent. The estimation error bound of e𝑔 CD is analyzed in Theorem 6. 
+
+Theorem 6. Based on the assumptions of Theorem 5, for any 𝛿 > 0, the following inequality holds with probability at least 1 − 𝛿 :
+
+𝑅 B (e𝑔 CD ) − 𝑅 B (𝑔 ∗) ≤ 8𝐿 ℓ ℜ𝑛 (G) + 4𝐶 ℓ (𝐿 ℎ +1)√︂ ln 2 /𝛿 
+
+2𝑛 +4(𝐿 ℎ +1)𝐶 ℓ Δ. (21) Theorem 6 elucidates that as 𝑛 → ∞ , 𝑅 B (e𝑔 CD ) → 𝑅 B (𝑔 ∗), since R𝑛 (G) → 0for all parametric models with a bounded norm [Mohri et al., 2012] and Δ → 0. Furthermore, the estimation error bound converges in O𝑝 (1/√𝑛 ), which is the optimal parametric rate for empirical risk minimization without additional assumptions [Mendelson, 2008]. 
+
+4 SELECTED-COMPLETELY-AT-RANDOM COMPLEMENTARY-LABEL LEARNING 
+
+CL learning is a weakly supervised learning problem in which each training example is associated with one or multiple complementary labels indicating the classes to which it does not belong. Existing consistent approaches have relied on the uniform distribution assumption to model the generation of complementary labels, or on an ordinary-label training set to estimate the transition matrix in non-uniform cases. However, either condition may not be satisfied in real-world scenarios. In this section, we propose a novel consistent approach that does not rely on these conditions. Inspired by the positive-unlabeled (PU) learning literature, we propose an unbiased risk estimator based on the Selected-Completely-at-Random (SCAR) assumption for CL learning. We then introduce a risk-correction approach to address overfitting problems. 
+
+4.1 Motivation 
+
+CL learning is a weakly supervised learning problem that has received a lot of attention recently [Ishida et al., 2017, Feng et al., 2020a, Gao and Zhang, 2021, Liu et al., 2023]. In CL learning, we are given training data associated with complementary labels that specify the classes to which the examples do not belong. The task is to learn a multi-class classifier that assigns correct labels to test data as in the standard supervised learning. Collecting training data with complementary labels is much easier and cheaper than collecting ordinary-label data. For example, when asking workers on crowdsourcing platforms to annotate training data, we only need to randomly select a candidate label and then ask them whether the example belongs to that class or not. Such “yes” or “no” questions are much easier to answer than asking workers to determine the ground-truth label from a large set of candidate labels. The benefits and effectiveness of CL Recent advances in weakly supervised learning Chapter | 10 301 
+
+learning have also been demonstrated in several machine learning problems and applications, such as domain adaptation [Zhang et al., 2021, Han et al., 2023], semi-supervised learning [Chen et al., 2020, Ma et al., 2023, Deng et al., 2024], noisy-label learning [Kim et al., 2019], adversarial robustness [Zhou et al., 2022], few-shot learning [Wei et al., 2022b], and medical image analysis [Rezaei et al., 2020]. Existing research works with consistency guarantees have attempted to solve CL learning problems by making assumptions about the distribution of complementary labels. The remedy started with Ishida et al. [2017], which proposed the uniform distribution assumption that a label other than the ground-truth label is sampled from the uniform distribution to be the complementary label. A subsequent work extended it to arbitrary loss functions and models [Ishida et al., 2019] based on the same distribution assumption. Then, Feng et al. [2020a] extended the problem setting to the existence of multiple complementary labels. Recent works have proposed discriminative methods that work by modeling the posterior probabilities of complementary labels instead of the generation process [Chou et al., 2020, Gao and Zhang, 2021, Liu et al., 2023, Lin and Lin, 2023]. However, the uniform distribution assumption is still necessary to ensure the classifier consistency property [Liu et al., 2023]. Yu et al. [2018] proposed the 
+
+biased distribution assumption , elaborating that the generation of complementary labels follows a transition matrix , i.e., the CL distribution is determined by the true label. In summary, previous CL learning approaches all require either the uniform distribution assumption or the biased distribution assumption to guarantee the consistency property, to the best of our knowledge. However, such assumptions may not be satisfied in real-world scenarios. On the one hand, the uniform distribution assumption is too strong, since the transition probability for different complementary labels is undifferentiated, i.e., the transition probability from the true label to a complementary label is constant for all labels. Such an assumption is not realistic since the annotations may be imbalanced and biased [Wei et al., 2023, Wang et al., 2025a]. On the other hand, although the biased distribution assumption is more practical, an ordinary-label training set with deterministic labels , also known as anchor points [Liu and Tao, 2015], is essential for estimating transition probabilities during the training phase [Yu et al., 2018]. However, the collection of ordinary-label data with deterministic labels is often unrealistic in CL learning problems [Feng et al., 2020a, Gao and Zhang, 2021]. Therefore, we are motivated to propose consistent methods that do not rely on previous strong assumptions. 
+
+4.2 Data Generation Process 
+
+Inspired by the SCAR assumption in PU learning [Elkan and Noto, 2008, Coudray et al., 2023], we introduce the SCAR assumption for generating complementary labels, which can be summarized as follows. 302 
+
+Assumption 1 (Selected-Completely-at-Random Assumption) . The CL data with the 𝑘 -th class as a complementary label are sampled completely at random from the marginal density of the data not belonging to the 𝑘 -th class, i.e., 
+
+𝑝  𝑘 ∈ ¯𝑌 |𝒙 , 𝑘 ∈ Y\{ 𝑦 } = 𝑝  𝑘 ∈ ¯𝑌 |𝑘 ∈ Y\{ 𝑦 } = 𝑐 𝑘 , (22) where 𝑐 𝑘 = ¯𝜋 𝑘 /( 1 − 𝜋 𝑘 ) is a constant specifying the fraction of data with the 𝑘 -th class as a complementary label and (𝒙 , 𝑦 ) is sampled from the density 𝑝 (𝒙 , 𝑦 ).Our motivation is that complementary labels are often generated in a class-wise manner. They can be collected by answering “yes” or “no” questions given a pair of an example and a candidate label [Hu et al., 2019, Wang et al., 2021a]. During an annotation round, we randomly select a candidate label and ask the annotators whether the example belongs to that class or not. The process is repeated iteratively, so that each example may be annotated with multiple 
+
+complementary labels. The SCAR assumption differs from the biased distribution assumption, where only one single complementary label is generated by sampling only once from a multinomial distribution. Moreover, the SCAR assumption can be generalized to non-uniform cases by setting 𝑐 𝑘 to different values for different labels. Therefore, our assumption is more practical in real-world scenarios. 
+
+4.3 Methodology 
+
+In this section, we propose an unbiased risk estimator with the OVR strategy, followed by its theoretical analysis. Finally, we present a risk-correction approach to improve the generalization performance. Due to page limitations, detailed proofs of theorems and lemmas, as well as experimental results, can be found in Wang et al. [2024b]. 
+
+4.3.1 OVR Strategy 
+
+The OVR strategy decomposes multi-class classification into a series of binary classification problems, which is a common strategy with extensive theoretical guarantees and sound performance [Rifkin and Klautau, 2004, Zhang, 2004]. Specifically, when considering a given class, examples that belong to the given class can be considered positive, while examples that do not belong to the given class can be considered negative. This naturally creates multiple binary classification problems. The OVR strategy instantiates the loss function L in Eq. (8) with the OVR loss, i.e. 
+
+𝑅   𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 
+
+ = E𝑝 ( 𝒙 ,𝑦 )
+
+
+
+ℓM   𝑓 𝑦 (𝒙 ) +∑︁    
+
+> 𝑘 ∈ Y\{ 𝑦 }
+
+ℓM (− 𝑓 𝑘 (𝒙 )) 
+
+
+
+. (23) Here, 𝑓 𝑘 is a binary classifier w.r.t. the 𝑘 -th class, E denotes the expectation, and ℓM : R → R+ is a non-negative binary-class loss function. Then, the predicted label for a test instance 𝒙 is determined as Recent advances in weakly supervised learning Chapter | 10 303 
+
+𝑓 (𝒙 ) = arg max  
+
+> 𝑘 ∈ Y
+
+𝑓 𝑘 (𝒙 ). (24) The goal is to find optimal classifiers 𝑓 ∗ 
+
+> 1
+
+, 𝑓 ∗ 
+
+> 2
+
+, . . . , 𝑓 ∗ 
+
+> 𝑞
+
+in a function class F
+
+which achieve the minimum classification risk in Eq. (23), i.e., 
+
+
+
+𝑓 ∗ 
+
+> 1
+
+, 𝑓 ∗ 
+
+> 2
+
+, . . . , 𝑓 ∗
+
+> 𝑞
+
+
+
+= arg min    
+
+> 𝑓 1, 𝑓 2,..., 𝑓 𝑞 ∈ F
+
+𝑅   𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 
+
+ . (25) We show that the OVR risk can be rewritten using densities 𝑝 (𝒙 | ¯𝑦 𝑘 = 1) and 
+
+𝑝 (𝒙 | ¯𝑦 𝑘 = 0) as well. 
+
+Theorem 7. When the OVR loss is used, the classification risk in Eq. (23) can be equivalently expressed as 𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 ) = Í𝑞 𝑘 =1 𝑅 𝑘 ( 𝑓 𝑘 ), where 
+
+𝑅 𝑘 ( 𝑓 𝑘 ) =E𝑝 ( 𝒙 | ¯𝑦 𝑘 =1)
+
+(1 − 𝜋 𝑘 )ℓM (− 𝑓 𝑘 (𝒙 )) + ( ¯𝜋 𝑘 + 𝜋 𝑘 − 1)
+
+ℓM ( 𝑓 𝑘 (𝒙 ))  + E𝑝 ( 𝒙 | ¯𝑦 𝑘 =0)
+
+(1 − ¯𝜋 𝑘 ) ℓM ( 𝑓 𝑘 (𝒙 ))  . (26) Since the true densities 𝑝 (𝒙 | ¯𝑦 𝑘 = 1) and 𝑝 (𝒙 | ¯𝑦 𝑘 = 0) are not directly accessible, we approximate the risk empirically . Suppose we have binary-class datasets DN 
+
+> 𝑘
+
+and DU 
+
+> 𝑘
+
+sampled i.i.d. from 𝑝 (𝒙 | ¯𝑦 𝑘 = 1) and 𝑝 (𝒙 | ¯𝑦 𝑘 = 0),respectively. Then, an unbiased risk estimator can be derived from these binary-class datasets to approximate the classification risk in Theorem 7 as 
+
+b𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 ) = Í𝑞 𝑘 =1 b𝑅 𝑘 ( 𝑓 𝑘 ), where 
+
+b𝑅 𝑘 ( 𝑓 𝑘 ) = 1
+
+𝑛 N
+
+> 𝑘 𝑛 N
+> 𝑘
+
+∑︁ 
+
+> 𝑖 =1
+
+
+
+(1 − 𝜋 𝑘 ) ℓM 
+
+− 𝑓 𝑘 (𝒙 N 
+
+> 𝑘,𝑖
+
+)
+
+
+
++ ( ¯𝜋 𝑘 + 𝜋 𝑘 − 1)
+
+ℓM 
+
+𝑓 𝑘 (𝒙 N 
+
+> 𝑘,𝑖
+
+)
+
+ 
+
++ (1 − ¯𝜋 𝑘 )
+
+𝑛 U
+
+> 𝑘 𝑛 U
+> 𝑘
+
+∑︁ 
+
+> 𝑖 =1
+
+ℓM 
+
+𝑓 𝑘 (𝒙 U 
+
+> 𝑘,𝑖
+
+)
+
+
+
+. (27) We may add regularization terms to b𝑅   𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 
+
+ when necessary [Loshchilov and Hutter, 2019]. This section considers generating the binary-class datasets 
+
+DN 
+
+> 𝑘
+
+and DU 
+
+> 𝑘
+
+by duplicating instances of DCL . Specifically, if the 𝑘 -th class is a complementary label of a training example, we regard its duplicated instance as a negative example sampled from 𝑝 (𝒙 | ¯𝑦 𝑘 = 1) and put the duplicated instance in DN 
+
+> 𝑘
+
+. If the 𝑘 -th class is not a complementary label of a training example, we regard its duplicated instance as an unlabeled example sampled from 𝑝 (𝒙 | ¯𝑦 𝑘 = 0)
+
+and put the duplicated instance in DU 
+
+> 𝑘
+
+. In this way, we can obtain 𝑞 negative binary-class datasets and 𝑞 unlabeled binary-class datasets ( 𝑘 ∈ Y ): 
+
+DN 
+
+> 𝑘
+
+= (𝒙 N 
+
+> 𝑘,𝑖
+
+, −1) 𝑛 N 
+
+> 𝑘
+> 𝑖 =1
+
+= (𝒙 𝑗 , −1)|( 𝒙 𝑗 , ¯𝑌 𝑗 ) ∈ D CL , 𝑘 ∈ ¯𝑌 𝑗 ; (28) 
+
+DU 
+
+> 𝑘
+
+= 𝒙 U 
+
+> 𝑘,𝑖
+> 𝑛 U
+> 𝑘
+> 𝑖 =1
+
+= 𝒙 𝑗 |( 𝒙 𝑗 , ¯𝑌 𝑗 ) ∈ D CL , 𝑘 ∉ ¯𝑌 𝑗 . (29) 304 
+
+When the class priors 𝜋 𝑘 are not accessible to the learning algorithm, they can be estimated by off-the-shelf mixture proportion estimation approaches [Scott, 2015, Ramaswamy et al., 2016, Zhang et al., 2020, Garg et al., 2021, Yao et al., 2022] with DN 
+
+> 𝑘
+
+and DU 
+
+> 𝑘
+
+. Notably, the irreducibility [Blanchard et al., 2010, Scott et al., 2013] assumption is necessary for class-prior estimation. However, it is still less demanding than the biased distribution assumption, which requires additional ordinary-label training data with deterministic labels, a.k.a. anchor points, to estimate the transition matrix [Yu et al., 2018]. 
+
+4.3.2 Theoretical Analysis 
+
+In this section, we present theoretical analysis of the proposed method. We show that the proposed risk can be calibrated to the 0-1 loss [Zhang, 2004]. Let 𝑅 0−1 ( 𝑓 ) = E𝑝 ( 𝒙 ,𝑦 ) I( 𝑓 (𝒙 ) ≠ 𝑦 ) denote the expected 0-1 loss where 
+
+𝑓 (𝒙 ) = arg max 𝑘 ∈ Y 𝑓 𝑘 (𝒙 ) and 𝑅 ∗ 
+
+> 0−1
+
+= min 𝑓 𝑅 0−1 ( 𝑓 ) denote the Bayes error. Besides, let 𝑅 ∗ = min 𝑓 1 , 𝑓 2 ,..., 𝑓 𝑞 𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 ) denote the minimum risk of the proposed risk. Then we have the following theorem. 
+
+Theorem 8. Suppose the binary-class loss function ℓM is convex, bounded below, differential, and satisfies ℓM (𝑧 ) ≤ ℓM (− 𝑧 ) when 𝑧 > 0. Then we have that for any 
+
+𝜖 1 > 0, there exists an 𝜖 2 > 0 such that 
+
+𝑅   𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 
+
+ ≤ 𝑅 ∗ + 𝜖 2 ⇒ 𝑅 0−1 ( 𝑓 ) ≤ 𝑅 ∗ 
+
+> 0−1
+
++ 𝜖 1. (30) The infinite-sample consistency elucidates that the proposed risk can be calibrated to the 0-1 loss. Therefore, if we minimize the proposed risk and obtain the optimal classifier, the classifier also achieves the Bayes error. We further elaborate the convergence property of the empirical risk estimator 
+
+b𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 ) by providing its estimation error bound. The optimal classifiers w.r.t. b𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 ) are 
+
+ b𝑓 1, b𝑓 2, . . . , b𝑓 𝑞 
+
+
+
+= arg min    
+
+> 𝑓 1, 𝑓 2,..., 𝑓 𝑞 ∈ F
+
+b𝑅   𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 
+
+ . (31) We assume that there exists some constant 𝐶 F such that sup 𝑓 𝑘 ∈ F ∥ 𝑓 𝑘 ∥∞ ≤ 𝐶 F and some constant 𝐶 ℓM such that sup | 𝑧 | ≤ 𝐶 F ℓM (𝑧 ) ≤ 𝐶 ℓM . We also assume that the binary-class loss function ℓM (𝑧 ) is Lipschitz continuous w.r.t. 𝑧 with a Lipschitz constant 𝐿 ℓM .
+
+Theorem 9. Based on the above assumptions, for any 𝛿 > 0, the following Recent advances in weakly supervised learning Chapter | 10 305 
+
+inequality holds with probability at least 1 − 𝛿 :
+
+𝑅 
+
+ b𝑓 1, b𝑓 2, . . . , b𝑓 𝑞 
+
+
+
+− 𝑅 
+
+
+
+𝑓 ∗ 
+
+> 1
+
+, 𝑓 ∗ 
+
+> 2
+
+, . . . , 𝑓 ∗
+
+> 𝑞
+
+
+
+≤
+
+> 𝑞
+
+∑︁ 
+
+> 𝑘 =1
+
+(4 − 4 ¯ 𝜋 𝑘 )𝐿 ℓM ℜ𝑛 U 
+
+> 𝑘 , 𝑝 U
+> 𝑘
+
+(F ) + ( 1 − ¯𝜋 𝑘 )𝐶 ℓM√︄ 2 ln (2/𝛿 )
+
+𝑛 U
+
+> 𝑘
+
++( 8 − 8𝜋 𝑘 − 4 ¯ 𝜋 𝑘 )𝐿 ℓM ℜ𝑛 N 
+
+> 𝑘 , 𝑝 N
+> 𝑘
+
+(F ) + ( 2 − 2𝜋 𝑘 − ¯𝜋 𝑘 )𝐶 ℓM√︄ 2 ln (2/𝛿 )
+
+𝑛 N
+
+> 𝑘
+
+!
+
+, (32) 
+
+where ℜ𝑛 U 
+
+> 𝑘 , 𝑝 U
+> 𝑘
+
+(F ) and ℜ𝑛 N 
+
+> 𝑘 , 𝑝 N
+> 𝑘
+
+(F ) denote the Rademacher complexity of F given 
+
+𝑛 U 
+
+> 𝑘
+
+unlabeled data sampled from 𝑝 (𝒙 | ¯𝑦 𝑘 = 0) and 𝑛 N 
+
+> 𝑘
+
+negative data sampled from 𝑝 (𝒙 | ¯𝑦 𝑘 = 1) respectively. 
+
+Theorem 9 elucidates an estimation error bound of our proposed risk estima-tor. When 𝑛 U 
+
+> 𝑘
+
+and 𝑛 N 
+
+> 𝑘
+
+→ ∞ , 𝑅 
+
+ b𝑓 1, b𝑓 2, . . . , b𝑓 𝑞 
+
+
+
+→ 𝑅 
+
+
+
+𝑓 ∗ 
+
+> 1
+
+, 𝑓 ∗ 
+
+> 2
+
+, . . . , 𝑓 ∗
+
+> 𝑞
+
+
+
+because 
+
+ℜ𝑛 U 
+
+> 𝑘 , 𝑝 U
+> 𝑘
+
+(F ) → 0 and ℜ𝑛 N 
+
+> 𝑘 , 𝑝 N
+> 𝑘
+
+(F ) → 0 for all parametric models with a bounded norm such as deep neural networks with weight decay [Golowich et al., 2018]. 
+
+4.3.3 Risk-Correction Approach 
+
+Although the unbiased risk estimator (URE) has sound theoretical properties, we have found that it can encounter several overfitting problems when using complex models such as deep neural networks [Kiryo et al., 2017, Lu et al., 2020, Cao et al., 2021]. Therefore, following Lu et al. [2020], Wang et al. [2023], we wrap each potentially negative term with a non-negative risk-correction function 𝑔 (𝑧 ),such as the absolute value function 𝑔 (𝑧 ) = |𝑧 |. For ease of notation, we introduce 
+
+b𝑅 P 
+
+> 𝑘
+
+( 𝑓 𝑘 ) = ¯𝜋 𝑘 + 𝜋 𝑘 − 1
+
+𝑛 N
+
+> 𝑘 𝑛 N
+> 𝑘
+
+∑︁ 
+
+> 𝑖 =1
+
+ℓM 
+
+𝑓 𝑘 (𝒙 N 
+
+> 𝑘,𝑖
+
+)
+
+
+
++ 1 − ¯𝜋 𝑘 
+
+𝑛 U
+
+> 𝑘 𝑛 U
+> 𝑘
+
+∑︁ 
+
+> 𝑖 =1
+
+ℓM 
+
+𝑓 𝑘 (𝒙 U 
+
+> 𝑘,𝑖
+
+)
+
+
+
+. (33) Then, the corrected risk estimator can be written as e𝑅   𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 
+
+ = Í𝑞 𝑘 =1 e𝑅 𝑘 ( 𝑓 𝑘 ),where 
+
+e𝑅 𝑘 ( 𝑓 𝑘 ) = 𝑔 
+
+ b𝑅 P 
+
+> 𝑘
+
+( 𝑓 𝑘 )
+
+
+
++ 1 − 𝜋 𝑘 
+
+𝑛 N
+
+> 𝑘 𝑛 N
+> 𝑘
+
+∑︁ 
+
+> 𝑖 =1
+
+ℓM 
+
+− 𝑓 𝑘 (𝒙 N 
+
+> 𝑘,𝑖
+
+)
+
+
+
+. (34) It is obvious that Eq. (34) is an upper bound of Eq. (27), so the bias is always present. Next, we perform a theoretical analysis to clarify that the corrected risk estimator is biased but consistent . Since E
+
+h b𝑅 P 
+
+> 𝑘
+
+( 𝑓 𝑘 )
+
+i
+
+= 𝜋 𝑘 E𝑝 ( 𝒙 | 𝑦 =𝑘 ) ℓM ( 𝑓 𝑘 (𝒙 )) , we assume that there exists a positive constant 𝛽 such that for ∀𝑘 ∈ Y , E
+
+h b𝑅 P 
+
+> 𝑘
+
+( 𝑓 𝑘 )
+
+i
+
+≥ 𝛽 . We also assume that the risk-correction function 𝑔 (𝑧 ) is Lipschitz continuous with a Lipschitz constant 𝐿 𝑔 . Besides, we assume that there exists some constant 𝐶 ℜ such that the Rademacher complexity ℜ𝑛, 𝑝 (F ) for unlabeled (with 𝑛 = 𝑛 U 
+
+> 𝑘
+
+, 𝑝 = 𝑝 U 
+
+> 𝑘
+
+)306 
+
+and negative data (with 𝑛 = 𝑛 N 
+
+> 𝑘
+
+, 𝑝 = 𝑝 N 
+
+> 𝑘
+
+) satisfies ℜ𝑛, 𝑝 (F ) ≤ 𝐶 ℜ/√𝑛 . This assumption holds for many models, such as fully connected neural networks and linear-in-parameter models with a bounded norm [Golowich et al., 2018, Lu et al., 2020]. We introduce 
+
+ e𝑓 1, e𝑓 2, . . . , e𝑓 𝑞 
+
+
+
+= arg min 𝑓 1 , 𝑓 2 ,..., 𝑓 𝑞 ∈ F e𝑅   𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 
+
+
+
+and Δ𝑘 = exp 
+
+
+
+−2𝛽 2/
+
+
+
+(1 − 𝜋 𝑘 − ¯𝜋 𝑘 )2𝐶 2 
+
+> ℓM
+
+/𝑛 N 
+
+> 𝑘
+
++ ( 1 − ¯𝜋 𝑘 )2𝐶 2 
+
+> ℓM
+
+/𝑛 U
+
+> 𝑘
+
+ 
+
+. Then we have the following theorems. 
+
+Theorem 10. Based on the above assumptions, the bias of the expectation of the corrected risk estimator has the following lower and upper bounds: 
+
+0 ≤ E[ e𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 )] − 𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 )≤
+
+> 𝑞
+
+∑︁ 
+
+> 𝑘 =1
+
+(2 − 2 ¯ 𝜋 𝑘 − 𝜋 𝑘 )  𝐿 𝑔 + 1 𝐶 ℓM Δ𝑘 . (35) 
+
+Furthermore, for any 𝛿 > 0, the following inequality holds with probability at least 1 − 𝛿 :
+
+| e𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 ) − 𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 )| ≤ O 𝑝 
+
+> 𝑞
+
+∑︁ 
+
+> 𝑘 =1
+
+
+
+1/√︃ 𝑛 N 
+
+> 𝑘
+
++ 1/√︃ 𝑛 U
+
+> 𝑘
+
+!
+
+. (36) 
+
+Theorem 11. Based on the above assumptions, for any 𝛿 > 0, the following inequality holds with probability at least 1 − 𝛿 :
+
+𝑅 ( e𝑓 1, e𝑓 2, . . . , e𝑓 𝑞 ) − 𝑅 ( 𝑓 ∗ 
+
+> 1
+
+, 𝑓 ∗ 
+
+> 2
+
+, . . . , 𝑓 ∗ 
+
+> 𝑞
+
+)≤ O 𝑝 
+
+> 𝑞
+
+∑︁ 
+
+> 𝑘 =1
+
+
+
+1/√︃ 𝑛 N 
+
+> 𝑘
+
++ 1/√︃ 𝑛 U
+
+> 𝑘
+
+!
+
+. (37) Theorem 10 shows that e𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 ) → 𝑅 ( 𝑓 1, 𝑓 2, . . . , 𝑓 𝑞 ) as 𝑛 U 
+
+> 𝑘
+
+and 
+
+𝑛 N 
+
+> 𝑘
+
+→ ∞ , indicating that the corrected risk estimator is biased but consistent. An estimation error bound is also shown in Theorem 11. The convergence rate of the estimation error bound is still the same after employing the risk-correction function. 
+
+5 REALISTIC EVALUATION OF DEEP PARTIAL-LABEL LEARN-ING ALGORITHMS 
+
+PL learning is a weakly supervised learning problem in which each example is associated with multiple candidate labels and only one is the true label. In recent years, many deep PL learning algorithms have been developed to improve model performance. However, we find that some early developed algorithms are often underestimated and can outperform many later algorithms with complicated Recent advances in weakly supervised learning Chapter | 10 307 
+
+designs. In this section, we delve into the empirical perspective of PL learning and identify several critical but previously overlooked issues. First, model selection for PL learning is non-trivial, but has never been systematically studied. Second, the experimental settings are highly inconsistent, making it difficult to evaluate the effectiveness of the algorithms. Based on these findings, we propose Plench, the first PL learning bENCHmark to systematically compare state-of-the-art deep PL learning algorithms. We investigate the model selection problem for PL learning for the first time, and propose novel model selection criteria with theoretical guarantees. Researchers can quickly and conveniently perform a comprehensive and fair evaluation and verify the effectiveness of newly developed algorithms based on Plench. We hope that Plench will facilitate standardized, fair, and practical evaluation of PL learning algorithms in the future. 
+
+5.1 Motivation 
+
+PL learning is a weakly supervised learning problem that has attracted much attention recently [Sugiyama et al., 2022, Wang et al., 2022a, Tian et al., 2023]. In PL learning, each training example is associated with multiple candidate labels [Jin and Ghahramani, 2002, Cour et al., 2011]. The true label for each example is hidden in the set of candidate labels, but not accessible to the learning algorithm. PL learning has been successfully applied to computer vision [Liu and Dietterich, 2012, Zeng et al., 2013, Chen et al., 2018, Gong et al., 2018, Tang et al., 2023, Wang et al., 2024b], natural language processing [Garrette and Baldridge, 2013, Zhou et al., 2018, Ren et al., 2016a,b], web mining [Luo and Orabona, 2010], ecoinformatics [Briggs et al., 2012, Wang et al., 2019, Li et al., 2021, Lyu et al., 2022], etc. Among various strategies to address this problem, deep learning-based PL learning algorithms have demonstrated satisfactory generalization performance due to the strong representation learning capabilities of deep neural networks [Lv et al., 2020, Wang et al., 2022b]. Despite the abundance of algorithms in this area, we find that there are several fundamental and critical issues that have received less attention in the PL learning literature. First, most PL learning algorithms select their hyperparameters by using a clean ordinary-label validation set [Qiao et al., 2023a, Xu et al., 2023a,b]. However, the original definition of PL learning does not allow the existence of an ordinary-label dataset [Jin and Ghahramani, 2002, Cour et al., 2011, Zhang et al., 2017], indicating a mismatch between the problem definitions and experimental settings in the literature. This problem can even lead to unfair comparisons if some algorithms follow the classical protocol of PL learning to prohibit the use of ordinary-label data, while some algorithms do not. Moreover, if we have a clean ordinary-label dataset, why not use it for training? In many cases, the use of clean labels is more valuable for weakly supervised learning than for ordinary supervised learning [Hendrycks et al., 2018, Yu et al., 2023]. Second, we have found that the experimental settings used in different papers 308 
+
+are often quite different, creating a dilemma when comparing the performance of different algorithms. Such an obstacle can hinder objective comparisons of different algorithms, making it difficult to determine the effectiveness of a developed technique. These problems therefore motivate us to propose a unified evaluation framework for PL learning. 
+
+5.2 Model Selection for PL Learning 
+
+We follow the original definition of PL learning to have only a single PL training set [Cour et al., 2011, Zhang et al., 2017]. Then, following a widely used validation procedure in machine learning [Raschka, 2018, Gulrajani and Lopez-Paz, 2021], we divide a PL validation set DVal = {  𝒙 Val  
+
+> 𝑖
+
+, 𝑆 Val 
+
+> 𝑖
+
+ }𝑛 Val  
+
+> 𝑖 =1
+
+from the training set for model selection. Next, we introduce each model selection criterion in turn. Due to page limits, detailed proofs of the theorems and propositions can be found in Wang et al. [2025b]. 
+
+5.2.1 Covering Rate 
+
+Definition 2 (Covering Rate (CR)) . The Covering Rate of a multi-class classifier 
+
+𝒇 on the PL validation set DVal is defined as: CR ( 𝒇 ) = 1
+
+𝑛 Val 
+
+> 𝑛 Val
+
+∑︁ 
+
+> 𝑖 =1
+
+I arg max 
+
+> 𝑗
+
+𝑓 𝑗 (𝒙 Val  
+
+> 𝑖
+
+) ∈ 𝑆 Val 
+
+> 𝑖
+
+!
+
+. (38) CR indicates the fraction of validation data whose predicted label is included in its candidate label set. It is a natural metric in PL learning, but its effectiveness may depend on the size of the candidate label sets. When the number of partial labels of each example is equal to 1, i.e., |𝑆 | = 1, PL learning is reduced to ordinary supervised learning and CR is reduced to the validation accuracy. However, as |𝑆 | increases, more false positive labels are included in the candidate label set. In the most extreme case, when |𝑆 | = 𝑞 , PL learning is reduced to unsupervised learning and CR does not convey effective information. Before analyzing the gap between CR and the validation accuracy, we introduce the following definition. 
+
+Definition 3 (Ambiguity Degree) . The Ambiguity Degree 𝛾 is defined as 
+
+𝛾 = sup          
+
+> (𝒙 ,𝑦 )∼ 𝑝 (𝒙 ,𝑦 ),𝑆 ∼𝑝 (𝑆 |𝒙 ,𝑦 ),¯𝑦 ≠𝑦
+
+𝑝 ( ¯𝑦 ∈ 𝑆 ), (39) where 𝑝 (𝒙 , 𝑦 ) is the joint distribution over 𝒙 and 𝑦 .If 𝛾 < 1, the small ambiguity degree is satisfied and the ERM learnability for PL learning is guaranteed [Cour et al., 2011, Liu and Dietterich, 2014]. We also define the expected accuracy as ACC ( 𝒇 ) = E𝑝 ( 𝒙 ,𝑦 ) I(arg max 
+
+> 𝑙
+
+𝑓 𝑙 (𝒙 ) = 𝑦 ). (40) Recent advances in weakly supervised learning Chapter | 10 309 
+
+Then, we have the following proposition. 
+
+Proposition 1. Suppose that there is a constant 𝜖 ∈ ( 0, 1) such that the expected accuracy of a classifier 𝒇 satisfies ACC ( 𝒇 ) ≥ 𝜖 . Then, we have E [CR ( 𝒇 )] − 
+
+ACC ( 𝒇 ) ≤ ( 1 − 𝜖 )𝛾 .
+
+The gap between CR and the accuracy is affected by both the accuracy and the ambiguity degree. If the classifier is more accurate and the PL dataset is less ambiguous, the gap between the CR metric and the accuracy will be smaller. Furthermore, we show that the minimizers of both are the same under certain conditions. 
+
+Theorem 12. Suppose that the partial labels are generated by following the USS or the FPS with a constant flipping probability. Then, for any two classifiers 𝒇 1
+
+and 𝒇 2 that satisfy E [CR ( 𝒇 1)] < E [CR ( 𝒇 2)] , we have ACC ( 𝒇 1) < ACC ( 𝒇 2).
+
+Theorem 12 shows that when partial labels are generated by using the USS or the FPS with a constant flipping probability, the classifier that minimizes the expectation of CR will also minimize the expected accuracy. Therefore, the CR metric will serve as a consistent model selection criterion for PL learning under certain data distribution assumptions. However, this conclusion may not hold when partial labels are not generated by either strategy. 
+
+5.2.2 Approximated Accuracy 
+
+Next, we introduce the definition of the Approximated Accuracy metric. 
+
+Definition 4 (Approximated Accuracy (AA)) . The Approximated Accuracy of a multi-class classifier 𝒇 on the PL validation set DVal is defined as: AA ( 𝒇 ) = 1
+
+𝑛 Val 
+
+> 𝑛 Val
+
+∑︁ 
+
+> 𝑖 =1
+
+∑︁ 𝑗 ∈𝑆 Val 
+
+> 𝑖
+
+𝑓 𝑗 (𝒙 Val  
+
+> 𝑖
+
+)
+
+Í𝑘 ∈𝑆 Val  
+
+> 𝑖
+
+𝑓 𝑘 (𝒙 Val  
+
+> 𝑖
+
+) I
+
+
+
+arg max 
+
+> 𝑙
+
+𝑓 𝑙 (𝒙 Val  
+
+> 𝑖
+
+) = 𝑗 
+
+
+
+. (41) Then, we have the following theorem. 
+
+Theorem 13. Suppose there is a function 𝐶 : X > 2Y ↦ → R such that the condition 𝑝 (𝑆 |𝒙 , 𝑦 ) = 𝐶 (𝒙 , 𝑆 )I (𝑦 ∈ 𝑆 ) holds for PL data. Suppose further that the multi-class classifier 𝒇 (𝒙 ) is consistent with 𝑝 (𝑦 |𝒙 ). Then, under mild conditions AA ( 𝒇 ) is statistically consistent with the expected accuracy, i.e., 
+
+E [AA ( 𝒇 )] = ACC ( 𝒇 ).
+
+The introduction of AA is inspired by data-generation-based strategies for PL learning [Wu et al., 2023]. Theorem 13 illustrates that AA can be a consistent metric w.r.t. the expected classification accuracy on test data under certain assumptions. In particular, the data distribution assumption can hold for a wide range of types of partial labels [Liu and Dietterich, 2012, Wu et al., 2023]. However, there are two factors that may affect its effectiveness. First, it may not 310 
+
+be suitable for certain algorithms [Wen et al., 2021] where the loss function is not strictly proper [Gneiting and Raftery, 2007, Charoenphakdee et al., 2021] and its modeling output is not calibrated to the posterior probabilities. Second, it requires that the modeling output to be accurate, which may not be satisfied in the early stages of training. 
+
+5.2.3 Oracle Accuracy 
+
+Finally, we present the definition of the Oracle Accuracy metric. 
+
+Definition 5 (Oracle Accuracy (OA)) . The Oracle Accuracy of a multi-class classifier 𝒇 on a PL validation set DVal is defined as OA ( 𝒇 ) = 1
+
+𝑛 Val 
+
+> 𝑛 Val
+
+∑︁ 
+
+> 𝑖 =1
+
+I
+
+
+
+arg max 
+
+> 𝑙
+
+𝑓 𝑙 (𝒙 Val  
+
+> 𝑖
+
+) = 𝑦 Val 
+
+> 𝑖
+
+
+
+, (42) where 𝑦 Val  
+
+> 𝑖
+
+is the underlying true label of 𝒙 Val  
+
+> 𝑖
+
+.The OA metric is natural if we have access to true labels in supervised learning. However, such a condition is not realistic in real problems of PL learning. In fact, the availability of true labels contradicts the original motivation of PL learning, which is to reduce labeling costs at the expense of true label ignorance. Inspired by Gulrajani and Lopez-Paz [2021], we restrict the use of true labels by allowing only one query (the last checkpoint) for each hyperparameter configuration. This means that we do not allow early stopping when using the OA metric. We try to compensate for the unrealistic access to true labels by restricting the model selection space. We also include the results of OA with early stopping (ES), which can be considered as an upper bound of the model selection performance, for reference. Actually, OA with ES may be the most common model selection criterion for PL learning papers. 
+
+5.3 PLENCH 
+
+In this section, we introduce the benchmark algorithms, datasets, and settings. Due to page limits, the detailed benchmark results can be found in Wang et al. [2025b]. 
+
+5.3.1 Benchmark Algorithms 
+
+We have divided the benchmark algorithms into four main groups. We considered deep PL learning algorithms that used simple loss functions or disambiguation strategies without strong regularization techniques as vanilla deep PL learning algorithms. Identification-based strategies included PRODEN [Lv et al., 2020], CAVL [Zhang et al., 2022], and POP [Xu et al., 2023b]. Note that RC [Feng et al., 2020b] is in the same form as PRODEN, so we only included PRODEN here to avoid repetitive comparisons. The averaging-based Recent advances in weakly supervised learning Chapter | 10 311 
+
+strategies included ABS-MAE [Lv et al., 2024] and ABS-GCE [Lv et al., 2024], which showed favorable performance among the losses in the family. The data-generation-based strategies included EXP [Feng et al., 2020a], MCL-GCE [Feng et al., 2020a], MCL-MSE [Feng et al., 2020a], CC [Feng et al., 2020b], LWS [Wen et al., 2021], and IDGP [Qiao et al., 2023a]. Also, LOG [Feng et al., 2020a] is analogous to CC, so we only included CC here. CL learning is a special case of PL learning with only one label excluded from each candidate label set of training examples, i.e., |𝑆 | = 𝑞 − 1 [Wang et al., 2025a]. If we consider each label outside the candidate label set as a complementary label, it is possible to apply CL learning algorithms to solve PL learning problems as well [Feng et al., 2020a]. Therefore, we included several vanilla CL learning algorithms with simple loss functions in Plench. The vanilla CL learning algorithms included PC [Ishida et al., 2017], Forward [Yu et al., 2018], NN [Ishida et al., 2019], GA [Ishida et al., 2019], SCL-EXP [Chou et al., 2020], SCL-NL [Chou et al., 2020], L-W [Gao and Zhang, 2021], and OP-W [Liu et al., 2023]. We considered PL learning algorithms that employ strong representation learning or regularization techniques to be holistic PL learning algorithms. We used five algorithms, including VALEN [Xu et al., 2021], PiCO [Wang et al., 2022b], ABLE [Xia et al., 2022], CRDPL learning [Wu et al., 2022], and DIRK [Wu et al., 2024]. We also included three noisy PL learning algorithms that explicitly considered tailored strategies to handle the cases where the true label might be outside the candidate label set. The deep noisy PL learning algorithms included FRE-DIS [Qiao et al., 2023b], ALIM [Xu et al., 2023a], and PiCO+ [Wang et al., 2024a]. 
+
+5.3.2 Benchmark Datasets 
+
+To comprehensively evaluate the model performance of all algorithms, we included eleven real-world PL learning benchmark datasets, including nine widely used tabular datasets and two image datasets that we collected. The tabular datasets included Lost [Cour et al., 2011], Soccer Player [Zeng et al., 2013], and Yahoo! News [Guillaumin et al., 2010] for the automatic face naming task, MSRCv2 [Liu and Dietterich, 2012] for the object classification task, Mirflickr [Huiskes and Lew, 2008] for the web image classification task, Birdsong [Briggs et al., 2012] for the bird song classification task, Malagasy [Garrette and Baldridge, 2013], Italian [Johan et al., 2009], and English [Zhou et al., 2018] for the POS tagging task. For face age estimation, we considered ten crowdsourced labels of age numbers along with the true label as partial labels for a given human face. For automatic face naming, we considered the names in the corresponding captions or subtitles as partial labels for a face cropped from an image. For object classification, we considered object classes as partial labels for a segmentation part in an image. For 312 
+
+web image classification, we considered tags on a web page as partial labels for a given image. For bird song classification, we considered bird species appearing in a ten-second bird song fragment as partial labels for the singing syllables of the fragment. For POS tagging, we considered all possible POS tags as partial labels for a given word with its contexts. 
+
+5.3.3 Benchmark Settings 
+
+In this section, we mainly investigate the hyperparameter tuning problem in the context of model selection. For tabular datasets, we first divided a test set from the entire dataset. Since the datasets were not explicitly divided into training and validation parts, we manually divided them into a PL training set DTr and a PL validation set DVal . Then, we trained a model with DTr and evaluated its validation performance on DVal with the model selection criteria proposed in Section 5.2 as well as its test performance on the test set DTe with ordinary labels. We then selected the checkpoint with the best validation performance and returned the corresponding test accuracy as the final result. We randomly selected a set of hyperparameter configurations from a given pool for a given data split and recorded the mean accuracy as well as the standard deviations for the best performance with different dataset splits. We used ResNet [He et al., 2016] and DenseNet [Huang et al., 2017] for image datasets and a multilayer perceptron (MLP) with a hidden layer width of 500 equipped with the ReLU [Nair and Hinton, 2010] activation function for tabular datasets. All the algorithms were implemented in PyTorch [Paszke et al., 2019] and all experiments were conducted with a single NVIDIA Tesla V100 GPU. We used the Adam optimizer [Kingma and Ba, 2015]. We ran 60,000 iterations for the image datasets, 20,000 iterations for the Soccer Player, Italian, Yahoo! News, and English datasets, and 10,000 iterations for the other datasets. We recorded the performance on validation and test sets per 1,000 iterations. We used three random data splits for PLCIFAR10 and five random data splits for tabular datasets. For each data split, we selected 20 random hyperparameter configurations from a given pool. 
+
+6 CONCLUSION 
+
+In this chapter, we presented several recent advances in weakly supervised learning, including new supervision paradigms, assumption relaxations, and practical solutions. First, we delved into a novel weakly supervised learning setting in which only unlabeled data pairs with confidence difference were provided. To solve this problem, we derived an unbiased risk estimator to perform empirical risk minimization. We established an estimation error bound to demonstrate that the optimal parametric convergence rate can be attained. Additionally, we introduced a risk correction approach to address overfitting issues. Second, we made the first attempt at consistent complementary-label learning that does not rely on the uniform distribution assumption or an ordinary-label training set to References 313 
+
+estimate the transition matrix in non-uniform cases. Based on a more practical distribution assumption, we proposed a consistent approach with theoretical guarantees. Third, we proposed the first benchmark for performance evaluation of state-of-the-art deep PLL algorithms. We introduced new model selection criteria to address the lack of criteria for selecting models in PLL. In the future, it is promising to investigate the integration of foundation models [Li et al., 2026], evaluation issues of other WSL problems [Wang et al., 2026b], and consistent approaches for more WSL problems [Ma et al., 2026, Wang et al., 2026a]. 
+
+ACKNOWLEDGMENT 
+
+The authors would like to thank the following individuals for their contributions to the conference papers included in this chapter: Lei Feng, Yuchen Jiang, Min-Ling Zhang, Takashi Ishida, Yu-Jie Zhang, Dong-Dong Wu, and Jindong Wang. WW was supported by the SGU MEXT Scholarship, by the Junior Research Associate (JRA) program of RIKEN, and by Microsoft Research Asia. MS was supported by JST ASPIRE Grant Number JPMJAP2405. 
+
+REFERENCES 
+
+Gilles Blanchard, Gyemin Lee, and Clayton Scott. Semi-supervised novelty detection. Journal of Machine Learning Research , 11:2973–3009, 2010. Forrest Briggs, Xiaoli Z. Fern, and Raviv Raich. Rank-loss support instance machines for MIML instance annotation. In Proceedings of the 18th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining , pages 534–542, 2012. Yuzhou Cao, Lei Feng, Yitian Xu, Bo An, Gang Niu, and Masashi Sugiyama. Learning from similarity-confidence data. In Proceedings of the 38th International Conference on Machine Learning , pages 1272–1282, 2021. Nontawat Charoenphakdee, Jayakorn Vongkulbhisal, Nuttapong Chairatanakul, and Masashi Sugiyama. On focal loss for class-posterior probability estimation: A theoretical perspective. In 
+
+Proceedings of the 2021 IEEE/CVF Conference on Computer Vision and Pattern Recognition ,pages 5202–5211, 2021. Ching-Hui Chen, Vishal M. Patel, and Rama Chellappa. Learning from ambiguously labeled face images. IEEE Transactions on Pattern Analysis and Machine Intelligence , 40(7):1653–1667, 2018. John Chen, Vatsal Shah, and Anastasios Kyrillidis. Negative sampling in semi-supervised learning. In 
+
+Proceedings of the 37th International Conference on Machine Learning , pages 1704–1714, 2020. Yu-Ting Chou, Gang Niu, Hsuan-Tien Lin, and Masashi Sugiyama. Unbiased risk estimators can mislead: A case study of learning with complementary labels. In Proceedings of the 37th International Conference on Machine Learning , pages 1929–1938, 2020. Katherine M. Collins, Umang Bhatt, and Adrian Weller. Eliciting and learning with soft labels from every annotator. In Proceedings of the 10th AAAI conference on human computation and crowdsourcing , pages 40–52, 2022. Olivier Coudray, Christine Keribin, Pascal Massart, and Patrick Pamphile. Risk bounds for positive-unlabeled learning under the selected at random assumption. Journal of Machine Learning Research , 24(107):1–31, 2023. Timothee Cour, Ben Sapp, and Ben Taskar. Learning from partial labels. Journal of Machine 314 References 
+
+Learning Research , 12(May):1501–1536, 2011. Qinyi Deng, Yong Guo, Zhibang Yang, Haolin Pan, and Jian Chen. Boosting semi-supervised learning with contrastive complementary labeling. Neural Networks , 170:417–426, 2024. Charles Elkan and Keith Noto. Learning classifiers from only positive and unlabeled data. In 
+
+Proceedings of the 14th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , pages 213–220, 2008. Lei Feng, Takuo Kaneko, Bo Han, Gang Niu, Bo An, and Masashi Sugiyama. Learning with multiple complementary labels. In Proceedings of the 37th International Conference on Machine Learning ,pages 3072–3081, 2020a. Lei Feng, Jiaqi Lv, Bo Han, Miao Xu, Gang Niu, Xin Geng, Bo An, and Masashi Sugiyama. Provably consistent partial-label learning. In Advances in Neural Information Processing Systems 33 , pages 10948–10960, 2020b. Lei Feng, Senlin Shu, Nan Lu, Bo Han, Miao Xu, Gang Niu, Bo An, and Masashi Sugiyama. Pointwise binary classification with pairwise confidence comparisons. In Proceedings of the 38th International Conference on Machine Learning , pages 3252–3262, 2021. Yi Gao and Min-Ling Zhang. Discriminative complementary-label learning with weighted loss. In 
+
+Proceedings of the 38th International Conference on Machine Learning , pages 3587–3597, 2021. Saurabh Garg, Yifan Wu, Alexander J. Smola, Sivaraman Balakrishnan, and Zachary C. Lipton. Mixture proportion estimation and PU learning: A modern approach. In Advances in Neural Information Processing Systems 34 , pages 8532–8544, 2021. Dan Garrette and Jason Baldridge. Learning a part-of-speech tagger from two hours of annotation. In Proceedings of the 2013 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies , pages 138–147, 2013. Tilmann Gneiting and Adrian E. Raftery. Strictly proper scoring rules, prediction, and estimation. 
+
+Journal of the American statistical Association , 102(477):359–378, 2007. Noah Golowich, Alexander Rakhlin, and Ohad Shamir. Size-independent sample complexity of neural networks. In Proceedings of the 31st Conference On Learning Theory , pages 297–299, 2018. Chen Gong, Tongliang Liu, Yuanyan Tang, Jian Yang, Jie Yang, and Dacheng Tao. A regularization approach for instance-based superset label learning. IEEE Transactions on Cybernetics , 48(3): 967–978, 2018. Jianping Gou, Baosheng Yu, Stephen J. Maybank, and Dacheng Tao. Knowledge distillation: A survey. International Journal of Computer Vision , 129:1789–1819, 2021. Matthieu Guillaumin, Jakob Verbeek, and Cordelia Schmid. Multiple instance metric learning from automatically labeled bags of faces. In Proceedings of the 11th European Conference on Computer Vision , pages 634–647, 2010. Ishaan Gulrajani and David Lopez-Paz. In search of lost domain generalization. In Proceedings of the 9th International Conference on Learning Representations , 2021. Jiayi Han, Longbin Zeng, Liang Du, Weiyang Ding, and Jianfeng Feng. Rethinking precision of pseudo label: Test-time adaptation via complementary learning. arXiv preprint arXiv:2301.06013 ,2023. Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In Proceedings of the 2016 IEEE Conference on Computer Vision and Pattern Recognition , pages 770–778, 2016. Dan Hendrycks, Mantas Mazeika, Duncan Wilson, and Kevin Gimpel. Using trusted data to train deep networks on labels corrupted by severe noise. In Advances in Neural Information Processing Systems 31 , pages 10477–10486, 2018. Geoffrey Hinton, Oriol Vinyals, and Jeff Dean. Distilling the knowledge in a neural network. arXiv References 315 
+
+preprint arXiv:1503.02531 , 2015. Peiyun Hu, Zachary C. Lipton, Anima Anandkumar, and Deva Ramanan. Active learning with partial feedback. In Proceedings of the 7th International Conference on Learning Representations , pages 1042–1055, 2019. Gao Huang, Zhuang Liu, Laurens Van Der Maaten, and Kilian Q. Weinberger. Densely connected convolutional networks. In Proceedings of the 2017 IEEE Conference on Computer Vision and Pattern Recognition , pages 4700–4708, 2017. Mark J. Huiskes and Michael S. Lew. The MIR flickr retrieval evaluation. In Proceedings of the 1st ACM International Conference on Multimedia Information Retrieval , pages 39–43, 2008. Takashi Ishida, Gang Niu, Weihua Hu, and Masashi Sugiyama. Learning from complementary labels. In Advances in Neural Information Processing Systems 30 , pages 5644–5654, 2017. Takashi Ishida, Gang Niu, Aditya K. Menon, and Masashi Sugiyama. Complementary-label learning for arbitrary losses and models. In Proceedings of the 36th International Conference on Machine Learning , pages 2971–2980, 2019. Takashi Ishida, Ikko Yamane, Nontawat Charoenphakdee, Gang Niu, and Masashi Sugiyama. Is the performance of my deep network too good to be true? A direct approach to estimating the bayes error in binary classification. In Proceedings of the 11th International Conference on Learning Representations , 2023. Yuchen Jiang, Qi Li, Han Zhu, Jinbei Yu, Jin Li, Ziru Xu, Huihui Dong, and Bo Zheng. Adaptive domain interest network for multi-domain recommendation. In Proceedings of the 31st ACM International Conference on Information & Knowledge Management , page 3212–3221, 2022. Rong Jin and Zoubin Ghahramani. Learning with multiple labels. In Advances in Neural Information Processing systems 15 , pages 897–904, 2002. Bos Johan, Cristina Bosco, Alessandro Mazzei, et al. Converting a dependency treebank to a categorial grammar treebank for Italian. In Proceedings of the 8th International Workshop on Treebanks and Linguistic Theories , pages 27–38, 2009. Davood Karimi, Haoran Dou, Simon K. Warfield, and Ali Gholipour. Deep learning with noisy labels: Exploring techniques and remedies in medical image analysis. Medical Image Analysis ,65:101759, 2020. Youngdong Kim, Junho Yim, Juseung Yun, and Junmo Kim. NLNL: Negative learning for noisy labels. In Proceedings of the 2019 IEEE/CVF International Conference on Computer Vision ,pages 101–110, 2019. Diederik P. Kingma and Jimmy Ba. Adam: A method for stochastic optimization. In Proceedings of the 3rd International Conference on Learning Representations , 2015. Ryuichi Kiryo, Gang Niu, Marthinus C. du Plessis, and Masashi Sugiyama. Positive-unlabeled learning with non-negative risk estimator. In Advances in Neural Information Processing Systems 30 , pages 1674–1684, 2017. Changchun Li, Ximing Li, Jihong Ouyang, and Yiming Wang. Detecting the fake candidate instances: Ambiguous label learning with generative adversarial networks. In Proceedings of the 30th ACM International Conference on Information & Knowledge Management , page 903–912, 2021. Ming Li, Wei Wang, and Masashi Sugiyama. Weakly supervised classification with pre-trained models: A robust fine-tuning approach. Machine Learning , 115(28):24 pages, 2026. Wei-I Lin and Hsuan-Tien Lin. Reduction from complementary-label learning to probability estimates. In Proceedings of the 27th Pacific-Asia Conference on Knowledge Discovery and Data Mining ,pages 469–481, 2023. Liping Liu and Thomas Dietterich. Learnability of the superset label learning problem. In Proceedings of the 31st International Conference on Machine Learning , pages 1629–1637, 2014. Liping Liu and Thomas G. Dietterich. A conditional multinomial mixture model for superset label 316 References 
+
+learning. In Advances in Neural Information Processing Systems 25 , pages 548–556, 2012. Shuqi Liu, Yuzhou Cao, Qiaozhen Zhang, Lei Feng, and Bo An. Consistent complementary-label learning via order-preserving losses. In Proceedings of the 26th International Conference on Artificial Intelligence and Statistics , pages 8734–8748, 2023. Tongliang Liu and Dacheng Tao. Classification with noisy labels by importance reweighting. IEEE Transactions on Pattern Analysis and Machine Intelligence , 38(3):447–461, 2015. Ilya Loshchilov and Frank Hutter. Decoupled weight decay regularization. In Proceedings of the 7th International Conference on Learning Representations , pages 4061–4078, 2019. Nan Lu, Tianyi Zhang, Gang Niu, and Masashi Sugiyama. Mitigating overfitting in supervised classification from two unlabeled datasets: A consistent risk correction approach. In Proceedings of the 23rd International Conference on Artificial Intelligence and Statistics , pages 1115–1125, 2020. Michal Lukasik, Srinadh Bhojanapalli, Aditya Menon, and Sanjiv Kumar. Does label smoothing mitigate label noise? In Proceedings of the 37th International Conference on Machine Learning ,pages 6448–6458, 2020. Jie Luo and Francesco Orabona. Learning from candidate labeling sets. In Advances in Neural Information Processing Systems 23 , pages 1504–1512, 2010. Jiaqi Lv, Miao Xu, Lei Feng, Gang Niu, Xin Geng, and Masashi Sugiyama. Progressive identification of true labels for partial-label learning. In Proceedings of the 37th International Conference on Machine Learning , pages 6500–6510, 2020. Jiaqi Lv, Biao Liu, Lei Feng, Ning Xu, Miao Xu, Bo An, Gang Niu, Xin Geng, and Masashi Sugiyama. On the robustness of average losses for partial-label learning. IEEE Transactions on Pattern Analysis and Machine Intelligence , 46(5):2569–2583, 2024. Gengyu Lyu, Songhe Feng, Tao Wang, and Congyan Lang. A self-paced regularization framework for partial-label learning. IEEE Transactions on Cybernetics , 52(2):899–911, 2022. Qiankun Ma, Jiyao Gao, Bo Zhan, Yunpeng Guo, Jiliu Zhou, and Yan Wang. Rethinking safe semi-supervised learning: Transferring the open-set problem to a close-set one. In Proceedings of 2023 IEEE/CVF International Conference on Computer Vision , pages 16370–16379, 2023. Tianhao Ma, Wei Wang, Ximing Li, Gang Niu, and Masashi Sugiyama. Learning from label proportions via proportional value classification. In Proceedings of the 14th International Conference on Learning Representations , 2026. Shahar Mendelson. Lower bounds for the empirical minimization algorithm. IEEE Transactions on Information Theory , 54(8):3797–3803, 2008. Mehryar Mohri, Afshin Rostamizadeh, and Ameet Talwalkar. Foundations of Machine Learning .The MIT Press, 2012. Rafael Müller, Simon Kornblith, and Geoffrey E. Hinton. When does label smoothing help? In 
+
+Advances in Neural Information Processing Systems 32 , pages 4696–4705, 2019. Vinod Nair and Geoffrey E. Hinton. Rectified linear units improve restricted boltzmann machines. In 
+
+Proceedings of the 27th International Conference on Machine Learning , pages 807–814, 2010. Tianyu Pang, Xiao Yang, Yinpeng Dong, Hang Su, and Jun Zhu. Bag of tricks for adversarial training. In Proceedings of the 9th International Conference on Learning Representations , 2021. Wonpyo Park, Dongju Kim, Yan Lu, and Minsu Cho. Relational knowledge distillation. In Proceedings of the 2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 3967–3976, 2019. Adam Paszke, Sam Gross, Francisco Massa, Adam Lerer, James Bradbury, Gregory Chanan, Trevor Killeen, Zeming Lin, Natalia Gimelshein, Luca Antiga, et al. Pytorch: An imperative style, high-performance deep learning library. In Advances in Neural Information Processing Systems 32 , pages 8026–8037, 2019. References 317 
+
+Mary Phuong and Christoph Lampert. Towards understanding knowledge distillation. In Proceedings of the 36th International Conference on Machine Learning , pages 5142–5151, 2019. Congyu Qiao, Ning Xu, and Xin Geng. Decompositional generation process for instance-dependent partial label learning. In Proceedings of the 11th International Conference on Learning Represen-tations , 2023a. Congyu Qiao, Ning Xu, Jiaqi Lv, Yi Ren, and Xin Geng. FREDIS: A fusion framework of refinement and disambiguation for unreliable partial label learning. In Proceedings of the 40th International Conference on Machine Learning , pages 28321–28336, 2023b. Harish G. Ramaswamy, Clayton Scott, and Ambuj Tewari. Mixture proportion estimation via kernel embeddings of distributions. In Proceedings of the 33nd International Conference on Machine Learning , pages 2052–2060, 2016. Sebastian Raschka. Model evaluation, model selection, and algorithm selection in machine learning. 
+
+arXiv preprint arXiv:1811.12808 , 2018. Alexander J. Ratner, Christopher M. De Sa, Sen Wu, Daniel Selsam, and Christopher Ré. Data programming: Creating large training sets, quickly. In Advances in Neural Information Processing Systems 29 , pages 3567–3575, 2016. Xiang Ren, Wenqi He, Meng Qu, Lifu Huang, Heng Ji, and Jiawei Han. AFET: Automatic fine-grained entity typing by hierarchical partial-label embedding. In Proceedings of the 2016 Conference on Empirical Methods in Natural Language Processing , pages 1369–1378, 2016a. Xiang Ren, Wenqi He, Meng Qu, Clare R. Voss, Heng Ji, and Jiawei Han. Label noise reduction in entity typing by heterogeneous partial-label embedding. In Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery & Data Mining , pages 1825–1834, 2016b. Mina Rezaei, Haojin Yang, and Christoph Meinel. Recurrent generative adversarial network for learning imbalanced medical image semantic segmentation. Multimedia Tools and Applications ,79(21-22):15329–15348, 2020. Ryan Rifkin and Aldebaro Klautau. In defense of one-vs-all classification. Journal of Machine Learning Research , 5:101–141, 2004. Clayton Scott. A rate of convergence for mixture proportion estimation, with application to learning from noisy labels. In Proceedings of the 18th International Conference on Artificial Intelligence and Statistics , pages 838–846, 2015. Clayton Scott, Gilles Blanchard, and Gregory Handy. Classification with asymmetric label noise: Consistency and maximal denoising. In Proceedings of the 26th Annual Conference on Learning Theory , pages 489–511, 2013. Kazuhiko Shinoda, Hirotaka Kaji, and Masashi Sugiyama. Binary classification from positive data with skewed confidence. In Proceedings of the 29th International Joint Conferences on Artificial Intelligence , pages 3328–3334, 2020. Ilia Sucholutsky, Ruairidh M. Battleday, Katherine M. Collins, Raja Marjieh, Joshua Peterson, Pulkit Singh, Umang Bhatt, Nori Jacoby, Adrian Weller, and Thomas L. Griffiths. On the informativeness of supervision signals. In Proceedings of the 39th Conference on Uncertainty in Artificial Intelligence , pages 2036–2046, 2023. Masashi Sugiyama, Han Bao, Takashi Ishida, Nan Lu, Tomoya Sakai, and Gang Niu. Machine learning from weak supervision: An empirical risk minimization approach . MIT Press, 2022. Christian Szegedy, Vincent Vanhoucke, Sergey Ioffe, Jon Shlens, and Zbigniew Wojna. Rethinking the inception architecture for computer vision. In Proceedings of the 2016 IEEE Conference on Computer Vision and Pattern Recognition , pages 2818–2826, 2016. Wei Tang, Weijia Zhang, and Min-Ling Zhang. Disambiguated attention embedding for multi-instance partial-label learning. In Advances in Neural Information Processing Systems 36 , pages 318 References 
+
+56756–56771, 2023. Yingjie Tian, Xiaotong Yu, and Saiji Fu. Partial label learning: Taxonomy, analysis and outlook. 
+
+Neural Networks , 161:708–734, 2023. Deng-Bao Wang, Lei Feng, and Min-Ling Zhang. Learning from complementary labels via partial-output consistency regularization. In Proceedings of the 30th International Joint Conference on Artificial Intelligence , pages 3075–3081, 2021a. Deng-Bao Wang, Lei Feng, and Min-Ling Zhang. Rethinking calibration of deep neural networks: Do not be afraid of overconfidence. In Advances in Neural Information Processing Systems 34 ,pages 11809–11820, 2021b. Deng-Bao Wang, Min-Ling Zhang, and Li Li. Adaptive graph guided disambiguation for partial label learning. IEEE Transactions on Pattern Analysis and Machine Intelligence , 44(12):8796–8811, 2022a. Haobo Wang, Ruixuan Xiao, Sharon Li, Lei Feng, Gang Niu, Gang Chen, and Junbo Zhao. PiCO: Contrastive label disambiguation for partial label learning. In Proceedings of the 10th International Conference on Learning Representations , 2022b. Haobo Wang, Ruixuan Xiao, Yixuan Li, Lei Feng, Gang Niu, Gang Chen, and Junbo Zhao. PiCO+: Contrastive label disambiguation for robust partial label learning. IEEE Transactions on Pattern Analysis and Machine Intelligence , 46(5):3183–3198, 2024a. Hsiu-Hsuan Wang, Mai Tan Ha, Nai-Xuan Ye, Wei-I Lin, and Hsuan-Tien Lin. CLImage: Human-annotated datasets for complementary-label learning. Transactions on Machine Learning Research ,2025a. ISSN 2835-8856. Qian-Wei Wang, Yu-Feng Li, and Zhi-Hua Zhou. Partial label learning with unlabeled data. In 
+
+Proceedings of the 28th International Joint Conference on Artificial Intelligence , pages 3755–3761, 2019. Wei Wang, Lei Feng, Yuchen Jiang, Gang Niu, Min-Ling Zhang, and Masashi Sugiyama. Binary classification with confidence difference. In Advances in Neural Information Processing Systems 36 , pages 5936–5960, 2023. Wei Wang, Takashi Ishida, Yu-Jie Zhang, Gang Niu, and Masashi Sugiyama. Learning with complementary labels revisited: The selected-completely-at-random setting is more practical. In 
+
+Proceedings of the 41st International Conference on Machine Learning , pages 50683–50710, 2024b. Wei Wang, Dong-Dong Wu, Jindong Wang, Gang Niu, Min-Ling Zhang, and Masashi Sugiyama. Realistic evaluation of deep partial-label learning algorithms. In Proceedings of the 13th International Conference on Learning Representations , 2025b. Wei Wang, Tianhao Ma, Ming-Kun Xie, Gang Niu, and Masashi Sugiyama. Rethinking consistent multi-label classification under inexact supervision. In Proceedings of the 14th International Conference on Learning Representations , 2026a. Wei Wang, Dong-Dong Wu, Ming Li, Jingxiong Zhang, Gang Niu, and Masashi Sugiyama. Accessible, realistic, and fair evaluation of positive-unlabeled learning algorithms. In Proceedings of the 14th International Conference on Learning Representations , 2026b. Jiaheng Wei, Zhaowei Zhu, Hao Cheng, Tongliang Liu, Gang Niu, and Yang Liu. Learning with noisy labels revisited: A study using real-world human annotations. In Proceedings of the 10th International Conference on Learning Representations , 2022a. Meng Wei, Yong Zhou, Zhongnian Li, and Xinzheng Xu. Class-imbalanced complementary-label learning via weighted loss. Neural Networks , 166:555–565, 2023. Xiu-Shen Wei, He-Yang Xu, Faen Zhang, Yuxin Peng, and Wei Zhou. An embarrassingly simple approach to semi-supervised few-shot learning. In Advances in Neural Information Processing Systems 35 , pages 14489–14500, 2022b. References 319 
+
+Hongwei Wen, Jingyi Cui, Hanyuan Hang, Jiabin Liu, Yisen Wang, and Zhouchen Lin. Leveraged weighted loss for partial label learning. In Proceedings of the 38th International Conference on Machine Learning , pages 11091–11100, 2021. Dong-Dong Wu, Deng-Bao Wang, and Min-Ling Zhang. Revisiting consistency regularization for deep partial label learning. In Proceedings of the 39th International Conference on Machine Learning , pages 24212–24225, 2022. Dong-Dong Wu, Deng-Bao Wang, and Min-Ling Zhang. Distilling reliable knowledge for instance-dependent partial label learning. Proceedings of the AAAI Conference on Artificial Intelligence ,pages 15888–15896, 2024. Zhenguo Wu, Jiaqi Lv, and Masashi Sugiyama. Learning with proper partial labels. Neural Computation , 35(1):58–81, 2023. Shiyu Xia, Jiaqi Lv, Ning Xu, and Xin Geng. Ambiguity-induced contrastive learning for instance-dependent partial label learning. In Proceedings of the 31st International Joint Conference on Artificial Intelligence , pages 3615–3621, 2022. Mingyu Xu, Zheng Lian, Lei Feng, Bin Liu, and Jianhua Tao. ALIM: adjusting label importance mechanism for noisy partial label learning. In Advances in Neural Information Processing Systems 36 , pages 38668–38684, 2023a. Ning Xu, Congyu Qiao, Xin Geng, and Min-Ling Zhang. Instance-dependent partial label learning. In Advances in Neural Information Processing Systems 34 , pages 27119–27130, 2021. Ning Xu, Biao Liu, Jiaqi Lv, Congyu Qiao, and Xin Geng. Progressive purification for instance-dependent partial label learning. In Proceedings of the 40th International Conference on Machine Learning , pages 38551–38565, 2023b. Tiansheng Yao, Xinyang Yi, Derek Zhiyuan Cheng, Felix Yu, Ting Chen, Aditya Menon, Lichan Hong, Ed H. Chi, Steve Tjoa, Jieqi (Jay) Kang, and Evan Ettinger. Self-supervised learning for large-scale item recommendations. In Proceedings of the 30th ACM International Conference on Information & Knowledge Management , page 4321–4330, 2021. Yu Yao, Tongliang Liu, Bo Han, Mingming Gong, Gang Niu, Masashi Sugiyama, and Dacheng Tao. Rethinking class-prior estimation for positive-unlabeled learning. In Proceedings of the 10th International Conference on Learning Representations , 2022. Chenglin Yu, Xinsong Ma, and Weiwei Liu. Delving into noisy label detection with clean data. In 
+
+Proceedings of the 40th International Conference on Machine Learning , pages 40290–40305, 2023. Xiyu Yu, Tongliang Liu, Mingming Gong, and Dacheng Tao. Learning with biased complementary labels. In Proceedings of the 15th European Conference on Computer Vision , pages 68–83, 2018. Hua Yuan, Ning Xu, Yu Shi, Xin Geng, and Yong Rui. Learning from biased soft labels. In Advances in Neural Information Processing Systems 36 , pages 59566–59584, 2023. Li Yuan, Francis EH Tay, Guilin Li, Tao Wang, and Jiashi Feng. Revisiting knowledge distillation via label smoothing regularization. In Proceedings of the 2020 IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 3903–3911, 2020. Zinan Zeng, Shijie Xiao, Kui Jia, Tsung-Han Chan, Shenghua Gao, Dong Xu, and Yi Ma. Learning by associating ambiguously labeled images. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition , pages 708–715, 2013. Fei Zhang, Lei Feng, Bo Han, Tongliang Liu, Gang Niu, Tao Qin, and Masashi Sugiyama. Exploiting class activation value for partial-label learning. In Proceedings of the 10th International Conference on Learning Representations , 2022. Min-Ling Zhang, Fei Yu, and Cai-Zhi Tang. Disambiguation-free partial label learning. IEEE Transactions on Knowledge and Data Engineering , 29(10):2155–2167, 2017. Shuai Zhang, Lina Yao, Aixin Sun, and Yi Tay. Deep learning based recommender system: A survey 320 References 
+
+and new perspectives. ACM computing surveys , 52(1):1–38, 2019. Tong Zhang. Statistical analysis of some multi-category large margin classification methods. Journal of Machine Learning Research , 5:1225–1251, 2004. Yiyang Zhang, Feng Liu, Zhen Fang, Bo Yuan, Guangquan Zhang, and Jie Lu. Learning from a complementary-label source domain: Theory and algorithms. IEEE Transactions on Neural Networks and Learning Systems , 33(12):7667–7681, 2021. Yu-Jie Zhang, Peng Zhao, Lanjihong Ma, and Zhi-Hua Zhou. An unbiased risk estimator for learning with augmented classes. In Advances in Neural Information Processing Systems 33 , pages 10247–10258, 2020. Deyu Zhou, Zhikai Zhang, Min-Ling Zhang, and Yulan He. Weakly supervised POS tagging without disambiguation. ACM Transactions on Asian and Low-Resource Language Information Processing ,17(4):1–19, 2018. Jianan Zhou, Jianing Zhu, Jingfeng Zhang, Tongliang Liu, Gang Niu, Bo Han, and Masashi Sugiyama. Adversarial training with complementary labels: On the benefit of gradually informative attacks. In Advances in Neural Information Processing Systems 35 , pages 23621–23633, 2022. Zhi-Hua Zhou. A brief introduction to weakly supervised learning. National science review , 5(1): 44–53, 2018.
