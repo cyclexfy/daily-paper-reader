@@ -1,0 +1,488 @@
+Title: UniMod: Enhancing Multi-Modal Medical Diagnosis through Cross-Modality and Within-Modality Alignment
+
+URL Source: https://arxiv.org/pdf/2608.10316v1
+
+Published Time: Wed, 12 Aug 2026 00:22:30 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# UniMod: Enhancing Multi-Modal Medical Diagnosis through Cross-Modality and Within-Modality Alignment 
+
+# Zijian Gu 
+
+University of Central Florida Orlando, FL, United States zi700688@ucf.edu 
+
+# Weikai Lin 
+
+University of Rochester Rochester, NY, United States wlin33@ur.rochester.edu 
+
+# Shuang Zhou 
+
+Harvard Medical School Boston, MA, United States szhou18@mgh.harvard.edu 
+
+# Zihan Chen 
+
+University of Virginia Charlottesville, VA, United States brf3rx@virginia.edu 
+
+# Song Wang †
+
+University of Central Florida Orlando, FL, United States song.wang@ucf.edu 
+
+## Abstract 
+
+Multi-modal learning combining medical images and clinical text is promising for disease diagnosis. However, standard multi-modal training leads to shortcut learning: models exploit the easier modal-ity ( e.g ., diagnostic cues in text) while neglecting harder-to-learn features ( e.g ., subtle visual patterns). We propose UniMod, a frame-work that mitigates shortcut learning by requiring each modality to predict the diagnosis on its own. It supervises image-only, text-only, and multi-modal classification simultaneously, so each modality must extract diagnostic features. We add cross-modality alignment for knowledge transfer and within-modality supervised contrastive alignment over same-diagnosis patients. On Harvard-Glaucoma, UniMod reaches 0.850 AUC, outperforming OGM-GE and Gradi-ent Blending by 1.6–1.8%; on CheXpert Plus, it reaches 0.966 AUC, surpassing them by over 5%. UniMod also extends to 5-class multi-label diagnosis without architectural change, improving mean AUC by 0.097 over CGGM. 
+
+## CCS Concepts 
+
+• Computing methodologies → Computer vision ; Object recog-nition ; Neural networks ; • Applied computing → Health care information systems .
+
+## Keywords 
+
+Multi-modal Learning; Medical Diagnosis; Vision-Language Mod-els; Shortcut Learning; Representation Alignment 
+
+ACM Reference Format: 
+
+Zijian Gu, Weikai Lin, Shuang Zhou, Zihan Chen, and Song Wang †. 2026. UniMod: Enhancing Multi-Modal Medical Diagnosis through Cross-Modality and Within-Modality Alignment. In Proceedings of the 34th ACM Interna-tional Conference on Multimedia (MM ’26), November 10–14, 2026, Rio de Janeiro, Brazil. ACM, New York, NY, USA, 10 pages. https://doi.org/10.1145/ 3767308.3836116 
+
+> †Corresponding author.
+> This work is licensed under a Creative Commons Attribution 4.0 International License.
+> MM ’26, Rio de Janeiro, Brazil
+> © 2026 Copyright held by the owner/author(s). ACM ISBN 979-8-4007-2213-4/2026/11 https://doi.org/10.1145/3767308.3836116
+
+Clinical notes Multi-Modal
+Classification Loss Multi-Modal
+Classification Loss Standard Multi-Modal Learning Shortcut learning
+(over-reliance on clinical notes) UniMod Vision Language Model (VLM) Medical images 
+
+x
+
+Clinical notes Vision Language Model (VLM) Text/Imag. Classification Loss Medical images 
+
+Text Embedding Imag. Embedding AUC:0.716; 0.908 +0.134 +0.058 AUC:0.850; 0.966 Cross-Modal Alignment 
+
+Fig. 1: Comparison of Standard Multimodal LoRA and Uni-Mod. Top: Standard multi-modal fine-tuning takes shortcuts by relying primarily on text while ignoring visual features. Bottom: UniMod extracts separate text and image embed-dings, applies cross-modal alignment, and enforces unimodal classification losses, forcing each modality to learn mean-ingful diagnostic features independently. Fundus images © Harvard Ophthalmology AI Lab. 
+
+## 1 Introduction 
+
+Medical diagnosis increasingly relies on integrating multiple in-formation sources: medical images ( e.g ., fundus photographs, X-rays, CT scans) and clinical text ( e.g ., physician notes, diagnostic reports). Each modality provides unique diagnostic value. For ex-ample, images capture visual biomarkers while clinical notes en-code physician observations and patient history. Combining these modalities has the potential to improve diagnostic accuracy beyond what either modality can achieve alone [3]. Vision-language mod-els (VLMs) [1, 39, 48] have emerged as a powerful paradigm for integrating these heterogeneous modalities, achieving promising results across various medical tasks, including radiology report gen-eration [55], disease classification [23, 49, 61], and clinical decision support [53, 62]. arXiv:2608.10316v1 [cs.CV] 10 Aug 2026 MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Gu et al. 
+
+However, directly training multi-modal models often leads to 
+
+shortcut learning [12, 16], which means the model exploits whichever modality provides the easiest path to correct predictions, while ne-glecting the other. This phenomenon is particularly prevalent in medical diagnosis, where clinical text frequently contains explicit diagnostic cues ( e.g ., “suspected glaucoma,” “abnormal finding”), whereas images require learning subtle visual patterns ( e.g ., optic disc cupping ratio, retinal nerve fiber layer defects). When both modalities are available, the model takes the textual shortcut and fails to develop visual diagnostic capabilities. As a result, two seri-ous consequences could exist. First, the model does not fully exploit each modality’s diagnostic potential, leaving valuable information underutilized. Second, performance degrades sharply when text is ambiguous, incomplete, or unavailable, a common clinical scenario where physicians may lack time for detailed notes, or a preliminary diagnosis must rely on imaging alone. Existing approaches to multi-modal learning have attempted to address modality imbalance through various mechanisms. Gradi-ent blending [60] adjusts learning rates based on modality-specific overfitting. OGM-GE [47] balances gradients across modalities to prevent dominance. Modality dropout [44] randomly masks input modalities during training to encourage robustness. However, these methods do not explicitly require each modality to learn meaningful diagnostic features [63]. In contrast, they only adjust the learning dynamics without fundamentally changing the training objective. As a result, the model may still find shortcuts that satisfy the train-ing loss without developing genuine modality-specific capabilities. In this work, we address this challenge with a simple insight: if a model can make accurate predictions using each modality indepen-dently, it must have learned genuine diagnostic features from that modality . Based on this insight, we propose UniMod, a framework that supervises image-only, text-only, and multi-modal predictions simultaneously. This harder objective reduces shortcut learning: the image encoder must capture visual diagnostic features because it cannot fall back on textual cues, and each modality develops self-sufficient diagnostic capability that also benefits the combined prediction. UniMod consists of four complementary components. We ap-ply classification losses to all three prediction paths (image-only, text-only, and multi-modal), forcing each modality to extract di-agnostic features independently (Section 4.1). Modality-separated attention keeps the two token streams apart so that these unimodal predictions are well defined (Section 3.2). Cross-modality alignment pulls image and text representations of the same patient closer, en-abling knowledge transfer between modalities (Section 4.2). Within-modality alignment applies supervised contrastive learning [31, 45] to cluster same-diagnosis samples (Section 4.3). We evaluate Uni-Mod on two medical diagnosis benchmarks: glaucoma detection using fundus images and clinical notes from the Harvard Glau-coma dataset [43], and pleural effusion classification using chest X-rays and radiology reports from CheXpert Plus [5], improving on modality-balancing baselines in accuracy and F1 on both datasets. UniMod is assembled from established components—independent unimodal supervision, MSE alignment, supervised contrastive learn-ing, GradNorm, and LoRA [8, 22, 31]. In summary, our contributions are as follows: 
+
+• a problem formulation: modality shortcut learning in vision-language models whose two streams share a single backbone, which is distinct from the gradient-level modality imbalance targeted by prior balancing methods [47, 60]; 
+
+• a framework that removes the lowest-loss route to that short-cut by supervising the three prediction paths independently, together with the modality separation that makes those uni-modal objectives well defined; 
+
+• evidence that gradient modulation does not substitute for independent supervision—replacing it under the same align-ment losses reaches 0.849 AUC against 0.857 for the full model—and that UniMod transfers to 5-class multi-label diagnosis without architectural change. 
+
+## 2 Related Work 
+
+Multi-Modal Medical Learning. Vision-language models (VLMs) [2, 10, 11, 46, 59] have achieved remarkable success in medical imag-ing by combining visual and textual information [4]. Large-scale VLMs such as LLaVA [39] and Flamingo [1], built on powerful vi-sion encoders [14, 41] and large language models [56], demonstrate strong visual reasoning, and medical adaptations including LLaVA-Med [33], BiomedCLIP [68], and Med-PaLM [53] further specialize these models for clinical tasks. MedCLIP [61] addresses false nega-tives in medical image-text pairs through semantic matching, while GLoRIA [23] introduces attention-weighted contrastive learning for chest X-ray interpretation. Others scale medical vision-language pre-training on biomedical literature and radiology corpora [38, 66] or learn joint representations by reconstruction [9], while general-purpose models [32, 34] and fusion strategies ranging from early concatenation [28, 29, 70] to attention-based mechanisms [7, 42, 63– 65] explore efficient designs. However, a persistent challenge is “modality laziness” [37], where models over-rely on one modality while ignoring others. Solutions such as gradient blending [60] and OGM-GE [47] adjust learning dynamics, but do not guarantee each modality learns meaningful features. Our approach differs by enforcing accurate single-modality predictions, ensuring genuine feature extraction from each modality. 
+
+Shortcut Learning in Medical Diagnosis. Shortcut learning [12, 16] occurs when models exploit superficial correlations rather than learning robust diagnostic features. In multi-modal medical di-agnosis, text often contains explicit diagnostic cues ( e.g ., “sus-pected glaucoma”), providing easier paths to correct predictions than learning subtle visual patterns. Modality dropout [44] encour-ages robustness to missing inputs but does not explicitly require strong single-modality performance. Distributionally robust opti-mization [52] addresses worst-case group performance but does not target modality-specific feature learning. Cross-modal distil-lation [24] transfers knowledge from modality-rich to modality-limited models using fixed teachers. In contrast, we adopt a mutual learning paradigm [69]: all prediction paths (image-only, text-only, multi-modal) learn simultaneously without a fixed teacher, enabling bidirectional knowledge transfer. 
+
+Representation Alignment. Self-supervised methods [6, 17, 20, 67] learn representations by contrasting or aligning positive pairs, with alignment and uniformity identified as the key properties [58]. UniMod: Enhancing Multi-Modal Medical Diagnosis through Cross-Modality and Within-Modality Alignment MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+In the vision-language domain, CLIP [48] and Jia et al. [26] align image-text pairs in a shared embedding space at scale, and Li et al. [35] propose aligning representations before fusion for improved multi-modal understanding. The InfoNCE objective [45] under-lies these losses, and supervised contrastive learning [31] extends them by treating same-class samples as positives. We combine cross-modality alignment (same patient, different modalities) with within-modality alignment (same diagnosis, different patients), giv-ing instance-level and class-level supervision of the representation space. 
+
+## 3 Preliminary 3.1 Problem Setup 
+
+Each patient sample pairs a medical image 𝑥 img ∈ X img (e.g ., chest X-ray or fundus photograph) with clinical text 𝑥 txt ∈ X txt (e.g ., clinical notes or diagnostic reports). Given D = {( 𝑥 𝑖 
+
+> img
+
+, 𝑥 𝑖 
+
+> txt
+
+, 𝑦 𝑖 )} 𝑁 𝑖 =1,we learn 𝑓 : Ximg × X txt → [ 0, 1]𝐶 predicting the probability of each of 𝐶 diagnostic labels; 𝐶 = 1 recovers the binary case, and 
+
+𝐶 > 1 the multi-label setting of Section 5.2. 
+
+## 3.2 Multi-Modal Learning Framework 
+
+We adopt a vision-language model (VLM) architecture 𝑓 mm consist-ing of three components: (1) an image encoder 𝑓 img : Ximg → R𝐿 𝑣 ×𝑑 
+
+that extracts a sequence of 𝐿 𝑣 visual tokens from medical images, (2) a text tokenizer 𝑓 txt : Xtxt → R𝐿 𝑡 ×𝑑 that converts clinical text into 
+
+𝐿 𝑡 text tokens, and (3) an autoregressive transformer backbone [57] that processes the concatenated token sequence and predicts the next token. Here 𝑑 is the dimension size. Specifically, given an image 𝑥 img and clinical text 𝑥 txt , the image encoder produces visual tokens V = 𝑓 img (𝑥 img ) ∈ R𝐿 𝑣 ×𝑑 , and the text tokenizer produces text tokens T = 𝑓 txt (𝑥 txt ) ∈ R𝐿 𝑡 ×𝑑 . For diagnostic prediction, we append a query prompt 𝑥 𝑞 (e.g ., “Does this patient have the disease? Answer:”) tokenized as Q = 𝑓 txt (𝑥 𝑞 ) ∈ 
+
+R𝐿 𝑞 ×𝑑 , followed by a prediction placeholder token p ∈ R𝑑 . The VLM processes the concatenated sequence and produces contextualized representations: 
+
+H = 𝑓 mm ([ V; T; Q; p]) ∈ R(𝐿 𝑣 +𝐿 𝑡 +𝐿 𝑞 +1) × 𝑑 , (1) where [· ; ·] denotes sequence concatenation. The transformer back-bone employs causal attention, where each token can only attend to preceding tokens. Crucially, we design a custom attention mask to enforce modality isolation during representation learning. Image to-kens V can only attend to other image tokens, and text tokens (T, Q)
+
+can only attend to other text tokens. As a result, neither modality can directly access the other, and only the final prediction token p is permitted to attend to tokens from both modalities. This design en-sures that the output representations H1: 𝐿 𝑣 and H𝐿 𝑣 +1: 𝐿 𝑣 +𝐿 𝑡 encode purely unimodal information, forcing each modality to develop self-contained, modality-specific features. To extract modality-specific representations, we employ mean pooling over the corresponding output tokens. Let H1: 𝐿 𝑣 denote the output tokens corresponding to visual inputs and H𝐿 𝑣 +1: 𝐿 𝑣 +𝐿 𝑡 
+
+denote those corresponding to text inputs. The image and text representations are computed as: 
+
+zimg = 1
+
+𝐿 𝑣 𝐿 𝑣 ∑︁ 
+
+> 𝑖 =1
+
+H𝑖 , ztxt = 1
+
+𝐿 𝑡 𝐿 𝑣 +𝐿 𝑡 ∑︁  
+
+> 𝑖 =𝐿 𝑣 +1
+
+H𝑖 . (2) 
+
+Unimodal prediction. For single-modality classification, the uni-modal representations are passed through a classification head ℎ :
+
+R𝑑 → [ 0, 1], yielding predictions ˆ 𝑦 img = ℎ(zimg ) and ˆ 𝑦 txt = ℎ(ztxt ).
+
+Multi-modal prediction. For the final multi-modal prediction, we leverage the VLM’s autoregressive next-token prediction ca-pability. The output hidden state at the prediction position h =
+
+H𝐿 𝑣 +𝐿 𝑡 +𝐿 𝑞 +1 ∈ R𝑑 aggregates information from all preceding to-kens, with cross-modal information only accessible at this stage due to our attention mask design. The VLM’s language modeling head produces logits over the vocabulary, and the multi-modal prediction probability is derived from the “Yes” and “No” tokens: ˆ𝑦 mm = exp (ℓYes )
+
+exp (ℓYes ) + exp (ℓNo ) , (3) where ℓYes and ℓNo denote the logits for the “Yes” and “No” tokens, re-spectively. This formulation directly utilizes the VLM’s pre-trained language modeling head without introducing extra parameters. 
+
+## 3.3 The Shortcut Learning Problem 
+
+Standard multi-modal training directly optimizes the classification loss using the fused multi-modal representation. While this ap-proach is straightforward, it often leads to shortcut learning [16]: the model exploits superficial correlations between modalities rather than learning deep, modality-specific features. Consider a glaucoma detection task with fundus images and clin-ical notes. A naive multi-modal model might learn to rely primarily on explicit disease mentions in the text ( e.g ., “suspected glaucoma”) while ignoring subtle but important visual biomarkers in the image (e.g ., optic disc cupping ratio). When the text modality is ambiguous or unavailable, such a model fails catastrophically. This shortcut learning problem manifests in two specific ways. 
+
+Lack of cross-modal knowledge transfer. When the model can achieve good performance using only the text modality, it has no incentive to learn from images. The image encoder becomes “lazy” and fails to capture diagnostic visual patterns. The model over-relies on text, performing well with both modalities but degrading sharply when only one is available. 
+
+Unstructured within-modality representations. Even when each modality contributes, the representations lack semantic organiza-tion. The model encodes imaging conditions, camera angles, or writing styles rather than diagnostic features. Samples with the same diagnosis are scattered in the representation space rather than clustered together, making the decision boundary fragile. 
+
+## 4 Method 
+
+We present UniMod, a multi-modal learning framework designed to address shortcut learning in medical diagnosis (Section 3.3). Our key insight is that requiring each modality to make accurate predic-tions discourages the model from taking shortcuts , thereby learning genuine diagnostic features from both modalities. MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Gu et al. Next token Question Prompt (e.g. Does this person have disease?) Diagnosis Clinical notes Text Tokenizer Text tokens 
+
+Image Encoder Image tokens Medical images 
+
+> Transformer
+
+Text Embedding 
+
+Image Embedding 
+
+LoRA Image Classification Loss
+(Section 4.1) Text Classification Loss
+(Section 4.1) Within Modal Alignment (Section 4.3) Within Modal Alignment (Section 4.3) Cross-Modal Alignment (Section 4.2) Multi-Modal Classification Loss Frozen Modules Tunable Modules Mean Pooling Classification Head 
+
+Fig. 2: Overview of UniMod. We implement a custom attention mask to enforce modality isolation, yielding a unimodal embedding for each modality. We apply three losses: (1) independent classification losses on image-only, text-only, and multi-modal predictions; (2) cross-modality alignment ( Lcross ) for cross-modality knowledge transfer; and (3) within-modality contrastive alignment ( Lwithin ) for class-level clustering. Fundus images © Harvard Ophthalmology AI Lab. 
+
+As shown in Fig. 2, UniMod applies classification losses to image-only, text-only, and multi-modal predictions separately (Section 4.1), pulls image and text representations closer via cross-modality align-ment, enabling knowledge transfer across modalities (Section 4.2), and clusters same-class samples via within-modality contrastive learning to form a better embedding structure (Section 4.3). We finally combine all objectives into a unified training loss, balanced via dynamic weight adjustment using GradNorm [8] (Section 4.4), following multi-task learning principles [30, 51]. To preserve the pre-trained knowledge of the VLM while adapting it to the target domain, we fine-tune the model weights using low-rank adaptation (Section 4.5). 
+
+## 4.1 Independent Modality Feature Extraction 
+
+As discussed in Section 3.3, standard multi-modal training suffers from shortcut learning: the model relies on whichever modality provides the easiest path to low training loss, leaving the other modality underutilized. For instance, when text contains explicit diagnostic cues ( e.g ., “suspected glaucoma”), the model may ignore subtle but important visual patterns in the fundus image. Our key insight is to force each modality to independently extract features sufficient for accurate classification. Rather than allowing the model to “take shortcuts” by relying on cross-modal information, we require that each modality alone can make correct predictions. Specifically, we apply classification losses to both the image and text representations: 
+
+Limg cls = LCE ( ˆ𝑦 img , 𝑦 ), Ltxt cls = LCE ( ˆ𝑦 txt , 𝑦 ), (4) where ˆ 𝑦 img = ℎ(zimg ) and ˆ 𝑦 txt = ℎ(ztxt ) are the unimodal predictions from Eqn. 2, and LCE denotes the cross-entropy loss. Additionally, the multi-modal prediction ˆ 𝑦 mm from Eqn. 3 is supervised with: 
+
+Lmm cls = LCE ( ˆ𝑦 mm , 𝑦 ). (5) By supervising each modality independently, we remove the lowest-loss route to a shortcut solution. The image encoder must learn to capture visual diagnostic features ( e.g ., optic disc cupping, retinal nerve fiber layer defects) because it cannot rely on textual cues. Similarly, the text encoder must learn to extract diagnostic in-formation from clinical notes without depending on visual evidence. This harder objective yields stronger representations: each modal-ity develops self-sufficient diagnostic capability. In summary, our framework employs three classification losses that are combined as: 
+
+Lcls = Lmm cls + L img cls + L txt cls . (6) 
+
+Why separate the streams, and why still a VLM?. The backbone is causal over [V; T; Q; p], so image tokens never attend to text in either case; the mask of Section 3.2 removes only the remaining direction, text attending to image. That direction is exactly what the unimodal objectives depend on: without the mask ztxt is a text rep-resentation that has already read the image, and Ltxt cls is no longer a text-only prediction. Modality separation is therefore a correctness precondition rather than an accuracy device, and the ablation be-haves accordingly. Removing it shifts multi-modal AUC by −0.0017 on Harvard-Glaucoma and +0.0003 on CheXpert Plus, both inside the seed-to-seed standard deviation, and leaves text-only AUC es-sentially unchanged (0 .855 → 0.855 and 0 .964 → 0.965): the text branch was not in fact exploiting the visual stream, and the mask is what licenses that statement rather than assuming it. Fusion is relocated, not removed—cross-modal interaction persists at the pre-diction token p, which attends to both streams, and through Lcross ,which aligns the two representation spaces directly. This is also why the VLM backbone is retained: its value here is the cross-modal grounding held in the pre-trained weights, which LoRA adapts over 0 .1% of parameters and which places zimg and ztxt in one 𝑑 -dimensional space—the property that lets Lcross operate without a learned projection. 
+
+## 4.2 Cross-Modality Alignment 
+
+While independent feature extraction ensures each modality cap-tures diagnostic information, it does not facilitate knowledge trans-fer between modalities. In multi-modal learning, knowledge from one modality can benefit another: textual descriptions can guide the UniMod: Enhancing Multi-Modal Medical Diagnosis through Cross-Modality and Within-Modality Alignment MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+image encoder to focus on relevant visual patterns, and visual evi-dence can help disambiguate vague clinical notes. Without explicit encouragement, such knowledge transfer does not occur naturally. To promote cross-modal knowledge transfer, we introduce an alignment loss that encourages the image and text representations to be similar for the same patient. Since our VLM architecture produces representations of the same dimensionality 𝑑 for both modalities, we directly minimize their distance without projection layers: 
+
+Lcross = 1
+
+|𝐵 |∑︁ 𝑖 ∈𝐵 
+
+∥z𝑖  
+
+> img
+
+− z𝑖  
+
+> txt
+
+∥22, (7) where 𝐵 is the mini-batch. This loss pulls the image and text repre-sentations of the same patient closer, encouraging both modalities to encode similar diagnostic information in a shared semantic space. Cross-modality alignment enables mutual knowledge transfer. Consider an image showing subtle optic disc changes that are dif-ficult to detect visually but are explicitly described in the clinical notes ( e.g ., “increased cup-to-disc ratio”). Through alignment, the image encoder learns to associate these visual patterns with the corresponding textual descriptions, effectively transferring diag-nostic knowledge from text to image. Conversely, when clinical notes are ambiguous, visual evidence can provide complementary information through the aligned representation space. 
+
+## 4.3 Within-Modality Alignment 
+
+Beyond cross-modal alignment, we also structure the representa-tion space within each modality. Intuitively, two fundus images with similar glaucoma severity should have similar representations, regardless of imaging conditions or patient demographics. Such a structure makes the decision boundary more robust and generalizes better. To achieve this, we apply supervised contrastive learning [31], which pulls same-class samples together while pushing different-class samples apart. For each modality 𝑚 ∈ { img , txt }:
+
+L𝑚  
+
+> within
+
+= − 1
+
+|𝐵 |∑︁ 𝑖 ∈𝐵 
+
+1
+
+|𝑃 (𝑖 )| ∑︁ 𝑝 ∈𝑃 (𝑖 )
+
+log exp (𝑠 𝑖𝑝 /𝜏 )
+
+Í𝑗 ≠𝑖 exp (𝑠 𝑖 𝑗 /𝜏 ) , (8) where 𝑠 𝑖 𝑗 = sim (z𝑚 𝑖 , z𝑚 𝑗 ) denotes cosine similarity between samples 
+
+𝑖 and 𝑗 , 𝑃 (𝑖 ) = {𝑝 ∈ 𝐵 : 𝑦 𝑖 = 𝑦 𝑝 , 𝑝 ≠ 𝑖 } is the set of positive samples (same label) for anchor 𝑖 , and 𝜏 is a temperature parameter. The total within-modality loss is Lwithin = Limg within + L txt within .This loss pulls samples with the same label together while push-ing samples with different labels apart. The resulting representation space exhibits clear semantic structure: healthy and diseased sam-ples form distinct clusters. Within-modality alignment is complementary to cross-modality alignment. Cross-modality alignment operates at the sample level, aligning different views of the same patient. Within-modality align-ment operates at the class level, aligning different patients with the same diagnosis. Together, they provide both instance-level and class-level supervision. 
+
+## 4.4 Overall Training Objective 
+
+We combine the classification and alignment losses into a unified training objective: 
+
+Ltotal = Lcls + 𝜆 2 Lcross + 𝜆 3 Lwithin , (9) where 𝜆 2, 𝜆 3 > 0 are weighting coefficients. We fix 𝜆 1 = 1 to use the classification loss as a stable reference scale, ensuring that the primary diagnostic objective maintains consistent importance throughout training. Manually tuning 𝜆 2 and 𝜆 3 is challenging, as the optimal balance depends on the dataset and training dynam-ics [30]. We adopt GradNorm [8] to adaptively adjust the relative weights 𝜆 2 and 𝜆 3 during training. GradNorm monitors the gradient magnitudes of each loss component and adjusts the alignment loss weights to ensure balanced learning progress across all objectives. 
+
+## 4.5 Parameter-Efficient Medical Adaptation 
+
+Large-scale VLMs are pre-trained on general-domain data ( e.g ., natural images and web text) without exposure to medical images or clinical terminology [4, 56]. Directly applying such models to medical diagnosis yields suboptimal performance due to the domain gap. A straightforward solution is to fine-tune the entire VLM using the losses defined above (Eqn. 9). However, medical datasets are typically small, making full fine-tuning prone to catastrophic forgetting: the model loses its pre-trained knowledge, overfitting to limited medical samples and failing to generalize to new data. To address this, we adopt Low-Rank Adaptation (LoRA) [22], a parameter-efficient fine-tuning method among alternatives such as adapters [21], prefix tuning [36], and QLoRA [13]. LoRA freezes the pre-trained weights 𝑊 0 and injects trainable low-rank matrices: 
+
+𝑊 = 𝑊 0 + Δ𝑊 = 𝑊 0 + 𝐵𝐴, (10) where 𝐵 ∈ R𝑑 ×𝑟 and 𝐴 ∈ R𝑟 ×𝑘 are low-rank matrices with 𝑟 ≪
+
+min (𝑑, 𝑘 ). This preserves pre-trained knowledge in 𝑊 0 while 𝐵𝐴 
+
+learns domain-specific adaptations. We apply LoRA to all projection matrices in the attention layers (𝑊 𝑄 , 𝑊 𝐾 , 𝑊 𝑉 , and 𝑊 𝑂 ) while keeping the feed-forward network (FFN) layers frozen. This design allows the model to fully adapt its attention patterns to medical-specific features while preserving the general-purpose transformations learned during pre-training. 
+
+## 5 Experiments 
+
+We evaluate UniMod on two medical diagnosis benchmarks: glau-coma detection from fundus images and pleural effusion detection from chest X-rays. We first describe the experimental setup in Sec-tion 5.1, then demonstrate that UniMod consistently outperforms baselines on both datasets (Section 5.2). We then measure modality reliance directly and quantify how far UniMod reduces the text shortcut (Section 5.3), conduct ablation studies to analyze each com-ponent’s contribution (Section 5.4), and present qualitative case studies (Section 5.5). 
+
+## 5.1 Experimental Setup 
+
+Datasets. We use two datasets with paired medical images and clinical text. Harvard-Glaucoma [43] contains fundus photographs paired with clinical notes for glaucoma detection, a globally preva-lent eye disease [54]. CheXpert Plus [5] contains chest X-ray MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Gu et al. 
+
+Table 1: Main results on Harvard-Glaucoma and CheXpert Plus datasets. We report AUC, Accuracy, F1, Precision, and Recall. Best results in bold. Harvard-Glaucoma CheXpert Plus Method AUC ACC F1 Prec. Rec. AUC ACC F1 Prec. Rec. Zero-shot 0.472 0.512 0.677 0.512 1.000 0.561 0.501 0.667 0.501 0.999 
+
+Image-only 0.734 0.669 0.709 0.644 0.788 0.909 0.842 0.842 0.840 0.845 Text-only 0.814 0.724 0.766 0.676 0.884 0.961 0.908 0.909 0.891 0.928 Multimodal LoRA 0.716 0.640 0.720 0.598 0.904 0.908 0.861 0.862 0.855 0.869 OGM-GE [47] 0.835 0.752 0.728 0.828 0.649 0.918 0.847 0.851 0.829 0.875 G-Blend [60] 0.837 0.732 0.686 0.857 0.572 0.919 0.842 0.854 0.793 0.926 UniMod (Ours) 0.850 0.768 0.786 0.745 0.831 0.966 0.919 0.920 0.909 0.931 
+
+Table 2: Dataset statistics for the binary setting; all inputs are paired image–text. CheXpert Plus is additionally evaluated as a 5-class multi-label task (Tbl. 5). 
+
+Dataset Train Val Test Pos% Harvard-Glaucoma 7,000 1,000 2,000 50.5% CheXpert Plus 7,000 1,000 2,000 50.0% images paired with radiology reports for pleural effusion detection, building on the CheXpert benchmark [25]. Both provide binary la-bels; we additionally evaluate CheXpert Plus as a 5-class multi-label task (Section 5.2). Tbl. 2 summarizes the statistics. 
+
+Addressing potential label leakage. In both datasets, clinical text may contain explicit diagnostic cues that could leak label informa-tion. For Harvard-Glaucoma, 98.6% of clinical notes contain the word “glaucoma,” and 15.2% contain statements like “has glaucoma” despite a negative label (due to historical records). For CheXpert Plus, 97% of radiology impressions mention “effusion.” To prevent such leakage, we implement text cleaning that removes diagnosis-related keywords, medication names, and procedure terms from clinical text before training. Specifically, for Harvard-Glaucoma, we remove glaucoma-related terms, 14 diagnosis phrases, 14 medica-tion patterns ( e.g ., latanoprost, timolol), and 11 procedure patterns (e.g ., trabeculectomy, iridotomy). For CheXpert Plus, we filter out sentences containing “effusion” or “pleural fluid.” After cleaning, 0% of samples contain direct label leakage, and all experiments use cleaned text by default. 
+
+Baselines. We compare against six baselines. Zero-shot directly uses the pre-trained VLM without fine-tuning. Image-only and 
+
+Text-only fine-tune with a single modality. Multimodal LoRA 
+
+fine-tunes with standard LoRA [22] using both modalities. OGM-GE [47] applies on-the-fly gradient modulation to suppress the dom-inant modality based on prediction confidence ratios. G-Blend [60] estimates optimal loss weights based on per-modality overfitting-to-generalization ratios. All methods use the same VLM backbone and LoRA configuration for fair comparison. 
+
+Implementation. We fine-tune InternVL2.5-8B [10] (256 visual tokens per image) for 3 epochs with AdamW, learning rate 5 × 10 −5,effective batch size 32, LoRA [22] rank 𝑟 = 32 and 𝛼 = 64, SupCon temperature 𝜏 = 0.07, and GradNorm-adjusted loss weights [8], on 2 NVIDIA RTX 5090 GPUs. 
+
+Metrics. We report AUC (area under the ROC curve) [15], F1 score, and accuracy. AUC is the primary metric as it is threshold-independent and robust to class imbalance [19]. 
+
+## 5.2 Main Results 
+
+Tbl. 1 presents the main results on both datasets. UniMod consis-tently outperforms all baselines across both datasets and all metrics. Multimodal LoRA performs poorly—even below single-modality baselines—due to shortcut learning: on Harvard-Glaucoma it achieves 0.716 AUC with high recall (0.904) but low precision (0.598), in-dicating the model predicts most samples as positive rather than learning from both modalities. OGM-GE [47] and G-Blend [60], two gradient-based modality balancing methods, substantially improve AUC (0.835 and 0.837 on Harvard-Glaucoma), but exhibit a severe precision–recall imbalance—G-Blend reaches 0.857 precision yet only 0.572 recall. On CheXpert Plus, both still fall short of the Text-only baseline (0.918/0.919 vs. 0.961 AUC), suggesting gradient-level balancing is insufficient when one modality dominates. UniMod outperforms all baselines on both datasets. On Harvard-Glaucoma, it achieves the best AUC (0.850), accuracy (0.768), and F1 (0.786), surpassing OGM-GE/G-Blend by 1.6–1.8% in AUC and 8.0– 14.6% in F1, while maintaining a balanced precision–recall profile (0.745/0.831). On CheXpert Plus, UniMod achieves 0.966 AUC, out-performing OGM-GE and G-Blend by over 5%, and surpassing even the Text-only baseline (0.961)—demonstrating genuine multi-modal complementarity. These results confirm that representation-level alignment is more effective than gradient-level balancing for multi-modal medical diagnosis with VLMs. 
+
+Generalization to multi-label diagnosis. To test whether UniMod is tied to binary tasks, we re-train it on CheXpert Plus as a 5-class multi-label problem (Cardiomegaly, Edema, Consolidation, Atelectasis, Pleural Effusion), and compare against CGGM [18], a more recent classifier-guided gradient-modulation method. The architecture is unchanged; only the objective is adapted in the standard way for multi-label targets, with the classification heads emitting five logits under a binary cross-entropy loss and Lwithin 
+
+applied per label and averaged. UniMod reaches 0.760 mAUC, 0.473 mAP and 0.480 mF1 against 0.664, 0.340 and 0.306 for CGGM, a gain of +0.097 mAUC and +0.174 mF1 (Tbl. 5). The improvement holds for all five findings, from +0.039 AUC on Edema to +0.192 on Cardiomegaly, indicating that the gains are not an artifact of the binary formulation. UniMod: Enhancing Multi-Modal Medical Diagnosis through Cross-Modality and Within-Modality Alignment MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+Table 3: Ablation study on UniMod components. Each row removes only one component to evaluate each component’s contribution. Table 4: Robustness to missing modalities (AUC). Δ: our improvement over MM LoRA. Component Harvard-Glaucoma CheXpert Plus Configuration IFE Within Cross AUC ACC F1 AUC ACC F1 UniMod (Full) ✓ ✓ ✓ 0.850 0.768 0.786 0.966 0.919 0.920 
+
+w/o Within ✓ ✓ 0.838 0.748 0.779 0.964 0.913 0.913 w/o Cross ✓ ✓ 0.835 0.751 0.774 0.964 0.908 0.910 
+
+Input MM LoRA UniMod Δ
+
+Both 0.716 0.850 +18.7% w/o Image 0.703 0.813 +15.6% w/o Text 0.627 0.736 +17.4% 
+
+Table 5: Extension to 5-class multi-label classification on CheXpert Plus (same 7K/1K/2K split; uncertain labels mapped to negative). UniMod requires no architectural change. Mean over 3 seeds; largest std is 0.015 (mF1). Best in bold. Per-class AUC Macro average Method Card. Edema Cons. Atel. Effus. mAUC mAP mF1 CGGM 0.627 0.753 0.619 0.596 0.724 0.664 0.340 0.306 UniMod 0.819 0.791 0.703 0.679 0.810 0.760 0.473 0.480 
+
+## 5.3 How Much Does UniMod Reduce the Text Shortcut? 
+
+The shortcut is directly measurable. Trained alone, the text branch reaches 0.814 AUC on Harvard-Glaucoma against 0.734 for the image branch, and 0.961 against 0.909 on CheXpert Plus (Tbl. 1). Text is the cheaper predictor, so a fused model can minimize its training objective by riding the text branch, and Fig. 3 shows it doing so: Multimodal LoRA drives 𝐶𝐸 𝑚𝑚 to 0.026 while 𝐶𝐸 𝑖𝑚𝑔 remains at 0.774, i.e ., the fused loss is satisfied without the image encoder becoming diagnostic. This is a mechanism, not a score; independent unimodal supervision is designed to close that route. Tbl. 4 compares the robustness of Multimodal LoRA and Uni-Mod when a modality is removed at test time. Multimodal LoRA suffers significant performance degradation when either modality is missing, indicating over-reliance on cross-modal shortcuts. In con-trast, UniMod maintains much higher performance with missing modalities, confirming that each modality has learned meaningful diagnostic features independently. Tbl. 4 and Fig. 5 measure the resulting reliance. Removing either input at test time degrades Multimodal LoRA sharply, and its single-modality AUCs on Harvard-Glaucoma are low in both branches (image 0.662, text 0.685); UniMod is higher and better balanced on both axes. The asymmetry is starkest on CheXpert Plus (Fig. 6): Multimodal LoRA opens a 0.58 gap between text (0.91) and image (0.33) AUC, its image branch scoring below chance, whereas Uni-Mod reduces the gap to 0.06 at the highest absolute performance. We note the scope of this evidence: these are input-ablation diagnos-tics of modality reliance, not interventions on identified spurious features; they show which input the fused decision depends on, not which cues within an input are spurious. 
+
+## 5.4 Ablation Studies 
+
+We conduct ablation studies to analyze the contribution of each component in UniMod. Tbl. 3 shows the results. CE mm CE img CE txt   
+
+> MM LoRA OGM-GE G-Blend UniMod
+> 0.0260.7740.643 0.4640.6150.468 0.2500.5900.249 0.4150.6120.412
+> Harvard-Glaucoma
+> CE mm CE img CE txt
+> MM LoRA OGM-GE G-Blend UniMod
+> 0.2030.7210.574 0.3230.4890.330 0.1850.4420.186 0.1970.4220.198
+> CheXpert Plus
+> 0.00 0.25 0.50 0.75
+> Loss
+> 0.00 0.25 0.50 0.75
+> Loss
+
+Fig. 3: Classification loss components at the end of training (greener is better optimized). Multimodal LoRA satisfies the fused objective ( 𝐶𝐸 𝑚𝑚 =0.026) with 𝐶𝐸 𝑖𝑚𝑔 =0.774 still high; Uni-Mod keeps all three terms balanced on both datasets. 
+
+Independent Feature Extraction (Section 4.1) provides the largest improvement by forcing each modality to learn diagnostic fea-tures independently. Cross-modal and within-modal alignment (Section 4.2, Section 4.3) further improve performance by enabling knowledge transfer and structuring the representation space. Re-moving either alignment component leads to performance drops on both datasets, with cross-modality alignment showing a slightly larger impact on Harvard-Glaucoma while both components con-tribute similarly on CheXpert Plus. GradNorm (Section 4.4) provides additional gains by automatically balancing the loss weights. All configurations use PEFT via LoRA (Section 4.5). 
+
+Loss component analysis. Under UniMod all three terms stay bal-anced on Harvard-Glaucoma ( 𝐶𝐸 𝑚𝑚 =0.415, 𝐶𝐸 𝑖𝑚𝑔 =0.612, 𝐶𝐸 𝑡𝑥𝑡 =0.412; Fig. 3), i.e ., each modality actively minimizes its own loss rather than deferring to the fused head; the Multimodal LoRA counter-example is analyzed in Section 5.3. 
+
+Dynamic loss balancing. On both datasets GradNorm raises 𝜆 2
+
+(cross-modal) and 𝜆 3 (within-modal) relative to the fixed 𝜆 1 (clas-sification; Fig. 7), indicating that the alignment losses need larger weights to balance the classification objective. 
+
+Why gradient modulation is insufficient. OGM-GE [47] and G-Blend [60] adjust gradients or loss weights but do not change the training objective: only the fused prediction loss is supervised. As shown in Fig. 3, 𝐶𝐸 𝑖𝑚𝑔 remains high even with gradient modulation, because suppressing the dominant modality does not guarantee the weaker modality actively learns. UniMod instead provides explicit unimodal supervision and structures the representation space via cross-modal and within-modal alignment [58], achieving the best performance and modality balance (Fig. 6). MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Gu et al. Sample 22 
+
+Sample 151 
+
+Radiology Report: 
+
+1. THERE ARE LOW LUNG VOLUMES WITH 
+
+INTERVAL DEVELOPMENT OF BIBASILAR 
+
+SUBCUTANEOUS GAS IS SEEN ALONG THE RIGHT 
+
+CHEST WALL INFERIORLY. 2. CARDIAC 
+
+SILHOUETTE AND VASCULARITY ARE WITHIN 
+
+NORMAL LIMITS. 
+
+Ground Truth: Pleural Effusion 
+
+MM LoRA Pred: No Pleural Effusion (prob: 0.487) 
+
+✗
+
+UniMod Pred: Pleural Effusion (prob: 0.848)  ✓
+
+Radiology Report: 
+
+1. WIDENED APPEARANCE OF THE SUPERIOR 
+
+MEDIASTINUM, THAT MAY BE ON THE BASIS OF 
+
+THE LOW LUNG VOLUMES. 2. SLIGHTLY 
+
+INDISTINCT PULMONARY VASCULAR MARGIN. A 
+
+COMPONENT OF MILD INTERSTITIAL EDEMA 
+
+CANNOT BE... 
+
+Ground Truth: Pleural Effusion 
+
+MM LoRA Pred: No Pleural Effusion (prob: 0.266) 
+
+✗
+
+UniMod Pred: Pleural Effusion (prob: 0.779)  ✓
+
+Sample 8010 
+
+Clinical Notes: 
+
+The 44 -year -old patient has dry eye, pinguecula, and optic 
+
+disc cupping. There are nonspecific defects in their visual 
+
+field, and thinning in the superior and temporal sectors of 
+
+the eye. 
+
+Ground Truth: Glaucoma 
+
+MM LoRA Pred: Normal (prob: 0.483)  ✗
+
+UniMod Pred: Glaucoma (prob: 0.566)  ✓
+
+Sample 80 87 
+
+Clinical Notes: 
+
+The patient has a history of 'normal tension [MEDICAL]'. 
+
+Moderate myopia with an artifact on gcc on OCT ('red 
+
+disease') is also observed. The patient is advised to 
+
+continue prescribed medications. 
+
+Ground Truth: Glaucoma 
+
+MM LoRA Pred: Normal (prob: 0.479)  ✗
+
+UniMod Pred: Glaucoma (prob: 0.574)  ✓
+
+Fig. 4: Case studies where UniMod correctly classifies but Multimodal LoRA fails. Left: CheXpert Plus (chest X-rays with radiology reports for pleural effusion detection). Right: Harvard-Glaucoma (fundus images with clinical notes for glaucoma detection). UniMod leverages visual features learned through independent feature extraction when clinical text is ambiguous. Chest radiographs © Stanford AIMI; fundus images © Harvard Ophthalmology AI Lab. 0.4 0.6 0.8 1.0        
+
+> Image-only AUC
+> 0.6 0.7 0.8 0.9 1.0
+> Text-only AUC
+> MM LoRA OGM-GE G-Blend
+> UniMod (Ours)
+> Harvard-Glaucoma
+> 0.4 0.6 0.8 1.0
+> Image-only AUC
+> 0.6 0.7 0.8 0.9 1.0
+> Text-only AUC
+> MM LoRA OGM-GE G-Blend
+> UniMod (Ours)
+> CheXpert Plus
+> MM LoRA OGM-GE G-Blend UniMod (Ours) Perfect balance
+
+Fig. 5: Single-modality AUC on Harvard-Glaucoma. Distance from the diagonal indicates modality imbalance; distance from the upper-right corner, how little either branch learned. MM LoRA OGM-GE G-Blend UniMod   
+
+> 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+> AUC
+> gap=0.58 gap=0.08 gap=0.06 gap=0.06
+
+Modality-Specific Performance (CheXpert Plus) 
+
+> Image AUC Text AUC
+
+Fig. 6: Modality-specific AUC on CheXpert Plus; annotations give the absolute image–text gap. The 0.58 gap of Multimodal LoRA is the size of its text shortcut—image AUC 0.33 is below chance—while UniMod closes it to 0.06. 
+
+## 5.5 Case Study 
+
+Fig. 4 shows one case per dataset in which UniMod succeeds and Multimodal LoRA fails. In the CheXpert Plus case the report de-scribes indirect findings ( e.g ., “low lung volumes,” “bibasilar subcu-taneous gas”) without naming pleural effusion; Multimodal LoRA returns 0.487, while UniMod detects the effusion at 0.848. In the 0 200 400 600 
+
+Training Step 
+
+> 1.0 1.5 2.0
+> Loss Weight
+
+Harvard-Glaucoma       
+
+> λ1(Cls)
+> λ2(Cross)
+> λ3(Within)
+> 0200 400 600
+
+Training Step 
+
+> 24
+> Loss Weight
+
+CheXpert Plus    
+
+> λ1(Cls)
+> λ2(Cross)
+> λ3(Within)
+
+Fig. 7: GradNorm weight evolution. 𝜆 1 is fixed at 1.0; 𝜆 2 (cross-modal) and 𝜆 3 (within-modal) are adjusted automatically, rising up to fourfold on CheXpert Plus, consistent with its greater modality imbalance. 
+
+Harvard-Glaucoma case the note is suggestive but inconclusive (e.g ., “optic disc cupping,” “nonspecific defects”), and Multimodal LoRA again lands near chance at 0.483 against UniMod’s 0.566. In both, Multimodal LoRA’s prediction sits close to 0.5: absent an ex-plicit diagnostic keyword it effectively abstains rather than reading the image, which is the behavior Fig. 3 shows in the objective itself. UniMod instead commits, because the image encoder was required to be diagnostic on its own. 
+
+## 6 Conclusion 
+
+We presented UniMod, a framework that mitigates shortcut learn-ing in multi-modal medical diagnosis by requiring each modality to predict the diagnosis on its own, combining independent unimodal supervision with cross-modality and within-modality alignment under GradNorm weighting. On Harvard-Glaucoma and CheXpert Plus it improves over standard multi-modal fine-tuning and over modality-balancing baselines, and it transfers to 5-class multi-label diagnosis without architectural change. Our analysis indicates that gradient modulation alone does not remove the shortcut: explicit unimodal supervision is what drives each modality to develop diag-nostic capability. The components are modality- and task-agnostic, but the evidence here comes from two single-institution datasets. Cross-institutional evaluation, further modalities (CT, MRI, physi-ological signals [27]), dense prediction tasks [50] and integration with clinical decision support [40, 53] remain future work. UniMod: Enhancing Multi-Modal Medical Diagnosis through Cross-Modality and Within-Modality Alignment MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+## Acknowledgments 
+
+This research used data provided by the Stanford Center for Arti-ficial Intelligence in Medicine and Imaging (AIMI). AIMI curated a publicly available imaging data repository containing clinical imaging and data from Stanford Health Care, the Stanford Chil-dren’s Hospital, the University Healthcare Alliance and Packard Children’s Health Alliance clinics provisioned for research use by the Stanford Medicine Research Data Repository (STARR). Fundus images are reproduced from the Harvard-Glaucoma dataset © Har-vard Ophthalmology AI Lab, licensed CC BY-NC-ND 4.0. All images are used for non-commercial research purposes. 
+
+## References 
+
+[1] Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech, Iain Barr, Yana Hasson, Karel Lenc, Arthur Mensch, Katie Millican, Malcolm Reynolds, Roman Ring, Eliza Rutherford, Serkan Cabi, Tengda Han, Zhitao Gong, Sina Samangooei, Marianne Monteiro, Jacob Menick, Sebastian Borgeaud, Andrew Brock, Aida Nematzadeh, Sahand Sharifzadeh, Mikolaj Binkowski, Ricardo Barreira, Oriol Vinyals, Andrew Zisserman, and Karen Simonyan. 2022. Flamingo: a visual lan-guage model for few-shot learning. In Advances in Neural Information Processing Systems .[2] Shuai Bai, Keqin Chen, Xuejing Liu, Jialin Wang, Wenbin Ge, Sibo Song, Kai Dang, Peng Wang, Shijie Wang, Jun Tang, Humen Zhong, Yuanzhi Zhu, Mingkun Yang, Zhaohai Li, Jianqiang Wan, Pengfei Wang, Wei Ding, Zheren Fu, Yiheng Xu, Jiabo Ye, Xi Zhang, Tianbao Xie, Zesen Cheng, Hang Zhang, Zhibo Yang, Haiyang Xu, and Junyang Lin. 2025. Qwen2. 5-vl technical report. arXiv preprint arXiv:2502.13923 (2025). [3] Tadas Baltrušaitis, Chaitanya Ahuja, and Louis-Philippe Morency. 2018. Multi-modal Machine Learning: A Survey and Taxonomy. IEEE Transactions on Pattern Analysis and Machine Intelligence (2018). [4] Rishi Bommasani, Drew A Hudson, Ehsan Adeli, Russ Altman, Simran Arber, Sydney von Arx, Michael S Bernstein, Jeannette Bohg, Antoine Bosselut, Emma Brunskill, et al. 2021. On the opportunities and risks of foundation models. arXiv preprint arXiv:2108.07258 (2021). [5] Pierre Chambon, Jean-Benoit Delbrouck, Thomas Sounack, Shih-Cheng Huang, Zhihong Chen, Maya Varma, Steven QH Truong, Chu The Chuong, and Curtis P. Langlotz. 2024. CheXpert Plus: Augmenting a Large Chest X-ray Dataset with Text Radiology Reports, Patient Demographics and Additional Image Formats. 
+
+arXiv preprint arXiv:2405.19538 (2024). [6] Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geoffrey Hinton. 2020. A simple framework for contrastive learning of visual representations. In Interna-tional conference on machine learning . PmLR, 1597–1607. [7] Yen-Chun Chen, Linjie Li, Licheng Yu, Ahmed El Kholy, Faisal Ahmed, Zhe Gan, Yu Cheng, and Jingjing Liu. 2020. Uniter: Universal image-text representation learning. In European Conference on Computer Vision . 104–120. [8] Zhao Chen, Vijay Badrinarayanan, Chen-Yu Lee, and Andrew Rabinovich. 2018. Gradnorm: Gradient normalization for adaptive loss balancing in deep multitask networks. In International conference on machine learning . PMLR, 794–803. [9] Zhihong Chen, Yuhao Du, Jinpeng Hu, Yang Liu, Guanbin Li, Xiang Wan, and Tsung-Hui Chang. 2022. Multi-modal masked autoencoders for medical vision-and-language pre-training. In International Conference on Medical Image Comput-ing and Computer-Assisted Intervention . 679–689. [10] Zhe Chen, Weiyun Wang, Yue Cao, Yangzhou Liu, Zhangwei Gao, Erfei Cui, Jinguo Zhu, Shenglong Ye, Hao Tian, Zhaoyang Liu, et al. 2024. Expanding performance boundaries of open-source multimodal models with model, data, and test-time scaling. arXiv preprint arXiv:2412.05271 (2024). [11] Gheorghe Comanici, Eric Bieber, Mike Schaekermann, Ice Pasupat, Noveen Sachdeva, Inderjit Dhillon, Marcel Blistein, Ori Ram, Dan Zhang, Evan Rosen, et al. 2025. Gemini 2.5: Pushing the frontier with advanced reasoning, multi-modality, long context, and next generation agentic capabilities. arXiv preprint arXiv:2507.06261 (2025). [12] Alex J DeGrave, Joseph D Janizek, and Su-In Lee. 2021. AI for radiographic COVID-19 detection selects shortcuts over signal. Nature Machine Intelligence 3, 7 (2021), 610–619. [13] Tim Dettmers, Artidoro Pagnoni, Ari Holtzman, and Luke Zettlemoyer. 2023. QLoRA: Efficient Finetuning of Quantized LLMs. Advances in Neural Information Processing Systems 36 (2023), 10088–10115. [14] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xi-aohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, and Sylvain Gelly. 2020. An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale. In International Conference on Learning Represen-tations .[15] Tom Fawcett. 2006. An introduction to ROC analysis. Pattern Recognition Letters 
+
+27, 8 (2006), 861–874. [16] Robert Geirhos, Jörn-Henrik Jacobsen, Claudio Michaelis, Richard Zemel, Wieland Brendel, Matthias Bethge, and Felix A Wichmann. 2020. Shortcut learn-ing in deep neural networks. Nature Machine Intelligence 2, 11 (2020), 665–673. [17] Jean-Bastien Grill, Florian Strub, Florent Altché, Corentin Tallec, Pierre H. Richemond, Elena Buchatskaya, Carl Doersch, Bernardo Avila Pires, Zhao-han Daniel Guo, Mohammad Gheshlaghi Azar, Bilal Piot, Koray Kavukcuoglu, Rémi Munos, and Michal Valko. 2020. Bootstrap your own latent: A new ap-proach to self-supervised learning. In Advances in Neural Information Processing Systems .[18] Zirun Guo, Tao Jin, and Zhou Zhao. 2024. Classifier-Guided Gradient Modulation for Enhanced Multimodal Learning. In Advances in Neural Information Processing Systems .[19] Haibo He and Edwardo A Garcia. 2009. Learning from imbalanced data. IEEE Transactions on Knowledge and Data Engineering 21, 9 (2009), 1263–1284. [20] Kaiming He, Haoqi Fan, Yuxin Wu, Saining Xie, and Ross Girshick. 2020. Mo-mentum Contrast for Unsupervised Visual Representation Learning. In IEEE/CVF Conference on Computer Vision and Pattern Recognition .[21] Neil Houlsby, Andrei Giurgiu, Stanislaw Jastrzebski, Bruna Morrone, Quentin De Laroussilhe, Andrea Gesmundo, Mona Attariyan, and Sylvain Gelly. 2019. Parameter-efficient transfer learning for NLP. In International Conference on Machine Learning . 2790–2799. [22] Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. 2022. LoRA: Low-Rank Adaptation of Large Language Models. In International Conference on Learning Representations .[23] Shih-Cheng Huang, Liyue Shen, Matthew P Lungren, and Serena Yeung. 2021. Gloria: A multimodal global-local representation learning framework for label-efficient medical image recognition. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 3942–3951. [24] Fushuo Huo, Wenchao Xu, Jingcai Guo, Haozhao Wang, and Song Guo. 2024. C2KD: Bridging the Modality Gap for Cross-Modal Knowledge Distillation. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recogni-tion .[25] Jeremy Irvin, Pranav Rajpurkar, Michael Ko, Yifan Yu, Silviana Ciurea-Ilcus, Chris Chute, Henrik Marklund, Behzad Haghgoo, Robyn Ball, Katie Shpanskaya, Jayne Seekins, David A. Mong, Safwan S. Halabi, Jesse K. Sandberg, Ricky Jones, David B. Larson, Curtis P. Langlotz, Bhavik N. Patel, Matthew P. Lungren, and Andrew Y. Ng. 2019. Chexpert: A large chest radiograph dataset with uncertainty labels and expert comparison. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 33. 590–597. [26] Chao Jia, Yinfei Yang, Ye Xia, Yi-Ting Chen, Zarana Parekh, Hieu Pham, Quoc Le, Yun-Hsuan Sung, Zhen Li, and Tom Duerig. 2021. Scaling up visual and vision-language representation learning with noisy text supervision. In International Conference on Machine Learning . 4904–4916. [27] Alistair EW Johnson, Tom J Pollard, Seth J Berkowitz, Nathaniel R Greenbaum, Matthew P Lungren, Chih ying Deng, Roger G Mark, and Steven Horng. 2019. MIMIC-CXR, a de-identified publicly available database of chest radiographs with free-text reports. Scientific Data 6, 1 (2019), 317. [28] Ziwen Kan, Yishuo Chen, Kecheng Li, Andrew Wen, Xiaomeng Wang, Liwei Wang, Jihao Duan, Song Wang, Hongfang Liu, and Tianlong Chen. 2026. TRACE: A Temporal Conditional Estimation for Multimodal Time Series Foundation Models. arXiv preprint arXiv:2606.06285 (2026). [29] Ziwen Kan, Wugeng Zheng, Tianlong Chen, and Song Wang. 2026. PAMF: Prior-Aware Multimodal Fusion for Incomplete Time Series Data. arXiv preprint arXiv:2606.06328 (2026). [30] Alex Kendall, Yarin Gal, and Roberto Cipolla. 2018. Multi-task learning using uncertainty to weigh losses for scene geometry and semantics. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition . 7482–7491. [31] Prannay Khosla, Piotr Teterwak, Chen Wang, Aaron Sarna, Yonglong Tian, Phillip Isola, Aaron Maschinot, Ce Liu, and Dilip Krishnan. 2020. Supervised Contrastive Learning. In Advances in Neural Information Processing Systems .[32] Wonjae Kim, Bokyung Son, and Ildoo Kim. 2021. Vilt: Vision-and-language trans-former without convolution or region supervision. In International Conference on Machine Learning . 5583–5594. [33] Chunyuan Li, Cliff Wong, Sheng Zhang, Naoto Usuyama, Haotian Liu, Jianwei Yang, Tristan Naumann, Hoifung Poon, and Jianfeng Gao. 2023. Llava-med: Train-ing a large language-and-vision assistant for biomedicine in one day. Advances in Neural Information Processing Systems 36 (2023), 28541–28564. [34] Junnan Li, Dongxu Li, Silvio Savarese, and Steven Hoi. 2023. Blip-2: Bootstrapping language-image pre-training with frozen image encoders and large language models. arXiv preprint arXiv:2301.12597 (2023). [35] Junnan Li, Ramprasaath Selvaraju, Akhilesh Gotmare, Shafiq Joty, Caiming Xiong, and Steven Chu Hong Hoi. 2021. Align before fuse: Vision and language repre-sentation learning with momentum distillation. Advances in Neural Information Processing Systems 34 (2021), 9694–9705. [36] Xiang Lisa Li and Percy Liang. 2021. Prefix-tuning: Optimizing continuous prompts for generation. In Proceedings of the 59th Annual Meeting of the Associa-tion for Computational Linguistics . 4582–4597. MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Gu et al. 
+
+[37] Victor Weixin Liang, Yuhui Zhang, Yongchan Kwon, Serena Yeung, and James Y Zou. 2022. Mind the gap: Understanding the modality gap in multi-modal con-trastive representation learning. Advances in Neural Information Processing Systems (2022). [38] Weixiong Lin, Ziheng Zhao, Xiaoman Zhang, Chaoyi Wu, Ya Zhang, Yanfeng Wang, and Weidi Xie. 2023. Pmc-clip: Contrastive language-image pre-training using biomedical documents. arXiv preprint arXiv:2303.07240 (2023). [39] Haotian Liu, Chunyuan Li, Qingyang Wu, and Yong Jae Lee. 2023. Visual instruc-tion tuning. In Advances in Neural Information Processing Systems .[40] Xiaoxuan Liu, Livia Faes, Aditya U Kale, Siegfried K Wagner, Dun Jack Fu, Alice Bruynseels, Thushika Mahendiran, Gabriella Moraes, Mohith Shamdas, and Christoph Kern. 2019. A comparison of deep learning performance against health-care professionals in detecting diseases from medical imaging: a systematic review and meta-analysis. The Lancet Digital Health 1, 6 (2019), e271–e297. [41] Ze Liu, Yutong Lin, Yue Cao, Han Hu, Yixuan Wei, Zheng Zhang, Stephen Lin, and Baining Guo. 2021. Swin transformer: Hierarchical vision transformer using shifted windows. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 10012–10022. [42] Jiasen Lu, Dhruv Batra, Devi Parikh, and Stefan Lee. 2019. Vilbert: Pretrain-ing task-agnostic visiolinguistic representations for vision-and-language tasks. 
+
+Advances in Neural Information Processing Systems 32 (2019). [43] Yan Luo, Min Shi, Yu Tian, Tobias Elze, and Mengyu Wang. 2023. Har-vard glaucoma detection and progression: A multimodal multitask dataset and generalization-reinforced semi-supervised learning. In Proceedings of the IEEE/CVF International Conference on Computer Vision . 20471–20482. [44] Natalia Neverova, Christian Wolf, Graham Taylor, and Florian Nebout. 2016. ModDrop: Adaptive multi-modal gesture recognition. IEEE Transactions on Pattern Analysis and Machine Intelligence 38, 8 (2016), 1692–1706. [45] Aaron van den Oord, Yazhe Li, and Oriol Vinyals. 2018. Representation learning with contrastive predictive coding. arXiv preprint arXiv:1807.03748 (2018). [46] OpenAI. 2023. GPT-4V(ision) System Card. https://openai.com/research/gpt-4v-system-card. [47] Xiaokang Peng, Yake Wei, Andong Deng, Dong Wang, and Di Hu. 2022. Balanced multimodal learning via on-the-fly gradient modulation. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 8238–8247. [48] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. 2021. Learning transferable visual mod-els from natural language supervision. In International Conference on Machine Learning . 8748–8763. [49] Pranav Rajpurkar, Jeremy Irvin, Kaylie Zhu, Brandon Yang, Hershel Mehta, Tony Duan, Daisy Ding, Aarti Bagul, Curtis Langlotz, Katie Shpanskaya, Matthew P. Lungren, and Andrew Y. Ng. 2017. CheXNet: Radiologist-level pneumonia detec-tion on chest x-rays with deep learning. arXiv preprint arXiv:1711.05225 (2017). [50] Olaf Ronneberger, Philipp Fischer, and Thomas Brox. 2015. U-net: Convolutional networks for biomedical image segmentation. In International Conference on Medical image computing and computer-assisted intervention . Springer, 234–241. [51] Sebastian Ruder. 2017. An overview of multi-task learning in deep neural net-works. arXiv preprint arXiv:1706.05098 (2017). [52] Shiori Sagawa, Pang Wei Koh, Tatsunori B Hashimoto, and Percy Liang. 2020. Distributionally robust neural networks for group shifts: On the importance of regularization for worst-case generalization. In International Conference on Learning Representations .[53] Karan Singhal, Shekoofeh Azizi, Tao Tu, S. Sara Mahdavi, Jason Wei, Hyung Won Chung, Nathan Scales, Ajay Tanwani, Heather Cole-Lewis, Stephen Pfohl, Perry Payne, Martin Seneviratne, Paul Gamble, Chris Kelly, Nathaneal Scharli, Aakanksha Chowdhery, Philip Mansfield, Blaise Aguera y Arcas, Dale Webster, Greg S. Corrado, Yossi Matias, Katherine Chou, Juraj Gottweis, Nenad Tomasev, Yun Liu, Alvin Rajkomar, Joelle Barral, Christopher Semturs, Alan Karthike-salingam, and Vivek Natarajan. 2023. Large language models encode clinical knowledge. Nature 620, 7972 (2023), 172–180. [54] Yih-Chung Tham, Xiang Li, Tien Y Wong, Harry A Quigley, Tin Aung, and Ching-Yu Cheng. 2014. Global prevalence of glaucoma and projections of glaucoma burden through 2040: a systematic review and meta-analysis. Ophthalmology 
+
+121, 11 (2014). [55] Ekin Tiu, Ellie Talius, Pujan Patel, Curtis P Langlotz, Andrew Y Ng, and Pranav Rajpurkar. 2022. Expert-level detection of pathologies from unannotated chest X-ray images via self-supervised learning. Nature Biomedical Engineering 6, 12 (2022), 1399–1406. [56] Hugo Touvron, Thibaut Lavril, Gautier Izacard, Xavier Martinet, Marie-Anne Lachaux, Timothée Lacroix, Baptiste Rozière, Naman Goyal, Eric Hambro, Faisal Azhar, Aurelien Rodriguez, Armand Joulin, Edouard Grave, and Guillaume Lam-ple. 2023. Llama: Open and efficient foundation language models. arXiv preprint arXiv:2302.13971 (2023). [57] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. 2017. Attention is all you need. In Advances in Neural Information Processing Systems . 5998–6008. [58] Tongzhou Wang and Phillip Isola. 2020. Understanding contrastive representation learning through alignment and uniformity on the hypersphere. In International Conference on Machine Learning .[59] Weiyun Wang, Zhangwei Gao, Lixin Gu, Hengjun Pu, Long Cui, Xingguang Wei, Zhaoyang Liu, Linglin Jing, Shenglong Ye, Jie Shao, et al. 2025. Internvl3. 5: Ad-vancing open-source multimodal models in versatility, reasoning, and efficiency. 
+
+arXiv preprint arXiv:2508.18265 (2025). [60] Weiyao Wang, Du Tran, and Matt Feiszli. 2020. What makes training multi-modal classification networks hard?. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 12695–12705. [61] Zifeng Wang, Zhenbang Wu, Dinesh Agarwal, and Jimeng Sun. 2022. Medclip: Contrastive learning from unpaired medical images and text. arXiv preprint arXiv:2210.10163 (2022). [62] Chaoyi Wu, Xiaoman Zhang, Ya Zhang, Yanfeng Wang, and Weidi Xie. 2023. Medklip: Medical knowledge enhanced language-image pre-training. medRxiv 
+
+(2023), 2023–01. [63] Peng Xu, Xiatian Zhu, and David A Clifton. 2023. Multimodal learning with transformers: A survey. IEEE Transactions on Pattern Analysis and Machine Intelligence 45, 10 (2023), 12113–12132. [64] Jinhui Yi, Huan Yan, Haotian Wang, Jian Yuan, and Yong Li. 2023. Deepsta: A spatial-temporal attention network for logistics delivery timely rate prediction in anomaly conditions. In Proceedings of the 32nd ACM International Conference on Information and Knowledge Management . 4916–4922. [65] Jinhui Yi, Huan Yan, Haotian Wang, Jian Yuan, and Yong Li. 2024. Learning to Estimate Package Delivery Time in Mixed Imbalanced Delivery and Pickup Logistics Services. In Proceedings of the 32nd ACM International Conference on Advances in Geographic Information Systems . 432–443. [66] Kihyun You, Jawook Gu, Jiyeon Ham, Beomhee Park, Jiho Kim, Eun K Hong, Woonhyuk Baek, and Byungseok Roh. 2023. Cxr-clip: Toward large scale chest x-ray language-image pre-training. In International Conference on Medical Image Computing and Computer-Assisted Intervention . 101–111. [67] Jure Zbontar, Li Jing, Ishan Misra, Yann LeCun, and Stéphane Deny. 2021. Bar-low twins: Self-supervised learning via redundancy reduction. In International Conference on Machine Learning . 12310–12320. [68] Sheng Zhang, Yanbo Xu, Naoto Usuyama, Hanwen Xu, Jaspreet Bagga, Robert Tinn, Sam Preston, Rajesh Rao, Mu Wei, Naveen Valluri, Cliff Wong, Andrea Tupini, Yu Wang, Matt Mazzola, Swadheen Shukla, Lars Liden, Jianfeng Gao, Angela Crabtree, Brian Piening, Carlo Bifulco, Matthew P. Lungren, Tristan Naumann, Sheng Wang, and Hoifung Poon. 2023. BiomedCLIP: a multimodal biomedical foundation model pretrained from fifteen million scientific image-text pairs. arXiv preprint arXiv:2303.00915 (2023). [69] Ying Zhang, Tao Xiang, Timothy M Hospedales, and Huchuan Lu. 2018. Deep mutual learning. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition . 4320–4328. [70] Wugeng Zheng, Ziwen Kan, Tianlong Chen, Chen Chen, and Song Wang. 2026. MuteBench: Modality Unavailability Tolerance Evaluation for Incomplete Multi-modal Fusion. arXiv preprint arXiv:2605.15235 (2026).
