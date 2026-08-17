@@ -6,36 +6,40 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-08-16
-- 运行时间：2026-08-16 19:45:37 UTC
+- 最新运行日期：2026-08-17
+- 运行时间：2026-08-17 19:30:21 UTC
 - 运行状态：成功
-- 本次总论文数：5
-- 精读区：0
-- 速读区：5
+- 本次总论文数：6
+- 精读区：4
+- 速读区：2
 
 ### 今日简报（AI）
-今日速读5篇论文，聚焦医学影像AI与自监督学习；其中《MammoMix》与《P3CA》分别涉及乳腺检测优化和视觉模型解释，均值得关注；建议优先精读得分最高的乳腺检测相关工作。
-- 详情：[/202608/16/README](/202608/16/README)
+今日精读6篇医学影像AI论文，聚焦病理图像与甲状腺超声的跨模态理解。  
+最值得关注：空间消息传递实现病理图像语言化解释（9.0分），CMCNet用TI-RADS文本对齐超声图像（8.0分）。  
+建议普通读者优先看病理图像解释与甲状腺分类的可视化案例，感受AI如何将影像转成医生可读语言。
+- 详情：[/202608/17/README](/202608/17/README)
 
 ### 精读区论文标签
-- 本次无精读推荐。
+1. [Spatial Message Passing in Language Space for Pathology Image Interpretation](/202608/17/2608.14309v1-spatial-message-passing-in-language-space-for-pathology-image-interpretation)  
+   标签：评分：9.0/10、query:cpath
+   evidence：通过语言消息传递实现全切片图像空间推理的病理图像解读
+2. [CMCNet: Aligning Ultrasound Image Embeddings with Textual TI-RADS Representations for Fine-Grained Thyroid Classification](/202608/17/2608.13939v1-cmcnet-aligning-ultrasound-image-embeddings-with-textual-ti-rads-representations-for-fine-grained-thyroid-classification)  
+   标签：评分：8.0/10、query:cpath
+   evidence：通过TI-RADS文本对齐进行超声图像细粒度甲状腺分类，属于癌症诊断
+3. [Program-space Diffusion for Morphology-to-Transcriptomics Prediction](/202608/17/2608.14330v1-program-space-diffusion-for-morphology-to-transcriptomics-prediction)  
+   标签：评分：8.0/10、query:cpath
+   evidence：从组织学图像预测空间转录组，属于组织病理与基因组数据整合方向
+4. [Disentangled Shared Representations Improve Morpho-Transcriptomic Integration](/202608/17/2608.14355v1-disentangled-shared-representations-improve-morpho-transcriptomic-integration)  
+   标签：评分：8.0/10、query:cpath
+   evidence：整合H&E病理图像与空间转录组数据，属于多模态表征学习
 
 ### 速读区论文标签
-1. [MammoMix: Leveraging Mixture of Experts for Robust Mammogram Breast Detection](/202608/16/2608.10437v1-mammomix-leveraging-mixture-of-experts-for-robust-mammogram-breast-detection)  
+1. [MedPlex: Deep Vision-Language Co-Adaptation for Clinically Grounded Medical Segmentation](/202608/17/2608.13690v1-medplex-deep-vision-language-co-adaptation-for-clinically-grounded-medical-segmentation)  
    标签：评分：7.0/10、query:cpath
-   evidence：基于混合专家模型的乳腺钼靶病灶检测，服务于癌症诊断
-2. [A Controlled Study of Self-Supervised Image and Video Pretraining under Limited Resources](/202608/16/2608.13183v1-a-controlled-study-of-self-supervised-image-and-video-pretraining-under-limited-resources)  
-   标签：评分：7.0/10、query:cpath
-   evidence：视觉基础模型预训练研究，比较有限资源下的自监督学习目标
-3. [P3CA: Encoder-Agnostic Interpretation of Vision Foundation Model Embeddings via Spatial Probing](/202608/16/2608.10131v1-p3ca-encoder-agnostic-interpretation-of-vision-foundation-model-embeddings-via-spatial-probing)  
+   evidence：视觉-语言模型用于医学图像分割
+2. [MLLM-Routed Heterogeneous Ensembles for Robust Cross-Dataset Image Classification](/202608/17/2608.13463v1-mllm-routed-heterogeneous-ensembles-for-robust-cross-dataset-image-classification)  
    标签：评分：6.0/10、query:cpath
-   evidence：面向医学影像视觉基础模型嵌入的编码器无关空间探测解释方法
-4. [BreastMammo and DenseMammo: Benchmarks for Mammography Domain Generalization](/202608/16/2608.10271v1-breastmammo-and-densemammo-benchmarks-for-mammography-domain-generalization)  
-   标签：评分：6.0/10、query:cpath
-   evidence：通过乳腺钼靶密度分类进行乳腺癌风险评估，并提出域泛化方法
-5. [Foundation Model-Enabled Efficient Data Sampling (FEEDS): A label-efficient training strategy for pan-cancer, multi-tracer PET/CT datasets](/202608/16/2608.11076v1-foundation-model-enabled-efficient-data-sampling-feeds-a-label-efficient-training-strategy-for-pan-cancer-multi-tracer-petct-datasets)  
-   标签：评分：6.0/10、query:cpath
-   evidence：利用基础模型嵌入进行肿瘤影像数据高效采样
+   evidence：使用视觉语言模型的多模态大模型路由集成进行图像分类
 
 
 <div class="dpr-home-promo-card">
