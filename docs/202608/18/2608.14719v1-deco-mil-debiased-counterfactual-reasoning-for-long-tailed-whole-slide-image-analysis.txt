@@ -1,0 +1,742 @@
+Title: DeCo-MIL: Debiased Counterfactual Reasoning for Long-Tailed Whole Slide Image Analysis
+
+URL Source: https://arxiv.org/pdf/2608.14719v1
+
+Published Time: Tue, 18 Aug 2026 00:06:18 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# DeCo-MIL: Debiased Counterfactual Reasoning for Long-Tailed Whole Slide Image Analysis 
+
+Xiaoxiao Li 1∗, Xitong Ling 1∗, Jiawen Li 1∗, Weiming Chen 1, Zhenyang Cai 2, Xidong Wang 2, Tian Guan 1†, Benyou Wang 2†, Yonghong He 1†
+
+> 1
+
+Tsinghua University 
+
+> 2
+
+The Chinese University of Hong Kong, Shenzhen 
+
+Abstract 
+
+Multiple instance learning (MIL) is widely used for weakly supervised whole slide image (WSI) analysis. However, un-der long-tailed distributions, MIL-based WSI analysis faces a nested dual long-tail: an inter-slide class long tail and an intra-slide long tail of instance-level discriminative evidence. The two long tails are coupled: tail classes have few training slides, while their limited diagnostic evidence is concentrated in a few patches and obscured by abundant within-bag redundancy. This coupling biases models toward head classes and degrades rare-class recognition. To address this, we propose DeCo-MIL for long-tailed WSI analysis, which jointly alleviates the nested dual long-tail through frequency-debiased counter-factual reasoning. For the inner long tail, DeCo-MIL clusters patches into tissue-morphology anchors, replaces each anchor with its matched normal prototype to perform a counterfac-tual intervention, and estimates its counterfactual contribu-tion to the ground-truth class using class-frequency-corrected predictions. These contributions guide redundancy masking to preserve scarce discriminative instances. For the outer long tail, DeCo-MIL constructs anchor-stratified pseudo-bags from redundancy-reduced bags and combines tail-aware oversam-pling with consistency regularization, increasing effective su-pervision for tail classes while preserving tissue-morphology composition. Extensive experiments on three long-tailed WSI benchmarks demonstrate that DeCo-MIL achieves state-of-the-art performance in both tail-class recognition and overall classification. 
+
+Introduction 
+
+Advances in deep learning and computing power have driven the adoption of computational pathology in diagnosis. How-ever, a whole slide image (WSI) is a gigapixel pathology scan that cannot be processed at full resolution, while pixel-or region-level annotation is prohibitively expensive. Multi-ple instance learning (MIL) has thus become the dominant paradigm for WSI analysis using only slide-level annotations. In MIL, a WSI is tessellated into thousands of patches after non-tissue background removal; the patches are then encoded by a pretrained encoder and aggregated into a bag-level rep-resentation for classification. Research on MIL for WSIs advances along two com-plementary directions—stronger patch representations and more expressive aggregation—steadily improving overall ac-curacy. These advances, however, implicitly assume a bal-
+
+> ∗
+
+These authors contributed equally. 
+
+> †
+
+Corresponding author. Head/Majority 
+
+> Sample size
+> Tail/Rare Subtypes
+> (b) Instance-Level Evidence Long Tail (a) Class-level Long Tail
+> redundant patch
+> discriminative patch
+
+Figure 1: The nested dual long-tail: (a) the inter-slide class long tail, (b) the intra-slide long tail of instance-level dis-criminative evidence. anced label distribution. In real clinical data, diagnostic cat-egories are heavily long-tailed: common subtypes dominate while rare yet critical categories have few samples. Under such skew, MIL models overfit head classes and underfit tail classes, weakening tail recognition and overall reliability. We argue that the difficulty of long-tailed WSI classifica-tion does not arise from a single source of imbalance, but from a nested dual long-tail . At the outer level, the numbers of slides across diagnostic categories follow a long-tailed distribution. At the inner level, instance-level discriminative evidence within each slide is also long-tailed: only a small subset of instances in a bag carries diagnostic information, while most correspond to common tissue patterns or redun-dant, non-discriminative content. The two levels are therefore not independent: tail classes already contain fewer training slides, while their limited discriminative evidence is further obscured by abundant redundant instances within each bag. This coupling makes slide-level class rebalancing alone in-sufficient to fully recover tail-class performance. Existing long-tailed WSI methods, including MDE-MIL (Ling et al. 2026) and SC-MIL (Juyal et al. 2024), im-prove tail recognition through multimodal ensemble learning or supervised contrastive learning. However, how to explic-itly identify and preserve sparse diagnostic morphologies within tail-class bags remains underexplored. A natural way to expose this evidence is to score each region by counterfac-tual attribution—replacing a region and observing how the prediction changes; however, under a long tail the model’s posterior is distorted by class frequency, so reading it di-arXiv:2608.14719v1 [cs.CV] 12 Aug 2026 rectly keeps tail evidence hidden, and the attribution must be performed after debiasing. We therefore propose DeCo-MIL , a WSI classification method that jointly addresses the nested dual long-tail prob-lem through debiased counterfactual reasoning. At the inner level, we perform counterfactual interventions by replacing each tissue anchor with a matched normal prototype and use frequency-debiased counterfactual contributions to guide redundancy masking, thereby uncovering buried tail-class evidence. At the outer level, we construct anchor-stratified pseudo-bags from the redundancy-reduced subset and over-sample tail-class slides, further amplifying at the slide level the tail evidence recovered in the preceding step. Our contributions are summarized as follows: 
+
+• We characterize long-tailed WSI classification as a nested dual long-tail and empirically reveal the coupling between its class-level and instance-level evidence long tails. 
+
+• We introduce debiased counterfactual-guided redundancy masking to identify and preserve scarce intra-slide dis-criminative evidence. 
+
+• We develop tail-aware stratified pseudo-bag augmenta-tion to alleviate the inter-slide class long tail. 
+
+• Experiments on three long-tailed WSI benchmarks demonstrate that our method outperforms the baseline methods in both tail-class and overall performance. 
+
+Related Work 
+
+Multiple Instance Learning for WSIs 
+
+MIL studies for WSI classification have largely focused on improving bag aggregation. Instance aggregation has evolved from prior-based non-parametric pooling to learnable atten-tion mechanisms that assign adaptive weights to instances, such as AB-MIL (Ilse, Tomczak, and Welling 2018) and CLAM (Lu et al. 2021). To capture long-range dependencies and model global context, self-attention- and Transformer-based aggregators have also been widely explored, including TransMIL (Shao et al. 2021) and FR-MIL (Chikontwe et al. 2025). Complementary directions include graph-based meth-ods for modeling relational dependencies among patches, such as H 2-MIL (Hou et al. 2022) and WiKG (Li et al. 2024), and clustering-based methods, such as MiCo (Li et al. 2025), PANTHER (Song et al. 2024) and PAMoE (Wu et al. 2025). Other studies suppress uninformative regions through redundancy removal or hard-instance mining, including masked hard-instance mining (MHIM-MIL (Tang et al. 2023)), attention-driven selection (AMD-MIL (Ling et al. 2024)), and saliency-guided masking (SAM-MIL (Fang et al. 2024)). However, these methods generally use class-agnostic selection criteria, identifying broadly salient regions rather than class-specific evidence and potentially overlooking scarce tail-class evidence. 
+
+Long-Tailed Learning 
+
+In natural images, mainstream approaches to the long-tailed problem span resampling (Buda, Maki, and Mazurowski 2018), margin-based loss rebalancing (Cao et al. 2019), data augmentation (Chou et al. 2020), logit adjustment (Ren et al. 2020; Menon et al. 2021), transfer learning (Wang, Ramanan, and Hebert 2017), decoupled training (Kang et al. 2020), and ensemble learning (Wang et al. 2021). Recent work brings these into WSIs: MDE-MIL (Ling et al. 2026) ad-dresses long-tailed pathology with multimodal distillation-driven ensemble learning, and SC-MIL (Juyal et al. 2024) handles imbalanced pathology with supervised contrastive learning. These methods improve representations and deci-sion boundaries under imbalanced slide distributions, while explicit morphology-level evidence estimation and redun-dancy control within tail-class bags remain underexplored. 
+
+Counterfactual Reasoning 
+
+Counterfactual reasoning has been widely used to analyze and improve deep models. For explanation and attribu-tion, occlusion (Zeiler and Fergus 2014) and meaningful-perturbation (Fong and Vedaldi 2017) methods measure the importance of an input region by masking or replacing it and observing the output change, and SHAP (Lundberg and Lee 2017) unifies such feature attributions through Shapley values. For debiasing, CAL (Rao et al. 2021) suppresses spu-rious focus by contrasting factual and counterfactual atten-tion, whereas De-confound-TDE (Tang, Huang, and Zhang 2020) treats the head-class momentum as a confounder and removes its direct effect at inference to improve tail classes in long-tailed recognition. In computational pathol-ogy, CIMIL (Lin et al. 2024) uses counterfactual-inference-based sub-bag evaluation and hierarchical instance searching for binary tumor detection, while IBMIL (Lin et al. 2023) per-forms backdoor adjustment at the bag-representation level to deconfound contextual priors. However, none of these works is specifically tailored to long-tailed classification. 
+
+Method 
+
+Problem Formulation 
+
+After background removal, a whole-slide image (WSI) is divided into a large number of patches. Multiple instance learning (MIL) represents each slide as a bag of instances and uses only slide-level supervision. Let D = {(Xi, y i)}Mi=1 
+
+denote the training set, where Xi contains Ni patches and 
+
+yi ∈ { 1, . . . , C } is the slide-level label. A frozen encoder ϕ
+
+maps the n-th patch to an ℓ2-normalized feature: 
+
+xi,n = ϕ(patch i,n )
+
+∥ϕ(patch i,n )∥2
+
+∈ Rd. (1) The resulting bag is Xi = {xi,n }Ni
+
+> n=1
+
+. An MIL aggregator 
+
+g summarizes the instances into a slide representation, from which a classifier h predicts the class probabilities: 
+
+pi = softmax ( h (g(Xi))) . (2) 
+
+Inter-slide Class Long Tail. Let nc be the number of train-ing slides in class c, with n1 ≥ n2 ≥ · · · ≥ nC . We measure the skew of the class distribution by the imbalance ratio 
+
+IR = max c nc
+
+min c nc
+
+. (3) When IR is large, slide-level supervision is dominated by head classes, biasing the model against tail classes. Classifier 
+
+> Frequency Debiasing
+> Frozen MIL Model Redundancy Masking Frozen  MIL Model Frequency Debiasing
+> Debiased Counterfactual Score
+> Feature Encoder
+> Prototype Clustering
+
+Tail-Aware Oversampling Score-to-Mask Mapper 
+
+> Masking Ratio
+> Anchor- Stratified Sampling
+
+(a) WSI Preprocessing (b) Debiased Counterfactual Reasoning (c) Tail-Aware Pseudo-Bag Augmentation (d) Feature Aggregation 
+
+> X* Main Branch Pseudo-Bag Auxiliary Branch
+> Class
+
+Online Stratified Pseudo-Bag Construction 
+
+> Counterfactual Intervention
+> score
+> anchor normal prototype
+> Shared weights MIL Model
+> yy
+> Redundancy-Reduced Bag Anchor index
+> Apply
+
+Figure 2: Overview of the DeCo-MIL training framework. (a) WSI preprocessing and prototype clustering. (b) Debiased counterfactual scoring maps anchor contributions to masking ratios. (c) Tail-class oversampling and anchor-stratified sampling construct pseudo-bags. (d) The main and pseudo-bag auxiliary branches jointly train the final MIL model. 
+
+Intra-slide Long Tail of Instance-level Discriminative Ev-idence. Within each instance bag, the discriminative con-tributions of individual instances follow a highly skewed, long-tailed distribution: only a small fraction of patches carry the dominant diagnostic evidence, whereas the majority cor-respond to normal tissue or non-discriminative redundancy. Since instance-level annotations are unavailable, this evi-dence distribution cannot be directly observed. The subse-quent Visualization and Analysis section provides empirical support for the intra-slide long tail of instance-level discrimi-native evidence and its coupling with the class-level long tail through an analysis of debiased counterfactual contributions. 
+
+Method Overview 
+
+As illustrated in Fig. 2, DeCo-MIL follows three stages. In Stage 0, a standard MIL model is trained on the original bags and frozen as fjudge . In Stage 1, the frozen judge estimates debiased counterfactual contributions for shared morphol-ogy anchors and maps them to anchor-specific masking ra-tios. In Stage 2, these masking ratios are used to construct redundancy-reduced bags and anchor-stratified pseudo-bags for training ffinal with tail-aware oversampling and consis-tency regularization. Only ffinal is used for inference. 
+
+Debiased Counterfactual-Guided Redundancy Masking 
+
+DeCo-MIL intervenes on groups of morphologically related instances rather than individual patches. We apply global K-means clustering to all training patch features and obtain 
+
+K = 64 fixed morphology prototypes {Hk}Kk=1 . Each patch is assigned to its nearest anchor by cosine similarity: 
+
+zn = arg max 
+
+> k
+
+cos( xn, H k). (4) Because the prototypes are shared across the training set, they provide a common feature-space reference across slides. We additionally cluster patches from normal slides and se-lect, for each Hk, the most similar normal prototype ˆqk.For anchor k in slide X, we perform a model-level counter-factual intervention do( xn = ˆ qk) for all instances assigned to that anchor while leaving the remaining instances unchanged. Let Xdo( k) = {˜x(k) 
+
+> n
+
+}Nn=1 denote the intervened bag, where 
+
+˜x(k) 
+
+> n
+
+=
+
+ˆqk, zn = k, xn, zn̸ = k. (5) This intervention asks how the frozen model’s diagno-sis would change if the k-th morphology were replaced by its matched normal counterpart. Compared with zeroing or random noise, normal-prototype replacement helps reduce intervention-induced feature shift. We next evaluate the prediction change using the frozen judge model. Since class frequency can bias its posterior toward head classes, we calibrate the judge logits using the training prior πc = nc/ P 
+
+> c′
+
+nc′ , following prior-aware logit adjustment (Menon et al. 2021): 
+
+p′(c | X) = softmax( fjudge (X) − τ log π)c . (6) Here, τ controls the calibration strength, and is set to 
+
+1.0 for all datasets. The debiased counterfactual contribution of anchor k to class c is the difference in debiased log-probability before and after the intervention: 
+
+E′ ck = log p′(c | X) − log p′
+
+c | Xdo( k)
+
+. (7) For the ground-truth class y, a large E′ yk indicates that replacing anchor k substantially decreases the probability of the ground-truth class, suggesting that the anchor carries discriminative evidence. A contribution close to zero instead indicates likely redundancy. To penalize non-specific anchors that also support com-peting classes, we define ˜y = arg max c̸=y p′(c | X) as the highest-probability non-ground-truth class under the frequency-calibrated prediction of the original slide. We de-fine the anchor score as: 
+
+sk = E′ yk − λ E ′ ˜yk . (8) Equivalently, sk = λ(E′yk − E′˜yk ) + (1 − λ)E′yk balances class-specific contrast with frequency-calibrated ground-truth contribution. Based on sensitivity analysis, we set 
+
+λ = 0 .6 for all datasets, thereby retaining the frequency-calibrated normalization term in sk.We apply slide-wise min-max normalization to the an-chor scores, denoted by Norm( sk), with ϵ = 10 −8 added to the denominator for numerical stability, and map them to masking ratios: 
+
+rk = rmax [1 − Norm( sk)] . (9) Here, rmax < 1 is the maximum masking ratio. High-contribution anchors receive smaller masking ratios and are preferentially retained, whereas low-contribution anchors are more aggressively removed. We set rk = 0 for normal slides. All masking ratios are computed offline before final model training; instance-level random removal is performed online as described next. 
+
+Tail-Aware Pseudo-Bag Augmentation 
+
+Although the preceding redundancy-masking stage recovers discriminative evidence within each bag, tail classes still suf-fer from limited slide-level samples. We therefore construct stratified pseudo-bags from redundancy-reduced bags and combine them with class-aware oversampling. For slide X, let Gk be the instance set assigned to anchor 
+
+k, and let K = {k : Gk̸ = ∅} denote the set of its non-empty anchor indices. Based on rk, we randomly retain instances from each anchor to obtain the redundancy-reduced bag: 
+
+X∗ = [
+
+> k∈K
+
+RandSubset 
+
+
+
+Gk, (1 − rk)|Gk|
+
+. (10) Here, RandSubset( G, m ) uniformly samples m instances without replacement, and ⌊·⌉ denotes nearest-integer round-ing. With fixed masking ratios, retained instances are resam-pled at each visit, providing instance-level augmentation. We then construct pseudo-bags by stratified sampling over the retained anchors. Let G∗ 
+
+> k
+
+be the instances of anchor k
+
+retained in X∗, and let K∗ = {k ∈ K : G∗
+
+> k
+
+̸ = ∅} . The m-th pseudo-bag is 
+
+B(m) = [
+
+> k∈K ⋆
+
+RandSubset( G⋆k, max {1, ⌊ρ|G⋆k|⌉} ) , (11) where the sampling ratio is fixed at ρ = 0 .5. The lower bound of one prevents any retained anchor from being omit-ted, reducing the risk that a discriminative anchor is absent from a pseudo-bag. At every visit, we independently generate 
+
+Mpb = 3 pseudo-bags inheriting the source-slide label y.Class-level rebalancing is implemented through tail-aware oversampling. Let nmax be the size of the largest class. A slide from class c is sampled ac times per epoch: 
+
+ac = clip 
+
+
+
+round 
+
+ nmax 
+
+nc
+
+α
+
+, 1, cap 
+
+
+
+, (12) where α controls the oversampling strength and cap limits the maximum number of repetitions; we set cap = 8 across datasets. Tail-class slides are thus sampled more frequently, and each sampling generates different redundancy-reduced bags and pseudo-bags. The resulting X∗ and pseudo-bags are used by the main and auxiliary branches, respectively. 
+
+Training Objective 
+
+The final model is optimized using 
+
+Lfinal = Lmain + Lpseudo + βLcons , (13) where Lmain applies cross-entropy supervision to the redundancy-reduced bag X∗, and Lpseudo averages the cross-entropy losses over the Mpb pseudo-bags using their source-slide label y.To reduce the prediction variance caused by random pseudo-bag sampling, we further encourage pseudo-bags from the same slide to produce consistent predictions. Let 
+
+p(m) denote the predicted distribution of pseudo-bag B(m)
+
+and ¯p = 1
+
+> Mpb
+
+PMpb  
+
+> m=1
+
+p(m) their mean prediction. The con-sistency loss is defined as: 
+
+Lcons = 1
+
+Mpb 
+
+> Mpb
+
+X
+
+> m=1
+
+KL 
+
+
+
+p(m) ∥ ¯p
+
+
+
+. (14) Here, β controls the consistency regularization and is set to 0.5 for all datasets. At inference, only ffinal is retained and applied to the original full bag X; the judge model, redundancy masking, and pseudo-bag construction are used only during training. Method Camelyon+-LT (IR=30) PANDA-LT (IR=50) TissueNet-LT (IR=10) ACC(%) AUC(%) F1(%) Tail-F1(%) ACC(%) AUC(%) F1(%) Tail-F1(%) ACC(%) AUC(%) F1(%) Tail-F1(%) AB-MIL 61 .56 2.54 87 .76 1.69 52 .46 2.71 0.00 0.00 51 .28 0.83 86 .74 0.36 45 .90 1.30 19 .85 3.38 56 .67 1.05 83 .06 0.96 49 .64 0.81 0.00 0.00 
+
+CLAM-SB 63 .75 1.53 89 .43 0.59 54 .54 1.61 0.00 0.00 49 .48 0.50 86 .80 0.32 41 .74 0.84 6.76 3.22 55 .50 0.41 81 .96 0.43 48 .42 0.30 0.00 0.00 
+
+CLAM-MB 61 .88 0.77 80 .46 0.36 52 .84 0.82 0.00 0.00 51 .40 0.84 86 .93 0.28 45 .70 1.68 18 .40 5.21 59 .50 0.85 83 .82 0.57 52 .75 1.47 3.67 4.87 
+
+DS-MIL 64 .69 3.64 88 .65 2.31 55 .67 3.55 0.00 0.00 57 .40 1.23 88 .32 0.35 55 .18 1.50 41 .68 6.15 62 .83 2.51 86 .16 1.86 57 .47 1.70 15 .48 4.37 
+
+TransMIL 63 .12 3.06 83 .82 2.48 56 .59 4.30 14 .37 9.74 53 .35 1.49 85 .46 1.10 51 .08 2.31 40 .61 8.21 63 .33 2.64 86 .36 1.61 60 .53 3.29 26 .96 10 .54 
+
+ILRA-MIL 64 .69 3.22 88 .73 1.27 56 .77 4.22 6.93 5.66 58 .02 0.85 88 .47 0.32 56 .60 0.69 45 .67 2.82 62 .83 2.27 84 .66 0.98 60 .96 2.87 35 .42 7.23 
+
+MHIM-MIL 62 .19 1.53 88 .17 1.09 53 .15 1.96 0.00 0.00 56 .85 0.77 87 .62 0.32 55 .38 1.38 45 .04 3.31 63 .50 2.91 84 .99 1.45 59 .35 4.34 20 .67 13 .81 
+
+MiCo-MIL 60 .00 1.59 87 .27 1.38 51 .21 1.44 4.71 5.76 54 .82 2.17 87 .04 0.69 52 .46 2.51 37 .86 5.81 66 .83 3.63 87 .72 0.65 65 .09 4.36 41 .01 8.38 
+
+AMD-MIL 61 .56 2.72 84 .74 3.29 54 .16 2.50 14 .60 12 .15 57 .02 1.09 87 .74 0.42 55 .18 1.53 43 .86 3.25 63 .67 1.35 85 .50 0.60 62 .53 1.11 36 .81 3.44 
+
+WiKG-MIL 63 .12 3.37 89 .38 2.56 57 .00 4.09 15 .82 5.24 59 .27 1.84 88 .55 0.73 57 .81 2.46 44 .85 5.02 63 .83 1.25 85 .07 0.37 61 .92 1.12 36 .12 5.40 
+
+MDE-MIL 60 .62 1.82 85 .83 2.56 52 .95 2.70 17 .81 4.95 56 .08 1.62 86 .79 0.97 54 .66 2.43 45 .52 6.75 65 .50 1.72 87 .24 0.50 64 .09 1.68 39 .39 4.22 
+
+DeCo-MIL 68 .44 1.17 91 .08 0.36 64 .65 1.11 36 .63 4.13 59 .82 0.39 88 .63 0.20 59 .49 0.43 53 .07 1.34 67 .17 3.14 88 .89 0.54 66 .69 3.28 47 .99 5.68 
+
+Table 1: Comparison with baseline methods on three long-tailed pathology datasets. Subscripts denote standard deviations. AB-MIL TransMIL AMD-MIL DeCo-MIL 
+
+Camelyon+-LT (IR=30) 
+
+020 40 60 80 100 F1 (%) 
+
+Total Head Medium Tail 
+
+PANDA-LT (IR=50) 
+
+Total Head Medium Tail 
+
+TissueNet-LT (IR=10) 
+
+Total Head Medium Tail 
+
+> !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~ !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
+
+Figure 3: Overall and group-wise F1 scores of different methods on three long-tailed pathology datasets. 
+
+Experiments 
+
+Datasets and Evaluation Metrics 
+
+We evaluate DeCo-MIL on three multi-class WSI datasets: Camelyon+-LT for four-class lymph-node metastasis clas-sification, PANDA-LT for six-class prostate ISUP grading, and TissueNet-LT for four-class cervical lesion classifica-tion. Camelyon+-LT retains its natural long-tailed distribu-tion ( IR = 30 ), while PANDA-LT and TissueNet-LT are constructed with training-set imbalance ratios of 50 and 10, respectively. The validation and test sets remain class-balanced. We report slide-level ACC, one-vs-rest macro-AUC, macro-F1, and frequency-group F1 averaged as the mean and standard deviation over five independent runs. De-tailed data statistics and group assignments are provided in the supplementary material. 
+
+Implementation Details 
+
+All experiments are implemented in PyTorch and conducted on a workstation equipped with an NVIDIA A100 GPU (80 GB). Each WSI is tiled at 20 × magnification into non-overlapping 512 × 512 patches. Patch features are ex-tracted using the pretrained pathology foundation model CONCH (Lu et al. 2024) and then ℓ2-normalized. In DeCo-MIL, the judge model fjudge and final model ffinal both use AB-MIL as the default MIL backbone. Uniform hyperparameters are maintained across all ex-periments. Models are optimized using Adam with an initial learning rate of 2×10 −4 and a weight decay of 1×10 −5. The checkpoint with the highest validation macro-F1 is selected. 
+
+Comparison with State-of-the-Art Methods 
+
+We compare DeCo-MIL with eleven representative WSI MIL methods: AB-MIL (Ilse, Tomczak, and Welling 2018), CLAM-SB/MB (Lu et al. 2021), DS-MIL (Li, Li, and Eli-ceiri 2021), TransMIL (Shao et al. 2021), WiKG (Li et al. 2024), ILRA-MIL (Xiang et al. 2023), MHIM-MIL (Tang et al. 2023), AMD-MIL (Ling et al. 2024), MiCo (Li et al. 2025), and MDE-MIL (Ling et al. 2026). As shown in Table 1, DeCo-MIL achieves the highest mean on every reported metric across the three datasets, with the most pronounced gains on tail classes. Compared with the best-performing Tail-F1 baseline on each dataset, DeCo-MIL achieves absolute gains of 18 .82 , 7.40 , and 6.98 percentage points on Camelyon+-LT, PANDA-LT, and TissueNet-LT, respectively, demonstrating that its debiased counterfactual reasoning effectively captures scarce tail-class evidence and Dataset Module ACC(%) AUC(%) F1(%) Tail-F1(%) Camelyon+ Base 61 .56 2.54 87 .76 1.69 52 .46 2.71 0.00 0.00 
+
++ Counterfactual 65 .94 1.17 85 .27 0.53 59 .45 1.60 13 .86 4.18 
+
++ Debiasing 64 .38 1.82 89 .67 0.86 58 .18 1.85 18 .04 5.12 
+
++ Pseudo-bag 63 .75 1.82 90 .18 1.19 58 .96 1.72 29 .16 4.10 
+
++ Oversampling 68 .44 1.17 91 .08 0.36 64 .65 1.11 36 .63 4.13 
+
+PANDA Base 51 .28 0.83 86 .74 0.36 45 .90 1.30 19 .85 3.38 
+
++ Counterfactual 57 .30 1.05 88 .26 0.14 56 .07 1.35 45 .36 2.55 
+
++ Debiasing 58 .18 0.72 88 .60 0.14 56 .74 1.21 45 .03 3.92 
+
++ Pseudo-bag 59 .62 0.45 89 .03 0.18 58 .48 0.71 48 .27 2.77 
+
++ Oversampling 59 .82 0.39 88 .63 0.20 59 .49 0.43 53 .07 1.34 
+
+TissueNet Base 56 .67 1.05 83 .06 0.96 49 .64 0.81 0.00 0.00 
+
++ Counterfactual 58 .33 4.12 84 .00 1.33 56 .48 4.87 33 .12 7.42 
+
++ Debiasing 60 .00 1.58 83 .90 0.54 58 .90 1.75 36 .29 4.72 
+
++ Pseudo-bag 62 .50 2.64 85 .34 0.66 61 .46 2.33 39 .11 3.41 
+
++ Oversampling 67 .17 3.14 88 .89 0.54 66 .69 3.28 47 .99 5.68 
+
+Table 2: Component ablation on three long-tailed pathology datasets. Strategy Camelyon+-LT PANDA-LT TissueNet-LT F1(%) Tail-F1(%) F1(%) Tail-F1(%) F1(%) Tail-F1(%) Random 56 .21 2.25 25 .09 7.54 57 .94 1.21 48 .37 1.82 63 .20 0.59 38 .57 2.18                   
+
+> Attention 58 .16 1.51 20 .34 7.52 57 .48 1.01 46 .81 1.43 63 .81 2.56 41 .91 3.28
+> Anchor-size 61 .30 3.46 23 .56 7.05 58 .83 0.71 51 .12 1.84 65 .46 1.89 43 .02 6.35
+> Counterfactual 64 .65 1.11 36 .63 4.13 59 .49 0.43 53 .07 1.34 66 .69 3.28 47 .99 5.68
+
+Table 3: Comparison of different masking strategies on three long-tailed pathology datasets. enhances rare-class recognition under the nested dual long-tailed setting of WSI classification. As shown in Fig. 3, DeCo-MIL substantially improves Tail-F1 while maintaining Head-F1 comparable to strong baselines on all three datasets; it also improves Medium-F1. The tail-class gains are therefore not obtained at the expense of head-class recognition. 
+
+Ablation Studies 
+
+Component Ablation Table 2 evaluates the incremen-tal contribution of each component. Counterfactual-guided masking provides the most immediate gains for tail classes, demonstrating the importance of removing redundant in-stances while preserving discriminative evidence. Fre-quency debiasing further improves tail-class performance on Camelyon+-LT and TissueNet-LT, while improving the over-all metrics on PANDA-LT with its Tail-F1 largely preserved, demonstrating that class-frequency calibration reduces inter-ference from head-class priors. Finally, sequentially adding stratified pseudo-bags and tail-aware oversampling consis-tently improves Tail-F1 across all three datasets, validating their complementary roles in preserving morphology cover-age and strengthening effective supervision for tail classes. Overall, all proposed components play key roles in DeCo-MIL and jointly mitigate the nested dual long-tail problem. 
+
+Effectiveness of Debiased Counterfactual-Guided Mask-ing To evaluate the role of counterfactual contributions in instance selection, we compare the proposed counterfactual-guided masking with random, attention-based, and anchor-size masking under the same maximum masking ratio and Strategy Camelyon+-LT PANDA-LT TissueNet-LT F1(%) Tail-F1(%) F1(%) Tail-F1(%) F1(%) Tail-F1(%) Zero 56 .16 2.60 21 .30 13 .13 57 .61 0.92 48 .26 3.24 64 .21 2.11 41 .01 4.50 
+
+Anchor Proto. 61 .22 3.41 25 .29 9.37 58 .28 1.11 51 .90 1.20 64 .53 2.64 43 .93 4.84 
+
+Normal Proto. 64 .65 1.11 36 .63 4.13 59 .49 0.43 53 .07 1.34 66 .69 3.28 47 .99 5.68 
+
+Table 4: Comparison of different counterfactual construc-tions on three long-tailed pathology datasets. Strategy Camelyon+-LT PANDA-LT TissueNet-LT F1(%) Tail-F1(%) F1(%) Tail-F1(%) F1(%) Tail-F1(%) Random 58 .20 3.44 13 .11 12 .41 57 .19 0.54 47 .51 1.09 64 .35 1.82 38 .48 4.49             
+
+> Equal-per-Anchor 61 .31 4.27 22 .72 14 .89 58 .17 0.48 50 .47 1.56 64 .26 2.43 42 .17 3.20
+> Stratified 64 .65 1.11 36 .63 4.13 59 .49 0.43 53 .07 1.34 66 .69 3.28 47 .99 5.68
+
+Table 5: Effectiveness of different sampling strategies on three long-tailed pathology datasets. training protocol; detailed definitions are provided in the supplementary material. As shown in Table 3, our strat-egy achieves the best macro-F1 and Tail-F1 across all three datasets. Random masking ignores the discriminative rele-vance of individual instances, while attention-based masking does not explicitly correct for class-frequency bias. Anchor-size masking favors larger tissue regions but cannot distin-guish discriminative morphologies from redundant ones. In contrast, our strategy uses frequency-debiased counterfac-tual contributions to determine both masking targets and ra-tios, thereby removing redundant instances while preserving scarce tail-class evidence. We further compare three counterfactual constructions: replacing all instances assigned to the target anchor with a zero vector, the corresponding morphology prototype Hk,or the matched normal prototype ˆqk used in our method. As shown in Table 4, matched normal prototype replace-ment performs best across all three datasets. Zero replace-ment produces off-manifold interventional features, whereas 
+
+Hk retains substantial anchor-specific tissue semantics. In contrast, ˆqk attenuates pathology-specific information while remaining closer to the distribution of normal features, mak-ing it a more suitable counterfactual reference. Together, these results support the effectiveness of frequency-debiased counterfactual-guided masking and matched normal proto-type intervention. 
+
+Effectiveness of Anchor-Stratified Pseudo-Bag Sampling 
+
+To evaluate the pseudo-bag construction strategy, we com-pare random, equal-per-anchor, and the proposed anchor-stratified sampling under the same sampling ratio and num-ber of pseudo-bags. As shown in Table 5, stratified sam-pling achieves the highest macro-F1 and Tail-F1 across all three datasets, demonstrating consistent gains on tail classes. Random sampling can omit scarce discriminative regions, whereas equal-per-anchor sampling alters the relative com-position across different tissue morphologies. The proposed strategy samples instances proportionally from each retained anchor, preserving both tissue coverage and relative instance composition while making fuller use of the limited discrim-inative evidence in tail-class slides. AB-MIL DeCo-MIL 
+
+(a) Total F1 (%)     
+
+> 45 50 55 60 10 20 30 40 50
+
+(b) Tail-F1 (%)     
+
+> 20 30 40 50 60 10 20 30 40 50
+> +12.2 +12.3 +17.8 +25.1 +33.2
+
+Imbalance Ratio !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~ !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~ Figure 4: Performance comparison under different imbalance ratios on PANDA-LT. (a) Total F1 and (b) Tail-F1 of AB-MIL and DeCo-MIL. The purple annotations denote the Tail-F1 percentage-point gains of DeCo-MIL over AB-MIL. 
+
+Figure 5: Nested dual long-tail analysis on PANDA-LT (IR = 50 ): (a) ranked debiased counterfactual contributions of tissue anchors and (b) the corresponding Lorenz curves and Gini coefficients. 
+
+Robustness to Varying Imbalance Ratios 
+
+To evaluate the robustness of DeCo-MIL under different de-grees of long-tailed imbalance, we vary the training-set im-balance ratio on PANDA-LT as IR ∈ { 10 , 20 , 30 , 40 , 50 }
+
+and compare DeCo-MIL with AB-MIL on the same balanced test set. As shown in Fig. 4, the overall and tail-class perfor-mance of AB-MIL declines markedly as IR increases, with particularly severe degradation in Tail-F1. In contrast, DeCo-MIL maintains more stable overall and tail-class performance across different imbalance ratios, while its advantage consis-tently widens as the imbalance becomes more severe. These results show that DeCo-MIL effectively mitigates tail-class performance degradation caused by long-tailed distributions and is better suited to severely imbalanced settings. 
+
+Visualization and Analysis 
+
+Analysis of the Nested Dual Long-Tail We aggregate the debiased counterfactual contributions ¯Eyk produced by the judge on PANDA-LT ( IR = 50 ) according to the Head, Medium, and Tail groups. As shown in Fig. 5(a), only a few anchors in each group carry the dominant discrimina-tive information, while the remaining contributions are close (a) 
+
+(b)   
+
+> Original tissue Anchor assignment Counterfactual contribution
+> (warm=high, cool=negative)
+> Expected retention
+> (dark=kept, light=masked)
+
+Figure 6: Visualization of DeCo-MIL on tail-class slides from Camelyon+-LT: From left to right: the original WSI with official lesion annotations, morphology-anchor assign-ments, debiased counterfactual contribution heatmaps, and expected retention maps. Yellow contours denote the official lesion annotations. to zero or negative. After clipping negative contributions to zero, the Gini coefficient in Fig. 5(b) increases monotonically from Head to Tail. Moreover, the top 10% of anchors account for 53%–74% of the total positive contribution while cover-ing only 15%–22% of the patches. These results show that discriminative evidence is concentrated in a small number of tissue morphologies and becomes increasingly concentrated for rarer classes, providing empirical support for the coupling between the class-level long tail and instance-level evidence long tail. 
+
+Interpretability Analysis We conduct an interpretabil-ity analysis of DeCo-MIL using tail-class slides from Camelyon+-LT, as shown in Fig. 6. Regions with high posi-tive contributions exhibit clear spatial agreement with the annotated lesions and consequently receive higher reten-tion probabilities, while most non-discriminative regions are preferentially masked. These results visually illustrate that debiased counterfactual reasoning can identify lesion-related tissue morphologies and guide redundancy masking to pre-serve scarce discriminative evidence for tail classes. 
+
+Conclusion 
+
+This paper studies long-tailed WSI analysis from the perspec-tive of a nested dual long-tail, where the inter-slide class long tail is coupled with the intra-slide long tail of instance-level discriminative evidence. We propose DeCo-MIL, which uses frequency-debiased counterfactual reasoning with matched normal prototypes to quantify the discriminative contribu-tions of tissue-morphology anchors and guide redundancy masking, thereby preserving scarce discriminative instances. It further combines anchor-stratified pseudo-bags, tail-aware oversampling, and consistency regularization to strengthen supervision for tail classes while maintaining relative tissue-morphology composition. Experiments on three long-tailed WSI datasets show that DeCo-MIL achieves state-of-the-art overall and tail-class performance. Component ablations, robustness evaluations across imbalance ratios, and visual-ization analyses further validate the proposed designs and provide empirical support for the nested dual long-tail. References 
+
+Buda, M.; Maki, A.; and Mazurowski, M. A. 2018. A System-atic Study of the Class Imbalance Problem in Convolutional Neural Networks. Neural Networks , 106: 249–259. Cao, K.; Wei, C.; Gaidon, A.; Arechiga, N.; and Ma, T. 2019. Learning Imbalanced Datasets with Label-Distribution-Aware Margin Loss. In Advances in Neural Information Processing Systems , volume 32, 1565–1576. Chikontwe, P.; Kim, M.; Jeong, J.; Sung, H. J.; Go, H.; Nam, S. J.; and Park, S. H. 2025. FR-MIL: Distribution Re-Calibration-Based Multiple Instance Learning With Trans-former for Whole Slide Image Classification. IEEE Trans-actions on Medical Imaging , 44(1): 409–421. Chou, H.-P.; Chang, S.-C.; Pan, J.-Y.; Wei, W.; and Juan, D.-C. 2020. Remix: Rebalanced Mixup. In Computer Vision – ECCV 2020 Workshops , 95–110. Springer. Fang, H.; Huang, S.; Tang, W.; Huangfu, L.; and Liu, B. 2024. SAM-MIL: A Spatial Contextual Aware Multiple In-stance Learning Approach for Whole Slide Image Classifi-cation. In Proceedings of the ACM International Conference on Multimedia (ACM MM) , 6083–6092. Fong, R. C.; and Vedaldi, A. 2017. Interpretable Expla-nations of Black Boxes by Meaningful Perturbation. In 
+
+IEEE International Conference on Computer Vision (ICCV) ,3429–3437. Hou, W.; Yu, L.; Lin, C.; Huang, H.; Yu, R.; Qin, J.; and Wang, L. 2022. H 2-MIL: Exploring Hierarchical Represen-tation with Heterogeneous Multiple Instance Learning for Whole Slide Image Analysis. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 36, 933–941. Ilse, M.; Tomczak, J. M.; and Welling, M. 2018. Attention-based Deep Multiple Instance Learning. In International Conference on Machine Learning (ICML) , 2127–2136. Juyal, D.; Shingi, S.; Javed, S. A.; Padigela, H.; Shah, C.; Sampat, A.; Khosla, A.; Abel, J.; and Taylor-Weiner, A. 2024. SC-MIL: Supervised Contrastive Multiple Instance Learning for Imbalanced Classification in Pathology. In Proceedings of the IEEE/CVF Winter Conference on Applications of Com-puter Vision (WACV) , 7946–7955. Kang, B.; Xie, S.; Rohrbach, M.; Yan, Z.; Gordo, A.; Feng, J.; and Kalantidis, Y. 2020. Decoupling Representation and Classifier for Long-Tailed Recognition. In International Con-ference on Learning Representations .Li, B.; Li, Y.; and Eliceiri, K. W. 2021. Dual-stream Mul-tiple Instance Learning Network for Whole Slide Image Classification with Self-supervised Contrastive Learning. In IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 14318–14328. Li, J.; Chen, Y.; Chu, H.; Sun, Q.; Guan, T.; Han, A.; and He, Y. 2024. Dynamic graph representation with knowledge-aware attention for histopathology whole slide image analy-sis. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 11323–11332. Li, J.; Liu, J.; Kuang, H.; Yue, H.; He, M.; and Wang, J. 2025. MiCo: Multiple Instance Learning with Context-Aware Clus-tering for Whole Slide Image Analysis. In International Conference on Medical Image Computing and Computer-Assisted Intervention , 376–385. Springer. Lin, T.; Yu, Z.; Hu, H.; Xu, Y.; and Chen, C.-W. 2023. In-terventional Bag Multi-Instance Learning on Whole-Slide Pathological Images. In IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 19830–19839. Lin, W.; Zhuang, Z.; Yu, L.; and Wang, L. 2024. Boost-ing Multiple Instance Learning Models for Whole Slide Im-age Classification: A Model-Agnostic Framework Based on Counterfactual Inference. In Proceedings of the AAAI Con-ference on Artificial Intelligence , 3477–3485. Ling, X.; Li, X.; Li, J.; Fu, M.; Chen, Y.; Peng, J.; Ouyang, M.; Wang, Y.; He, Y.; Liu, X.; et al. 2026. Mul-timodal Distillation-Driven Ensemble Learning for Long-Tailed Histopathology Whole Slide Images Analysis. In 2026 IEEE 23rd International Symposium on Biomedical Imaging (ISBI) , 1–5. IEEE. Ling, X.; Ouyang, M.; Wang, Y.; Chen, X.; Yan, R.; Chu, H.; Cheng, J.; Guan, T.; Tian, S.; Liu, X.; et al. 2024. Agent aggregator with mask denoise mechanism for histopathology whole slide image analysis. In Proceedings of the 32nd ACM International Conference on Multimedia , 2795–2803. Lu, M. Y.; Chen, B.; Williamson, D. F. K.; Chen, R. J.; Liang, I.; Ding, T.; Jaume, G.; Odintsov, I.; Le, L. P.; Gerber, G.; Parwani, A. V.; Zhang, A.; and Mahmood, F. 2024. A Visual-Language Foundation Model for Computational Pathology. 
+
+Nature Medicine , 30(3): 863–874. Lu, M. Y.; Williamson, D. F. K.; Chen, T. Y.; Chen, R. J.; Barbieri, M.; and Mahmood, F. 2021. Data-efficient and weakly supervised computational pathology on whole-slide images. Nature Biomedical Engineering , 5(6): 555–570. Lundberg, S. M.; and Lee, S.-I. 2017. A Unified Approach to Interpreting Model Predictions. In Advances in Neural Information Processing Systems , volume 30, 4765–4774. Menon, A. K.; Jayasumana, S.; Rawat, A. S.; Jain, H.; Veit, A.; and Kumar, S. 2021. Long-Tail Learning via Logit Ad-justment. In International Conference on Learning Repre-sentations .Rao, Y.; Chen, G.; Lu, J.; and Zhou, J. 2021. Counterfactual Attention Learning for Fine-Grained Visual Categorization and Re-Identification. In Proceedings of the IEEE/CVF In-ternational Conference on Computer Vision , 1025–1034. Ren, J.; Yu, C.; Sheng, S.; Ma, X.; Zhao, H.; Yi, S.; and Li, H. 2020. Balanced Meta-Softmax for Long-Tailed Visual Recognition. In Advances in Neural Information Processing Systems , volume 33, 4175–4186. Shao, Z.; Bian, H.; Chen, Y.; Wang, Y.; Zhang, J.; Ji, X.; and Zhang, Y. 2021. TransMIL: Transformer Based Cor-related Multiple Instance Learning for Whole Slide Image Classification. In Advances in Neural Information Process-ing Systems , volume 34, 2136–2147. Song, A. H.; Chen, R. J.; Ding, T.; Williamson, D. F.; Jaume, G.; and Mahmood, F. 2024. Morphological prototyping for unsupervised slide representation learning in computational pathology. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , 11566–11578. Tang, K.; Huang, J.; and Zhang, H. 2020. Long-Tailed Clas-sification by Keeping the Good and Removing the Bad Mo-mentum Causal Effect. In Advances in Neural Information Processing Systems , volume 33, 1513–1524. Tang, W.; Huang, S.; Zhang, X.; Zhou, F.; Zhang, Y.; and Liu, B. 2023. Multiple Instance Learning Framework with Masked Hard Instance Mining for Whole Slide Image Clas-sification. In Proceedings of the IEEE/CVF International Conference on Computer Vision , 4078–4087. Wang, X.; Lian, L.; Miao, Z.; Liu, Z.; and Yu, S. X. 2021. Long-Tailed Recognition by Routing Diverse Distribution-Aware Experts. In International Conference on Learning Representations .Wang, Y.-X.; Ramanan, D.; and Hebert, M. 2017. Learn-ing to Model the Tail. In Advances in Neural Information Processing Systems , volume 30, 7029–7039. Wu, J.; Chen, M.; Ke, X.; Xun, T.; Jiang, X.; Zhou, H.; Shao, L.; and Kong, Y. 2025. Learning heterogeneous tissues with mixture of experts for gigapixel whole slide images. In 
+
+Proceedings of the Computer Vision and Pattern Recognition Conference , 5144–5153. Xiang, J.; Wang, X.; Zhang, J.; Yang, S.; Han, X.; and Yang, W. 2023. Exploring Low-Rank Property in Multiple In-stance Learning for Whole Slide Image Classification. In 
+
+The Eleventh International Conference on Learning Repre-sentations .Zeiler, M. D.; and Fergus, R. 2014. Visualizing and Under-standing Convolutional Networks. In European Conference on Computer Vision (ECCV) , 818–833. Springer. Table A.1: Class assignments to frequency groups.             
+
+> Dataset Head Medium Tail Camelyon+-LT (IR=30) 0, 2 13PANDA-LT (IR=50) 0, 1 2, 4 3, 5 TissueNet-LT (IR=10) 1, 0 23
+
+A Dataset Details and Long-Tail Construction 
+
+A.1 Common Preprocessing and Split Protocol 
+
+We evaluate DeCo-MIL on three multi-class whole-slide im-age (WSI) datasets: naturally long-tailed Camelyon+-LT and artificially long-tailed PANDA-LT and TissueNet-LT. WSIs are tiled at 20 × magnification into non-overlapping 512 ×512 
+
+patches. Patch features are extracted with the pretrained CONCH pathology foundation model and ℓ2-normalized be-fore prototype construction and MIL training. The frozen feature encoder is shared by all methods. For each class, slides are independently shuffled to reserve fixed class-balanced quotas for validation and testing, with the remaining slides forming the training pool. The natu-ral training distribution is retained for Camelyon+-LT. For PANDA-LT and TissueNet-LT, long-tailed training sets are constructed by class-wise downsampling from the training pool. Validation and test sets remain class-balanced and are never downsampled. For an artificially long-tailed training set, the imbalance ratio is 
+
+IR = nmax 
+
+nmin 
+
+, (A.1) where nmax and nmin are the numbers of training slides in the head and tail classes, respectively. Let the classes ordered from head to tail be c0, c 1, . . . , c C−1. Given a target imbalance ratio, the target size of the class at rank r is 
+
+ntarget  
+
+> r
+
+=
+
+$
+
+nmax 
+
+ 1IR 
+
+ rC−1
+
+%
+
+. (A.2) We uniformly sample without replacement 
+
+nkeep  
+
+> r
+
+= min  ntarget  
+
+> r
+
+, |pool( cr )| (A.3) slides from each class-specific training pool. Consequently, the realized IR can differ slightly from the nominal value because of integer rounding or a limited class pool. 
+
+A.2 Head, Medium, and Tail Groups 
+
+Head, Medium, and Tail groups are determined only by the class frequencies in the final training set and are used for evaluation and analysis, rather than model training. Under the main settings, the class assignments are shown in Table A.1. We adopt an adaptive grouping protocol. If at least one class contains fewer than 20 training slides, classes with more than 100 slides are assigned to Head, those with fewer than 20 to Tail, and the remainder to Medium. Otherwise, classes are sorted by decreasing training frequency and di-vided into three contiguous groups as evenly as possible, Table A.2: Camelyon+-LT data statistics.                          
+
+> Split 0123Total Full dataset 870 174 251 54 1,349 Train (IR=30) 844 148 225 28 1,245 Validation 10 10 10 10 40 Test 16 16 16 16 64
+
+with any remainder assigned to Head first and then Medium. The same grouping protocol is used in the evaluation and instance-level long-tail analyses. 
+
+A.3 Camelyon+-LT 
+
+Camelyon+-LT contains four lymph-node metastasis cate-gories: Negative (label 0), macro-metastasis (label 1), micro-metastasis (label 2), and isolated tumor cells (ITC; label 3). Its original distribution is naturally imbalanced. Detailed split statistics are reported in Table A.2. The realized training IR is 844 /28 ≈ 30 .1. No artificial downsampling is applied when constructing the training split. 
+
+A.4 PANDA-LT 
+
+PANDA-LT is a six-class prostate cancer grading task. Label 0 denotes benign tissue, and labels 1–5 correspond to ISUP grades 1–5. The head-to-tail order used for exponential downsampling is (0 , 1, 2, 4, 3, 5) . The realized IR of the main training split is 2,303 /46 ≈ 50 .1. The main split statistics and additional imbalance settings are summarized in Tables A.3 and A.4. The validation and test sets are identical across these IR settings. 
+
+A.5 TissueNet-LT 
+
+TissueNet-LT contains four cervical pathology categories: normal/subnormal epithelium (label 0), low-grade squamous intraepithelial lesion (LSIL; label 1), high-grade squamous intraepithelial lesion (HSIL; label 2), and invasive squamous cell carcinoma (SCC; label 3). Detailed split statistics are provided in Table A.5. The head-to-tail order is (1 , 0, 2, 3) . The tail-class target is ⌊238 /10 ⌋ = 23 , giving a realized IR of 238 /23 ≈ 10 .3.
+
+A.6 Morphology and Normal Prototypes 
+
+For each dataset, global K-means is applied to ℓ2-normalized patch features from training slides to obtain K = 64 mor-phology prototypes {Hk}Kk=1 . At most K × 10 ,000 patches are used to construct the clustering pool. Each patch is as-signed to its nearest prototype according to cosine similarity. Normal prototypes are constructed independently from label-0 training slides only. K-means with Kn = 32 is ap-plied to their ℓ2-normalized patch features. Each morphology prototype Hk is matched to the cosine-nearest normal pro-totype ˆqk. No validation or test slide is used to construct either prototype set. The numbers of label-0 training slides used to construct the normal prototypes are summarized in Table A.6. Table A.3: PANDA-LT data statistics under the main IR=50 setting.                                    
+
+> Split 012345Total Full dataset 2,603 2,399 1,209 1,118 1,124 1,102 9,555 Train (IR=50) 2,303 1,053 481 100 220 46 4,203 Validation 100 100 100 100 100 100 600 Test 200 200 200 200 200 200 1,200
+
+Table A.4: PANDA-LT training-set statistics at different nominal imbalance ratios.                                                 
+
+> Nominal IR Label 0 Label 1 Label 2 Label 3 Label 4 Label 5 Train total Realized IR 10 2,303 1,453 909 365 578 230 5,838 10.0 20 2,303 1,264 694 209 381 115 4,966 20.0 30 2,303 1,166 590 151 299 76 4,585 30.3 40 2,303 1,101 526 120 251 57 4,358 40.4 50 2,303 1,053 481 100 220 46 4,203 50.1
+
+Table A.5: TissueNet-LT data statistics under the main IR=10 setting.                          
+
+> Split 0123Total Full dataset 268 288 238 219 1,013 Train (IR=10) 110 238 51 23 422 Validation 20 20 20 20 80 Test 30 30 30 30 120
+
+Table A.6: Training slides used to construct normal proto-types.         
+
+> Dataset Label-0 category Slides Camelyon+-LT Negative 844 PANDA-LT Benign 2,303 TissueNet-LT Normal/subnormal 110
+
+B Implementation Details and Training Protocol 
+
+B.1 Three-Stage Training Pipeline 
+
+DeCo-MIL contains three stages and two independently pa-rameterized MIL models. 
+
+• Judge pretraining. A standard MIL model is trained on the original full bags for 30 epochs and then frozen as 
+
+fjudge .
+
+• Debiased counterfactual attribution. For every train-ing slide, the frozen judge produces anchor assignments, counterfactual contributions, and anchor-specific mask-ing ratios. This stage is performed without gradient com-putation. 
+
+• Final model training. A freshly initialized ffinal is trained for 30 epochs with online redundancy masking, anchor-stratified pseudo-bags, tail-aware oversampling, and consistency regularization weighted by β = 0 .5.All methods use the same frozen CONCH features, data splits, and evaluation protocol. For each random seed, a sep-arate judge model is trained once and used solely for offline counterfactual scoring. The resulting causal table is reused throughout final-model training for the same seed and is not shared across seeds. The judge is discarded after scoring, so DeCo-MIL introduces additional training-time overhead only and does not increase the parameter count or computa-tion at inference. Training uses one WSI per batch, and final performance is reported over five independent runs. 
+
+B.2 Frequency-Debiased Counterfactual Attribution 
+
+Let πc = nc/ P 
+
+> c′
+
+nc′ be the training-set slide frequency of class c. For a slide X, the frozen judge produces frequency-calibrated probabilities 
+
+p′(c | X) = softmax ( fjudge (X) − τ log π)c , (B.1) where τ = 1 .0 controls the calibration strength. For each non-empty morphology anchor k, all its instances are re-placed by the matched normal prototype ˆqk, yielding Xdo( k).The contribution of anchor k to an arbitrary class c is 
+
+E′ ck = log p′(c | X) − log p′ 
+
+c | Xdo( k)
+
+. (B.2) Because the contribution is computed from frequency-calibrated log-posteriors rather than raw logits, it reflects not only the change in the target-class logit but also the intervention-induced change in the prior-adjusted normaliza-tion over all classes. Frequency calibration therefore affects both the factual and intervened predictions and enters E′ ck
+
+through the difference between their normalization terms, as derived below. We select the strongest competing class from the calibrated prediction of the original slide as 
+
+˜y = arg max  
+
+> c̸=y
+
+p′(c | X), (B.3) and keep it fixed for all anchor interventions of that slide. The ground-truth and competing-class contributions are com-bined as 
+
+sk = E′ yk − λE ′ ˜yk , (B.4) where λ = 0 .6 for all datasets. Equivalently, 
+
+sk = λ
+
+
+
+E′ yk − E′ ˜yk
+
+
+
++ (1 − λ)E′ yk . (B.5) The first term measures class-specific evidence relative to the strongest competing class, whereas the second preserves the absolute ground-truth contribution measured under the frequency-calibrated posterior. Thus, λ controls the trade-off between class specificity and calibrated absolute contribu-tion. To make the effect of frequency calibration explicit, let 
+
+zc(X) = fjudge (X)c and 
+
+Zπ (X) = X
+
+> j
+
+exp ( zj (X) − τ log πj ) . (B.6) The calibrated log-probability is 
+
+log p′(c | X) = zc(X) − τ log πc − log Zπ (X). (B.7) Writing ∆a = a(X) − a(Xdo( k)), the class prior πc is un-changed by the intervention, and hence 
+
+E′ ck = ∆ zc − ∆ log Zπ . (B.8) Substitution into the anchor score gives 
+
+sk = ∆ zy − λ∆z˜y − (1 − λ)∆ log Zπ . (B.9) Therefore, with λ = 0 .6, the prior-dependent normalization term is retained with coefficient 1 − λ = 0 .4, confirming that frequency calibration remains active in the final anchor score. For the set K of non-empty anchors in a slide, we use the numerically stable slide-wise normalization 
+
+Norm( sk) = sk − min j∈K sj
+
+max j∈K sj − min j∈K sj + ϵ , ϵ = 10 −8.
+
+(B.10) If all anchor scores are identical, the normalized scores are zero. The normalized scores are mapped to 
+
+rk = rmax [1 − Norm( sk)] . (B.11) Higher-contribution anchors therefore receive lower mask-ing ratios. For normal slides, rk = 0 . We set rmax = 0 .9
+
+for Camelyon+-LT and rmax = 0 .5 for PANDA-LT and TissueNet-LT, as supported by the sensitivity analysis in Sec. D.1. 
+
+C Precise Definitions of Ablation Strategies 
+
+C.1 Masking Strategies 
+
+Within each random seed, all masking strategies use the same CONCH features, prototype assignments, frozen judge, max-imum masking ratio rmax , online masking operator, final-model architecture, optimization settings, and tail-aware training protocol. 
+
+Counterfactual-Guided Masking This is the proposed strategy. The anchor ratios are obtained from the frequency-debiased counterfactual scores: 
+
+rcausal  
+
+> k
+
+= rmax [1 − Norm( sk)] . (C.1) Table C.1: Definitions of the compared counterfactual con-structions.        
+
+> Construction Replacement bk
+> Zero replacement 0∈R512
+> Morphology-prototype replacement Hk
+> Matched-normal replacement (ours) ˆqk
+
+Random Masking Within each slide, the causal ratio vec-tor is independently permuted: 
+
+rrandom  
+
+> k
+
+= rcausal  
+
+> π(k)
+
+, (C.2) where π is a uniformly sampled permutation. Random mask-ing therefore preserves the multiset, mean, and sum of anchor-level ratios, but it does not necessarily preserve the realized patch-level masked fraction P 
+
+> k
+
+mkrk/ P 
+
+> k
+
+mk.
+
+Anchor-Size Masking Let mk be the number of instances assigned to anchor k. For non-degenerate anchor sizes, 
+
+rsize  
+
+> k
+
+= rmax 
+
+mk − mmin 
+
+mmax − mmin 
+
+. (C.3) Thus, larger tissue regions receive higher masking ratios. If all non-empty anchors have the same size, all ratios are set to zero. 
+
+Attention-Based Masking Let an be the patch attention produced by the frozen judge and ¯ak = m−1
+
+> k
+
+P 
+
+> n:zn=k
+
+an.For non-degenerate anchor-level attention, 
+
+rattn  
+
+> k
+
+= rmax 
+
+
+
+1 − ¯ak − amin 
+
+amax − amin 
+
+
+
+. (C.4) Anchors with lower mean attention receive higher masking ratios. If all non-empty anchors have identical mean atten-tion, all ratios are set to zero. 
+
+C.2 Counterfactual Constructions 
+
+For a target anchor k, all assigned instances are replaced while the other instances remain unchanged: 
+
+Xdo( k) 
+
+> n
+
+=
+
+bk, zn = k, Xn, otherwise . (C.5) The three compared constructions are summarized in Ta-ble C.1. All other Stage-1 and Stage-2 settings remain unchanged. 
+
+C.3 Pseudo-Bag Sampling Strategies 
+
+All pseudo-bag strategies use the same redundancy-reduced bag X⋆, sampling ratio ρ = 0 .5, number of pseudo-bags 
+
+Mpb = 3 , source-slide label, and training objective. They use the same sampling ratio but do not necessarily produce exactly identical pseudo-bag sizes because of per-anchor in-teger rounding and lower bounds. 
+
+• Random sampling: uniformly sample round( ρ|X⋆|) in-stances from the entire reduced bag. • Equal-per-anchor sampling: allocate an approximately equal quota to each non-empty anchor, independent of its original size. 
+
+• Anchor-stratified sampling (ours): independently sam-ple a fraction ρ from every retained anchor while retaining at least one instance from each retained anchor. 
+
+D Additional Analysis 
+
+D.1 Hyperparameter Sensitivity 
+
+Sensitivity to λ We evaluate six settings on all three datasets: λ = 0 , 0.2, 0.4, 0.6, 0.8, and 1.0. Each bar is the mean over five runs, and the main experiments use the unified setting λ = 0 .6. The corresponding results are shown in Fig. D.1. The unified setting λ = 0 .6 achieves the highest macro-F1 and Tail-F1 on all three datasets. In particular, λ = 1 retains only the class-specific contrast and removes the calibrated absolute-contribution term in the equivalent decomposition, whereas λ = 0 .6 balances both components. The result sup-ports retaining a nonzero absolute contribution without dis-carding competing-class suppression. To isolate the effect of frequency calibration, “+ Counter-factual” in Table 2 of the main paper uses τ = 0 , whereas “+ Debiasing” uses τ = 1 . Both settings fix λ = 0 .6 and keep all other components unchanged. The results show that frequency calibration improves Tail-F1 on Camelyon+-LT and TissueNet-LT, while improving the overall metrics on PANDA-LT with its Tail-F1 largely preserved. These results support the effectiveness of frequency calibration in mitigat-ing class-frequency bias. 
+
+Sensitivity to rmax We sweep six settings on all three datasets: rmax = 0 .4, 0.5, 0.6, 0.7, 0.8, and 0.9. Each bar is the mean over five runs. The corresponding results are shown in Fig. D.2. Camelyon+-LT benefits from stronger masking and reaches its best macro-F1 and Tail-F1 at rmax = 0 .9. For PANDA-LT and TissueNet-LT, rmax = 0 .5 provides the best balance and is used in the main experiments. The maximum masking ratio rmax is therefore selected at the dataset level based on the sensitivity analysis and then fixed across all runs and comparisons. Unless otherwise specified, all other hyperparameters are shared across datasets. The different op-tima reflect dataset-dependent redundancy and should not be interpreted as a universal masking strength. 
+
+Sensitivity to α We sweep six oversampling settings on all three datasets: α = 0 .5, 0.6, 0.7, 0.8, 0.9, and 1.0. Each bar is the mean over five runs. The corresponding results are shown in Fig. D.3. We use the unified setting α = 0 .8, which gives the strongest overall balance on Camelyon+-LT and PANDA-LT and the highest Tail-F1 on TissueNet-LT. Although α = 1 .0
+
+yields a slightly higher macro-F1 on TissueNet-LT, its Tail-F1 is lower than that obtained with α = 0 .8. Overall, perfor-mance remains relatively stable across a broad range of α,with α = 0 .8 providing the most favorable balance between overall metrics and Tail-F1. 
+
+D.2 Nested Dual Long-Tail Statistics 
+
+For PANDA-LT at IR=50, let St denote the pooled le-sion slides whose classes belong to frequency group t ∈{Head , Medium , Tail }. For anchor k, let St,k ⊆ S t contain only slides in which that anchor is present and has a valid contribution. The group-level contribution is the slide-wise mean 
+
+¯Etk = 1
+
+|S t,k |
+
+X
+
+> i∈S t,k
+
+E′ yi 
+
+> ik
+
+. (D.1) Thus, slides are equally weighted within each group. An ab-sent anchor is stored as NaN and does not enter the denom-inator for that anchor. If St,k is empty, anchor k is omitted from the group-level statistics. Normal slides are also omit-ted because no counterfactual contribution is stored for them. The ranked contribution curve uses the raw signed values of 
+
+¯Etk.For the concentration statistics, we define utk =max( ¯Etk, 0) over all valid group-level anchors. The Gini coefficient for the resulting non-negative vector u =(u1, . . . , u n), sorted in ascending order, is 
+
+G(u) = 2 Pni=1 iu i
+
+n Pni=1 ui
+
+− n + 1 
+
+n . (D.2) The top-10% set contains max(1 , round(0 .1n)) anchors with the largest raw ¯Etk. Its contribution share is the sum of their non-negative contributions divided by P 
+
+> k
+
+utk. Patch coverage is the number of patches assigned to these top-ranked anchors, pooled over the same lesion slides, divided by the total number of patches assigned to all valid anchors. In the observed results, the top 10% of anchors account for 53%–74% of the total positive contribution while covering only 15%–22% of patches, and the Gini coefficient increases from Head to Tail. The corresponding ranked-contribution and concentration curves are shown in Figure 5 of the main paper. 
+
+D.3 Additional Visualization Results 
+
+Figure D.4 extends the interpretability analysis in Fig. 6 of the main paper with additional correctly classified slides from Camelyon+-LT, covering small, fragmented, and extensive lesions. Despite substantial variations in tissue morphology and lesion extent, regions with high positive counterfactual contributions generally align with the official tumor anno-tations, whereas most non-lesion regions exhibit near-zero or negative contributions. These high-contribution regions are consequently assigned higher expected retention, while less informative tissue is more likely to be removed during redundancy masking. A consistent correspondence among tumor annotations, counterfactual contributions, and reten-tion maps is also observed across these additional cases, further complementing the visualization results presented in the main paper. Overall, these results further illustrate how DeCo-MIL identifies lesion-related tissue morphologies and preserves diagnostically informative evidence under long-tailed WSI classification. Figure D.1: Sensitivity to λ. Each bar shows the mean over five runs. 
+
+Figure D.2: Sensitivity to the maximum masking ratio rmax . Each bar shows the mean over five runs. 
+
+Figure D.3: Sensitivity to the oversampling strength α. Each bar shows the mean over five runs. Figure D.4: Additional visualizations on Camelyon+-LT. Each row shows a different correctly classified slide. From left to right: the original tissue image, morphology-anchor assignment, debiased counterfactual contribution, and expected retention map. Yellow contours denote official tumor annotations. Warm and cool colors indicate positive and negative contributions, respectively, while darker green indicates higher expected retention.
