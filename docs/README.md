@@ -6,40 +6,49 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-08-19
-- 运行时间：2026-08-19 20:43:14 UTC
+- 最新运行日期：2026-08-20
+- 运行时间：2026-08-20 20:24:50 UTC
 - 运行状态：成功
-- 本次总论文数：6
-- 精读区：4
-- 速读区：2
+- 本次总论文数：9
+- 精读区：2
+- 速读区：7
 
 ### 今日简报（AI）
-今日精读聚焦病理AI双高篇，覆盖乳腺与子宫组织分析；速读2篇则关注医学影像中伪影抑制与分割效率。  
-最值得细读的是《MagViT》的多倍注意力Transformer与患者级模型选择，以及《Learning latent progression states》从空间异质性建模疾病进展，两者均为9.0分。  
-下一步可优先用精读论文的方法复现于自有数据集，速读两篇可作低优先级参考。
-- 详情：[/202608/19/README](/202608/19/README)
+今日聚焦医学影像AI，精读9分工作：肺结节VLM表征与决策框架，及MedSAM3的少样本LoRA微调。  
+最值得关注：FZ-VLM实现肺结节临床决策，而“Few Cases Are All You Need”证明极小数据即可高效微调分割大模型。  
+下一步建议：结合多模态融合与可解释性分析，探索更稳健的临床落地路径。
+- 详情：[/202608/20/README](/202608/20/README)
 
 ### 精读区论文标签
-1. [MagViT: Interpretable Multi-Magnification Transformers with Patient-Level Model Selection for Breast Histopathology](/202608/19/2608.16959v1-magvit-interpretable-multi-magnification-transformers-with-patient-level-model-selection-for-breast-histopathology)  
+1. [FZ-VLM: A Two Stage Florence-Zephyr Vision Language Model Framework for Pulmonary Nodule Characterization and Clinical Decision Making](/202608/20/2608.15004v1-fz-vlm-a-two-stage-florence-zephyr-vision-language-model-framework-for-pulmonary-nodule-characterization-and-clinical-decision-making)  
    标签：评分：9.0/10、query:cpath
-   evidence：用深度学习Transformer从组织病理图像自动诊断乳腺癌
-2. [Learning latent progression states from spatial heterogeneity in uterine histopathology](/202608/19/2608.17337v1-learning-latent-progression-states-from-spatial-heterogeneity-in-uterine-histopathology)  
+   evidence：面向肺结节表征和临床决策的视觉语言模型框架
+2. [A Few Cases Are All You Need: An Empirical Study of Annotation-Efficient LoRA Fine-Tuning of MedSAM3](/202608/20/2608.18731v1-a-few-cases-are-all-you-need-an-empirical-study-of-annotation-efficient-lora-fine-tuning-of-medsam3)  
    标签：评分：9.0/10、query:cpath
-   evidence：基于万余张全切片的子宫计算病理学框架，支持癌症诊断
-3. [PathoArgus: Advancing Evidence-Grounded Long-Context Visual Reasoning across Gigapixel Whole-Slide and Multi-Slide Case Contexts](/202608/19/2608.17607v1-pathoargus-advancing-evidence-grounded-long-context-visual-reasoning-across-gigapixel-whole-slide-and-multi-slide-case-contexts)  
-   标签：评分：9.0/10、query:cpath
-   evidence：面向千兆像素全切片与多切片上下文的病理视觉推理基准
-4. [Lymphocyte Mimicry Correction via Region-Level Tissue Reasoning and Unbalanced Optimal Transport](/202608/19/2608.17151v1-lymphocyte-mimicry-correction-via-region-level-tissue-reasoning-and-unbalanced-optimal-transport)  
-   标签：评分：8.0/10、query:cpath
-   evidence：涉及细胞基础模型和病理多模态大模型，用于病理组织背景推理
+   evidence：研究医学基础模型MedSAM3的标注高效LoRA微调
 
 ### 速读区论文标签
-1. [SpurCon: Weighted Supervised Contrastive Learning for Mitigating Spurious Cues in Medical Imaging](/202608/19/2608.17598v1-spurcon-weighted-supervised-contrastive-learning-for-mitigating-spurious-cues-in-medical-imaging)  
+1. [MultiSigBERT: Beyond Survival Analysis through Multimodal and Sequential Modeling in Oncology](/202608/20/2608.16972v1-multisigbert-beyond-survival-analysis-through-multimodal-and-sequential-modeling-in-oncology)  
+   标签：评分：7.0/10、query:cpath
+   evidence：采用文本、数值与结构化EHR多模态数据进行肿瘤学时序生存建模
+2. [Pathology Transport: Optimal-Transport Explanations for Clinical Data, and When Their Heatmaps (Fail to) Localize Disease](/202608/20/2608.17370v1-pathology-transport-optimal-transport-explanations-for-clinical-data-and-when-their-heatmaps-fail-to-localize-disease)  
+   标签：评分：7.0/10、query:cpath
+   evidence：用于临床病理数据的最优传输解释及疾病定位
+3. [When Two Tracers Disagree: An Investigation of Multimodal Fusion for Clinical PET/CT Segmentation](/202608/20/2608.19063v1-when-two-tracers-disagree-an-investigation-of-multimodal-fusion-for-clinical-petct-segmentation)  
+   标签：评分：7.0/10、query:cpath
+   evidence：在前列腺癌PET/CT病灶分割中比较早融合与中间融合等多模态融合架构
+4. [Unsupervised Learning of Cell Instances with Generative Routing Pyramids](/202608/20/2608.16810v1-unsupervised-learning-of-cell-instances-with-generative-routing-pyramids)  
    标签：评分：6.0/10、query:cpath
-   evidence：面向医学图像的对比学习框架，减轻虚假相关，可适用于病理分析
-2. [MaLViL: Multi-axis Low-rank Vision-LSTM for Medical Image Segmentation](/202608/19/2608.17635v1-malvil-multi-axis-low-rank-vision-lstm-for-medical-image-segmentation)  
+   evidence：面向显微图像的细胞实例无监督分割与表型分类，可迁移至病理细胞分析。
+5. [GSToken: Geometry-Structured Gaussian Tokens for Compact 3D Medical Image Representation](/202608/20/2608.17425v1-gstoken-geometry-structured-gaussian-tokens-for-compact-3d-medical-image-representation)  
    标签：评分：6.0/10、query:cpath
-   evidence：面向医学图像分割的多轴低秩Vision-LSTM，可迁移至计算病理
+   evidence：面向多模态MRI脑肿瘤分割的紧凑三维医学图像表示
+6. [Simple, Safe, and Overlooked: Reclaiming Sustainable Domain Generalization with Statistical Color Matching](/202608/20/2608.18915v1-simple-safe-and-overlooked-reclaiming-sustainable-domain-generalization-with-statistical-color-matching)  
+   标签：评分：6.0/10、query:cpath
+   evidence：适用于癌症诊断的医学图像域泛化方法
+7. [Subgroup performance analysis of adaptation strategies for chest X-ray foundation models](/202608/20/2608.19078v1-subgroup-performance-analysis-of-adaptation-strategies-for-chest-x-ray-foundation-models)  
+   标签：评分：6.0/10、query:cpath
+   evidence：分析胸部X光基础模型的参数高效适配策略，与医学影像基础模型适配相关
 
 
 <div class="dpr-home-promo-card">
