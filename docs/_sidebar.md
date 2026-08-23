@@ -1,6 +1,9 @@
 * <a class="dpr-sidebar-root-link" href="#/">首页</a>
 * <a class="dpr-sidebar-root-link dpr-sidebar-noactive-link" href="javascript:void(0)" data-dpr-hash="#/tutorial/README">使用教程</a>
 * Daily Papers
+  * 2026-08-23 <!--dpr-date:20260823-->
+    * 速读区
+      * <a class="dpr-sidebar-item-link dpr-sidebar-item-structured" href="#/202608/23/2608.18339v1-from-inference-to-adaptation-a-unified-optimal-transport-view-of-vision-language-model" data-sidebar-item="{&quot;title&quot;: &quot;From Inference to Adaptation: A Unified Optimal Transport View of Vision Language Model&quot;, &quot;link&quot;: &quot;https://arxiv.org/abs/2608.18339v1-from-inference-to-adaptation-a-unified-optimal-transport-view-of-vision-language-model&quot;, &quot;score&quot;: &quot;7.0&quot;, &quot;tags&quot;: [{&quot;kind&quot;: &quot;query&quot;, &quot;label&quot;: &quot;cpath&quot;}], &quot;evidence&quot;: &quot;视觉语言模型的测试时自适应最优传输方法&quot;}">From Inference to Adaptation: A Unified Optimal Transport View of Vision Language Model</a>
   * 2026-08-21 <!--dpr-date:20260821-->
     * 精读区
       * <a class="dpr-sidebar-item-link dpr-sidebar-item-structured" href="#/202608/21/biorxiv-10-64898-2026-08-16-745078-v1-an-ai-assisted-platform-for-quantitative-histopathological-analysis-in-interstitial-lung-disease" data-sidebar-item="{&quot;title&quot;: &quot;An AI-assisted platform for quantitative histopathological analysis in interstitial lung disease&quot;, &quot;link&quot;: &quot;https://arxiv.org/abs/biorxiv-10-64898-2026-08-16-745078-v1-an-ai-assisted-platform-for-quantitative-histopathological-analysis-in-interstitial-lung-disease&quot;, &quot;score&quot;: &quot;9.0&quot;, &quot;tags&quot;: [{&quot;kind&quot;: &quot;query&quot;, &quot;label&quot;: &quot;cpath&quot;}], &quot;evidence&quot;: &quot;用于间质性肺病定量组织病理分析的人工智能辅助平台&quot;}">An AI-assisted platform for quantitative histopathological analysis in interstitial lung disease</a>

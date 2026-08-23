@@ -6,22 +6,26 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-08-22
-- 运行时间：2026-08-22 20:12:11 UTC
+- 最新运行日期：2026-08-23
+- 运行时间：2026-08-23 20:23:19 UTC
 - 运行状态：成功
-- 本次总论文数：0
+- 本次总论文数：1
 - 精读区：0
-- 速读区：0
+- 速读区：1
 
 ### 今日简报（AI）
-> 今日无新推荐，系统未产出可展示论文。
-- 详情：[/202608/22/README](/202608/22/README)
+今日仅1篇论文入库，以速读完成，暂无精读内容。  
+最值得关注的是《From Inference to Adaptation》，用最优传输统一视角连接视觉语言模型的推理与自适应，评分7.0。  
+建议后续可围绕该方向深挖精读，并结合实际应用场景验证其价值。
+- 详情：[/202608/23/README](/202608/23/README)
 
 ### 精读区论文标签
 - 本次无精读推荐。
 
 ### 速读区论文标签
-- 本次无速读推荐。
+1. [From Inference to Adaptation: A Unified Optimal Transport View of Vision Language Model](/202608/23/2608.18339v1-from-inference-to-adaptation-a-unified-optimal-transport-view-of-vision-language-model)  
+   标签：评分：7.0/10、query:cpath
+   evidence：视觉语言模型的测试时自适应最优传输方法
 
 
 <div class="dpr-home-promo-card">
