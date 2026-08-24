@@ -6,26 +6,32 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-08-23
-- 运行时间：2026-08-23 20:23:19 UTC
+- 最新运行日期：2026-08-24
+- 运行时间：2026-08-24 19:31:30 UTC
 - 运行状态：成功
-- 本次总论文数：1
-- 精读区：0
-- 速读区：1
+- 本次总论文数：4
+- 精读区：2
+- 速读区：2
 
 ### 今日简报（AI）
-今日仅1篇论文入库，以速读完成，暂无精读内容。  
-最值得关注的是《From Inference to Adaptation》，用最优传输统一视角连接视觉语言模型的推理与自适应，评分7.0。  
-建议后续可围绕该方向深挖精读，并结合实际应用场景验证其价值。
-- 详情：[/202608/23/README](/202608/23/README)
+今日精读2篇、速读2篇，共梳理4篇前沿医学AI论文。最值得关注的是病理基础模型CellPath-Bench（9.0分）与前列腺MRI跨模态生成（8.0分）。建议优先精读这两篇，并顺带浏览联邦学习口腔癌筛查与CT空间验证的速读内容。
+- 详情：[/202608/24/README](/202608/24/README)
 
 ### 精读区论文标签
-- 本次无精读推荐。
+1. [CellPath-Bench: A Multidimensional Benchmark for Whole-Slide Cellular Representations in Pathology Foundation Models](/202608/24/2608.21060v1-cellpath-bench-a-multidimensional-benchmark-for-whole-slide-cellular-representations-in-pathology-foundation-models)  
+   标签：评分：9.0/10、query:cpath
+   evidence：提出面向病理基础模型的全切片细胞分辨率基准CellPath-Bench，直接对应基础模型与计算病理需求
+2. [A cross-modal generative model for incomplete and degraded prostate MRI with multicentre clinical validation](/202608/24/2608.16233v1-a-cross-modal-generative-model-for-incomplete-and-degraded-prostate-mri-with-multicentre-clinical-validation)  
+   标签：评分：8.0/10、query:cpath
+   evidence：基于跨模态生成MRI的前列腺癌诊断
 
 ### 速读区论文标签
-1. [From Inference to Adaptation: A Unified Optimal Transport View of Vision Language Model](/202608/23/2608.18339v1-from-inference-to-adaptation-a-unified-optimal-transport-view-of-vision-language-model)  
+1. [A Federated Learning Framework for Privacy-Preserving Oral Cancer Screening on Smartphones](/202608/24/2608.19462v1-a-federated-learning-framework-for-privacy-preserving-oral-cancer-screening-on-smartphones)  
    标签：评分：7.0/10、query:cpath
-   evidence：视觉语言模型的测试时自适应最优传输方法
+   evidence：面向智能手机的口腔癌筛查联邦学习框架，直接相关于基于临床图像的自动化癌症诊断。
+2. [A Modular Agent for Reliable and Auditable Spatial Relation Verification in CT Scans](/202608/24/2608.21140v1-a-modular-agent-for-reliable-and-auditable-spatial-relation-verification-in-ct-scans)  
+   标签：评分：6.0/10、query:cpath
+   evidence：医学视觉语言模型空间推理
 
 
 <div class="dpr-home-promo-card">
