@@ -1,0 +1,395 @@
+Title: TRACE: Training-time Report-guided and Clinically Ordered Concept Editing
+
+URL Source: https://arxiv.org/pdf/2608.20809v1
+
+Published Time: Mon, 24 Aug 2026 00:36:40 GMT
+
+Number of Pages: 9
+
+Markdown Content:
+# TRACE: Training-time Report-guided and Clinically Ordered Concept Editing 
+
+# Wentao Yue †
+
+Lanzhou University Lanzhou, China yuewt21@lzu.edu.cn 
+
+# Tianyou Lai †
+
+Lanzhou University Lanzhou, China laity21@lzu.edu.cn 
+
+# Jiayu Luo 
+
+Lanzhou University Lanzhou, China luojy21@lzu.edu.cn 
+
+# Qingyu Mao 
+
+Shenzhen University Shenzhen, China 2150432008@email.szu.edu.cn 
+
+# Ziying Wang 
+
+Southern Medical University Guangzhou, China ziyingwang@smu.edu.cn 
+
+# Zhenyuan Ning ∗
+
+Southern Medical University Guangzhou, China zhenyuan123@i.smu.edu.cn 
+
+# Qilei Li ∗
+
+Central China Normal University Wuhan, China qilei.li@ccnu.edu.cn 
+
+## Abstract 
+
+Breast ultrasound diagnosis relies on clinically meaningful seman-tic concepts, yet most deep learning methods adopt end-to-end image-to-label paradigms that lack interpretability and robustness. While concept-based approaches offer a promising alternative, they often assume complete annotations or require multimodal inputs at inference, which significantly limits their real-world applica-bility. To tackle these issues, we propose Training-time Report-guided and Clinically Ordered Concept Editing (TRACE), a training-time report-guided framework that leverages structured radiology reports as privileged concept supervision while enabling image-only diagnosis at test time. TRACE refines image-derived concepts through a teacher-guided editing mechanism within a malignancy-aware ordered concept space. To address incomplete annotations, we introduce Strategic Concept Missing Training (SCMT) and train an image-only self-editor via edit distillation for autonomous con-cept refinement. Besides, we introduce BUSC, a concept-enriched benchmark linking images, labels, and structured attributes. Exper-iments across multiple datasets demonstrate that TRACE achieves superior performance and improved cross-domain robustness com-pared to existing methods. Code is available in our GitHub reposi-tory: https://github.com/wentao-2/TRACE 
+
+## CCS Concepts 
+
+• Computing methodologies → Machine learning ; • Applied computing → Life and medical sciences .
+
+> ∗Corresponding authors.
+> †These authors contributed equally to this work.
+> This work is licensed under a Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License.
+> MM ’26, Rio de Janeiro, Brazil
+> © 2026 Copyright held by the owner/author(s). ACM ISBN 979-8-4007-2213-4/2026/11
+> https://doi.org/10.1145/3767308.3836433
+
+## Keywords 
+
+Concept Bottleneck Models; Missing Concept Training; Breast Ul-trasound; Explainable Diagnosis; Asymmetric Testing 
+
+ACM Reference Format: 
+
+Wentao Yue, Tianyou Lai, Jiayu Luo, Qingyu Mao, Ziying Wang, Zhenyuan Ning, and Qilei Li. 2026. TRACE: Training-time Report-guided and Clini-cally Ordered Concept Editing. In Proceedings of the 34th ACM International Conference on Multimedia (MM ’26), November 10–14, 2026, Rio de Janeiro, Brazil. ACM, New York, NY, USA, 9 pages. https://doi.org/10.1145/ 3767308.3836433 
+
+## 1 Introduction 
+
+“The eye sees only what the mind is prepared to comprehend.” — Robertson Davies 
+
+In breast ultrasound diagnosis, reliable visual interpretation re-quires more than the detection of image cues. It also depends on clinically grounded concepts that organize visual evidence into diagnostic reasoning [5]. In clinical practice, radiologists do not make diagnoses solely from raw appearance patterns. Instead, they interpret lesions through structured semantic attributes such as shape, margin, orientation, posterior acoustic features, echogenic-ity, and calcification [16]. These concepts provide an intermediate abstraction between low-level image signals and final diagnostic decisions on benign or malignant status, which makes them highly valuable for robust and explainable breast ultrasound analysis [24]. Despite substantial progress in deep neural networks for breast ultrasound diagnosis, most existing methods still follow an end-to-end image-to-label paradigm. Strong image-only backbones such as ResNet50 [9] and ViT-B/16 [4] already achieve competitive per-formance, suggesting that current limitations may stem less from backbone capacity than from the lack of clinically grounded inter-mediate supervision [23]. Although such pipelines perform well in-domain, they often rely on shortcut visual correlations rather than clinically structured reasoning, limiting interpretability and robustness under distribution shifts or incomplete semantic super-vision [13]. Concept-based learning offers a more clinically aligned arXiv:2608.20809v1 [cs.CV] 21 Aug 2026 MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Yue et al. Structured Concept Shape Margin Orientation Echogenicity Calcification Posterior Features   
+
+> oval,
+> hypoechoic,
+> indistinct margin,
+> parallel with skin,
+> no posterior features,
+> no calcifications. irregular,
+> hypoechoic,
+> circumscribed margin,
+> parallel with skin,
+> enhanced posterior features,
+> no calcifications. : Benign : Malignant : Structured Concept AUC Accuracy
+
+80 85 90 95 Model AUC Acc         
+
+> ResNet50 89.70% 82.60% PCBM 88.60% 84.10%
+> + Ours +1.90% +1.80%
+> 89 .782 .688 .684 .191 .685 .9
+> Score (%)
+> ResNet50 PCBM Ours (TRACE)
+
+Figure 1: Overview of the structured concept representation used in BUSC-BUSBRA and performance comparison on the BUSC-BUSBRA dataset. 
+
+alternative by introducing semantically meaningful intermediate representations, as exemplified by VLG-CBM [19]. However, exist-ing frameworks typically assume either complete concept super-vision or multimodal inference with text available at test time. In practice, structured reports or concept annotations may be acces-sible during model development, yet are often unavailable, incom-plete, or inconsistently documented in real deployment. A related challenge is the lack of standardized breast ultrasound resources that align images, diagnostic labels, and structured clin-ical concepts. Most public datasets support image-level diagnosis or lesion segmentation, while concept annotations are often sparse, inconsistent, or unavailable, limiting systematic study of concept-guided diagnosis under incomplete concepts [2]. To address this gap, we construct the Breast Ultrasound Structured Concept (BUSC) 
+
+dataset, a concept-enriched benchmark that associates breast ultra-sound images with structured semantic attributes and diagnostic labels. BUSC includes two development subsets: BUSC-BUSI647 , de-rived from the public BUSI [1] dataset by removing normal cases and retaining 647 lesion samples, and BUSC-BUSBRA , built upon the public BUSBRA [8] dataset. These subsets serve as the primary benchmarks for model development and in-domain evaluation. These observations raise a practical question: how can structured radiological reports be used during training to improve concept-level reasoning while supporting pure image-only diagnosis at test time? 
+
+A straightforward solution is to treat reports as an additional text modality and fuse them with image features [10, 26]. However, this formulation does not fully capture their clinical function. In breast ultrasound, report fields encode curated semantic judgments that can help correct imperfect image-derived concepts. We therefore treat structured reports as privileged concept supervision available only during training, rather than as an inference-time modality. Inspired by these observations, we propose TRACE , a training-time report-guided and clinically ordered concept editing frame-work for robust breast ultrasound diagnosis under incomplete con-cepts. TRACE follows an asymmetric training–test paradigm: it uses breast ultrasound images together with report-derived con-cept annotations during training, but relies on images only at in-ference. Specifically, an image encoder first produces coarse con-cept predictions, after which a privileged concept teacher guides a teacher-driven editor to revise them. To better reflect clinical reasoning, TRACE organizes semantic attributes in a malignancy-aware ordered concept space, modeling diagnosis as clinically mean-ingful concept editing rather than flat independent classification. To further handle incomplete concepts, TRACE introduces Strate-gic Concept Missing Training (SCMT) , which masks report concepts during training according to clinically informed missing patterns. This encourages compensatory reasoning across correlated attributes instead of over-reliance on any single concept. Since reports are unavailable at test time, TRACE further trains an image-only self-editor via edit distillation to mimic the privileged teacher editor, enabling concept refinement and fully image-only diagnosis. We evaluate TRACE on the two BUSC development subsets, BUSC-BUSBRA and BUSC-BUSI647 , and further assess zero-shot cross-domain generalization on three external datasets: Ardakani , BUS_UC , and 
+
+BrEaST . Compared with standard visual backbones, concept bottle-neck models, prototype-based methods, explainable medical clas-sifiers, and vision-language models, TRACE consistently achieves superior in-domain performance and strong cross-domain robust-ness. These results show that learning to revise clinically meaning-ful concepts from training-time report supervision is more effec-tive than relying on either end-to-end visual prediction or inference-time multimodal assistance. In summary, the main contributions of this work are as follows: 
+
+• We construct the Breast Ultrasound Structured Concept (BUSC) dataset, a concept-enriched benchmark for breast ultrasound that explicitly links images, diagnostic labels, and structured clinical concepts. BUSC contains two develop-ment subsets, BUSC-BUSI647 and -BUSBRA , and provides a practical basis for the study of concept-guided diagnosis and robustness under incomplete concept supervision. 
+
+• We propose TRACE , a training-time report-guided frame-work that treats structured radiology reports as a privileged concept teacher, thereby enabling stronger image-only di-agnosis of breast ultrasound while requiring no reports at inference time. 
+
+• We introduce clinically ordered concept editing , which represents semantic attributes in a malignancy-aware or-dered concept space and explicitly learns how report super-vision refines coarse concepts derived from images. TRACE: Training-time Report-guided and Clinically Ordered Concept Editing MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+• We develop Strategic Concept Missing Training (SCMT) 
+
+together with an image-only self-editor and edit distillation, which improves robustness to incomplete concepts and sup-ports generalizable image-only deployment across datasets. 
+
+## 2 Related Work 
+
+Structured Concepts in Breast Ultrasound. Breast ultrasound diagnosis is naturally grounded in structured clinical descriptions. BI-RADS-related attributes, such as shape, margin, orientation, pos-terior acoustic features, and echogenicity, are routinely used for lesion assessment and report writing [18]. Recent studies have in-corporated such structured descriptions into deep learning models to improve interpretability and clinical readability. For instance, BI-RADS-Net [28] jointly predicts diagnostic labels and BI-RADS attributes via multi-task learning, while BI-RADS-Net-V2 [29] fur-ther integrates semantic and quantitative explanations for more in-terpretable computer-aided diagnosis. Other works also build uni-fied pipelines for detection, description, and classification based on expert-annotated BI-RADS terminology, highlighting the clinical value of structured attribute supervision. However, most existing methods assume structured attributes or report information are available during evaluation, or rely on complete concept annotations within the same domain [29] [10]. In practice, breast ultrasound datasets often provide only images and class labels, without standardized concept annotations. Recent multimodal approaches incorporate radiology reports through image– text fusion, but still require reports as inference-time inputs [22]. In contrast, we consider a setting where structured reports are only partially available during training, while testing and external gen-eralization rely solely on images. 
+
+Concept Bottleneck Models. Concept Bottleneck Models (CBMs) introduce a human-interpretable concept layer between percep-tion and prediction, enabling concept-based explanations and hu-man intervention [17]. The seminal work [12] of Koh et al. es-tablishes the CBM paradigm and shows that such models main-tain competitive performance while supporting concept-level in-terpretability. Recent medical interpretable models further improve concept learning from different perspectives. Explicd [7] learns interpretable concept representations by aligning images with textual diagnostic criteria provided by experts or large language models. VLG-CBM [19] enhances concept faithfulness through vision-language guid-ance and grounded detectors. MVP-CBM [21] improves concept bottleneck representations by modeling the preference of different concepts for features from different visual layers. Overall, these methods mainly focus on improving concept acquisition, concept– feature correspondence, or concept representation quality. In con-trast, our goal is not simply to build a stronger CBM, but to address a practical breast ultrasound setting where structured reports are available only during training as privileged concept teachers, while diagnosis at test time relies on images alone. 
+
+Privileged Supervision. From a broader machine learning per-spective, our problem is related to learning with additional infor-mation available during training but unavailable at test time. The Learning Using Privileged Information (LUPI) framework [20] pro-posed by Vapnik et al. shows that models can exploit extra teacher information during training while relying only on standard inputs at inference time. Subsequent work on generalized distillation fur-ther unifies knowledge distillation and privileged-information learn-ing within a common framework. This idea has also been explored in medical imaging [3]. For ex-ample, Yang et al. improve cross-modality image registration by introducing a third modality visible only during training [25], and Proto-Caps [6] combines prototype learning with privileged infor-mation for medical image classification. However, these methods typically treat extra information as an auxiliary source for distil-lation, a prototype-level constraint, or an extra modality. In con-trast, we explicitly model structured breast ultrasound reports as concept-level teacher signals, aiming to learn a concept correc-tion and diagnosis mechanism that transfers to image-only deploy-ment. 
+
+## 3 Methodology 3.1 Problem Setting and Method Overview 
+
+We study an asymmetric clinical setting for breast ultrasound clas-sification. Given a breast ultrasound image 𝑥 ∈ 𝒳 , its class la-bel is denoted by 𝑦 ∈ 𝒴 , where 𝒴 = {0, 1} represents benign and malignant cases, respectively. For a subset of training samples, an expert-annotated structured concept vector is also available, 
+
+𝑐 = [𝑐 (1) , 𝑐 (2) , … , 𝑐 (𝑀) ] ∈ 𝒞 , (1) where 𝑀 denotes the number of concepts. Each concept dimen-sion corresponds to a clinically meaningful BI-RADS-related at-tribute in breast ultrasound, such as shape, margin, orientation and calcification. Unlike multimodal methods that treat structured text as an inference-time input modality, we model it as a privileged concept teacher accessible only during training, while test-time di-agnosis and external generalization rely on images alone. Formally, the training set consists of two parts: 
+
+𝒟 𝑠 = {(𝑥 𝑖 , 𝑐 𝑖 , 𝑦 𝑖 )} 𝑁 𝑠 
+
+> 𝑖=1
+
+, 𝒟 𝑤 = {(𝑥 𝑗 , 𝑦 𝑗 )} 𝑁 𝑤 
+
+> 𝑗=1
+
+, (2) where 𝒟 𝑠 denotes the sample set with structured concept supervi-sion, and 𝒟 𝑤 denotes the weakly supervised sample set with only images and class labels. The test set is denoted by 
+
+𝒟 test = {(𝑥 𝑘 , 𝑦 𝑘 )} 𝑁 𝑡 
+
+> 𝑘=1
+
+, (3) where no structured concepts or report information are provided. Our goal is to learn a mapping 
+
+𝑓 ∶ 𝒳 → 𝒴 , (4) which uses the limited structured concept supervision in 𝒟 𝑠 dur-ing training while still enabling robust classification and concept reasoning from images alone at deployment. The core idea of TRACE is to learn concept correction rather than concept prediction alone. Specifically, the model extracts vi-sual representations and produces initial image-derived concepts, then uses structured reports during training as concept-level teacher signals to learn a correction mapping from coarse to more reliable concepts. At test time, the learned correction behavior is applied using images only, enabling report-free deployment. The overall MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Yue et al. Encoder Encoder        
+
+> 1342Structured Report Shape Margin Orientation Posterior Features Echogenicity Calcification Coarse Concepts Coarse Concepts Teacher-Guided Editing Refined Concepts Benign Malignant Concept Align Teacher Residual
+> Concept Editor Hierarchical Missing Training Training Test ICP ICP ICP: Initial Concept Predictor
+> Risk Low Mid High Severe Clinically Ordered Risk : Uncertain Concept L1 Key L2 Mid L3 Peripheral Self-Editor
+
+Figure 2: Overview of TRACE. During training, structured reports act as privileged concept teachers to correct coarse image-derived concepts through residual concept editing. TRACE further improves robustness with hierarchical concept missing training and a clinically ordered risk space. At test time, the report branch is removed, and diagnosis is made from images alone via self-editing concept refinement. 
+
+pipeline is formulated as 
+
+𝑧 = 𝑓 𝜃 (𝑥),̂ 𝑐 (0) = 𝑔 𝜙 (𝑧),̂ 𝑐 = ℰ(𝑧,̂ 𝑐 (0) ),̂ 𝑦 = ℎ 𝜔 (̂𝑐), 
+
+(5) where 𝑓 𝜃 is the image encoder, 𝑔 𝜙 is the initial concept predictor, ℰ
+
+is the concept editor, and ℎ𝜔 is the final classifier. During training, 
+
+ℰ learns concept correction under the guidance of the privileged concept teacher. At test time, ℰ reduces to a self-editor that de-pends only on the image and the initial concepts. 
+
+## 3.2 Report-Guided Concept Editing 
+
+Given an input image 𝑥 , the image encoder 𝑓 𝜃 extracts a visual fea-ture and the initial concept predictor 𝑔 𝜙 produces a coarse concept representation: 
+
+𝑧 = 𝑓 𝜃 (𝑥) ∈ ℝ 𝑑 ,̂ 𝑐 (0) = 𝑔 𝜙 (𝑧) = [̂𝑐 (0,1) ,̂ 𝑐 (0,2) , … ,̂ 𝑐 (0,𝑀) ]. (6) For discrete concepts, ̂ 𝑐 (0,𝑚) can be represented as class logits or probability distributions. For ordered concepts, ̂ 𝑐 (0,𝑚) can also be represented as ordered real-valued scores or ordered embeddings. Because image appearance is affected by noise, device variation, and domain shift, concepts predicted directly by 𝑔 𝜙 are often coarse and unstable, motivating subsequent concept-level correction. For samples with structured annotations (𝑥, 𝑐, 𝑦) ∈ 𝒟 𝑠 , we do not treat 𝑐 as a test-time input modality. Instead, we regard it as a concept-level teacher signal available only during training. We first transform the structured concept annotation into the unified concept space and compute the residual correction target: 
+
+𝑐 𝑇 = 𝒯 (𝑐), Δ𝑇 = 𝑐 𝑇 −̂ 𝑐 (0) , (7) where 𝒯 (⋅) maps the original structured concept annotation into the unified concept representation space. The teacher concept 𝑐 𝑇 
+
+specifies the desired semantic state, while Δ𝑇 represents the correc-tion direction and magnitude required to refine the initial image-derived concepts. Therefore, TRACE learns to estimate concept cor-rections from structured clinical knowledge rather than directly predicting a new set of concepts from scratch. We introduce a concept editor ℰ𝜓 , which takes the visual feature 
+
+𝑧 and concept ̂ 𝑐 (0) as input and outputs a concept correction term: 
+
+Δ𝜓 = ℰ𝜓 (𝑧,̂ 𝑐 (0) ),̂ 𝑐 =̂ 𝑐 (0) + Δ 𝜓 . (8) During training, for samples with structured concept supervision, we minimize the discrepancy between Δ𝜓 and the teacher residual 
+
+Δ𝑇 , so that the editor learns how to correct rather than merely where to end up. Accordingly, the editing constraint is defined as 
+
+ℒedit = 1𝑀 
+
+> 𝑀
+
+∑
+
+> 𝑚=1
+
+ℓedit (Δ (𝑚) 𝜓 , Δ (𝑚) 𝑇 ), (9) where ℓedit (⋅, ⋅) denotes the concept-dependent editing loss. Several concepts in breast ultrasound are not independent flat discrete labels, but follow clear clinical risk order. For example, concepts such as margin and shape correspond to different lev-els of malignancy risk. We therefore introduce clinically ordered constraints into the concept space so that the editing direction is more consistent with medical knowledge rather than arbitrary la-bel switching. For the 𝑚 -th ordered concept, let its ordinal level be 
+
+𝑟 (𝑚) ∈ {1, 2, … , 𝐾 𝑚 }, (10) TRACE: Training-time Report-guided and Clinically Ordered Concept Editing MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+where 𝐾 𝑚 denotes the number of ordinal levels for that concept, and let the predicted ordinal score be 𝑠 (𝑚) . We then define the or-dinal loss as 
+
+ℒord = ∑
+
+> 𝑚∈ ℳord
+
+ℓord (𝑠 (𝑚) , 𝑟 (𝑚) ), (11) where ℳord denotes the set of all concepts with clinical risk order. This constraint encourages concept correction to follow clinically plausible directions and reduces label transitions that are inconsis-tent with medical knowledge. The final edited concept representation is denoted as ̂ 𝑐 and used for downstream diagnosis: ̂𝑦 = ℎ 𝜔 (̂𝑐). (12) 
+
+## 3.3 Hierarchical Concept Missing Training 
+
+Structured concepts in real clinical reports are unevenly available, and the missing probabilities vary substantially across attributes. Rather than simple random masking, we adopt a hierarchical con-cept missing training strategy to simulate supervision sparsity bet-ter reflecting real report patterns. Specifically, we divide all con-cepts into three levels by importance and clinical availability: 
+
+𝒞 = 𝒞 𝐿1 ∪ 𝒞 𝐿2 ∪ 𝒞 𝐿3 , (13) where 𝒞 𝐿1 , 𝒞 𝐿2 , and 𝒞 𝐿3 denote the key, mid-level, and peripheral concept sets, respectively. In our setting, the hierarchy is 
+
+𝒞 𝐿1 = { margin , shape }, 
+
+𝒞 𝐿2 = { orientation , posterior , echogenicity }, 
+
+𝒞 𝐿3 = { calcification }. 
+
+(14) For concepts at level 𝐿 , we define the missing rate as 
+
+𝑟 𝐿 = 0.2 + 0.3(𝐿 − 1), 𝐿 ∈ {1, 2, 3}, 𝑟 1 = 0.2, 𝑟 2 = 0.5, 𝑟 3 = 0.8. (15) Thus, key concepts are more likely to be preserved, while periph-eral concepts are more likely to be missing. For concept 𝑐 (𝑚) , we define a visibility mask 
+
+𝑏 (𝑚) ∼ Bernoulli (1 − 𝑟 𝐿 𝑚 ), (16) where 𝐿 𝑚 denotes the level of the 𝑚 -th concept. The masked teacher concept is ̃𝑐 (𝑚) = 𝑏 (𝑚) 𝑐 (𝑚) + (1 − 𝑏 (𝑚) )∅, (17) where ∅ denotes a missing concept. With the full mask vector 
+
+𝑏 = [𝑏 (1) , 𝑏 (2) , … , 𝑏 (𝑀) ],̃ 𝑐 = 𝑏 ⊙ 𝑐 + (1 − 𝑏) ⊙ ∅. (18) During training, the editor accesses only unmasked teacher sig-nals, so the editing target becomes 
+
+Δmask  
+
+> 𝑇
+
+= 𝑏 ⊙ Δ 𝑇 . (19) The mask-aware editing loss is 
+
+ℒmask_edit = 1∑𝑀 𝑚=1 𝑏 (𝑚) + 𝜖 
+
+> 𝑀
+
+∑
+
+> 𝑚=1
+
+𝑏 (𝑚) ℓedit (Δ (𝑚) 𝜓 , Δ (𝑚) 𝑇 ), (20) where 𝜖 is a small constant to prevent division by zero. This design forces the model to learn cross-concept dependency and redun-dancy compensation under incomplete concept supervision, reduc-ing the gap between training with visible structured reports and testing without reports. 
+
+## 3.4 Inference and Training Objectives 
+
+At test time, structured reports are unavailable and the teacher branch is removed. The model performs self-editing using only im-age features and initial concepts. Given a test image 𝑥 , we compute 
+
+𝑧 = 𝑓 𝜃 (𝑥),̂ 𝑐 (0) = 𝑔 𝜙 (𝑧), Δ𝑆 = ℰ𝜓 (𝑧,̂ 𝑐 (0) ), (21) which gives final concept representation and classification output ̂𝑐 =̂ 𝑐 (0) + Δ 𝑆 ,̂ 𝑦 = ℎ 𝜔 (̂𝑐). (22) Thus, the goal of TRACE is not to recover structured reports at test time, but to transfer the correction behavior learned from the privileged concept teacher during training into report-free concept refinement. For the main classification task, we use the supervised loss 
+
+ℒcls = ℓ cls (̂𝑦, 𝑦), (23) where ℓcls is typically the binary cross-entropy loss. For training samples with concept annotations, the initial con-cept predictor is also trained to fit the teacher concepts. We define the initial concept supervision loss as 
+
+ℒinit = 1𝑀 
+
+> 𝑀
+
+∑
+
+> 𝑚=1
+
+ℓcon (̂𝑐 (0,𝑚) , 𝑐 ⋆(𝑚) ). (24) This term keeps the initial image-derived concepts close to the clin-ical concept space, providing a reasonable starting point for subse-quent editing. For samples with structured concept supervision, we use the previously defined ℒmask_edit to supervise the editing residual. To reduce the mismatch between teacher-guided editing during train-ing and self-editing at test time, we also introduce a post-editing consistency constraint 
+
+ℒcons = 1𝑀 
+
+> 𝑀
+
+∑
+
+> 𝑚=1
+
+ℓcon (̂𝑐 (𝑚) ,̃ 𝑐 (𝑚) ), (25) where the loss is computed only on currently visible teacher con-cept dimensions. This term encourages the self-edited concept state to approach the target concept state induced by teacher supervi-sion. Combining all terms above, the training objective of TRACE is 
+
+ℒ = ℒcls + 𝜆 1ℒinit + 𝜆 2ℒmask_edit + 𝜆 3ℒord + 𝜆 4ℒcons , (26) where 𝜆 1, 𝜆 2, 𝜆 3, 𝜆 4 ≥ 0 are balancing coefficients. For samples without concept supervision, namely (𝑥, 𝑦) ∈ 𝒟 𝑤 , the model op-timizes only ℒcls . For samples with concept supervision, namely 
+
+(𝑥, 𝑐, 𝑦) ∈ 𝒟 𝑠 , it jointly optimizes the concept-related terms. In this way, TRACE learns a transferable concept correction mecha-nism from limited structured concept supervision and enables ro-bust breast ultrasound diagnosis from images alone at test time. 
+
+## 4 Experiments 4.1 Experimental Setup 
+
+4.1.1 Datasets. We evaluate TRACE on five breast ultrasound datasets, including two subsets from our Breast Ultrasound Structured Concept (BUSC) dataset and three external datasets for cross-domain evaluation. Specifically, we augment the public BUSBRA MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Yue et al. 
+
+Table 1: Main comparison on BUSC-BUSBRA and BUSC-BUSI647. We compare TRACE with eight representative baselines. Best and second-best results in each column are highlighted in red and blue, respectively. 
+
+Setting Model BUSC-BUSBRA BUSC-BUSI647 AUC Acc F1 AUC Acc F1 Black-box ResNet50 [9] 0.897 ±0.015 0.826 ±0.014 0.725 ±0.027 0.945 ±0.027 0.901 ±0.026 0.838 ±0.047 ViT-B/16 [4] 0.876 ±0.018 0.821 ±0.025 0.711 ±0.042 0.944 ±0.021 0.886 ±0.035 0.809 ±0.068 
+
+Prototype ProtoCaps [6] 0.727 ±0.037 0.718 ±0.024 0.391 ±0.075 0.803 ±0.024 0.807 ±0.014 0.658 ±0.052 
+
+CBM 
+
+PCBM [27] 0.886 ±0.019 0.841 ±0.018 0.738 ±0.031 0.951 ±0.022 0.901 ±0.025 0.837 ±0.047 MVP-CBM [21] 0.889 ±0.020 0.830 ±0.021 0.749 ±0.027 0.931 ±0.027 0.878 ±0.045 0.806 ±0.069 VLG-CBM [19] 0.883 ±0.018 0.837 ±0.024 0.733 ±0.037 0.941 ±0.028 0.910 ±0.018 0.857 ±0.029 
+
+Explainable Explicd [7] 0.891 ±0.025 0.833 ±0.027 0.730 ±0.050 0.939 ±0.029 0.884 ±0.016 0.822 ±0.034 
+
+Foundation VLM CLIP [15] 0.553 ±0.033 0.662 ±0.011 0.111 ±0.042 0.536 ±0.020 0.674 ±0.010 0.018 ±0.036 
+
+Ours TRACE 0.916 ±0.014 0.859 ±0.013 0.776 ±0.026 0.970 ±0.030 0.938 ±0.057 0.902 ±0.083 
+
+[8] and BUSI [1] datasets with expert-annotated structured seman-tic concepts to construct BUSC, which aligns each ultrasound im-age with diagnostic labels and structured concepts. BUSC-BUSBRA ,built upon BUSBRA, contains 1,872 cases annotated with six se-mantic concepts: shape , margin , orientation , posterior acoustic fea-tures , echo pattern , and calcification . BUSC-BUSI647 , derived from BUSI after removing normal samples, contains 647 lesion cases an-notated with the same concept schema. These subsets are used for in-domain evaluation. For external validation, we adopt three public breast ultrasound datasets from different acquisition sources and populations. Ar-dakani [2] contains 232 pathologically confirmed lesions from Iran, including 123 malignant and 109 benign cases. BUS_UC [11] con-tains 811 images collected in Pakistan, including 358 benign and 453 malignant cases. BrEaST [14] is a curated dataset from Poland containing 256 scans with benign, malignant, and a small number of normal cases. For cross-domain evaluation, we remove structured reports and concept annotations from BUSC-BUSI647 and denote the result-ing dataset as BUSC-BUSI647 ∗. Together with Ardakani , BUS_UC ,and BrEaST , it is treated as a target domain without concept super-vision. This setup reflects realistic deployment, where structured reports and concept annotations are available only during train-ing, while inference follows an image-only protocol. 
+
+4.1.2 Compared Methods. We compare TRACE with eight repre-sentative baselines. ResNet50 [9] is used as a standard CNN base-line for image-based classification without concept supervision. ViT-B/16 [4] represents transformer-based image classification. Proto-Caps [6] is included as a prototype-based medical image classifier. PCBM [27] serves as a standard concept bottleneck baseline, while MVP-CBM [21] represents a stronger CBM variant with multi-view prototype learning. VLG-CBM [19] is adopted as a vision-language-guided concept bottleneck model, and Explicd [7] is included as an explainable medical image classifier. CLIP [15] serves as a repre-sentative foundation vision-language model based on contrastive pretraining. 
+
+4.1.3 Implementation Details. To ensure fair comparison, all BUSC images are processed with zero-padding , where black borders are added at the bottom to standardize spatial resolution while pre-serving the original aspect ratio. Unless otherwise specified, the image encoder is initialized with ImageNet-pretrained weights. For in-domain experiments, we adopt five-fold cross-validation and re-port the mean and standard deviation over the five folds. During training, TRACE uses ultrasound images with concept supervision derived from structured reports, while inference uses images only. The concept editor is optimized jointly with the image encoder and diagnosis head, and SCMT is applied during training to simulate incomplete concept conditions. 
+
+4.1.4 Evaluation Metrics. We report standard classification met-rics for breast ultrasound diagnosis, including AUC, Accuracy, and F1-score. For in-domain evaluation, all methods are compared on BUSC-BUSBRA and -BUSI647 under the unified image-only infer-ence setting. For external evaluation, models trained on the BUSC subsets are directly transferred to Ardakani, BUS_UC, BrEaST, and BUSI647 ∗ to assess zero-shot cross-domain generalization. 
+
+## 4.2 Main Results 
+
+Table 1 summarizes the comparison between TRACE and eight rep-resentative baselines on BUSC-BUSBRA and -BUSI647. All meth-ods are evaluated under a unified image-only test protocol, where structured reports and concept labels are used only during training. TRACE achieves the best results on both datasets, demonstrating the effectiveness of using structured reports as privileged concept teachers for image-only breast ultrasound diagnosis. On BUSC-BUSBRA, TRACE achieves the best results on AUC, Acc, and F1, outperforming both image-only baselines such as ResNet50 and concept-based methods including PCBM, MVP-CBM, and Ex-plicd. The advantage of TRACE is further evident on BUSC-BUSI647, where it again achieves the best results on all three metrics with TRACE: Training-time Report-guided and Clinically Ordered Concept Editing MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+Table 2: 5-fold cross-domain zero-shot performance ( mean ±std ). Best and second-best results are highlighted in red and blue. Model Ardakani BUS_UC BrEaST BUSC-BUSI647 ∗
+
+AUC Acc AUC Acc AUC Acc AUC Acc 
+
+ResNet50 [9] 0.857 ±0.013 0.794 ±0.025 0.525 ±0.074 0.470 ±0.053 0.508 ±0.075 0.515 ±0.125 0.873 ±0.007 0.819 ±0.016 ViT-B16 [4] 0.844 ±0.016 0.825 ±0.017 0.657 ±0.030 0.622 ±0.026 0.771 ±0.019 0.725 ±0.029 0.847 ±0.015 0.813 ±0.012 ProtoCaps [6] 0.756 ±0.015 0.792 ±0.016 0.538 ±0.025 0.518 ±0.024 0.671 ±0.023 0.655 ±0.008 0.764 ±0.015 0.764 ±0.010 PCBM [27] 0.851 ±0.015 0.808 ±0.051 0.653 ±0.042 0.589 ±0.051 0.779 ±0.111 0.691 ±0.096 0.864 ±0.010 0.826 ±0.015 MVP-CBM [21] 0.863 ±0.008 0.776 ±0.027 0.647 ±0.032 0.591 ±0.036 0.769 ±0.104 0.664 ±0.118 0.871 ±0.007 0.806 ±0.016 VLG-CBM [19] 0.845 ±0.016 0.800 ±0.040 0.651 ±0.012 0.593 ±0.016 0.779 ±0.058 0.711 ±0.071 0.867 ±0.010 0.825 ±0.010 Explicd [7] 0.850 ±0.012 0.793 ±0.020 0.635 ±0.044 0.587 ±0.037 0.785 ±0.100 0.715 ±0.121 0.872 ±0.007 0.815 ±0.009 CLIP [15] 0.621 ±0.032 0.733 ±0.013 0.472 ±0.021 0.445 ±0.055 0.661 ±0.094 0.621 ±0.046 0.5357 ±0.020 0.674 ±0.010 
+
+TRACE (Ours) 0.862 ±0.018 0.836 ±0.046 0.661 ±0.027 0.604 ±0.023 0.822 ±0.019 0.757 ±0.023 0.873 ±0.023 0.857 ±0.017 
+
+Table 3: Cross-domain comparison of different TRACE ed-itors. Models are trained on BUSBRA and tested on exter-nal datasets without target-domain fine-tuning. Best and second-best results are highlighted in red and blue. 
+
+Target Editor AUC Acc Ardakani 
+
+TRACE-MLP 0.862 ±0.011 0.833 ±0.026 TRACE-Att 0.862 ±0.018 0.836 ±0.046 TRACE-Gate 0.861 ±0.014 0.853 ±0.017 
+
+BUS_UC 
+
+TRACE-MLP 0.660 ±0.011 0.614 ±0.008 TRACE-Att 0.661 ±0.027 0.604 ±0.023 TRACE-Gate 0.645 ±0.031 0.589 ±0.018 
+
+BrEaST 
+
+TRACE-MLP 0.813 ±0.015 0.741 ±0.031 TRACE-Att 0.822 ±0.019 0.757 ±0.023 TRACE-Gate 0.819 ±0.021 0.748 ±0.021 
+
+BUSI647 ∗ TRACE-MLP 0.8736 ±0.017 0.8496 ±0.029 TRACE-Att 0.8733 ±0.023 0.8574 ±0.017 TRACE-Gate 0.8711 ±0.018 0.8651 ±0.030 
+
+clear improvements over competing methods. These results indi-cate that TRACE effectively exploits structured semantic supervi-sion during training and transfers it into stronger image-only con-cept refinement at test time. 
+
+## 4.3 Cross-Domain Generalization 
+
+Table 2 reports zero-shot cross-domain results, where models are trained on BUSC-BUSBRA and directly evaluated on external tar-get domains without fine-tuning. All target datasets, including BUSC-BUSI647 ∗, Ardakani, BUS_UC, and BrEaST, are tested without struc-tured reports, making this setting a stricter evaluation of transfer-ability under realistic image-only deployment. Overall, TRACE shows strong cross-domain generalization and achieves the best or near-best performance on multiple target datasets. In particular, TRACE obtains the best Accuracy on Ardakani, the best AUC on BUS_UC, and the best AUC and Accuracy on BrEaST. It also remains highly competitive on direct transfer from BUSC-BUSBRA to BUSC-BUSI647 ∗, achieving the best Accuracy and one of the strongest AUC results. These results suggest that TRACE does not simply exploit report availability during training, but learns a transferable concept correction mechanism that remains effec-tive without reports at test time. By contrast, pure image models can be competitive on individual targets, while existing concept bottleneck and multimodal methods do not show consistent advan-tages across domains. This indicates that standard concept model-ing or image–text alignment is insufficient for the asymmetric clin-ical scenario where structured reports are available only during training. With privileged concept supervision, self-editing distil-lation, and concept-missing augmentation, TRACE achieves more robust generalization across shifts in country, device, and clinical center. 
+
+## 4.4 Ablation Study 
+
+We further analyze TRACE from three perspectives: editor com-parison, supervision settings, and supervision scarcity. First, Table 3 compares different editors under cross-domain evaluation. TRACE shows stable transferability across editor choices, with TRACE-Att achieving the best or tied-best results on multiple target domains. TRACE-MLP achieves higher AUC on some do-mains, while TRACE-Gate remains competitive in Accuracy, indi-cating different transfer preferences among editors. Attention pro-vides the most reliable overall choice. Second, Table 4 compares editors under Full and Missing set-tings. All editors perform well, suggesting that TRACE gains mainly come from teacher-guided concept editing rather than a specific architecture. Missing improves several metrics on BUSC-BUSBRA, while Full performs better on BUSC-BUSI647, indicating that miss-ing perturbation is dataset-dependent. Finally, Table 5 evaluates reduced supervision from 100% to 50% and 20%. TRACE remains effective with partial concept supervi-sion. Attention and Gating show more stable trends, while MLP achieves a higher upper bound under full supervision. MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil Yue et al. 
+
+Table 4: Core ablation of TRACE on BUSBRA and BUSC-BUSI647. We compare three editor designs under two training settings: 
+
+Full (without concept missing) and Missing (with concept missing). Best and second-best results within each dataset and each setting are marked in red and blue, respectively. 
+
+Setting Editor BUSC-BUSBRA BUSC-BUSI647 AUC Acc F1 AUC Acc F1 Full 
+
+Attention 0.924 ±0.007 0.874 ±0.016 0.794 ±0.023 0.945 ±0.023 0.893 ±0.024 0.822 ±0.071 Gating 0.921 ±0.014 0.859 ±0.012 0.783 ±0.012 0.948 ±0.016 0.902 ±0.018 0.841 ±0.036 MLP 0.916 ±0.014 0.859 ±0.013 0.776 ±0.026 0.970 ±0.030 0.938 ±0.057 0.902 ±0.083 
+
+Missing 
+
+Attention 0.924 ±0.013 0.874 ±0.019 0.802 ±0.018 0.873 ±0.023 0.857 ±0.017 0.759 ±0.025 Gating 0.926 ±0.012 0.866 ±0.017 0.784 ±0.031 0.871 ±0.018 0.865 ±0.030 0.763 ±0.042 MLP 0.921 ±0.010 0.872 ±0.006 0.797 ±0.013 0.874 ±0.017 0.850 ±0.029 0.745 ±0.036 40 30 20 10 0 10 20 30                    
+
+> t-SNE 1
+> 6
+> 4
+> 2
+> 02468
+> t-SNE 2
+> VLG-CBM
+> Benign Malignant
+> 30 20 10 010 20 30 40
+> t-SNE 1
+> Explicd
+> 40 30 20 10 010 20 30
+> t-SNE 1
+> MVP-CBM
+> 30 20 10 010 20
+> t-SNE 1
+> TRACE
+
+Figure 3: t-SNE visualization of feature embeddings learned by VLG-CBM, Explicd, MVP-CBM, and TRACE. Table 5: Ablation on supervision ratio on BUSC-BUSBRA. We vary the proportion of training samples with structured concept supervision from 100% to 50% and 20%. Best and second-best results are highlighted in red and blue. 
+
+Editor Ratio AUC Acc F1 MLP 
+
+100% 0.9280 ±0.0078 0.8834 ±0.0173 0.8136 ±0.0150 50% 0.9322 ±0.0188 0.8754 ±0.0126 0.7971 ±0.0318 20% 0.9265 ±0.0192 0.8733 ±0.0178 0.7966 ±0.0206 
+
+Attention 
+
+100% 0.9263 ±0.0118 0.8807 ±0.0120 0.8070 ±0.0211 50% 0.9304 ±0.0132 0.8770 ±0.0165 0.8035 ±0.0215 20% 0.9272 ±0.0127 0.8770 ±0.0098 0.8033 ±0.0103 
+
+Gating 
+
+100% 0.9311 ±0.0182 0.8743 ±0.0190 0.7981 ±0.0261 50% 0.9260 ±0.0139 0.8722 ±0.0230 0.7869 ±0.0307 20% 0.9301 ±0.0123 0.8684 ±0.0148 0.7855 ±0.0276 
+
+## 4.5 t-SNE Visualization 
+
+To further examine representation quality, Fig. 3 visualizes the fea-ture embeddings of VLG-CBM, Explicd, MVP-CBM, and TRACE using t-SNE, where blue and red points denote benign and malig-nant samples, respectively. TRACE shows clearer class separation, with more compact intra-class clusters and less overlap between the two classes. In contrast, VLG-CBM, Explicd, and MVP-CBM exhibit more cross-class mixing and scattered feature distributions. This suggests that TRACE learns more discriminative representa-tions for breast ultrasound diagnosis. This result provides representation-level support for TRACE. The improved separability indicates that teacher-guided concept edit-ing transfers structured report supervision into more robust image-only representations, which is consistent with the superior AUC, Accuracy, and F1 performance in the main results. 
+
+## 5 Conclusion 
+
+In this paper, we presented TRACE, a training-time report-guided framework for robust breast ultrasound diagnosis under incom-plete concepts. Rather than treating structured reports as an inference-time modality, TRACE uses them as privileged concept teachers during training to learn how coarse image-derived concepts should be refined. By integrating teacher-guided concept editing, a clini-cally ordered concept space, Strategic Concept Missing Training, and an image-only self-editor, TRACE enables report-free diagno-sis at test time while preserving clinically meaningful concept re-finement. We also introduced BUSC, a concept-enriched bench-mark that aligns ultrasound images, diagnostic labels, and struc-tured clinical concepts. Extensive experiments in both in-domain and zero-shot cross-domain settings show that TRACE consistently TRACE: Training-time Report-guided and Clinically Ordered Concept Editing MM ’26, November 10–14, 2026, Rio de Janeiro, Brazil 
+
+outperforms strong baselines and supports robust image-only de-ployment across datasets. These findings indicate that learning con-cept correction from training-only structured supervision is a prac-tical and effective approach to clinically grounded and generaliz-able breast ultrasound diagnosis. 
+
+## Acknowledgments 
+
+This work is supported by the China Postdoctoral Science Foun-dation (Grant No. 2025M781597), the Hubei Provincial Natural Sci-ence Foundation of China (Grant No. 2026AFB700), the Fundamen-tal Research Funds for the Central Universities, China (Grant No. XJ2026000901), and the Academy of Frontier Interdisciplinary Re-search at Central China Normal University. 
+
+## References 
+
+[1] Walid Al-Dhabyani, Mohammed Gomaa, Hussien Khaled, and Aly Fahmy. 2020. Dataset of breast ultrasound images. Data Brief 28 (2020), 104863. [2] Ali Abbasian Ardakani, Afshin Mohammadi, Mohammad Mirza-Aghazadeh-Attari, and U Rajendra Acharya. 2023. An open-access breast lesion ultrasound image database: Applicable in artificial intelligence studies. Computers in Biology and Medicine 152 (2023), 106438. [3] Junxin Chen, Zhiheng Ye, Renlong Zhang, Hao Li, Bo Fang, Li-bo Zhang, and Wei Wang. 2025. Medical image translation with deep learning: Advances, datasets and perspectives. Medical Image Analysis 103 (2025), 103605. [4] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xi-aohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, et al. 2020. An image is worth 16x16 words: Transformers for image recognition at scale. arXiv preprint arXiv:2010.11929 (2020). [5] Mohammad Eghtedari, Alice Chong, Rebecca Rakow-Penner, and Haydee Ojeda-Fournier. 2021. Current status and future of BI-RADS in multimodality imaging, from the AJR special series on radiology reporting and data systems. American Journal of Roentgenology 216, 4 (2021), 860–873. [6] Luisa Gallée, Catharina Silvia Lisson, Timo Ropinski, Meinrad Beer, and Michael Götz. 2025. Proto-Caps: interpretable medical image classification using pro-totype learning and privileged information. PeerJ Computer Science 11 (2025), e2908. [7] Yunhe Gao, Difei Gu, Mu Zhou, and Dimitris N. Metaxas. 2024. Aligning Human Knowledge with Visual Concepts Towards Explainable Medical Image Classifica-tion. In Medical Image Computing and Computer Assisted Intervention – MICCAI 2024 (Lecture Notes in Computer Science, Vol. 15010) . Springer, 46–56. [8] Wilfrido Gómez-Flores, Maria Julia Gregorio-Calas, and Wagner Coelho de Al-buquerque Pereira. 2024. BUS-BRA: A breast ultrasound dataset for assessing computer-aided diagnosis systems. Medical Physics 51, 4 (2024), 3110–3123. [9] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. 2016. Deep Residual Learning for Image Recognition. In Proceedings of the IEEE Conference on Com-puter Vision and Pattern Recognition (CVPR) . 770–778. [10] Shih-Cheng Huang, Liyue Shen, Matthew P. Lungren, and Serena Yeung. 2021. GLoRIA: A Multimodal Global-Local Representation Learning Framework for Label-Efficient Medical Image Recognition. In Proceedings of the IEEE/CVF Inter-national Conference on Computer Vision (ICCV) . 3942–3951. [11] Ahmed Iqbal and Muhammad Sharif. 2024. Memory-efficient transformer net-work with feature fusion for breast tumor segmentation and classification task. 
+
+Engineering Applications of Artificial Intelligence 127 (2024), 107292. [12] Pang Wei Koh, Thao Nguyen, Yew Siang Tang, Stephen Mussmann, Emma Pier-son, Been Kim, and Percy Liang. 2020. Concept Bottleneck Models. In Proceed-ings of the 37th International Conference on Machine Learning (Proceedings of Ma-chine Learning Research, Vol. 119) . PMLR, 5338–5348. [13] Qiankun Li, Yimou Wang, Yani Zhang, Zhaoyu Zuo, Junxin Chen, and Wei Wang. 2025. Fuzzy-ViT: A Deep Neuro-Fuzzy System for Cross-Domain Transfer Learn-ing From Large-Scale General Data to Medical Image. IEEE Transactions on Fuzzy Systems 33, 1 (2025), 231–241. [14] Anna Pawłowska, Anna Ćwierz-Pieńkowska, Agnieszka Domalik, Dominika Jaguś, Piotr Kasprzak, Rafał Matkowski, Łukasz Fura, Andrzej Nowicki, and Nor-bert Żołek. 2024. Curated benchmark dataset for ultrasound based breast lesion analysis. Scientific Data 11, 1 (2024), 148. [15] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. 2021. Learning Transferable Visual Models From Natural Language Supervision. In Proceedings of the 38th Inter-national Conference on Machine Learning (Proceedings of Machine Learning Re-search, Vol. 139) . PMLR, 8748–8763. [16] Jean M. Seely and Mary B. Bissell. 2026. BI-RADS v2025: A Welcome Update. 
+
+American Journal of Roentgenology (2026). Online ahead of print. [17] Sanchit Sinha and Aidong Zhang. 2025. A Comprehensive Survey on the Risks and Limitations of Concept-based Models. arXiv preprint arXiv:2506.04237 
+
+(2025). [18] David Allen Spak, JS Plaxco, L Santiago, MJ Dryden, and BE Dogan. 2017. BI-RADS® fifth edition: A summary of changes. Diagnostic and Interventional Imag-ing 98, 3 (2017), 179–190. [19] Divyansh Srivastava, Ge Yan, and Tsui-Wei Weng. 2024. VLG-CBM: Training Concept Bottleneck Models with Vision-Language Guidance. Advances in Neural Information Processing Systems 37 (2024), 79057–79094. [20] Vladimir Vapnik and Rauf Izmailov. 2015. Learning using privileged informa-tion: similarity control and knowledge transfer. The Journal of Machine Learning Research 16, 1 (2015), 2023–2049. [21] Chunjiang Wang, Kun Zhang, Yandong Liu, Zhiyang He, Xiaodong Tao, and S Kevin Zhou. 2025. MVP-CBM: multi-layer visual preference-enhanced con-cept bottleneck model for explainable medical image classification. In Proceed-ings of the Thirty-Fourth International Joint Conference on Artificial Intelligence .529–537. [22] Chaoyi Wu, Xiaoman Zhang, Ya Zhang, Yanfeng Wang, and Weidi Xie. 2023. MedKLIP: Medical Knowledge Enhanced Language-Image Pre-Training for X-ray Diagnosis. In Proceedings of the IEEE/CVF International Conference on Com-puter Vision (ICCV) . 21372–21383. [23] Peirong Xu, Luoqian Zhu, Jingkun Chen, Xin Qian, Yue Sun, Lingyun Bao, and Tao Tan. 2026. SAMASK-CLTR: A Spatial-Aware Mask Guided Learning Model for Benign and Malignant Tumor Classification in ABUS. In Medical Image Com-puting and Computer Assisted Intervention, MICCAI 2025 , Vol. 15960. Springer, 567–577. [24] An Yan, Yu Wang, Yiwu Zhong, Zexue He, Petros Karypis, Zihan Wang, Chengyu Dong, Amilcare Gentili, Chun-Nan Hsu, Jingbo Shang, et al. 2023. Ro-bust and Interpretable Medical Image Classifiers via Concept Bottleneck Models. 
+
+arXiv preprint arXiv:2310.03182 (2023). [25] Qianye Yang, David Atkinson, Yunguan Fu, Tom Syer, Wen Yan, Shonit Pun-wani, Matthew J Clarkson, Dean C Barratt, Tom Vercauteren, and Yipeng Hu. 2022. Cross-modality image registration using a training-time privileged third modality. IEEE Transactions on Medical Imaging 41, 11 (2022), 3421–3431. [26] Xiaoyan Yuan, Wei Wang, Junxin Chen, and Xiping Hu. 2025. Reading Between the Channels: Knowledge-Augmented Medical Time Series Classification. In Pro-ceedings of the 33rd ACM International Conference on Multimedia . 8978–8987. [27] Mert Yuksekgonul, Maggie Wang, and James Zou. 2023. Post-hoc Concept Bot-tleneck Models. In The Eleventh International Conference on Learning Representa-tions .[28] Boyu Zhang, Aleksandar Vakanski, and Min Xian. 2021. BI-RADS-Net: An Ex-plainable Multitask Learning Approach for Cancer Diagnosis in Breast Ultra-sound Images. In 2021 IEEE 31st International Workshop on Machine Learning for Signal Processing (MLSP) . 1–6. [29] Boyu Zhang, Aleksandar Vakanski, and Min Xian. 2023. BI-RADS-NET-V2: a composite multi-task neural network for computer-aided diagnosis of breast cancer in ultrasound images with semantic and quantitative explanations. IEEE Access 11 (2023), 79480–79494.
