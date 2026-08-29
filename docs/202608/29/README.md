@@ -1,21 +1,24 @@
 # 日报 · 2026-08-29
 
-- 生成时间：2026-08-29 03:21:40 UTC
-- 当次推荐总数：5
-- 精读区：1
-- 速读区：4
+- 生成时间：2026-08-29 22:43:35 UTC
+- 当次推荐总数：8
+- 精读区：2
+- 速读区：6
 
 ## 今日简报（AI）
-今日精读聚焦大规模全切片图像嵌入提取，以9.0分领跑；速读覆盖医学多模态脱敏、组合检索权重与空间多组学聚类。最值得看的是解耦I/O主导流水线方法，对病理切片特征提取效率提升显著。若想快速了解AI医学应用，可优先关注生成式恢复在数据脱敏中的潜力。
+今日聚焦多模态医学与病理切片AI，精读两篇高分论文，速读三篇相关研究。最值得关注PANDA的部分未配对多模态对齐方法，以及大规模全切片图像的高效嵌入提取管线。下一步可优先关注多模态数据融合与整张切片推理的落地实践。
 
 ## 精读区
-1. [Decoupled I/O-Dominant Pipelines for Large-Scale Whole-Slide Image Embedding Extraction](/202608/29/2608.27278v1-decoupled-io-dominant-pipelines-for-large-scale-whole-slide-image-embedding-extraction) （9.0/10）
+1. [PANDA - Prototype-Anchored Alignment for Partially Unpaired Multimodal Learning, with Applications to Alzheimers MRI and TCGA Pathology](/202608/29/2608.25970v1-panda---prototype-anchored-alignment-for-partially-unpaired-multimodal-learning-with-applications-to-alzheimers-mri-and-tcga-pathology) （9.0/10）
+2. [Decoupled I/O-Dominant Pipelines for Large-Scale Whole-Slide Image Embedding Extraction](/202608/29/2608.27278v1-decoupled-io-dominant-pipelines-for-large-scale-whole-slide-image-embedding-extraction) （9.0/10）
 
 ## 速读区
-1. [Masking Is Not Enough: Generative Restoration for Multimodal De-Identification in Medical AI](/202608/29/2608.21133v1-masking-is-not-enough-generative-restoration-for-multimodal-de-identification-in-medical-ai) （6.0/10）
-2. [Learning Sample-wise Rank-aware Interpolation Weights for Composed Visual Data Retrieval](/202608/29/2608.22500v1-learning-sample-wise-rank-aware-interpolation-weights-for-composed-visual-data-retrieval) （6.0/10）
-3. [OmicSync: Reliability-Aware Spatial Multi-Omics Clustering with Evidence-Constrained LLM Reasoning](/202608/29/2608.22785v2-omicsync-reliability-aware-spatial-multi-omics-clustering-with-evidence-constrained-llm-reasoning) （6.0/10）
-4. [Mitigating Strong-Modality Collapse in Multimodal Learning via Inverted Asymmetric Fusion](/202608/29/2608.26879v1-mitigating-strong-modality-collapse-in-multimodal-learning-via-inverted-asymmetric-fusion) （6.0/10）
+1. [Masking Is Not Enough: Generative Restoration for Multimodal De-Identification in Medical AI](/202608/29/2608.21133v1-masking-is-not-enough-generative-restoration-for-multimodal-de-identification-in-medical-ai) （7.0/10）
+2. [OmicSync: Reliability-Aware Spatial Multi-Omics Clustering with Evidence-Constrained LLM Reasoning](/202608/29/2608.22785v1-omicsync-reliability-aware-spatial-multi-omics-clustering-with-evidence-constrained-llm-reasoning) （7.0/10）
+3. [Adaptive Hierarchical Representation Alliance for Multimodal Learning](/202608/29/2608.22863v2-adaptive-hierarchical-representation-alliance-for-multimodal-learning) （7.0/10）
+4. [Graph-Supervised Hierarchical Clinical Alignment for Radiology Report Generation with Large Language Models](/202608/29/2608.24121v1-graph-supervised-hierarchical-clinical-alignment-for-radiology-report-generation-with-large-language-models) （7.0/10）
+5. [MLLMCLIP: Feature-Level Distillation of MLLM for Robust Vision-Language Representations](/202608/29/2608.25575v1-mllmclip-feature-level-distillation-of-mllm-for-robust-vision-language-representations) （6.0/10）
+6. [Learning Interpretable Tumor Microenvironment Representations by Fitting Pan-Cancer Cell State-Niche Correlation](/202608/29/2608.26208v1-learning-interpretable-tumor-microenvironment-representations-by-fitting-pan-cancer-cell-state-niche-correlation) （6.0/10）
 
 ---
 使用键盘方向键可在日报/论文之间快速切换。
