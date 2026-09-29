@@ -1,0 +1,610 @@
+Title: Towards Whole-Study Screening for Congenital Heart Disease in Fetal Ultrasound Using Multiple Instance Learning
+
+URL Source: https://arxiv.org/pdf/2609.31376v1
+
+Published Time: Mon, 28 Sep 2026 01:31:33 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# Towards Whole-Study Screening for Congenital Heart Disease in Fetal Ultrasound Using Multiple Instance Learning 
+
+Mohamed Azzam, Ruobing Liu, Esther C. Ugwueke, Ziyang Xu, Shibiao Wan, Alex Foy, Abraham Zabih, Jason Christensen, Neil Hamill, Ling Li, and Jieqiong Wang 
+
+Abstract — Congenital heart disease (CHD) is the most common birth defect, yet a large fraction of cases remain undetected on prenatal ultrasound, in part because current artificial-intelligence methods assume that the key diag-nostic frames have already been isolated from a study, by a clinician or by a view classifier. We remove that assumption and address CHD screening directly at the level of the whole ultrasound study. We propose a two-stage framework that first learns transferable frame rep-resentations by self-supervised masked-autoencoder pre-training on unlabeled fetal ultrasound, then identifies car-diac frames with a disease-robust module and aggregates them with a transformer-based multiple instance learning (MIL) model that produces a case-level diagnosis from study-level labels alone. The model further returns its highest-scoring frames for clinician review, and a hierarchi-cal head separates critical from non-critical CHD. On the internal test set of our multi-source development cohort (FUSE), the proposed cardiac-gated MIL model reaches an area under the curve (AUC) of 0.985 with a specificity of 0.990, outperforming the reproduced NATMED ensemble (AUC 0.861, specificity 0.600) and the FetalCLIP foundation model (AUC 0.867, specificity 0.710). On an independent external cohort, all models initially perform near chance, but label-free CORAL adaptation raises the proposed model from an AUC of 0.513 to 0.944, whereas whole-study and view-dependent baselines do not recover. These results indicate that whole-study MIL with disease-robust cardiac-frame identification is an accurate and deployable route to prenatal CHD screening. 
+
+Index Terms — Congenital heart disease, fetal ultrasound, multiple instance learning, prenatal screening, domain adaptation, self-supervised learning. 
+
+I. I NTRODUCTION 
+
+(Corresponding author: Jieqiong Wang.) 
+
+M. Azzam, R. Liu, E. C. Ugwueke, Z. Xu, and J. Wang are with the Department of Neurological Sciences, University of Nebraska Medical Center, Omaha, NE 68198 USA (e-mail: jiwang@unmc.edu). S. Wan is with the Department of Genetics, Cell Biology and Anatomy, University of Nebraska Medical Center, Omaha, NE 68198 USA. A. Foy, A. Zabih, J. Christensen, and L. Li are with the Department of Pediatrics, University of Nebraska Medical Center, Omaha, NE 68198 USA. N. Hamill is with the Department of Obstetrics and Gynecology, University of Nebraska Medical Center, Omaha, NE 68198 USA. Retrospective, de-identified imaging was analyzed under approved UNMC IRB protocol 0342-24-EP. 
+
+# CONGENITAL heart disease (CHD) affects approximately one in one hundred births and is the most common birth defect and a leading cause of infant mortality [1], [2]. In 2017, CHD caused more than 260,000 deaths worldwide, with the majority are infants [2]. Critical forms, which re-quire intervention in the first days of life, occur in roughly two to three per one thousand births. Therefore, effective prenatal screening and diagnosis are essential for identifying affected pregnancies, enabling referral to specialized fetal-cardiology care, facilitating delivery at appropriately equipped centers, and supporting timely postnatal intervention [3]. To improve prenatal detection, international guidelines specify the cardiac views that should be obtained during a screening examination [4]. In practice, however, prenatal detection of CHD remains below fifty percent and varies widely across institutions [5], [6]. The detection rate is even worse in rural and underserved areas, where limited access to specialized expertise and adequate resources can further constrain prenatal CHD screening [7]–[9]. Closing this detection gap is the motivation for our work. Ultrasound is widely used for fetal screening due to sev-eral practical advantages: it provides real-time imaging, is free of ionizing radiation, is relatively inexpensive, and is already integrated into routine obstetric care [3], [4]. Yet it remains challenging for automated analysis. A screening study typically contains hundreds to thousands of frames, but only a small fraction depict the fetal heart. Also, image quality varies with fetal position and operator expertise. Furthermore, the image appearance can shift across sites, scanners, and acquisition protocols. Therefore, any method intended for real-world CHD screening must analyze the entire study rather than rely on a small set of pre-selected cardiac images. Artificial intelligence (AI), and deep learning in particular, has advanced rapidly across medical imaging, demonstrat-ing strong performance in a wide range of image-analysis tasks [10]. Similar advances in fetal ultrasound show that clinically relevant anatomical and diagnostic information can be learned directly from ultrasound images [11], [12]. These developments motivate AI-assisted prenatal CHD screening. However, translating image-level performance to real-world screening requires models that can operate on complete stud-ies, identify the informative cardiac frames, and produce reliable subject-level predictions. arXiv:2609.31376v1 [eess.IV] 25 Sep 2026 2 AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 
+
+Current AI pipelines do not fully satisfy these require-ments. Existing approaches [13], [14] commonly assume that diagnostically relevant cardiac frames have already been iso-lated, either manually or through a cardiac-plane identifica-tion step [12], [13]. Fig. 1(a) and (b) illustrate these two prevailing designs. In the first, a clinician manually selects representative cardiac images that are subsequently analyzed by a CHD classifier. Although effective on curated images, this approach requires expert intervention and is labor intensive. The second design automates frame selection using a plane classifier to identify standard cardiac views before applying the CHD classifier. However, standard-plane classifiers are designed to recognize expected cardiac structures and are predominantly trained on normal anatomy. Structural abnor-malities in CHD may therefore alter the anatomical patterns used for view recognition, causing diagnostically important abnormal cardiac frames to be discarded before they reach the CHD classifier [15]. Both designs also operate at the image level, producing separate predictions for individual frames that must subsequently be combined into a subject-level diagnosis. These limitations become particularly important in practical screening, where the relevant cardiac frames are not known in advance. In addition, severity classification for clinical triage remains limited, with only small studies reported [14], and cross-site validation under differences in populations, disease prevalence, equipment, and acquisition protocols remains largely unexplored. A practical screening system should instead analyze the whole ultrasound study, identify informative cardiac frames without relying on normal standard-plane anatomy, aggregate information across those frames into a subject-level prediction, and remain reliable when transferred to a new clinical site. Multiple instance learning (MIL) is a natural fit for this setting. MIL treats a study as a bag of instances (frames) with a single bag-level label, and learns both the bag prediction and the per-instance contributions without frame-level super-vision [16], [17]. Attention-based MIL makes the per-instance weights explicit [18], and MIL has become the standard tool for weakly supervised whole-slide pathology [10], [19]. These properties are what let a model trained only on study-level diagnoses nonetheless surface the individual frames that drive its decision, which is the behavior clinical review requires. Figure 1(c) shows the resulting design: the whole study enters at the subject level, a learned cardiac gate replaces manual or view-based frame selection, and the MIL aggregator returns a single case-level prediction together with the ranked key diagnostic frames on which that prediction rests. A screening tool must also generalize. Because ultrasound appearance shifts across scanners and clinics, a model trained at one site can degrade sharply at another. We therefore treat cross-site transfer as a first-class problem and study transfer to an independent external cohort, CARDIUM [20], which was collected at a different institution and, unlike our development data, contributes curated cardiac frames rather than full sweeps, so it also tests whether a whole-study model accepts pre-selected input. To recover performance without target labels we use Deep CORAL [21], an unsupervised domain adaptation method based on correlation alignment  
+
+> Fig. 1. Three designs for AI-based prenatal CHD screening. (a) Expert-selected images: a clinician manually selects representative frames, each is scored by a CHD classifier, and the per-image predictions must still be combined into a diagnosis. (b) Two-stage design: a plane clas-sifier first identifies standard cardiac views before diagnosis. Because these classifiers are designed to recognize standard cardiac structures and are predominantly trained on normal anatomy, they may discard abnormal cardiac frames. Aggregation is again required as the design produces per-image predictions. (c) Proposed whole-study design: the entire study enters at subject level. The frame encoder embeds every frame, a disease-robust cardiac-frame identifier gates which frames en-ter the bag, and a MIL aggregator produces one subject-level prediction while surfacing the key diagnostic frames that support it.
+
+(CORAL) that matches the second-order statistics of source and target features. This lets a deployed model be tuned to a new population from unlabeled studies alone, without additional annotation. Prior AI work on fetal CHD has largely operated within the pre-selected-frame setting [11]. A prominent example is the ensemble of neural networks reported by Arnaout et al., hereafter referred to as NATMED, which detects complex CHD from standard cardiac views at expert level [13]. Other approaches include two-stage transfer-learning screens for duct-dependent lesions [22], routine-screening detectors [14], and disease-specific models for lesions such as hypoplastic left heart syndrome [23]. FetalCLIP and related foundation models have further advanced representation learning for fetal ultrasound [24], [25]. Despite these advances, existing meth-ods largely rely on curated cardiac views rather than screening directly from the whole ultrasound study. In this paper, we address whole-study CHD screening from fetal ultrasound. We propose a two-stage framework that pairs self-supervised representation learning with a disease-robust cardiac-frame identifier and a transformer-based MIL aggregator, train and test it on our multi-source development cohort (FUSE), and characterize its transfer to the independent external cohort CARDIUM [20] under label-free CORAL adaptation [21]. The main contributions of this work are as follows. 1) We formulate CHD screening as a whole-study MIL problem and show that a transformer-based aggrega-tor, applied to automatically identified cardiac frames, produces accurate case-level diagnoses from study-level labels alone while returning interpretable supporting AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 3
+
+frames. 2) We introduce a disease-robust cardiac-frame identifica-tion module that remains reliable on abnormal hearts, and we show that gating to identified cardiac frames is decisive for both accuracy and transfer. 3) We add a hierarchical severity head that separates critical from non-critical CHD, improving sensitivity to the under-represented non-critical class over a flat classifier. 4) We evaluate cross-site generalization on the independent external CARDIUM cohort [20] and show that label-free CORAL adaptation [21] raises the transfer area under the receiver operating characteristic curve (AUC) of the proposed model from 0.513 to 0.944. The rest of this paper is organized as follows. Section II reviews related work. Section III presents the proposed frame-work. Section IV reports the experimental setup and results. Section V concludes. 
+
+II. R ELATED WORK 
+
+A. Prenatal CHD diagnosis 
+
+Automated fetal cardiac analysis has followed the clinical screening pipeline. View or standard-plane classifiers local-ize the cardiac sweep within a study [12], segmentation networks delineate chambers and vessels for biometry [26], and downstream models flag abnormality [27]. On top of this pipeline, several CHD-specific systems have been pro-posed: the NATMED ensemble of neural networks for com-plex CHD from standard views [13], one-class adversarial screening of fetal echocardiograms [28], two-stage transfer learning for duct-dependent lesions [22], routine-screening detectors for major CHD [14], and lesion-specific models for hypoplastic left heart syndrome [23]. More recent work targets deployment-facing problems such as standard cardiac-cycle detection in video [29], clip extraction for remote expert review [30], and retrospective community imaging [31], and large fetal-ultrasound foundation models improve transferable representations [24], [25], [32]. Comprehensive surveys doc-ument both the progress and the recurring gap [33]–[35]: reported performance is high on curated views but is rarely established on whole studies or across sites. Our work targets that gap directly. 
+
+B. Multiple-instance learning 
+
+MIL learns a bag-level label from a set of instances without instance-level supervision [16], [17]. Modern formulations replace fixed pooling with learned aggregation: attention-based pooling weights instances by relevance [18], and neural MIL architectures generalize these operators [36]. In computa-tional pathology, MIL is the dominant paradigm for weakly supervised whole-slide classification, including clustering-constrained attention [19], dual-stream contrastive MIL [37], transformer-based correlated MIL [38], distribution-guided MIL [39], and intrinsically interpretable additive MIL [40]. MIL has also been applied to volumetric and video medical data, including COVID-19 severity from CT [41], ordinal grading [42], knowledge-driven prenatal abnormality classifi-cation [43], and multimodal echocardiographic diagnosis [44]. Robustness of MIL under distribution shift has received spe-cific attention [45], [46]. These methods motivate our use of a transformer-based aggregator, but they operate on curated bags; we instead build the bag from a raw study by first identifying cardiac frames. 
+
+C. Domain adaptation 
+
+Distribution shift between training and deployment data is a central obstacle in medical imaging. Feature-alignment meth-ods match source and target statistics, for example by align-ing second-order statistics with CORAL [21] or minimizing maximum mean discrepancy [47]; adversarial methods learn domain-invariant features [48]; and cluster-alignment and self-training approaches refine the target decision boundary [49]. In fetal ultrasound specifically, generalization across devices and clinics has been studied in low-resource settings [50] and multi-center benchmarks [51], and dataset-level biases have been documented [52]. We adopt label-free CORAL as our primary adaptation mechanism because it requires no target annotations and aligns naturally with the whole-study feature representation. 
+
+III. M ETHODS 
+
+A. Problem formulation and overall framework 
+
+We consider case-level CHD screening from a whole fetal ultrasound study. A study of subject b yields an unordered set (bag) of Nb B-mode frames, Bb = {Ib, 1, . . . , I b,N b }, with a single study-level label yb ∈ { 0, 1, 2}, where 0 denotes a healthy control (HC), 1 a non-critical CHD (NCCHD), and 2 a critical CHD (CCHD). Critical CHD denotes lesions that require catheter-based or surgical intervention in the neonatal period, typically duct-dependent circulations; non-critical CHD denotes structural disease that does not require neonatal intervention. Class assignment was made by the clin-ical collaborators from the confirmed postnatal diagnosis. The binary detection label is 1[yb > 0] , so detection and severity grading are nested tasks. No frame-level diagnostic annotation is available or required. Frame-level view annotations exist for a subset of subjects and are used only to train the cardiac-frame identifier and, where present, to construct training bags (Section III-D). This is the multiple instance learning setting [16], [17]: the subject is the bag, each frame is an instance, and supervision exists only at the bag level. Because the bag is a set, the bag-level scoring function must be permutation-invariant. The model factorizes as instance embedding, permutation-invariant aggregation, and bag classification, 
+
+F (Bb) = g Φ( {hb,i }Nb
+
+> i=1
+
+), hb,i = fθ (Ib,i ),
+
+Φ( {hb,ς (i)}Nb
+
+> i=1
+
+) = Φ( {hb,i }Nb
+
+> i=1
+
+),
+
+(1) for every permutation ς of {1, . . . , N b}, where fθ is a frozen self-supervised frame encoder producing embeddings hb,i ∈
+
+RD (Sections III-B and III-C), Φ is the learned aggregator (Section III-E), and g is the bag classifier head. Figure 2 shows the pipeline. Stage 1 pre-trains fθ on unlabeled fetal ultrasound. In Stage 2 the encoder is frozen 4 AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 
+
+and embeds every retained frame of a study; a cardiac-frame identification module, trained on the same frozen embeddings, acts as a gate that passes forward only the frames it identifies as cardiac (Section III-D); the transformer-based MIL aggrega-tor pools the gated bag through a learnable classification token whose attention over frames ranks the key supporting frames returned for clinician review (Section III-E); and task heads map the pooled representation to the outputs. The architecture supports two task heads over this shared backbone: a binary detection head (Section III-G), and a two-stage detect-then-grade head for severity (Section III-F). Transfer from the FUSE development cohort to the external CARDIUM cohort (Section IV-A) involves three shifts, and each motivates a distinct design element. Appearance shift across scanners, operators, and protocols is addressed by second-order feature alignment (Section III-G). Prior shift, from a CHD prevalence of about 41% in the FUSE training pool to about 3% in CARDIUM, is addressed by label-free operating-point rules at inference rather than in the loss (Sec-tion IV-D). Bag-composition shift is the largest of the three: a FUSE study is a full sweep of hundreds of frames (median 298 per training subject) spanning cardiac, abdominal, and non-diagnostic planes, whereas a CARDIUM study contributes a handful of curated, predominantly cardiac frames (median 4), so an aggregator trained to search a large heterogeneous bag would otherwise meet an input distribution it has never seen. Cardiac gating with a fixed frame cap aligns bag construction across cohorts (Section III-D). 
+
+B. Representation learning (Stage 1) 
+
+Diagnostic labels are scarce relative to the number of frames, so we learn frame features without them. The encoder 
+
+fθ is a Vision Transformer, ViT-L/16 [53], with 224 × 224 in-put, patch size 16 (196 patch tokens plus a class token), width 1024, trained from random initialization on fetal ultrasound with the masked-autoencoder (MAE) objective [54]. Pre-training used a leakage-controlled corpus of 369,846 masked B-mode frames from 1,650 fetuses, assembled from the two institutional cohorts and three public fetal-ultrasound datasets, where masked refers to the acquisition mask that blanks the region outside the ultrasound sector. Every subject reserved for diagnostic evaluation, namely the in-domain test set and the entire external cohort, was withheld from pre-training by construction, so no evaluation subject influenced the encoder. Public subjects without an annotated cardiac plane, which can never enter a diagnosis split, were retained as unlabeled anatomical variety. Let xj ∈ RP denote the jth of the 196 patches of the channel-normalized input, with P = 16 · 16 · 3 = 768 
+
+values. A random subset M of patches is masked, with mask ratio ρ = 0 .70 . The encoder then processes only the visible patches plus the class token, and a lightweight decoder reconstructs the masked patches from the encoder output, with a shared learnable mask token inserted at the removed positions. Reconstruction targets are per-patch standardized pixels and the loss is the mean squared error over masked patches only, 
+
+LMAE = 1
+
+|M| 
+
+X
+
+> j∈M
+
+1
+
+P ˆxj − ˜xj
+
+> 22
+
+,
+
+˜xj = xj − μj 1
+
+q
+
+σ2 
+
+> j
+
++ ε,μj = 1
+
+> P
+
+P 
+
+> p
+
+xj,p , σ2 
+
+> j
+
+= 1 
+
+> P−1
+
+P
+
+> p
+
+(xj,p − μj )2,
+
+(2) with ˆxj the decoder prediction, ε = 10 −6, and the unbiased variance of the reference implementation; visible patches con-tribute nothing to the loss. Augmentation reflects ultrasound acquisition variability rather than natural-image statistics (ran-dom resized crop, horizontal and vertical flips, a small random affine transform with zero fill matching the sector surround, and Gaussian blur), and channel normalization uses the cor-pus’s own foreground-pixel statistics rather than ImageNet constants (Section IV-C). In-domain self-supervised features of this kind are expected to transfer better than supervised natural-image features because they are learned on fetal ultra-sound and are not tied to the label distribution of any single task. 
+
+C. Frozen frame embedding 
+
+The pre-trained encoder is used strictly as a frozen feature extractor and is never fine-tuned for any task. Every down-stream experiment is therefore a comparison of gating, aggre-gation, and adaptation strategies over one fixed representation, and the whole of Stage 2 trains in minutes on a single GPU. Each frame is resized to 256 pixels (bicubic), center-cropped to 224 × 224 , and normalized with the same statistics as in pre-training, since a mismatch would shift every embedding. No masking is applied at inferencee, and the class token of the final encoder layer is the frame embedding, 
+
+U(0)  
+
+> b,i
+
+= cenc + Epos 0 ; PatchEmbed( Ib,i ) + Epos 1:196 
+
+,
+
+hb,i = LN  Block 24 ◦ · · · ◦ Block 1(U(0)  
+
+> b,i
+
+) 
+
+> 0
+
+∈ RD , (3) where cenc is the encoder class token, Epos the fixed positional embedding, and the subscript 0 selects the class-token row. The MAE decoder is discarded. Extraction is a single deterministic pass per cohort over the frames retained by preprocessing (Section IV-B), with no augmentation. 
+
+D. Cardiac-frame identification 
+
+Multiple instance learning assumes that the instances of a bag bear on the bag label, each contributing evidence for or against it. A raw screening study violates that assumption. The sweep covers many organs, and a frame that shows no cardiac anatomy carries no evidence about a cardiac defect: it enters the aggregation as noise, it competes for the attention that belongs to the few diagnostic frames, and its appearance tracks the acquisition protocol rather than the diagnosis. The bag must therefore be cleaned before it is aggregated, and, because no frame-level annotation exists at deployment, it must be cleaned by the model itself. We assume that view annotations are available for a subset of the training studies, drawn from both healthy and diseased AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 5 
+
+> Fig. 2. Overview of the proposed two-stage framework. Stage 1: self-supervised pre-training of the frame encoder with a masked-autoencoder objective on unlabeled fetal ultrasound frames. Stage 2: MIL-based CHD detection. A whole-study ultrasound is preprocessed, every frame is embedded by the pre-trained encoder, which is kept frozen (snowflake) and yields one vector per frame; the cardiac-frame identification module passes only the features of the frames it identifies as cardiac, and a transformer aggregator with a classification token pools them into a study representation. A diagnosis head predicts CHD versus HC, a hierarchical severity head, trained as a separate branch, separates critical from non-critical CHD among predicted CHD cases. The attention from the classification token to each frame ranks the key supporting frames returned for clinician review. No expert frame selection is required at any point.
+
+cases, and use them to train a cardiac-frame identifier as a three-class frame classifier over non-target (NT), abdominal (ABDO), and cardiac frames, where cardiac is the union of the five target planes (apical four-chamber, three-vessel, three-vessel-trachea, left ventricular outflow tract, and right ventric-ular outflow tract). The classifier is a multilayer perceptron probe on the same frozen embedding used by the aggregator (layer normalization, then 1024 → 256 → 64 → 3 with GELU activations [55] and dropout 0.3), calibrated by temperature scaling [56], so gating costs one extra head rather than a second backbone. Training it on both normal and CHD studies, rather than on normal anatomy alone, improves cardiac-view recognition on CHD studies at no cost on normals; malformed hearts are exactly where a view classifier trained on normal anatomy fails, and those are the studies whose frames most need to be found. The calibrated gate assigns every frame of every study a cardiac probability, and the bag is reduced to the frames whose probability clears a confidence threshold, 
+
+sb,i = softmax  ϕ(hb,i )/T 
+
+> card
+
+,
+
+Bcard  
+
+> b
+
+=  i ∈ A b : sb,i ≥ τcard , (4) where ϕ is the probe, T its fitted temperature, and Ab the frames of study b. The threshold τcard is a hyperparameter, fitted on a held-out annotated split and never on test or external data. 
+
+E. Transformer-based MIL aggregator (Stage 2) 
+
+Attention-based MIL pooling [18] scores each instance independently and takes a convex combination, so a frame’s weight cannot depend on what else is in the bag. Diagnostic reading of a fetal study is not like that: a four-chamber view is informative relative to the outflow-tract views acquired in the same study, and an apparent abnormality is discounted when a better frame of the same plane contradicts it. We therefore aggregate with self-attention over the bag [38], [57], which makes the contribution of each frame a function of the entire bag. The gated frame embeddings {hb,i }i∈B card  
+
+> b
+
+, re-indexed i = 1 , . . . , n b, enter the aggregator directly, without any learned projection, together with a learnable classification token c ∈ RD ; a shallow transformer encoder processes the sequence, and the transformed classification token is the bag representation, 
+
+X(0)  
+
+> b
+
+= c; hb, 1; . . . ; hb,N 
+
+ ∈ R(N +1) ×D , (5a) 
+
+head k(X) = softmax 
+
+ (XW Qk )( XW Kk )⊤
+
+> √dk
+
++ Mb
+
+
+
+XW Vk , (5b) 
+
+zb = Enc (L)(X(0)  
+
+> b
+
+; Mb) 
+
+> 0
+
+∈ RD , L = 2 , (5c) where nb = |B card  
+
+> b
+
+| is the size of the gated bag, which varies from study to study, N = max b nb is the padded bag length within a batch, and Mb is an additive mask with 
+
+Mb,ij = 0 for valid key positions j and −∞ for padding; 6 AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 
+
+the class-token position is always valid, so no bag can be fully masked. Enc (L) applies L = 2 post-norm layers, each computing X ← LN( X + Drop(MHSA( X))) followed by 
+
+X ← LN( X+Drop(FFN( X))) , with four heads of dimension 
+
+dk = 256 concatenated through an output projection, a narrow ReLU feed-forward bottleneck 1024 → 128 → 1024 , and dropout 0.5 on the attention and feed-forward paths. The feed-forward width is the main capacity constraint: with dmodel =1024 , a conventional four-fold feed-forward layer would add about 8.4 M parameters per layer against 692 training bags. No positional encoding is used, so the aggregator is exactly permutation-equivariant over frame tokens and the class-token read-out is exactly permutation-invariant, the correct inductive bias for an unordered study. It remains dependent on bag composition, including bag size, which is the expressiveness the method claims and the reason bag construction must be aligned across cohorts. The bag classifier head maps zb to logits through a compact multilayer perceptron, 
+
+ab = Drop  ReLU(LN( W1zb + b1))  ∈ Rdh , dh = 64 ,
+
+eb = Drop  ReLU( W2ab + b2) ∈ Rd, d = 32 ,
+
+ℓb = W3eb + b3 ∈ RC ,
+
+(6) where C is the number of classes and eb is the penultimate bag embedding at which domain alignment is applied (Section III-G). The key supporting frames returned for clinician review are ranked by the attention that the classification token pays to each frame in the last encoder layer, averaged over heads and renormalized over valid frames, 
+
+ab,j = mb,j ¯A(L)
+
+> b, 0,j
+
+PNk=1 mb,k ¯A(L)
+
+> b, 0,k
+
+, ¯A(L) 
+
+> b
+
+= 14
+
+> 4
+
+X
+
+> h=1
+
+A(L,h ) 
+
+> b
+
+, (7) where mb,j ∈ {0, 1} marks valid frames, A(L,h ) 
+
+> b
+
+is the attention matrix of head h in layer L, row 0 is the class-token query, and column j is frame j; the class token’s self-attention mass is discarded by the renormalization. Frames are ranked by Eq. (7) alone: the per-frame weights returned by the aggregator’s default forward path come from a projection that is not on the loss path and carry no interpretive meaning. All attention figures in this paper use Eq. (7). 
+
+F. Training objectives 
+
+Class imbalance enters at three levels and is handled by three mechanisms. In this work, we use focal loss [58] with inverse-frequency class weights. At the severity level, the two CHD subclasses are swamped by the detection task, and we use a hard CHD-masked grading term. 
+
+Focal loss. For logits ℓ, true class y, class weights α, and focusing parameter γ, our implementation computes 
+
+LFL (ℓ, y ; α) =  1 − p αy
+
+> y
+
+γ  −αy log py
+
+,py = softmax( ℓ)y . (8) The class weight enters the cross-entropy before the modu-lating factor is formed. We report the form that was actually optimized. Batch reduction is an unweighted mean, no label smoothing is used, and no resampling is used in the main training loop. Class weights are inverse class frequencies over subjects in the training partition, normalized to sum to the number of classes, 
+
+αy = C 1/n y
+
+PCk=1 1/n k
+
+,
+
+> C
+
+X
+
+> k=1
+
+αk = C. (9) 
+
+Two-stage detect-then-grade objective. A flat three-class softmax over HC, NCCHD, and CCHD must learn a com-paratively easy decision (is there disease) and a hard one (how severe) from one gradient. Because HC is the largest class and detection carries most of the loss, the two CHD subclasses collapse toward each other. We break this coupling with two parallel binary heads that read the same pooled representation zb, each one hidden layer deep ( 1024 → 64 ,layer normalization, ReLU, dropout 0.5, 64 → 2): a detection head with logits ℓ(1)  
+
+> b
+
+(HC versus CHD) and a grading head with logits ℓ(2)  
+
+> b
+
+(NCCHD versus CCHD). With I the minibatch and C = {b ∈ I : yb > 0} its CHD-positive bags, 
+
+Ldet -grade = wd
+
+|I| 
+
+X
+
+> b∈I
+
+LFL 
+
+ ℓ(1)  
+
+> b
+
+, 1[yb > 0]; αd
+
+
+
++ wg
+
+|C| 
+
+X
+
+> b∈C
+
+LFL 
+
+ ℓ(2)  
+
+> b
+
+, y b − 1; 1.
+
+(10) Three properties are load-bearing. The grading term is a hard mask, not a weighting: HC bags contribute exactly zero gradient to the grading head. It is normalized by |C| ,not by the batch size, so its magnitude does not shrink as the HC fraction grows. It is defined as zero when a batch contains no CHD bag. We use the weighting factors wd and 
+
+wg to maintain balanced subclass recall. The CHD detection term uses inverse-frequency weights αd to account for class imbalance in the training studies. The two heads are combined by the chain rule, which is what makes the formulation hierarchical rather than two independent models, 
+
+P (CHD | B b) = softmax( ℓ(1)  
+
+> b
+
+)1,P (HC | B b) = 1 − P (CHD | B b),P (CCHD | B b) = P (CHD | B b) softmax( ℓ(2)  
+
+> b
+
+)1,P (NCCHD | B b) = P (CHD | B b) softmax( ℓ(2)  
+
+> b
+
+)0.
+
+(11) These probabilities sum to one by construction, and the binary CHD score used for detection metrics is P (NCCHD |Bb) + P (CCHD | Bb) exactly. Severity is decoded with two thresholds so that detection and grading can be operated independently, 
+
+ˆyb =
+
+
+
+0, P (CHD | B b) ≤ τ, 
+
+2, P (CHD | B b) > τ and gb ≥ τg ,
+
+1, otherwise ,
+
+(12) where gb = softmax( ℓ(2)  
+
+> b
+
+)1 = P (CCHD | CHD , Bb), the CHD detection threshold ( τ = 0 .5) and the severity threshold (τg ) are fitted on the validation-split subjects with yb > 0
+
+against the target 1[yb = 2] .AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 7              
+
+> TABLE I COMPOSITION OF THE STAGE -1 SELF -SUPERVISED PRE -TRAINING CORPUS .
+> Source Pre-training subjects Frames In-house 419 363,182 FETAL PLANES DB [59] 947 4,674 MFUSPAC [50] 115 402 FASSD [60] 169 1,588
+> Total 1,650 369,846
+
+G. Cross-site adaptation 
+
+A model trained on one cohort (Section IV-A) must trans-fer to sites with different scanners, populations, and proto-cols. Our route is unsupervised domain adaptation with deep CORAL [21], a differentiable penalty that matches the second-order statistics of source and target representations and is optimized jointly with the supervised objective, 
+
+LCORAL = 14d2 ΣS − ΣT 
+
+> 2
+> F
+
+,
+
+ΣS = 1
+
+nS − 1
+
+ ES − 1¯e⊤
+
+> S
+
+⊤ ES − 1¯e⊤
+
+> S
+
+,
+
+(13) where ES ∈ RnS ×d and ET ∈ RnT ×d stack the penul-timate bag embeddings eb of Eq. (6) for a labeled source batch and an unlabeled target batch, ¯eS is the source batch mean, the covariance matrix ΣT is defined analogously to 
+
+ΣS , and the penalty is zero when either batch holds fewer than two bags. Alignment is applied at the 32-dimensional penultimate embedding rather than at the frame features or the logits: the frame encoder is frozen, so aligning frame features would not act on any trainable parameter, and aligning the two-dimensional logits would directly fight the classification objective, whereas the penultimate bag embedding is the last representation that is both trainable and task-relevant. The total objective is 
+
+L = 1
+
+nSnSX
+
+> b=1
+
+LFL 
+
+ ℓsb , y sb ; α
+
++ λ LCORAL (ES , ET ),
+
+(14) with λ fixed at 10 throughout training. Each source batch is paired with a batch of unlabeled CARDIUM bags drawn from a separate cyclic loader and constructed using the same gate and threshold. CARDIUM labels are never used in any loss, metric, or threshold during training. 
+
+IV. E XPERIMENTS 
+
+A. Datasets and cohort 
+
+Our development data form the FUSE cohort (fetal ultra-sound multi-source development cohort), the union of an in-house cohort and three public fetal-ultrasound datasets, and we reserve an independent external cohort for out-of-domain evaluation, as reported in Table II. The in-house dataset was derived from the databases of Nebraska Medicine and Children’s Nebraska hospitals, com-prising ultrasound scans aggregated across seven medical insti-tutions. The dataset spans three levels of care: routine prenatal screening, maternal-fetal medicine, and tertiary fetal cardiac care, corresponding to rural/community, secondary/referral, and tertiary sites, respectively. Ultrasound examinations were acquired using at least 13 scanners from Philips and GE, encompassing multiple scanner models across the participating institutions. Scans span gestational ages of 18 to 28 weeks, were collected between 2015 and 2024, and are 83% urban and 17% rural; the reference standard is postnatal echocardio-graphic evaluation. The public sources are a European maternal-fetal plane dataset (FETAL PLANES DB) [59], a five-country African low-resource dataset (MFUSPAC) [50], and a Chinese recurrent-CHD family dataset (RFCHD) [61]. Public subjects enter the diagnosis splits only if they are evaluable for cardiac diagnosis, defined as having at least one frame annotated with a cardiac target plane at an acceptable quality. The remaining public subjects are used only for self-supervised pre-training. FUSE comprises 869 subjects, which we split at the subject level into 692 training and 177 in-domain test subjects (ap-proximately 80/20). Within the training subjects, a stratified 15% subject-level validation split is used for early stopping, checkpoint selection, and threshold fitting. A subset of 479 subjects, namely all 342 public subjects and 137 of the 527 in-house subjects (26.0%), is annotated at the frame level by a team of pediatric cardiologists for view, one of the five cardiac target planes (apical four-chamber, three-vessel, three-vessel-trachea, and left and right ventricular outflow tract), abdominal, or non-target, and for image quality on a three-level scale (0 to 2). This annotated subset comprises 406 HC, 36 CCHD, and 37 NCCHD subjects; it covers 357 of the 692 training and 122 of the 177 test subjects. The external cohort is CARDIUM [20], whose CHD cases carry a reviewing cardiologist’s diagnostic-confidence grade. After excluding color Doppler frames, the cohort holds 790 cases, including 767 HC and 23 CHD, corresponding to a CHD prevalence of 2.9%. CARDIUM labels are never used for training, model selection, or threshold selection. Its unlabeled bags serve only as the alignment target of Section III-G. Table I decomposes the self-supervised pre-training corpus of Section IV-C by source. Every one of the 177 in-domain test subjects was withheld from it, as was the whole of CARDIUM, so no evaluation subject influenced the encoder. On the in-house side the pre-training subjects are exactly the 419 in-house training subjects; on the public side they also include the subjects that are not evaluable for cardiac diagnosis and therefore never enter a diagnosis split, which is why FETAL PLANES DB contributes 947 subjects to pre-training but 280 to the splits in Table II. One further public source enters pre-training only: FASSD [60], a fetal abdominal-structures dataset, holds abdominal-circumference images and no cardiac views, so none of its subjects is evaluable for cardiac diagnosis and it contributes abdominal anatomy to the encoder as unlabeled variety. 
+
+B. Preprocessing 
+
+Preprocessing was applied consistently to the in-house, public, and CARDIUM cohorts. Each study was first de-identified, and scanner overlays, including text, measurements, 8 AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 
+
+TABLE II COMPOSITION OF THE COHORTS USED FOR DIAGNOSIS TRAINING AND EVALUATION .
+
+CHD Cohort Source n HC Non-critical Critical View-annotated Purpose FUSE In-house 527 171 145 211 26.0% Training ( n = 692 ) and internal testing ( n = 177 )FETAL PLANES DB [59] 280 280 0 0 100% MFUSPAC [50] 61 61 0 0 100% RFCHD [61] 1 0 1 0 100% 
+
+Total 869 512 146 211 55.1% External CARDIUM [20] 790 767 23 (2.9%) 0% External test AUC Sensitivity Specificity 0.0 0.2 0.4 0.6 0.8 1.0 
+
+> Score
+
+A In-house Test      
+
+> NATMED FetalCLIP Proposed
+> 0.861 0.906 0.600 0.867 0.828 0.710 0.985 0.972 0.990
+> NATMED FetalCLIP Proposed Proposed + CORAL 0.0 0.2 0.4 0.6 0.8 1.0
+> AUC
+
+B CARDIUM (external) 
+
+> chance
+> 0.506 0.571 0.513 0.944 +0.431
+
+Fig. 3. CHD screening performance. (A) Internal FUSE test set (177 subjects): AUC, sensitivity, and specificity of NATMED, FetalCLIP, and the proposed cardiac-gated MIL model. (B) External CARDIUM cohort: AUC of NATMED, FetalCLIP, and the proposed model without adaptation, and of the proposed model after label-free CORAL adaptation. The dashed line marks chance. Cardiac AUC Accuracy Precision Recall 
+
+> 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+
+A View classification (HC) 
+
+AUC 
+
+> 0.945 0.925 0.855 0.846 0.757
+
+Cardiac AUC Accuracy Precision Recall 
+
+> 0.4 0.5 0.6 0.7 0.8 0.9 1.0
+
+B View classification (CHD) 
+
+AUC 
+
+> 0.880 0.838 0.728 0.850 0.584
+
+NATMED SonoNet Proposed 
+
+Fig. 4. Cardiac-view classification on the view-annotated internal test studies, for (A) HC and (B) CHD studies. Axes: AUC, cardiac-view AUC, precision, recall, and accuracy, for NATMED, SonoNet, and the proposed cardiac-frame identifier. 
+
+and annotations, were removed. These overlays may con-tain scanner or site-specific information unrelated to cardiac anatomy and could encourage shortcut learning rather than reliance on clinically relevant image content [62]. Each frame was then cropped to retain only the active ultrasound region, from which the 224 ×224 model input described in Section III-C was generated. Frames that were predominantly dark within the active ultrasound region were excluded. AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 9                 
+
+> TABLE III INTERNAL CHD DETECTION ON 177 TEST STUDIES (105 HC / 72 CHD). B EST PER COLUMN IN BOLD .
+> Method AUC Sensitivity Specificity NATMED [13] 0.861 0.906 0.600 FetalCLIP [24] 0.867 0.828 0.710
+> Proposed (cardiac-gated MIL) 0.985 0.972 0.990
+
+For video clips, one frame was randomly sampled from every ten consecutive frames to reduce redundancy between adjacent frames while preserving coverage of the ultrasound sweep. The same preprocessing pipeline was used for all cohorts so that cross-site differences were not introduced by inconsistent data preparation. 
+
+C. Training configuration 
+
+Stage 1: self-supervised pre-training. The frame encoder is a ViT-L/16 [53] trained from random initialization with the MAE objective [54] on 224 × 224 inputs. The pre-training corpus comprises 369,846 masked B-mode frames from 1,650 fetuses (see Table I). Input frames are masked at a ratio of 0.70 and reconstructed under a mean-squared error on per-patch normalized pixels. Augmentation comprises a random resized crop (scale 0.4 to 1.0), horizontal and vertical flips, a random affine transform (rotation ±10 ◦, translation 10%, shear ±5◦), and Gaussian blur with probability 0.5, followed by normalization with foreground statistics computed on the corpus itself (mean 0.3529, standard deviation 0.2520) rather than ImageNet constants. We use AdamW [63] with β =(0 .9, 0.95) and weight decay 0.05, a base learning rate of 
+
+1.5 × 10 −4 scaled linearly with batch size to 7.03 × 10 −4
+
+at an effective batch of 1200 frames on four NVIDIA L40S GPUs, 60 warm-up epochs followed by cosine decay over a 600-epoch schedule, bfloat16 precision, and gradient clipping at norm 1.0. The training took about 2.5 days. 
+
+Frozen extraction and cardiac-frame identifier. Each frame is resized to 256 pixels (bicubic), center-cropped to 224, and normalized with the pre-training statistics, and the final-layer class token computed without masking is the 1024-dimensional frame embedding. The cardiac-frame identifier, an MLP probe on this embedding (Section III-D), is trained with focal loss [58] ( γ = 2 , inverse-frequency class weights capped at 10), AdamW (learning rate 10 −4, weight decay 0.05), batches of 1024 frames, and up to 100 epochs on 303 of the 357 view-annotated training subjects. The remaining 54 are held out for checkpoint selection, temperature scaling [56] (T = 0 .516 ), and threshold fitting. 
+
+Stage 2: MIL aggregator, severity, and adaptation. The aggregator and heads are trained on the gated bags with AdamW (learning rate 10 −4, weight decay 0.05), cosine annealing with warm restarts [64] ( T0 = 20 , Tmult = 2 ,stepped once per epoch, so restarts fall at epochs 20 and 60), batches of 32 bags, gradient clipping at norm 1.0, up to 100 epochs, hidden width dh = 64 , and dropout 0.5. Diagnosis uses focal loss with γ = 2 and inverse-frequency class weights normalized to sum to the number of classes. A stratified 15% subject-level validation split of the training pool, drawn with the run seed, drives early stopping on validation loss with patience 20, and the minimum-validation-loss checkpoint is retained. Severity training uses the two-stage objective of Section III-F with detection weight wd = 1 , grading weight 
+
+wg = 2 , unit grade-class weights, and the grade threshold 
+
+τg fitted on the validation split. CORAL adaptation adds the alignment penalty with a constant weight λ = 10 and pairs each source batch with 32 unlabeled CARDIUM bags. Runs are seeded and reproducible up to data-loader worker nondeterminism. Because the encoder is frozen and each bag holds the extracted features instead of the raw image, one MIL run takes minutes on a single GPU. 
+
+D. Evaluation protocol 
+
+For every run the minimum-validation-loss checkpoint is reloaded, and the in-domain test set and the CARDIUM cohort are then scored once. The area under the ROC curve (AUC) is threshold-free and is the primary metric. Sensitivity and speci-ficity are also reported at the Youden-optimal threshold [65] fitted on the validation split. 
+
+E. Internal CHD detection 
+
+On the internal test set of 177 studies (105 HC and 72 CHD), the proposed cardiac-gated MIL model outperforms both the reproduced NATMED ensemble [13] and the Fetal-CLIP foundation model [24]. Table III reports the comparison. The proposed model reaches an AUC of 0.985 and a specificity of 0.990, against 0.861 / 0.600 for NATMED and 0.867 / 0.710 for FetalCLIP. The contribution of cardiac gating itself is isolated in Section IV-K. Fig. 3(A) plots the three metrics side by side. 
+
+F. Cross-site domain adaptation 
+
+We evaluate transfer to the external CARDIUM cohort with and without label-free adaptation. Without adaptation, every trained model performs near chance, confirming that appear-ance shift, rather than a modeling failure, drives the drop. Label-free CORAL adaptation then recovers the proposed model dramatically, raising its AUC from 0.513 to 0.944, a gain of 0.431. In contrast, the view-dependent baselines improve only marginally: NATMED from 0.506 to 0.557 and FetalCLIP from 0.571 to 0.616. Table IV reports the comparison, and Fig. 3(B) shows the unadapted AUCs of all three models together with the adapted proposed model. This is the central deployment result: restricting adaptation to identified cardiac frames is what makes label-free transfer succeed. Without the gate, non-cardiac content leaves the same model at an external AUC of 0.18 before adaptation (Table V). 
+
+G. Representation quality 
+
+Fig. 5 shows two-dimensional projections of the apical four-chamber representations from the in-house cohort for ResNet, FetalCLIP, and the proposed encoder using UMAP [66]. With the pretrained ResNet, HC and CHD studies are largely intermingled. FetalCLIP provides better organization, with 10 AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING                    
+
+> TABLE IV EXTERNAL TRANSFER TO CARDIUM BY MODEL CONFIGURATION ,
+> BEFORE AND AFTER LABEL -FREE CORAL ADAPTATION . V ALUES ARE
+> AUC.
+> Model Input No adapt. After adapt. NATMED [13] Standard views 0.506 0.557 FetalCLIP [24] Standard views 0.571 0.616
+> Cardiac-gated MIL Cardiac frames 0.513 0.944 UMAP1 UMAP2
+> ResNet FetalCLIP
+> UMAP1
+> Proposed
+> UMAP1
+> CHD HC
+> Fig. 5. UMAP projection of study-level representations of the in-house cohort, for a supervised ResNet, FetalCLIP, and the proposed encoder. Each point is one study, embedded as the average of the frame features of its apical four-chamber frames, and colored by diagnosis (CHD or HC).
+
+partial separation of the healthy group, although substantial overlap remains. In contrast, the proposed encoder forms more distinct HC and CHD regions, with most of the remaining overlap concentrated near the class boundary. Importantly, this separation is obtained without diagnosis supervision: the encoder is frozen and the projection is computed directly from its learned features without using diagnosis labels. The resulting structure therefore reflects the quality of the learned fetal-ultrasound representation rather than the downstream MIL aggregator or diagnosis head, and is consistent with the performance advantage over FetalCLIP reported in Table III. 
+
+H. Cardiac-view identification performance 
+
+We evaluate the cardiac-frame identifier of Section III-D as a view classifier against the NATMED view classifier [13] and the standard-plane detector SonoNet [12]. Our classifier out-performs both baselines on healthy and CHD studies (Fig. 4), achieving a cardiac-view AUC of 0.925 on HC studies and 0.838 on CHD studies. Although recall decreases on CHD frames (0.584 versus 0.757 on HC studies), reflecting the greater difficulty of abnormal anatomy, the overall results indicate better generalization to abnormal cardiac frames than the compared methods. 
+
+I. Hierarchical severity classification 
+
+Extending the model from HC-versus-CHD detection to three-class severity is harder: accuracy falls from 0.94 to 0.77 when the flat classifier must also separate critical from non-critical CHD. The two-stage hierarchical classifier recovers much of this loss where it matters most. It raises sensitivity to the non-critical class from 0.188 to 0.688 and sensitivity to the critical class from 0.846 to 0.923, while maintaining a specificity of 0.968. Because critical CHD carries the highest Sn· CCHD Sn· NCCHD Bal. acc. AUC Spec ificity 
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Score
+
+CHD Severity    
+
+> 0.846 0.188 0.517 0.303 0.968 0.923 0.688 0.805 0.841 0.968
+> Flat 3-class Two-stage
+> Fig. 6. Hierarchical severity classification on the internal test set, computed from calibrated probabilities. Sensitivity to CCHD and to NCCHD, balanced accuracy and AUC over the two CHD sub-classes, and specificity, for the flat three-class classifier and the two-stage hierarchical classifier.
+
+clinical cost if missed, the improvement in critical-class sensi-tivity at fixed specificity is the operationally important result. Over the two CHD sub-classes, balanced accuracy rises from 0.517 to 0.805 and AUC from 0.303 to 0.841 (Fig. 6). 
+
+J. Attention interpretability 
+
+Because the aggregator ranks frames by last-layer class-token attention (Eq. 7), we can compare the model’s frame ranking against expert-identified key views. The top-ranked frames are standard cardiac views, predominantly the apical four-chamber view, at diagnostic quality, which indicates that the model locates the decisive plane without being told which frames matter. Fig. 7 shows the five highest-attention frames for two HC and two CHD subjects; in every case the top-ranked frames are cardiac views. The same preference holds in aggregate: across the view-annotated test studies, the fraction of a study’s attention that falls on cardiac frames exceeds the fraction of frames that are cardiac, whereas non-cardiac frames receive less attention than their share of the bag (Fig. 8). 
+
+K. Ablation study 
+
+Table V isolates the contributions of whole-study MIL, cardiac-frame gating, and label-free CORAL adaptation on the internal test set and CARDIUM. In-domain, whole-study MIL alone achieves an AUC of 0.958, while cardiac-frame gating increases performance to 0.985. CORAL adaptation leaves the internal AUC unchanged at 0.985, indicating no loss in in-domain performance. The effect is more pronounced under cross-site transfer. Cardiac-frame gating improves the CARDIUM AUC from 0.180 to 0.513, and CORAL adaptation further increases it to 0.944, corresponding to gains of 0.333 and 0.431, respectively. Neither component is sufficient alone: AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 11 1 2 3 4 5             
+
+> 12345
+> 12345
+> 12345
+> NORMAL CHD Subject 1 Subject 2 Subject 3 Subject 4
+> highest score lowest
+
+Fig. 7. Key supporting frames returned by the MIL aggregator. For two HC subjects (top, blue) and two CHD subjects (bottom, red), the five frames of the study that receive the most class-token attention in the last aggregator layer (Eq. 7) are shown from left (highest attention) to right. Cardiac Non-Cardiac   
+
+> 0.0 0.2 0.4 0.6 0.8 1.0 Fraction of Bag Fraction of Bag Attention vs Frame Share by View Group Test
+> Cardiac Non-Cardiac
+> Mean frame share Box = attention fraction; = mean frame fraction
+
+Fig. 8. Attention mass by view group on the 177 internal test subjects. Boxes show the fraction of each study’s last-layer class-token attention (Eq. 7) assigned to cardiac frames and to all non-cardiac frames (labeled non-cardiac in the plot, pooling the abdominal and non-target classes); diamonds mark the mean fraction of frames in each group. 
+
+gating improves frame selection but remains near chance without adaptation, whereas CORAL addresses the remaining domain shift in the learned representation. Together, the two components act at complementary stages of the pipeline: the gate determines which frames are analyzed, while CORAL aligns their feature distributions across domains. 
+
+V. C ONCLUSION 
+
+We presented a whole-study approach to prenatal CHD screening that removes the common assumption of clinician-preselected cardiac frames. The method pairs self-supervised representation learning with a disease-robust cardiac-frame identifier and a transformer-based MIL aggregator, produces case-level diagnoses and severity from study-level labels, and returns interpretable supporting frames. On the FUSE internal 
+
+TABLE V ABLATION OVER THE THREE COMPONENTS OF THE FRAMEWORK : MIL 
+
+> AGGREGATION OVER THE WHOLE STUDY
+
+, CARDIAC -FRAME GATING , AND LABEL -FREE CORAL ADAPTATION .
+
+Configuration AUC MIL Cardiac gating CORAL Internal CARDIUM 
+
+✓ 0.958 0.18 
+
+✓ ✓ 0.985 0.513 
+
+✓ ✓ ✓ 0.985 0.944 
+
+test set it reaches an AUC of 0.985 at a specificity of 0.990, and on an independent external cohort label-free CORAL adaptation restores near-random transfer to an AUC of 0.944, provided adaptation is restricted to identified cardiac frames. To our knowledge, this work represents a first attempt to directly address CHD screening from whole ultrasound studies and demonstrates that standard-plane identification can fail on abnormal cardiac images. Cross-site experiments further show that models trained on one dataset require adaptation before deployment at a new site because of differences in scanners, populations, disease prevalence, and acquisition protocols. Future work should investigate potential bias in cardiac-plane identification for abnormal hearts and extend CHD prediction beyond detection and severity to explicit disease-subtype iden-tification. 
+
+ACKNOWLEDGMENT 
+
+Research reported in this publication was supported by the National Institute of General Medical Sciences of the National Institutes of Health under Award Number P20GM152326, the Child Health Research Institute AI pilot, the University of Nebraska Collaboration Initiative Grant from the Nebraska Research Initiative (NRI). This project is also supported by the U.S. National Science Foundation under Award Num-bers 2500836 and 2614824, the National Cancer Institute of the National Institutes of Health under Award Number R03CA317707, the National Institute on Alcohol Abuse and Alcoholism of the National Institutes of Health under Award Number R21AA032098. This research was supported by the State of Nebraska through the Pediatric Cancer Research Group, part of the Child Health Research Institute. The content is solely the responsibility of the authors and does not neces-sarily represent the official views of the funding organizations. 
+
+REFERENCES 
+
+[1] J. I. E. Hoffman and S. Kaplan, “The incidence of congenital heart disease,” Journal of the American College of Cardiology , vol. 39, no. 12, pp. 1890–1900, 2002. [2] GBD 2017 Congenital Heart Disease Collaborators, “Global, regional, and national burden of congenital heart disease, 1990-2017: a systematic analysis for the global burden of disease study 2017,” The Lancet Child & Adolescent Health , vol. 4, no. 3, pp. 185–200, 2020. [3] M. T. Donofrio, A. J. Moon-Grady, L. K. Hornberger, J. A. Copel, M. S. Sklansky, A. Abuhamad, B. F. Cuneo, J. C. Huhta, R. A. Jonas, A. Krishnan, S. Lacey, W. Lee, E. C. Michelfelder, G. R. Rempel, N. H. Silverman et al. , “Diagnosis and treatment of fetal cardiac disease: a scientific statement from the American Heart Association,” Circulation ,vol. 129, no. 21, pp. 2183–2242, 2014. 12 AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 
+
+[4] J. S. Carvalho, L. D. Allan, R. Chaoui, J. A. Copel, G. R. DeVore, K. Hecher, W. Lee, H. Munoz, D. Paladini, B. Tutschek, and S. Yagel, “ISUOG practice guidelines (updated): sonographic screening examina-tion of the fetal heart,” Ultrasound in Obstetrics & Gynecology , vol. 41, no. 3, pp. 348–359, 2013. [5] A. E. L. van Nisselrooij, A. K. K. Teunissen, S. A. Clur, L. Rozendaal, E. Pajkrt, I. H. Linskens, L. Rammeloo, J. M. M. van Lith, N. A. Blom, and M. C. Haak, “Why are congenital heart defects being missed?” 
+
+Ultrasound in Obstetrics & Gynecology , vol. 55, no. 6, pp. 747–757, 2020. [6] M. D. Quartermain, S. K. Pasquali, K. D. Hill, D. J. Goldberg, J. C. Huhta, J. P. Jacobs, M. L. Jacobs, S. Kim, and R. M. Ungerleider, “Variation in prenatal diagnosis of congenital heart disease in infants,” 
+
+Pediatrics , vol. 136, no. 2, pp. e378–e385, 2015. [7] A. Krishnan, M. B. Jacobs, S. A. Morris, S. Peyvandi, A. H. Bhat, A. Chelliah, J. S. Chiu, B. F. Cuneo, G. Freire, L. K. Hornberger, L. Howley, N. Husain, C. Ikemba, A. Kavanaugh-McHugh, S. Kutty, C. Lee, K. N. Lopez, A. McBrien, E. C. Michelfelder, N. M. Pinto, R. Schwartz, K. W. D. Stern, C. Taylor, V. Thakur, W. Tworetzky, C. Wittlieb-Weber, K. Woldu, M. T. Donofrio, and Fetal Heart Society, “Impact of socioeconomic status, race and ethnicity, and geography on prenatal detection of hypoplastic left heart syndrome and transposition of the great arteries,” Circulation , vol. 143, no. 21, pp. 2049–2060, 2021. [8] N. M. Pinto, H. T. Keenan, L. L. Minich, M. D. Puchalski, M. Hey-wood, and L. D. Botto, “Barriers to prenatal detection of congenital heart disease: a population-based study,” Ultrasound in Obstetrics & Gynecology , vol. 40, no. 4, pp. 418–425, 2012. [9] D. Chowdhury, P. A. Elliott, S. Y. Asaki, S. Amdani, Q.-T. Nguyen, C. Ronai, S. Tierney, V. Y. Levy, K. Puri, C. A. Altman, J. N. Johnson, and J. S. Glickstein, “Addressing disparities in pediatric congenital heart disease: a call for equitable health care,” Journal of the American Heart Association , vol. 13, no. 13, p. e032415, 2024. [10] G. Campanella, M. G. Hanna, L. Geneslaw, A. Miraflor, V. Werneck Krauss Silva, K. J. Busam, E. Brogi, V. E. Reuter, D. S. Klimstra, and T. J. Fuchs, “Clinical-grade computational pathology using weakly supervised deep learning on whole slide images,” Nature Medicine ,vol. 25, no. 8, pp. 1301–1309, 2019. [11] P. Garcia-Canadilla, S. Sanchez-Martinez, F. Crispi, and B. Bijnens, “Machine learning in fetal cardiology: what to expect,” Fetal Diagnosis and Therapy , vol. 47, no. 5, pp. 363–372, 2020. [12] C. F. Baumgartner, K. Kamnitsas, J. Matthew, T. P. Fletcher, S. Smith, L. M. Koch, B. Kainz, and D. Rueckert, “SonoNet: real-time detection and localisation of fetal standard scan planes in freehand ultrasound,” 
+
+IEEE Transactions on Medical Imaging , vol. 36, no. 11, pp. 2204–2215, 2017. [13] R. Arnaout, L. Curran, Y. Zhao, J. C. Levine, E. Chinn, and A. J. Moon-Grady, “An ensemble of neural networks provides expert-level prenatal detection of complex congenital heart disease,” Nature Medicine , vol. 27, no. 5, pp. 882–891, 2021. [14] S. Nurmaini, R. U. Partan, N. Bernolian, A. I. Sapitri, B. Tutuko, M. N. Rachmatullah, A. Darmawahyuni, F. Firdaus, and J. C. Mose, “Deep learning for improving the effectiveness of routine prenatal screening for major congenital heart diseases,” Journal of Clinical Medicine , vol. 11, no. 21, p. 6454, 2022. [15] J. Tan, A. Au, Q. Meng, S. Finesilver-Smith, J. Simpson, D. Rueckert, R. Razavi, T. Day, D. Lloyd, and B. Kainz, “Automated detection of congenital heart disease in fetal ultrasound screening,” in Medical Ultrasound, and Preterm, Perinatal and Paediatric Image Analysis (ASMUS/PIPPI, MICCAI Workshops) , ser. Lecture Notes in Computer Science, vol. 12437. Springer, 2020, pp. 243–252. [16] T. G. Dietterich, R. H. Lathrop, and T. Lozano-P´ erez, “Solving the multiple instance problem with axis-parallel rectangles,” Artificial In-telligence , vol. 89, no. 1–2, pp. 31–71, 1997. [17] O. Maron and T. Lozano-P´ erez, “A framework for multiple-instance learning,” Advances in Neural Information Processing Systems , vol. 10, 1997. [18] M. Ilse, J. M. Tomczak, and M. Welling, “Attention-based deep multiple instance learning,” in Proc. 35th Int. Conf. Machine Learning (ICML) ,ser. Proc. Machine Learning Research, vol. 80, 2018, pp. 2127–2136. [19] M. Y. Lu, D. F. K. Williamson, T. Y. Chen, R. J. Chen, M. Barbieri, and F. Mahmood, “Data-efficient and weakly supervised computational pathology on whole-slide images,” Nature Biomedical Engineering ,vol. 5, no. 6, pp. 555–570, 2021. [20] D. Vega, H. V. Ceballos, J. S. Vera, S. Rodriguez, A. Perez, A. Castillo, M. Escobar, D. Londo˜ no, L. A. Sarmiento, C. I. Castro, N. Rodriguez, J. C. Brice˜ no, and P. Arbelaez, “CARDIUM: congenital anomaly recog-nition with diagnostic images and unified medical records,” in Proc. IEEE/CVF Int. Conf. Computer Vision Workshops (ICCVW) , 2025, pp. 1204–1213. [21] B. Sun and K. Saenko, “Deep CORAL: correlation alignment for deep domain adaptation,” in Computer Vision – ECCV 2016 Workshops , ser. Lecture Notes in Computer Science, vol. 9915, 2016, pp. 443–450. [22] J. Tang, Y. Liang, Y. Jiang, J. Liu, R. Zhang, D. Huang, C. Pang, C. Huang, D. Luo, X. Zhou, R. Li, K. Zhang, B. Xie, L. Hu, F. Zhu 
+
+et al. , “A multicenter study on two-stage transfer learning model for duct-dependent CHDs screening in fetal echocardiography,” npj Digital Medicine , vol. 6, p. 143, 2023. [23] T. G. Day, S. Budd, J. Tan, J. Matthew, E. Skelton, V. Jowett, D. Lloyd, A. Gomez, J. V. Hajnal, R. Razavi, B. Kainz, and J. M. Simpson, “Prenatal diagnosis of hypoplastic left heart syndrome on ultrasound using artificial intelligence: How does performance compare to a current screening programme?” Prenatal Diagnosis , vol. 44, no. 6-7, pp. 717– 724, 2024. [24] F. Maani, N. Saeed, T. J. Saleem, Z. Farooq, H. Alasmawi, W. Diehl, A. Mohammad, G. Waring, S. Valappil, L. Bricker, and M. Yaqub, “FetalCLIP: a visual-language foundation model for fetal ultrasound image analysis,” npj Digital Medicine , 2026. [25] X. Guo, M. Alsharid, H. Zhao, Y. Wang, J. Lander, A. T. Papageorghiou, and J. A. Noble, “A visually grounded language model for fetal ultra-sound understanding,” Nature Biomedical Engineering , vol. 10, no. 8, pp. 1629–1645, 2025. [26] L. Xu, M. Liu, Z. Shen, H. Wang, X. Liu, X. Wang, S. Wang, T. Li, S. Yu, M. Hou, J. Guo, J. Zhang, and Y. He, “DW-Net: A cascaded convolutional neural network for apical four-chamber view segmentation in fetal echocardiography,” Computerized Medical Imaging and Graphics , vol. 80, p. 101690, 2020. [27] Y. Yang, B. Wu, H. Wu, W. Xu, G. Lyu, P. Liu, and S. He, “Classification of normal and abnormal fetal heart ultrasound images and identification of ventricular septal defects based on deep learning,” Journal of Peri-natal Medicine , vol. 51, no. 8, pp. 1052–1058, 2023. [28] Y. Gong, Y. Zhang, H. Zhu, J. Lv, Q. Cheng, H. Zhang, Y. He, and S. Wang, “Fetal congenital heart disease echocardiogram screening based on DGACNN: Adversarial one-class classification combined with video transfer learning,” IEEE Transactions on Medical Imaging , vol. 39, no. 4, pp. 1206–1222, 2020. [29] B. Pu, K. Li, J. Chen, Y. Lu, Q. Zeng, J. Yang, and S. Li, “HFSCCD: A hybrid neural network for fetal standard cardiac cycle detection in ultrasound videos,” IEEE Journal of Biomedical and Health Informatics ,vol. 28, no. 5, pp. 2943–2954, 2024. [30] T. G. Day, L. Venturini, S. F. Budd, A. Farruggia, R. Wright, J. Matthew, V. Zidere, T. Vigneswaran, I. Bo, A. Savis, J. Wolfenden, J. Simpson, J. Hajnal, B. Kainz, and R. Razavi, “Video clip extraction from fetal ultrasound scans using artificial intelligence to allow remote second expert review for congenital heart disease,” Prenatal Diagnosis , vol. 45, no. 4, pp. 531–538, 2025. [31] C. Athalye, A. van Nisselrooij, S. Rizvi, M. C. Haak, A. J. Moon-Grady, and R. Arnaout, “Deep-learning model for prenatal congenital heart disease screening generalizes to community setting and outperforms clinical detection,” Ultrasound in Obstetrics & Gynecology , vol. 63, no. 1, pp. 44–52, 2024. [32] U. Islam, Y. A. Ali, M. Al-Razgan, H. Ullah, M. A. Almaiah, Z. Tariq, and K. M. Wazir, “Fetal-Net: enhancing maternal-fetal ultrasound interpretation through multi-scale convolutional neural networks and transformers,” Scientific Reports , vol. 15, no. 1, p. 25665, 2025. [33] J. Zhang, S. Xiao, Y. Zhu, Z. Zhang, H. Cao, M. Xie, and L. Zhang, “Advances in the application of artificial intelligence in fetal echocardio-graphy,” Journal of the American Society of Echocardiography , vol. 37, no. 5, pp. 550–561, 2024. [34] A. Wang, T. T. Doan, C. Reddy, and P.-N. Jone, “Artificial intelligence in fetal and pediatric echocardiography,” Children , vol. 12, no. 1, p. 14, 2025. [35] M. C. Fiorentino, F. P. Villani, M. Di Cosmo, E. Frontoni, and S. Moc-cia, “A review on deep-learning algorithms for fetal ultrasound-image analysis,” Medical Image Analysis , vol. 83, p. 102629, 2023. [36] X. Wang, Y. Yan, P. Tang, X. Bai, and W. Liu, “Revisiting multiple instance neural networks,” Pattern Recognition , vol. 74, pp. 15–24, 2018. [37] B. Li, Y. Li, and K. W. Eliceiri, “Dual-stream multiple instance learn-ing network for whole slide image classification with self-supervised contrastive learning,” in Proc. IEEE/CVF Conf. Comput. Vis. Pattern Recognit. (CVPR) , 2021, pp. 14 313–14 323. [38] Z. Shao, H. Bian, Y. Chen, Y. Wang, J. Zhang, X. Ji, and Y. Zhang, “TransMIL: Transformer based correlated multiple instance learning for whole slide image classification,” in Advances in Neural Information Processing Systems (NeurIPS) , vol. 34, 2021, pp. 2136–2147. AZZAM et al. : TOWARDS WHOLE-STUDY CHD SCREENING IN FETAL ULTRASOUND USING MULTIPLE INSTANCE LEARNING 13 
+
+[39] L. Qu, X. Luo, S. Liu, M. Wang, and Z. Song, “DGMIL: Distribution guided multiple instance learning for whole slide image classification,” in Medical Image Computing and Computer Assisted Intervention (MIC-CAI) , ser. Lecture Notes in Computer Science, vol. 13432. Springer, 2022, pp. 24–34. [40] S. A. Javed, D. Juyal, H. Padigela, A. Taylor-Weiner, L. Yu, and A. Prakash, “Additive MIL: Intrinsically interpretable multiple instance learning for pathology,” in Advances in Neural Information Processing Systems (NeurIPS) , vol. 35, 2022. [41] Z. Li, W. Zhao, F. Shi, L. Qi, X. Xie, Y. Wei, Z. Ding, Y. Gao, S. Wu, J. Liu, Y. Shi, and D. Shen, “A novel multiple instance learning framework for COVID-19 severity assessment via data augmentation and self-supervised learning,” Medical Image Analysis , vol. 69, p. 101978, 2021. [42] K. Shiku, K. Nishimura, D. Suehiro, K. Tanaka, and R. Bise, “Ordinal multiple-instance learning for ulcerative colitis severity estimation with selective aggregated transformer,” in Proc. IEEE/CVF Winter Conf. Applications of Computer Vision (WACV) , 2025. [43] H. Liang, J. Xu, Y. Zhang, Y. Huang, Y. Zhang, X. Yang, R. Li, X. Deng, Y. Liu, G. Tao, Y. Wu, S. Zhao, X. Gao, and D. Ni, “Medical-knowledge driven multiple instance learning for classifying severe abdominal anomalies on prenatal ultrasound,” in Medical Image Computing and Computer Assisted Intervention (MICCAI) , ser. Lecture Notes in Computer Science. Springer, 2025, pp. 344–354. [44] Z. Huang, X. Yu, B. S. Wessler, and M. C. Hughes, “Semi-supervised multimodal multi-instance learning for aortic stenosis diagnosis,” in 
+
+Proc. IEEE 22nd Int. Symp. Biomedical Imaging (ISBI) , 2025, pp. 1–5. [45] W. Zhang, L. Liu, and J. Li, “Robust multi-instance learning with stable instances,” in Proc. 24th European Conf. Artificial Intelligence (ECAI) ,ser. Frontiers in Artificial Intelligence and Applications, vol. 325. IOS Press, 2020, pp. 1682–1689. [46] L. Zedda, D. A. Mura, C. Di Ruberto, M. Atzori, M. F. Dasdelen, C. Marr, and A. Loddo, “QG-MIL: A gated transformer aggregator for domain-agnostic multiple instance learning in medical imaging,” in Med-ical Image Computing and Computer Assisted Intervention (MICCAI) ,ser. Lecture Notes in Computer Science. Springer, 2026, pp. 440–450. [47] A. Gretton, K. M. Borgwardt, M. Rasch, B. Sch¨ olkopf, and A. J. Smola, “A kernel method for the two-sample-problem,” Advances in Neural Information Processing Systems , vol. 19, pp. 513–520, 2007. [48] Y. Ganin and V. Lempitsky, “Unsupervised domain adaptation by backpropagation,” in Proc. 32nd Int. Conf. Machine Learning (ICML) ,ser. Proc. Machine Learning Research, vol. 37, 2015, pp. 1180–1189. [49] M. Azzam, S. Wu, A. T. Gnanha, Q. Jiao, and H.-S. Wong, “Unsuper-vised domain adaptation via cluster alignment with maximum classifier discrepancy,” in Proc. IEEE Int. Conf. Multimedia and Expo (ICME) ,2021, pp. 1–6. [50] C. Sendra-Balcells, V. M. Campello, J. Torrents-Barrena, Y. A. Ahmed, M. Elattar, B. Ohene-Botwe, P. Nyangulu, W. Stones, M. Ammar, L. N. Benamer, H. N. Kisembo, S. G. Sereke, S. Z. Wanyonyi, M. Temmerman, E. Gratac´ os et al. , “Generalisability of fetal ultrasound deep learning models to low-resource imaging settings in five African countries,” Scientific Reports , vol. 13, no. 1, p. 2728, 2023. [51] C. Di Vece, Z. Mao, N. Avisdris, B. Dromey, R. Napolitano, D. Ben Bashat, F. Vasconcelos, D. Stoyanov, L. Joskowicz, and S. Bano, “A multicentre benchmark dataset for comprehensive landmark-based fetal ultrasound biometry,” Scientific Reports , vol. 16, no. 1, p. 17405, 2026. [52] M. C. Fiorentino, S. Moccia, M. Di Cosmo, E. Frontoni, B. Giovanola, and S. Tiribelli, “Uncovering ethical biases in publicly available fetal ultrasound datasets,” npj Digital Medicine , vol. 8, p. 355, 2025. [53] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai, T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly, J. Uszkoreit, and N. Houlsby, “An image is worth 16x16 words: Transformers for image recognition at scale,” in Int. Conf. Learning Representations (ICLR) , 2021. [54] K. He, X. Chen, S. Xie, Y. Li, P. Doll´ ar, and R. Girshick, “Masked autoencoders are scalable vision learners,” in Proc. IEEE/CVF Conf. Computer Vision and Pattern Recognition (CVPR) , 2022, pp. 15 979– 15 988. [55] D. Hendrycks and K. Gimpel, “Gaussian error linear units (GELUs),” arXiv:1606.08415, 2016. [56] C. Guo, G. Pleiss, Y. Sun, and K. Q. Weinberger, “On calibration of modern neural networks,” in Proc. Int. Conf. Machine Learning (ICML) ,2017, pp. 1321–1330. [57] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, and I. Polosukhin, “Attention is all you need,” Advances in Neural Information Processing Systems , vol. 30, pp. 5998–6008, 2017. [58] T.-Y. Lin, P. Goyal, R. Girshick, K. He, and P. Doll´ ar, “Focal loss for dense object detection,” in Proc. IEEE Int. Conf. Computer Vision (ICCV) , 2017, pp. 2980–2988. [59] X. P. Burgos-Artizzu, D. Coronado-Guti´ errez, B. Valenzuela-Alcaraz, E. Bonet-Carne, E. Eixarch, F. Crispi, and E. Gratac´ os, “Evaluation of deep convolutional neural networks for automatic classification of common maternal fetal ultrasound planes,” Scientific Reports , vol. 10, no. 1, p. 10200, 2020. [60] K. S. Da Correggio, R. Noya Galluzzo, L. O. Santos, F. Soares Muylaert Barroso, T. Zimmermann Loureiro Chaves, A. Sherlley Casimiro Onofre, and A. von Wangenheim, “Fetal abdominal structures segmentation dataset using ultrasonic images,” Mendeley Data, V1, 2023, doi: 10.17632/4gcpm9dsc3.1. [61] R. Cai, Y. Tan, M. Wang, H. Yu, J. Wang, Z. Ren, Z. Dong, Y. He, Z. Li, L. Lin, and Y. Gu, “Detection of novel pathogenic variants in two fam-ilies with recurrent fetal congenital heart defects,” Pharmacogenomics and Personalized Medicine , vol. 16, pp. 173–181, 2023. [62] M. Lin, N. Weng, K. Mikolaj, Z. Bashir, M. B. S. Svendsen, M. G. Tolsgaard, A. N. Christensen, and A. Feragen, “Shortcut learning in medical image segmentation,” in Medical Image Computing and Com-puter Assisted Intervention (MICCAI) , ser. Lecture Notes in Computer Science. Springer, 2024, pp. 623–633. [63] I. Loshchilov and F. Hutter, “Decoupled weight decay regularization,” in Int. Conf. Learning Representations (ICLR) , 2019. [64] I. Loshchilov and F. Hutter, “SGDR: Stochastic gradient descent with warm restarts,” in Int. Conf. Learning Representations (ICLR) , 2017. [65] W. J. Youden, “Index for rating diagnostic tests,” Cancer , vol. 3, no. 1, pp. 32–35, 1950. [66] L. McInnes, J. Healy, and J. Melville, “UMAP: uniform manifold ap-proximation and projection for dimension reduction,” arXiv:1802.03426, 2018.
