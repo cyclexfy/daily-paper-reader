@@ -1,0 +1,1579 @@
+Title: Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology
+
+URL Source: https://arxiv.org/pdf/2609.31712v1
+
+Published Time: Tue, 29 Sep 2026 00:03:54 GMT
+
+Number of Pages: 37
+
+Markdown Content:
+# STATISTICAL TESTING FOR MULTIPLE INSTANCE LEARNING VIA 
+
+# SELECTIVE INFERENCE WITH APPLICATIONS TO 
+
+# COMPUTATIONAL PATHOLOGY 
+
+Noriaki Hashimoto *1 , Shuichi Nishino 2,1 , Teruyuki Katsuoka 2, Tomohiro Shiraishi 2,1 , Daiki Miwa 2, Hiroyuki Hanada 2, Jun Sakuma 3,1 , Hidekata Hontani 4, Hiroaki Miyoshi 5, and Ichiro Takeuchi †2,1 1RIKEN 
+
+> 2
+
+Nagoya University 
+
+> 3
+
+Institute of Science Tokyo 
+
+> 4
+
+Nagoya Institute of Technology 
+
+> 5
+
+Kurume University 
+
+## ABSTRACT 
+
+Multiple instance learning (MIL) is widely used in computational pathology because it enables weakly supervised analysis of whole-slide images (WSIs) without requiring patch-level annotations. In attention-based MIL, instances with high attention scores are often interpreted as diagnostically important regions and used as visual explanations. However, attention scores alone cannot determine whether selected high-attention instances are significantly different from normal instances, limiting the reliability of attention-based explanations. In this paper, we formulate the evaluation of high-attention instances as a statistical hypothesis testing problem. Specifically, we assess whether a selected high-attention instance significantly deviates from a representative normal reference instance selected based on feature similarity. A major challenge is that both the target instance and the reference instance are selected through data-dependent procedures, rendering standard hypothesis testing invalid. To address this issue, we introduce a selective inference (SI) framework that explicitly accounts for the selection events induced by attention-based instance selection and adaptive reference selection, thereby enabling the computation of valid selective p-values conditional on these events. Experiments demonstrate Type-I error control on synthetic and MNIST-based data and practical applicability to pathological WSIs, with higher statistical power than the conventional over-conditioning approach. 
+
+Keywords Statistical hypothesis testing · Attention-based multiple instance learning · Selective inference ·
+
+Computational pathology · Whole-slide image analysis 
+
+## 1 Introduction 
+
+Multiple instance learning (MIL) [Dietterich et al., 1997, Maron and Lozano-Pérez, 1997] is a weakly supervised learning framework in which labels are assigned to sets of instances, referred to as bags , while the individual instances within each bag remain unlabeled. MIL has become one of the standard approaches for analyzing whole-slide images (WSIs) in computational pathology [Das et al., 2018, Yamamoto et al., 2019, Campanella et al., 2019, Hashimoto et al., 2020]. Because WSIs are extremely large, they are typically divided into a large number of image patches for computational analysis. While obtaining dense patch-level annotations for these patches from pathologists is prohibitively expensive, MIL allows the image patches to be treated as instances and slide-level diagnoses, such as tumor or normal, to be used as bag labels. This formulation enables the development of accurate diagnostic models without requiring exhaustive manual annotation. Among various MIL approaches [Campanella et al., 2019, Wu et al., 2015, Li et al., 2018], attention-based MIL (ABMIL) [Ilse et al., 2018] has become one of the most widely used architectures due to its simplicity, interpretability, and competitive empirical performance. Although more advanced MIL architectures have recently been proposed, 
+
+> ∗
+
+noriaki.hashimoto.jv@riken.jp 
+
+> †
+
+takeuchi.ichiro.n6@f.mail.nagoya-u.ac.jp arXiv:2609.31712v1 [cs.CV] 21 Sep 2026 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology including transformer-based and graph-based models, ABMIL remains one of the most widely studied and interpretable MIL frameworks. ABMIL assigns an attention score to each instance and aggregates instance features according to the learned attention weights. Consequently, instances with high attention scores are often interpreted as diagnostically important regions and are widely used as visual explanations in computational pathology [Campanella et al., 2019, Hashimoto et al., 2020, Sudharshan et al., 2019, Li et al., 2021, Lu et al., 2021, Zhang et al., 2022, Takagi et al., 2023, Hashimoto et al., 2024]. Attention maps are increasingly utilized not only for model interpretation but also for supporting downstream clinical analysis and identifying candidate abnormal regions. Despite their widespread use, the reliability of attention-based explanations remains an open question. Recent studies have argued that attention scores do not necessarily correspond to causal or clinically meaningful evidence [Jain and Wallace, 2019, Serrano and Smith, 2019, Wiegreffe and Pinter, 2019]. In computational pathology, high-attention patches may arise due to dataset-specific biases, staining artifacts, or optimization effects rather than genuine pathological abnormalities [Wang et al., 2022, Cai et al., 2024, Sun et al., 2025, Zehnder et al., 2025]. Therefore, while attention scores provide a useful ranking of candidate regions, additional statistical evidence is necessary to assess whether a selected high-attention instance differs significantly from normal instances. To address this issue, we formulate the evaluation of high-attention instances as a statistical hypothesis testing problem. Because normal instances can exhibit substantial heterogeneity, comparing a target instance with a fixed or globally representative normal instance may not provide an appropriate reference. Instead, for each target instance, we adaptively retrieve similar normal instances and select a representative instance among them as a local reference. We then assess whether the selected high-attention instance significantly differs from this adaptively selected normal reference using a distance-based statistical test. The adaptive nature of this selection procedure gives rise to the statistical challenges considered in this paper. A major challenge is that both the target instance and the reference instance are selected adaptively from the observed data. The target instance is selected based on its attention score, while a representative normal instance is adaptively selected from normal instances similar to the target instance. As a result, the statistical test is conducted only after a sequence of data-dependent selection procedures. Since standard hypothesis tests assume that the hypothesis to be tested is specified independently of the data used for testing, naively applying them while ignoring the data-dependent selection of the target and reference instances leads to invalid statistical inference [Kriegeskorte et al., 2009]. Therefore, properly accounting for the adaptive selection process is essential for obtaining statistically valid significance measures. To overcome this challenge, we introduce selective inference (SI) [Lee et al., 2016, Tian and Taylor, 2018, Taylor and Tibshirani, 2018], a statistical framework for valid inference after data-dependent selection. SI performs hypothesis testing conditional on the selection event itself and has recently been extended to a variety of machine learning problems, including various types of deep neural networks [Duy et al., 2022, Miwa et al., 2023, Shiraishi et al., 2024, 2026, Niihori et al., 2025]. In this work, we explicitly characterize the selection events induced by the data-dependent selection of the target instance and its normal reference, and derive valid conditional p-values for evaluating high-attention instances. Figure 1 illustrates the overall workflow of the proposed framework. We validate the proposed framework through synthetic experiments, MNIST-based proof-of-concept experiments, and real-world pathological WSI analysis. Experiments demonstrate Type-I error control on synthetic and MNIST-based data and practical applicability to pathological WSIs, with higher statistical power than the conventional over-conditioning approach. To the best of our knowledge, this study is the first attempt to quantify the statistical significance of instances selected by MIL models within a statistical hypothesis testing framework. The key idea is to regard the data-dependent instance selection induced by an MIL algorithm as a selection event and to account for this event within the SI framework. This principle is not specific to ABMIL and can, in principle, be extended to other MIL algorithms for which the corresponding selection events can be characterized. In this study, we focus on ABMIL as a proof-of-concept for statistically evaluating MIL-selected instances using SI. We further use WSI-based pathological image analysis, which motivated this study, as a working example to demonstrate the practical relevance of the proposed framework. 
+
+Related work. MIL was originally introduced as a framework for learning from labeled bags of unlabeled in-stances [Dietterich et al., 1997, Maron and Lozano-Pérez, 1997, Zhou and Zhang, 2002, Andrews et al., 2002] and has since become a standard paradigm in computational pathology. Existing MIL approaches can broadly be categorized into instance-based methods and embedding-based methods. Early approaches often relied on max pooling or average pooling to aggregate instance-level information [Maron and Lozano-Pérez, 1997, Wu et al., 2015, Li et al., 2018, Feng and Zhou, 2017, Wang et al., 2018, Cruz-Roa et al., 2014, Shrivastava et al., 2015, Kraus et al., 2016], while more recent methods employ learnable aggregation mechanisms. 2Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology Among these approaches, ABMIL [Ilse et al., 2018] has become particularly influential due to its ability to assign adaptive importance weights to instances. Numerous studies have applied ABMIL to computational pathology, where high-attention patches are interpreted as tumor regions or diagnostically important tissues [Hashimoto et al., 2020, Li et al., 2021, Zhang et al., 2022]. More recently, transformer-based MIL architectures [Takagi et al., 2023, Lee et al., 2019, Chen et al., 2021, Shao et al., 2021, Chen et al., 2022] have further improved slide-level predictive performance by modeling interactions among instances using self-attention mechanisms [Vaswani et al., 2017]. However, the goal of the present study is not to develop a new MIL architecture, but to establish a statistically principled framework for evaluating instances deemed important by MIL models. We focus on ABMIL as a proof-of-concept because its explicit attention mechanism provides a natural instance-selection mechanism. For this purpose, ABMIL provides a suitable model because its attention mechanism is explicit, widely adopted, and directly used for instance-level interpretation. Despite these advances, several studies have questioned whether attention scores faithfully reflect meaningful instance-level importance [Jain and Wallace, 2019, Serrano and Smith, 2019, Wiegreffe and Pinter, 2019]. In particular, attention maps may reflect optimization artifacts or dataset-specific biases rather than clinically meaningful evidence. These observations motivate the need for statistically principled methods to evaluate the reliability of selected high-attention instances. SI provides a principled framework for valid statistical inference after data-dependent selection by conditioning inference on the selection event induced by the underlying algorithm [Lee et al., 2016, Taylor and Tibshirani, 2015, Tibshirani et al., 2016]. Much of the early SI literature focused on model and feature selection in regression, particularly sparse models such as the Lasso, but the framework has subsequently been extended to increasingly complex feature-selection and model-selection procedures [Terada and Shimodaira, 2023, Hyun et al., 2018, Panigrahi et al., 2024, Suzumura et al., 2017, Yamada et al., 2018, Charkhi and Claeskens, 2018, Shiraishi et al., 2025]. Beyond supervised feature selection, SI has also been developed for a broad range of data-dependent inference problems in which the objects or hypotheses to be tested are themselves identified from the observed data, including clustering, changepoint detection, outlier and anomaly detection, and principal component analysis [Chen and Witten, 2023, Gao et al., 2024, Duy et al., 2020, Chen and Bien, 2020, Perry et al., 2026]. In parallel, methodological developments such as randomized SI and parametric-programming-based approaches have been proposed to reduce unnecessary conditioning and improve statistical power while retaining valid SI [Tian and Taylor, 2018, Nguyen Le Duy and Takeuchi, 2022]. These developments have substantially broadened the range of data-dependent algorithms for which valid post-selection inference can be performed. More recently, SI has been extended to substantially more complex selection mechanisms involving deep neural networks. Representative applications include statistical inference for neural-network-based image segmentation and salient-region detection [Duy et al., 2022, Miwa et al., 2023], deep nearest-neighbor anomaly detection [Niihori et al., 2025], saliency analysis for graph neural networks [Nishino et al., 2025], and attention-based hypotheses generated by transformer models [Shiraishi et al., 2024, 2026]. Computational frameworks that automate the characterization of complex neural-network-induced selection events have also been developed, further expanding the applicability of SI to modern deep-learning models [Katsuoka et al., 2025]. These advances motivate the use of SI for MIL, where instances regarded as important by an MIL algorithm are themselves selected in a data-dependent manner. In our setting, both the target instance and its normal reference are adaptively selected from the observed data, and directly testing them without accounting for these selection procedures leads to selection bias. We therefore incorporate the corresponding selection events into the SI framework to obtain valid selective p-values. To the best of our knowledge, this is the first study to formulate statistical hypothesis testing for the significance of instances identified as important by MIL algorithms within an SI framework. 
+
+Contributions. The main contributions of this paper are summarized as follows: • We formulate the evaluation of high-attention instances in ABMIL as a statistical hypothesis testing problem, enabling quantitative assessment of instance-level significance. • We develop an SI framework that accounts for both attention-based instance selection and adaptive reference selection, enabling valid post-selection inference for high-attention instances. • Experiments demonstrate Type-I error control on synthetic and MNIST-based data and practical applicability to pathological WSIs, with higher statistical power than the conventional over-conditioning approach. 
+
+## 2 Problem setup: multiple instance learning 
+
+2.1 MIL-based classification problem 
+
+MIL is a weakly supervised learning framework in which class labels are assigned only to bags , each consisting of a set of instances . Let N denote the number of bags in a dataset, and define [N ] := {1, . . . , N } as the index set of the bags. 3Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology …
+
+## Reference retrieval 
+
+Reference instances 
+
+## …
+
+Test WSI Predic �on (e.g., tumor) ABMIL model 
+
+A�en �on map 
+
+> Low High
+
+Representa �ve reference instance Sta �s�cal test for high-a �en �on instance ABMIL classi fi ca �on 
+
+High-a �en �on instance 
+
+A�en �on-based selec �on Adap �ve reference selec �on (e.g., medoid of the -NN instances) Distance comparison 
+
+Selec �ve inference 
+
+Figure 1: Overview of the proposed framework. An ABMIL model predicts the bag label and generates an attention map for a test WSI. A high-attention instance is selected according to its attention score, and a representative reference instance is adaptively selected from the reference instances. The proposed SI framework then evaluates whether the selected high-attention instance significantly differs from the representative reference instance while accounting for the adaptive selection procedures. For each n ∈ [N ], let M n denote the number of instances in the n-th bag, and define [M n] := {1, . . . , M n} as the corresponding instance index set. We denote the n-th bag by 
+
+Xn = {xn,m }m∈[M n],
+
+where xn,m denotes the m-th instance in the n-th bag. Let Y n denote the class label assigned to bag Xn, and let yn,m 
+
+denote the unobserved class label of instance xn,m . In the standard binary MIL setting, a positive bag ( Y n = 1 ) contains at least one positive instance ( yn,m = 1 ), whereas a negative bag ( Y n = 0 ) contains only negative instances ( yn,m = 0 ). Finally, let f denote the MIL classification model, whose prediction for the n-th bag is given by ˆY n = f (Xn). The model is trained so that ˆY n accurately predicts the corresponding bag label Y n.In computational pathology, the WSI of patient n is represented as the bag Xn, and each image patch tiled from the WSI is represented as an instance xn,m . We consider a binary classification problem distinguishing between cancerous and normal cases in pathological images. A WSI from a cancer case typically contains both cancerous and normal image patches, whereas a WSI from a normal case contains only normal patches. Accordingly, WSI classification can be naturally formulated as an MIL problem, where cancerous patches are regarded as positive instances and normal patches as negative instances. 
+
+2.2 ABMIL and attention-based instance selection 
+
+In this study, we employ ABMIL [Ilse et al., 2018] as the MIL classification model. Figure 2 illustrates the architecture of ABMIL. ABMIL consists of three primary components: a feature extractor fenc , an attention network fatt , and a classifier fclf . The model first extracts instance-level feature representations, computes attention logits for individual instances, and then aggregates the instance features into a bag-level representation for classification. 4Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology The feature extractor fenc maps an input image xn,m ∈ Rd to a d′-dimensional feature representation: 
+
+hn,m = fenc (xn,m ).
+
+The attention network fatt computes an attention logit 
+
+an,m = fatt (hn,m ),
+
+for each instance. During training, the attention logits are transformed by the sigmoid function: 
+
+a′ n,m = sigmoid( an,m ),
+
+where a′ n,m ∈ (0 , 1) denotes the post-sigmoid attention score. The normalized attention weights are then computed by applying the softmax function to the post-sigmoid attention scores: 
+
+˜an,m = exp( a′ n,m )
+
+PM n 
+
+> m′=1
+
+exp( a′ n,m ′ ) .
+
+The instance features {hn,m }m∈[M n] are aggregated into a bag-level representation by attention-weighted pooling: 
+
+hn 
+
+> bag
+
+= X 
+
+> m∈[Mn]
+
+˜an,m hn,m .
+
+Using the classifier fclf , the final prediction is obtained as 
+
+ˆY n = f (Xn) = fclf (hn
+
+> bag
+
+).
+
+The entire ABMIL model is trained end-to-end to minimize the classification error between the predicted labels ˆY n and the corresponding bag labels Y n.In computational pathology, high-attention instances, corresponding to image patches within a WSI, are often interpreted as diagnostically important regions, such as areas containing tumor tissue [Hashimoto et al., 2020, Li et al., 2021, Lu et al., 2021]. Consequently, MIL attention maps are widely used as visual explanations for WSI classification models. However, recent studies have questioned whether attention scores faithfully represent clinically meaningful evidence [Jain and Wallace, 2019, Serrano and Smith, 2019, Wiegreffe and Pinter, 2019]. Since the attention network is optimized solely for bag-level classification, high attention scores do not provide statistical evidence that the corresponding instances differ from normal instances. In practice, high attention scores may also be influenced by dataset-specific biases, staining artifacts, or optimization effects, making it difficult to assess the statistical significance of selected instances based on attention scores alone. In this study, we consider a test bag X and focus on instances that receive high attention logits. Let τ denote a fixed attention threshold. Depending on the experimental setting, τ is either specified a priori (e.g., τ = 0 ) or estimated beforehand from an independent dataset. We define 
+
+C(X) = {m ∈ [M ] | am > τ } ,
+
+as the set of indices corresponding to high-attention instances in the bag X. These instances are frequently used to explain the predictions of MIL models and are therefore natural targets for statistical investigation. Our objective is to quantify the reliability of attention-based explanations by testing whether selected high-attention instances significantly deviate from a representative reference instance. However, because both the target instance and the reference instance are selected adaptively from the data, standard hypothesis testing becomes invalid due to selection bias. In the following sections, we introduce an SI framework for statistically evaluating high-attention instances while properly accounting for the adaptive selection process. 
+
+## 3 Statistical testing formulation for high-attention instances 
+
+In this section, we formulate a statistical hypothesis testing problem for evaluating high-attention instances selected by a trained ABMIL model. Let 
+
+Xtest = {xi
+
+> test
+
+}i∈[Mtest ]
+
+be a test bag and let 
+
+Xref = {xj 
+
+> ref
+
+}j∈[Mref ]
+
+5Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology Classi fi er A�en �on network Input bag A�en �on logits Bag predic �on ……Bag feature Feature extractor …Feature vectors 
+
+Figure 2: Overview of the ABMIL model. An input bag Xn = {xn,m }m∈[M n] is first mapped to instance feature representations {hn,m }m∈[M n] by the feature extractor fenc . The attention network fatt assigns an attention logit to each instance, and the bag feature is computed as the attention-weighted sum of the instance features. The classifier fclf 
+
+predicts the bag label from the aggregated bag feature. Instances whose attention logits exceed the attention threshold are identified as high-attention instances and are subsequently subjected to selective inference. be a reference set consisting of normal instances. The reference set is assumed to be independent of the training data used for model fitting and the test bag used for statistical evaluation. For each test instance, the trained ABMIL model computes a feature representation hi 
+
+> test
+
+= fenc (xi
+
+> test
+
+) and an attention logit ai 
+
+> test
+
+= fatt (hi
+
+> test
+
+).As introduced in Section 2, we focus on instances whose attention logits are greater than the attention threshold τ . The set of high-attention instances in the test bag is defined as 
+
+C(Xtest ) = {i ∈ [Mtest ] | ai 
+
+> test
+
+> τ }.
+
+For each selected test instance xi 
+
+> test
+
+with i ∈ C (Xtest ), we test whether it significantly deviates from a representative reference instance. Normal tissue patches can exhibit substantial heterogeneity due to variations in tissue appearance, staining, slide preparation, and other dataset-specific factors. Therefore, comparing a test instance with an arbitrary or globally representative normal instance may not provide an appropriate reference. Instead, it is natural to select a representative normal instance from those that are similar to the test instance, thereby providing a local reference adapted to each test instance. Several strategies can be considered for such adaptive reference selection. In this study, we employ a 
+
+k-nearest-neighbor-based medoid selection strategy to obtain the representative normal reference instance. To define this procedure, let hj 
+
+> ref
+
+= fenc (xj 
+
+> ref
+
+) denote the feature representation of the j-th reference instance. For each selected test instance, we identify its k nearest normal instances in the feature space and select their medoid as the representative reference instance. Let jmed ∈ [Mref ] denote the index of the resulting medoid, and let xjmed  
+
+> ref
+
+denote the corresponding representative normal reference instance. To formulate the testing problem, we regard each input instance as a realization of a random vector. For a selected high-attention test instance xi 
+
+> test
+
+with i ∈ C (Xtest ), we omit the index i hereafter for notational simplicity and denote the selected instance by xtest . For the test instance xtest , we assume 
+
+Xtest = stest + ϵtest ,
+
+where Xtest ∈ Rd is the random vector corresponding to the observed instance xtest , stest ∈ Rd is an unknown signal vector, and ϵtest ∼ N (0, σ 2Id) is an isotropic Gaussian noise vector. Similarly, for each reference instance, we assume 
+
+Xj 
+
+> ref
+
+= sj 
+
+> ref
+
++ ϵj 
+
+> ref
+
+,
+
+where sj 
+
+> ref
+
+∈ Rd is an unknown signal vector and ϵj 
+
+> ref
+
+∼ N (0, σ 2Id) is independent of ϵtest . The noise vectors ϵtest 
+
+and {ϵj 
+
+> ref
+
+}j∈[Mref ] are mutually independent. The variance σ2 is assumed known for the theoretical analysis. It is important to note that this formulation does not assume that the underlying signal vectors themselves follow a Gaussian distribution or any other specific probability distribution. The signal vectors stest and {sj 
+
+> ref
+
+}j∈[Mref ] are treated as arbitrary unknown fixed vectors, and the Gaussian assumption is imposed only on the random perturbations around these signals. Thus, the statistical model should be interpreted as a signal-plus-noise formulation, in which the hypothesis test concerns differences between the underlying signal vectors rather than differences between parameters of an assumed data-generating distribution. We test whether the selected high-attention instance significantly deviates from the selected representative reference instance. The null and alternative hypotheses are defined as 
+
+H0 : stest = sjmed  
+
+> ref
+
+vs . H1 : stest ̸ = sjmed  
+
+> ref
+
+.
+
+6Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology As the test statistic, we use the Euclidean distance between the selected test instance and the selected reference instance: 
+
+T
+
+
+
+Xtest , {Xj 
+
+> ref
+
+}j∈[Mref ]
+
+
+
+= 1
+
+√2 Xtest − Xjmed  
+
+> ref 2
+
+.
+
+To remove the dependence on the noise scale σ and obtain a test statistic whose null distribution does not depend on σ,we further define the standardized test statistic as 
+
+eT
+
+
+
+Xtest , {Xj 
+
+> ref
+
+}j∈[Mref ]
+
+
+
+= 1
+
+σ T
+
+
+
+Xtest , {Xj 
+
+> ref
+
+}j∈[Mref ]
+
+
+
+.
+
+The test statistic is written as a function of the selected test instance and the entire reference set because the identity of the representative reference instance is determined adaptively from the observed data. To clarify why a conventional statistical test is invalid in this setting, first consider a hypothetical setting in which the target and reference instances are fixed in advance, independently of the observed data. For any fixed reference index j, under the null hypothesis 
+
+stest = sj 
+
+> ref
+
+, we have 
+
+Xtest − Xj 
+
+> ref
+
+∼ N (0, 2σ2Id).
+
+Consequently, 
+
+1
+
+√2σ Xtest − Xj 
+
+> ref 2
+
+∼ χd.
+
+A naive analysis would apply this fixed-reference null distribution to the adaptively selected target and reference instances as if their indices had been prespecified. Let 
+
+eTobs = eT
+
+
+
+xtest , {xj 
+
+> ref
+
+}j∈[Mref ]
+
+
+
+denote the observed standardized test statistic after the data-dependent selection. The resulting naive p-value is defined as 
+
+pnaive = P
+
+
+
+χd ≥ eTobs 
+
+
+
+, (1) where χd denotes a chi-distributed random variable with d degrees of freedom. This p-value would be valid if the tested target and reference instances had been fixed independently of the data. In the present setting, however, both instances are selected using the observed data, so the fixed-reference null distribution does not represent the post-selection distribution of the test statistic. Consequently, pnaive does not in general control the Type-I error rate at the nominal level. In the next section, we characterize the selection events induced by attention-based target selection and adaptive reference selection, and derive an SI framework for computing valid conditional p-values. 
+
+## 4 Statistical inference framework 
+
+In this section, we introduce an SI framework for the statistical test proposed in the previous section. Our goal is to quantify the statistical significance of the high-attention instance while properly accounting for the data-dependent selection process. Unlike the naive statistical test that ignores the selection procedure, the proposed framework computes selective p-values by conditioning on the selection event, thereby providing statistically valid inference. 
+
+4.1 Vector-form test statistic 
+
+For notational simplicity, we concatenate the input vectors of the test instance xtest and all reference instances 
+
+{xj 
+
+> ref
+
+}j∈[Mref ] into a single vector 
+
+y = vec( xtest , x1ref , . . . , xMref  
+
+> ref
+
+) ∈ R(Mref +1) d,
+
+where d denotes the input dimension and Mref is the number of reference instances. Similarly, let 
+
+Y = vec( Xtest , X1ref , . . . , XMref  
+
+> ref
+
+) ∈ R(Mref +1) d,
+
+be the corresponding random vector. 7Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology Suppose that the selected representative reference instance is indexed by jmed . The test statistic introduced in Section 3 can then be written as 
+
+T (Y ) = ∥P Y ∥2 ,
+
+where P ∈ R(Mref +1) d×(Mref +1) d is a symmetric matrix defined as 
+
+P = 12
+
+
+
+Id 0 · · · −Id · · · 00 0 · · · 0 · · · 0
+
+... ...
+
+−Id 0 · · · Id · · · 0
+
+... ...
+
+0 0 · · · 0 · · · 0
+
+
+
+,
+
+where the non-zero blocks correspond to the test instance and the selected representative reference instance. The matrix 
+
+P is an orthogonal projection matrix, satisfying P ⊤ = P and P 2 = P . Accordingly, the standardized test statistic is written as 
+
+eT (Y ) = T (Y )
+
+σ = ∥P Y ∥2
+
+σ .
+
+Under the null hypothesis and in the absence of adaptive selection, eT (Y ) follows a chi distribution with d degrees of freedom. 
+
+4.2 Naive p-value 
+
+We first restate the naive p-value introduced in Eq. (1) using the vector notation introduced above. Let Pobs denote the projection matrix determined by the target and representative reference instances selected from the observed data y. A naive analysis treats these selected instances, and hence Pobs , as if they had been fixed in advance, independently of the observed data. Under this hypothetical fixed-selection setting and the null hypothesis, 
+
+∥Pobs Y ∥2
+
+σ ∼ χd.
+
+Accordingly, the naive p-value in Eq. (1) can be equivalently written as 
+
+pnaive = P
+
+
+
+χd ≥ eT (y)
+
+
+
+,
+
+where χd denotes a chi-distributed random variable with d degrees of freedom. Importantly, this χd distribution is the null distribution that would be valid if the target and representative reference instances had been specified independently of the observed data. In the actual procedure, however, both instances are selected adaptively from the data. Therefore, applying this fixed-selection null distribution without accounting for the selection events generally yields an invalid p-value and does not guarantee control of the Type-I error rate at the nominal significance level. 
+
+4.3 Selective p-value 
+
+To remove the selection bias, we adopt the framework of SI [Lee et al., 2016]. To describe the data-dependent selection procedures in a unified manner, we introduce the notion of a selection map . A selection map is a deterministic function that maps the input data to the outcome of a selection procedure. For a generic selection map S, S(Y ) denotes the selection outcome obtained from the random data Y , whereas S(y) denotes the outcome observed from the actual data 
+
+y. The corresponding selection event is 
+
+{Y : S(Y ) = S(y)},
+
+that is, the set of data realizations that produce the same selection outcome as the observed data. In our setting, the overall selection procedure consists of attention-based target selection and adaptive selection of a representative normal reference. We denote the corresponding selection maps by A(Y ) and M(Y ), respectively. The adaptive reference-selection map M is defined by first retrieving the k nearest reference instances and then selecting their medoid. The overall selection map is therefore defined as 
+
+E(Y ) = ( A(Y ), M(Y )) .
+
+8Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology SI is performed conditional on the event 
+
+E(Y ) = E(y),
+
+which requires the attention-selection outcome and the selected representative reference to remain identical to those observed from y. Importantly, the intermediate k-nearest-neighbor set is not itself included in the conditioning event. It may change as long as the final selected representative reference remains unchanged. As is standard in SI, we further condition on a nuisance statistic to obtain a computationally tractable conditional distribution. Specifically, we condition on 
+
+Q(Y ) = 
+
+ P Y
+
+∥P Y ∥2
+
+, (I(Mref +1) d − P )Y
+
+
+
+.
+
+The first component represents the direction of the projected vector P Y , whereas the second component represents the component of Y orthogonal to the range of P . Its observed value is given by 
+
+Q(y) = 
+
+ P y
+
+∥P y∥2
+
+, (I(Mref +1) d − P )y
+
+
+
+.
+
+Conditioning on Q(Y ) = Q(y) fixes the direction of the projected component and the orthogonal component, leaving only the standardized test statistic eT (Y ) random. Consequently, the conditional sample space is reduced to a one-dimensional search path parameterized by eT (Y ). The selection event E(Y ) = E(y) restricts this search path to a feasible region, yielding a truncated χ distribution under the null hypothesis. To characterize the entire truncation region, we employ a parametric programming approach for selective inference [Nguyen Le Duy and Takeuchi, 2022, 2021]. Parametric programming systematically explores the one-dimensional path and identifies all regions that preserve the observed attention-selection outcome and the selected representative reference. Along this path, the k-nearest-neighbor set may change. Regions with a fixed k-nearest-neighbor set are used only as local partitions for characterizing the adaptive reference-selection map, and regions corresponding to different neighbor sets are combined whenever they yield the same selected representative reference. The resulting one-dimensional parameterization and the characterization of the truncation region are provided in Appendix C; see also Lee et al. [2016], Taylor and Tibshirani [2015], Fithian et al. [2014], Sugiyama et al. [2021]. The selective p-value is defined as 
+
+pselective = PH0
+
+ eT (Y ) ≥ eT (y) E(Y ) = E(y), Q(Y ) = Q(y)
+
+
+
+.
+
+Conditioning on the selection event fixes the identity of the selected representative reference instance. Because the projection matrix P is uniquely determined by the selected representative reference instance, P is also fixed under this conditioning. Consequently, the truncation region is determined by the selection event together with the nuisance statistic. Under the proposed conditioning scheme, the conditional null distribution of the standardized test statistic can be characterized analytically. The following theorem summarizes this result. 
+
+Theorem 4.1. Under the null hypothesis, the conditional distribution 
+
+eT (Y ) | E (Y ) = E(y), Q(Y ) = Q(y)
+
+is a truncated χ distribution with d degrees of freedom, where the truncation region is determined by the conditioning events. 
+
+Therefore, the selective p-value can be computed as the upper-tail probability of the truncated χ distribution. The proof of Theorem 4.1 is presented in Appendix B.1. The following theorem establishes the validity of the proposed selective p-value. 
+
+Theorem 4.2. For any significance level α ∈ (0 , 1) ,
+
+PH0 (pselective ≤ α | E (Y ) = E(y), Q(Y ) = Q(y)) = α. 
+
+Hence, the proposed selective p-value exactly controls the conditional Type-I error rate under the null hypothesis. 
+
+The proof of Theorem 4.2 is presented in Appendix B.2. 
+
+4.4 Selection maps and selection events 
+
+The proposed statistical test is performed after data-dependent selection of the target instance and its representative normal reference instance. Throughout the inference procedure, the trained feature extractor and attention network are treated as fixed. We next define the maps involved in these procedures and clarify which outcomes are included in the conditioning event. 9Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 
+
+Attention-based target selection. The first selection map corresponds to attention-based instance selection. For a test bag, the trained ABMIL model computes an attention logit for each instance. As described in Section 2, the proposed SI framework operates directly on these pre-sigmoid attention logits, and only instances whose attention logits exceed the prespecified threshold τ are selected for statistical testing. For the test instance, this selection map is defined as 
+
+A(Y ) = I {fatt (fenc (Xtest )) > τ } .
+
+The threshold τ is fixed throughout the inference procedure. In our experiments, τ is either set to zero or estimated beforehand from an independent set of negative instances, where the threshold corresponds to the top ρ% of the resulting attention logits. The independent instances used to determine τ are disjoint from both the test and reference instances used for SI. The observed attention-selection outcome is preserved when 
+
+A(Y ) = A(y).k-nearest-neighbor retrieval. For each selected test instance, the k nearest reference instances are determined according to the Euclidean distance in the feature space. We define the corresponding retrieval map as 
+
+K(Y ) = Top k
+
+
+
+fenc (Xtest ) − fenc (Xj 
+
+> ref
+
+) 22
+
+ 
+
+> j∈[Mref ]
+
+!
+
+,
+
+where Top k(·) returns the indices corresponding to the k smallest distances. The map K(Y ) is used internally to determine the representative reference but is not itself included in the conditioning event. Accordingly, the k-nearest-neighbor set is allowed to change along the conditional path as long as the final selected representative reference remains unchanged. 
+
+Adaptive reference selection. Among the retrieved nearest neighbors, the representative reference instance is selected as 
+
+M(Y ) = arg min  
+
+> j∈K (Y)
+
+X 
+
+> j′∈K (Y)
+
+fenc (Xj 
+
+> ref
+
+) − fenc (Xj′ 
+
+> ref
+
+) 22 .
+
+Thus, M(Y ) represents the final output of the adaptive reference-selection procedure, which consists of k-nearest-neighbor retrieval followed by medoid selection. The observed reference-selection outcome is preserved when 
+
+M(Y ) = M(y),
+
+which requires that the selected representative reference instance remain unchanged. Any ties in k-nearest-neighbor retrieval or medoid selection are resolved using a prespecified deterministic rule. The selection inequalities in Appendix C are interpreted consistently with this rule. A strict inequality is used whenever a tie would favor a competing index over the corresponding selected index. The definitions above use distances in the encoded feature space. The k-nearest-neighbor retrieval and medoid selection can also be performed in the input space by replacing fenc (X) with X in the corresponding maps. The choice of space is fixed before selective inference. The attention-selection map remains unchanged. Collectively, the overall selection map is 
+
+E(Y ) = ( A(Y ), M(Y )) .
+
+Therefore, the observed selection event is 
+
+E(Y ) = E(y).
+
+This event requires the attention-selection outcome and the selected representative reference to remain identical to those observed from y. It does not require K(Y ) = K(y). Instead, regions with different k-nearest-neighbor sets are retained whenever they lead to the same observed representative reference. Combined with the nuisance statistic Q(Y ) = Q(y), the conditional sample space reduces to a one-dimensional truncation region for the standardized test statistic eT (Y ). Appendix C explicitly characterizes this region by partitioning the conditional path into local regions with fixed k-nearest-neighbor sets and combining all such regions that preserve the observed representative reference. The following section experimentally verifies that the proposed SI achieves valid Type-I error control while maintaining high statistical power. 10 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 
+
+## 5 Experiments 
+
+5.1 Experimental settings 
+
+All experiments were conducted at the significance level α = 0 .05 .The proposed method was evaluated in terms of the Type-I error rate and statistical power. The Type-I error rate measures whether the hypothesis test correctly controls the nominal significance level under the null hypothesis. For the synthetic and MNIST experiments, statistical power measures the probability of correctly rejecting the null hypothesis under the alternative hypothesis. For the real-world WSI experiment, the evaluation metrics are described in Section 5.4. We compared the following methods: • Proposed : The proposed selective inference method based on parametric programming. The method conditions on the attention-based target-selection outcome and the adaptively selected representative reference, and characterizes the entire truncation region consistent with these outcomes. The intermediate k-nearest-neighbor set is not itself included in the conditioning event. • Ablation 1 : An ablation study that ignores the attention-based selection event. The selective p-value is computed by conditioning only on the adaptive reference-selection outcome. This ablation evaluates the effect of ignoring the data-dependent selection of the target instance. • Ablation 2 : An ablation study that ignores adaptive reference selection. The selective p-value is computed by conditioning only on the attention-based selection event. This ablation evaluates the effect of ignoring the data-dependent selection of the representative reference. • Over-conditioning (OC) : An ablation study based on over-conditioning. Instead of characterizing the entire truncation region using parametric programming, this method computes the selective p-value using only the local truncation region containing the observed test statistic. Consequently, OC introduces additional conditioning beyond the observed attention and representative-reference outcomes and can therefore reduce statistical power. • Bonferroni : Bonferroni correction for multiple hypothesis testing. To account for attention-based selection, we define 
+
+λatt = Nsample 
+
+Natt 
+
+,
+
+where Nsample is the number of sampled instances and Natt is the number of high-attention instances selected by attention thresholding. For each selected target instance, the adaptive reference-selection procedure selects one representative reference from Mref reference candidates through k-nearest-neighbor retrieval followed by medoid selection. We therefore use the multiplicity factor 
+
+λatt Mref .
+
+The Bonferroni-corrected p-value is defined as 
+
+pBonferroni = min {1, λ att Mref pnaive } .
+
+Here, λatt accounts for attention-based target selection, while Mref accounts for the possible choices of the final representative reference. We use this Bonferroni-based correction as a comparison baseline. For the synthetic and MNIST-based experiments, we evaluate its empirical Type-I error rate and statistical power, whereas for CAMELYON16 we report rejection proportions as described in Section 5.4. The correction can be highly conservative when the multiplicity factor is large. • Naive : A naive hypothesis testing method that ignores all data-dependent selection. The naive p-value is computed directly from the fixed-selection null distribution described in Section 4.2. We include this method in the synthetic experiments to demonstrate the potential failure of statistical inference that ignores the adaptive selection procedures. The naive method is included only in the synthetic experiments to illustrate the effect of ignoring the adaptive selection procedures and is not used in the MNIST-based or pathological WSI experiments. 
+
+5.2 Synthetic experiments 
+
+We first evaluated the proposed method on synthetic data, where the ground-truth distribution is known and the Type-I error rate and statistical power can be quantitatively evaluated. 11 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 
+
+Experimental settings. Positive instances were generated from a multivariate Gaussian distribution N (1, σ 2Id),whereas negative instances were generated from N (0, σ 2Id). During training, bags consisting of 10 instances were constructed. A positive bag contained at least one positive instance, while a negative bag consisted entirely of negative instances. An ABMIL model with a multilayer perceptron (MLP) backbone was trained. The attention network was trained with a sigmoid activation at its output, followed by the bag-wise softmax normalization used in ABMIL. During inference, however, we extracted the pre-sigmoid attention logits and regarded an instance as a high-attention instance when its logit was greater than zero. The input dimension was varied over d ∈ { 16 , 32 , 48 , 64 }, and the corresponding feature dimensions were d′ ∈{4, 8, 12 , 16 }. The noise variance was varied over σ2 ∈ { 0.6, 0.8, 1.0, 1.2, 1.4}, and the number of nearest neighbors was k ∈ { 1, 3, 5, 10 }. For each hypothesis test, 100 negative reference instances were independently generated using a different random seed. Since the noise variance was known in the synthetic setting, the true variance used for data generation was employed in the statistical test. For the Type-I error rate evaluation, negative instances were used as test instances, whereas positive instances were used for the statistical power evaluation. Because the attention logit of ABMIL depends only on each individual instance, the hypothesis test was performed at the instance level rather than on bags. For each experiment, hypothesis testing was repeated until 10,000 high-attention instances were collected. 
+
+Results. We evaluated the proposed method and the two ablation methods in terms of Type-I error control, and compared the statistical power of the proposed method with those of OC and Bonferroni correction. Figure 3 shows the Type-I error rate and statistical power obtained by varying the number of nearest neighbors k and the Gaussian noise variance. When varying k, the input dimension and noise variance were fixed to d = 32 and σ2 = 1 .0, respectively. When varying the noise variance, the input dimension and the number of nearest neighbors were fixed to d = 32 and 
+
+k = 5 , respectively. The proposed method successfully controlled the Type-I error rate at the nominal significance level under all settings. Ablation 1 also exhibited Type-I error rates close to the nominal significance level in the settings considered here, whereas Ablation 2 showed conservative behavior with Type-I error rates substantially below the nominal level. The naive method showed a similar conservative tendency to Ablation 2, suggesting that the bias induced by adaptive reference selection dominates the relatively weak effect of attention-based selection under these settings. OC maintained valid Type-I error control but consistently achieved lower statistical power than the proposed method, while Bonferroni correction was highly conservative. These results demonstrate that the proposed method achieves valid Type-I error control while providing higher statistical power than OC. The results for the remaining experimental settings are provided in Appendix D.1. 
+
+Stress test under strong attention selection. We further conducted a stress-test experiment to investigate the effect of strong attention-based selection on Type-I error control. Unlike the preceding synthetic experiments, where the attention threshold was fixed at zero, we used a substantially more stringent attention threshold. Specifically, the threshold τ was set to the 99.99th percentile of the pre-sigmoid attention logits obtained from an independently generated set of normal instances. To isolate the effects of attention-based selection and medoid selection, we set the number of nearest neighbors equal to the number of reference instances, i.e., k = Mref . Under this setting, all reference instances are included in the neighbor set, so the k-nearest-neighbor retrieval becomes trivial, while medoid selection remains adaptive for k > 1.We varied Mref = k ∈ { 1, 3, 5, 10 }. For each setting, negative instances were independently sampled until 1,000 instances satisfying the attention threshold were collected, and the Type-I error rate was evaluated using these selected instances. Figure 4 shows the Type-I error rates under strong attention-based selection. The proposed method maintained the Type-I error rate close to the nominal significance level across all examined settings. In contrast, the naive method and Ablation 1, which ignores attention-based selection, exhibited substantially inflated Type-I error rates. Bonferroni correction was highly conservative and yielded almost no rejections. These results demonstrate that ignoring attention-based selection can lead to substantial Type-I error inflation when the selection effect is strong, whereas the proposed method maintains valid Type-I error control by explicitly accounting for the adaptive selection process. Therefore, although the naive method is included in the synthetic experiments to illustrate the consequence of ignoring the adaptive selection procedures, we do not consider it a valid baseline in the subsequent real-data experiments. 12 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 1 3 5 10                
+
+> kin k-NN 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200 Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni Naive 13510
+> kin k-NN 0.0 0.1 0.2 0.3 0.4 0.5 Statistical power
+> Proposed OC Bonferroni 0.6 0.8 1.0 1.2 1.4 Variance of noise 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200 Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni Naive 0.6 0.8 1.0 1.2 1.4 Variance of noise 0.0 0.1 0.2 0.3 0.4 0.5 Statistical power
+> Proposed OC Bonferroni
+
+Figure 3: Type-I error rate (left) and statistical power (right) on the synthetic dataset. The top row shows the results for varying the number of nearest neighbors k, while the bottom row shows the results for varying the Gaussian noise variance. 1 3 5 10   
+
+> kin k-NN 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200 Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni Naive
+
+Figure 4: Type-I error rate under strong attention-based selection in the synthetic stress-test experiment. The dashed horizontal line indicates the nominal significance level of 0.05. The number of reference instances and the number of nearest neighbors were varied jointly as Mref = k ∈ { 1, 3, 5, 10 }, while fixing the input dimension to d = 32 and the Gaussian noise variance to σ2 = 0 .6. The attention threshold was set to the 99.99th percentile of the attention logits obtained from an independent set of normal instances. 13 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 
+
+5.3 MNIST-based experiments 
+
+To evaluate the proposed method under a more realistic heterogeneous data distribution, we conducted experiments using the MNIST dataset [Deng, 2012]. Unlike the synthetic experiments in Section 5.2, both positive and negative instances were generated from multiple Gaussian clusters whose means were derived from real images. 
+
+Experimental settings. For the training data, 10 positive and 10 negative images were randomly selected from the training set as cluster centers. Synthetic feature vectors were then generated by adding Gaussian noise to these images, resulting in 10 Gaussian clusters for each class. Images of the digit “0” were used as the negative class, while each of the digits {1, . . . , 9} was evaluated independently as the positive class. For statistical inference, separate cluster centers were selected from the MNIST test set. We considered three- and five-cluster settings. The same negative cluster centers were used to generate both reference and negative test instances. For positive test instances, the same number of positive cluster centers was independently selected from the corresponding positive digit class. The selected cluster centers were fixed throughout each experiment, whereas Gaussian noise was independently regenerated for every hypothesis test. Each 28 × 28 image was downsampled to 14 × 14 by average pooling and represented as a 196-dimensional input vector. This dimensionality reduction was performed because a large input dimension leads to an excessively large degree of freedom for the χ distribution, resulting in numerical instability during the computation of selective p-values. The feature dimension was fixed to 32, and the noise variance was fixed to σ2 = 0 .25 . The number of reference instances was fixed to 100 regardless of the number of cluster centers, and cluster centers were sampled uniformly at random. As in the synthetic experiments, the true noise variance was assumed to be known. Negative and positive instances were used for the Type-I error rate and statistical power evaluations, respectively. For the Type-I error rate evaluation, only hypothesis tests in which the input instance and the selected representative reference instance originated from the same Gaussian cluster were counted, ensuring that both samples were generated from the same underlying distribution under the null hypothesis. To introduce a nontrivial attention-based selection effect, the attention threshold was determined using an independent set of negative instances. Specifically, τ was set to the empirical quantile corresponding to the top 5% of their pre-sigmoid attention logits. These negative instances were independent of the test and reference instances used for selective inference, and the resulting threshold was treated as fixed throughout the inference procedure. For Type-I error evaluation, sampling continued until 10,000 high-attention test instances whose selected references originated from the same negative cluster were obtained. 
+
+Results. Figure 5 shows the Type-I error rate and statistical power for k = 5 and σ2 = 0 .25 , where each digit from 1 to 9 is treated as the positive class. The top and bottom panels correspond to the settings with three and five Gaussian clusters, respectively. The proposed method successfully controlled the Type-I error rate at the nominal significance level across all classes in both settings. Ablation 1 achieved a Type-I error rate close to the nominal level, suggesting that the attention-based selection event has a relatively small impact in this setting. In contrast, Ablation 2 exhibited conservative behavior in the examined settings, illustrating the effect of ignoring adaptive reference selection. Compared with OC, the proposed method consistently achieved higher statistical power while maintaining valid Type-I error control, whereas Bonferroni correction was overly conservative. Additional results for other values of k are provided in Appendix D.2. 
+
+5.4 Real-world experiments on CAMELYON16 
+
+Finally, we evaluated the proposed method on the CAMELYON16 dataset [Bejnordi et al., 2017] to demonstrate its applicability to a realistic digital pathology setting. Unlike the previous experiments, this experiment was conducted on WSIs using an ABMIL framework. 
+
+Experimental settings. The CAMELYON16 dataset contains WSIs collected at two medical centers and includes both micro- and macro-metastatic tumor cases. In this experiment, we used only the WSIs collected at one of the two centers. This restriction was introduced to reduce center-specific variations arising from differences in staining and slide preparation. Although this experiment considers heterogeneous reference distributions, our primary interest is the heterogeneity among normal tissue samples. We therefore restricted the analysis to a single center to avoid introducing additional sources of variation and to keep the experimental setting as simple as possible. We also included only macro-metastatic tumor cases because their relatively large tumor regions facilitate the interpretation of the visualization results. The training split from the selected center contained 59 normal WSIs and 26 macro-metastatic tumor WSIs. Among the 59 normal WSIs, 37 were used for model training, 11 were reserved for reference construction, and the remaining 11 14 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology were allocated exclusively for noise-variance estimation and attention-threshold determination. All 26 macro-metastatic tumor WSIs were used for model training. These three subsets of normal WSIs were mutually disjoint. The test set consisted of 30 normal WSIs and 9 macro-metastatic tumor WSIs. Each WSI was divided into non-overlapping 2048 × 2048 -pixel patches over its tissue regions. Each patch was resized to the input resolution required by the UNI2 foundation model [Chen et al., 2024], from which a 1,536-dimensional feature vector was extracted. To reduce the degrees of freedom of the χ distribution and avoid numerical instability in the computation of selective p-values, average pooling was applied to reduce the UNI2 feature dimension from 1,536 to 192. The resulting 192-dimensional vectors were regarded as input samples and were used for both hypothesis testing and reference selection. Unlike the synthetic and MNIST experiments, the pathology classification task is substantially more complex, and the neighborhood relationships in the input space may not be well preserved in the intermediate feature space learned by the neural network. To ensure that the selected medoid remains a representative sample of the original input instances, the k-nearest-neighbor search was therefore performed in the 192-dimensional input space rather than in the learned feature space used in Section 4.4. Although the attention-based MIL model contained a 32-dimensional intermediate feature representation, this representation was not used for reference selection in this experiment. The reference instances were constructed from the 11 normal WSIs reserved for reference construction. From each reference WSI, up to 100 input samples were randomly selected. Since several WSIs contained fewer than 100 eligible patches, the reference set comprised 1,009 samples in total. Each reference WSI was regarded as a distinct population with a slide-specific mean vector, thereby accounting for heterogeneity among normal tissue samples. The 
+
+k-nearest-neighbor search was performed in the 192-dimensional input space with k = 3 .The remaining 11 normal WSIs reserved for noise-variance estimation were also used to determine the attention thresholds. From each WSI, up to 100 input samples were randomly selected. Each WSI was modeled as an isotropic Gaussian distribution with its own mean vector. The isotropic variance was estimated independently for each WSI, and the final noise variance was obtained by averaging the estimated variances over the 11 WSIs. The empirical distribution of the pre-sigmoid attention logits from these independently sampled patches was used to determine the threshold corresponding to the top 5% of attention logits. Both the estimated noise variance and the attention thresholds were treated as fixed throughout selective inference. Because the number of instances varies across WSIs, the multiplicity factor for attention-based selection was computed separately for each WSI. Specifically, for the n-th WSI, we set 
+
+λn 
+
+> att
+
+= M n
+
+> test
+
+|C (Xn
+
+> test
+
+)| ,
+
+where M n 
+
+> test
+
+and |C (Xn
+
+> test
+
+)| denote the total number of instances and the number of high-attention instances in the WSI, respectively. Accordingly, the WSI-specific Bonferroni multiplicity factor was 
+
+λn
+
+> att
+
+Mref .
+
+Results. Table 1 summarizes the results obtained with the attention threshold fixed to the top 5% of the independent threshold-estimation instances and k = 3 .For normal WSIs, we report the rejection proportion among attention-selected patches as an empirical proxy for the Type-I error rate. For tumor WSIs, we report the corresponding rejection proportion as an empirical proxy for statistical power. Because the equality or inequality of the underlying signal vectors is not directly observed for individual patch pairs, these quantities are operational evaluation metrics. The proposed method yielded a rejection proportion close to the nominal significance level on normal WSIs while achieving a substantially higher rejection proportion than OC on tumor WSIs. Bonferroni yielded low rejection proportions on both normal and tumor WSIs. These quantitative results demonstrate that the proposed selective inference framework remains applicable in a realistic digital pathology setting despite the heterogeneity of normal tissue distributions. Figure 6 presents representative visualization results on three tumor WSIs. The colored squares indicate patches selected by the attention mechanism and subjected to hypothesis testing. Red squares denote rejected hypotheses, whereas green squares denote non-rejected hypotheses. The tumor masks are provided only for visualization and were not used during inference. Additional qualitative results are provided in Appendix D.3. Although both methods performed hypothesis testing on the same attention-selected patches, the proposed method rejected substantially more hypotheses than OC. Consequently, more attention-selected patches were identified as statistically significant. In contrast, Bonferroni correction rejected substantially fewer patches than the proposed method. 15 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology Table 1: Quantitative evaluation on the CAMELYON16 dataset for k = 3 . The numbers in parentheses indicate the numbers of tested instances used to compute the corresponding metrics. Proposed OC Bonferroni Normal rejection rate (297) 0.037 0.037 0.000 Tumor rejection rate (1962) 0.570 0.468 0.117 As shown in the second column of Fig. 6, the tissue region on the right side of the slide receives a high attention logit and is therefore selected for statistical testing. However, the proposed test does not detect a significant difference between this region and the selected reference instance. This example illustrates that a high attention logit alone does not necessarily imply a statistically significant deviation from the selected normal reference. These qualitative observations agree with the quantitative results in Table 1, demonstrating that the proposed method improves the identification of statistically significant regions. 16 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 1 2 3 4 5 6 7 8 9
+
+Positive class             
+
+> 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200
+> Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni 123456789
+
+Positive class           
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Statistical power
+> Proposed OC Bonferroni 123456789
+
+Positive class             
+
+> 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200
+> Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni 123456789
+
+Positive class   
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Statistical power
+> Proposed OC Bonferroni
+
+Figure 5: Type-I error rate and statistical power in the MNIST-based experiments. From top to bottom, the plots show the Type-I error rate and statistical power using three Gaussian clusters, followed by the Type-I error rate and statistical power using five Gaussian clusters. The horizontal axis represents the positive class. 17 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology (a) Tumor mask Rejec �on rate = 0.529 Rejec �on rate = 0.565 Rejec �on rate = 0.694 (b) Proposed 
+
+## Rejec �on rate = 0.430 Rejec �on rate = 0.362 Rejec �on rate = 0.566 (c) OC Rejec �on rate = 0.008 Rejec �on rate = 0.073 Rejec �on rate = 0.181 (d) Bonferroni 
+
+Figure 6: Visualization of p-value maps for three representative CAMELYON16 tumor WSIs. (a) shows the ground-truth tumor masks, while (b), (c), and (d) show the results of Proposed, OC, and Bonferroni, respectively. Green and red rectangles indicate selected high-attention instances with p ≥ 0.05 and p < 0.05 , respectively. The remaining tumor cases are provided in Appendix D.3. 18 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 
+
+## 6 Conclusion 
+
+In this paper, we proposed a selective inference framework for attention-based multiple instance learning with adaptive reference selection. The proposed method accounts for attention-based target selection and adaptive reference selection, in which the representative reference is selected through k-nearest-neighbor retrieval followed by medoid selection. Importantly, the intermediate k-nearest-neighbor set is not itself conditioned upon; instead, the proposed framework conditions on the final selected representative reference. We further developed a parametric-programming-based procedure that computes valid selective p-values by characterizing the entire truncation region consistent with the observed selection outcome. Experiments on synthetic and MNIST-based data demonstrated Type-I error control and higher statistical power than the conventional over-conditioning approach. The CAMELYON16 experiment further demonstrated the practical applicability of the proposed framework, with a higher rejection proportion than over-conditioning on tumor WSIs. These results indicate that the proposed framework provides a statistically principled approach for evaluating attention-selected instances through comparison with adaptively selected reference instances. One limitation of the present work is that we demonstrated the proposed framework using ABMIL as a proof-of-concept architecture. ABMIL provides a relatively simple attention mechanism that allows the data-dependent selection procedure to be explicitly characterized. More generally, the proposed framework is applicable when the data-dependent selection procedure can be characterized along the one-dimensional conditional path. In particular, neural networks composed of affine operations and piecewise-linear activations such as ReLU are piecewise affine with respect to the input, facilitating characterization of the corresponding selection constraints by parametric programming. Future work includes extending the proposed framework to modern MIL architectures and foundation-model-based pathology models [Chen et al., 2024, Vorontsov et al., 2024, Ding et al., 2025] while preserving statistical validity. We also plan to investigate selective inference for a broader range of retrieval and explanation mechanisms used in digital pathology. 
+
+Acknowledgments 
+
+This work was partially supported by MEXT KAKENHI (24K15080, 26H02528, 26K15711), JST CREST (JP-MJCR21D3, JPMJCR22N2), and RIKEN Center for Advanced Intelligence Project. 19 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 
+
+## References 
+
+Thomas G Dietterich, Richard H Lathrop, and Tomás Lozano-Pérez. Solving the multiple instance problem with axis-parallel rectangles. Artificial intelligence , 89(1-2):31–71, 1997. Oded Maron and Tomás Lozano-Pérez. A framework for multiple-instance learning. Advances in neural information processing systems , 10, 1997. Kausik Das, Sailesh Conjeti, Abhijit Guha Roy, Jyotirmoy Chatterjee, and Debdoot Sheet. Multiple instance learning of deep convolutional neural networks for breast histopathology whole slide classification. In 2018 IEEE 15th International Symposium on Biomedical Imaging (ISBI 2018) , pages 578–581. IEEE, 2018. Yoichiro Yamamoto, Toyonori Tsuzuki, Jun Akatsuka, Masao Ueki, Hiromu Morikawa, Yasushi Numata, Taishi Takahara, Takuji Tsuyuki, Kotaro Tsutsumi, Ryuto Nakazawa, et al. Automated acquisition of explainable knowledge from unannotated histopathology images. Nature communications , 10(1):5642, 2019. Gabriele Campanella, Matthew G Hanna, Luke Geneslaw, Allen Miraflor, Vitor Werneck Krauss Silva, Klaus J Busam, Edi Brogi, Victor E Reuter, David S Klimstra, and Thomas J Fuchs. Clinical-grade computational pathology using weakly supervised deep learning on whole slide images. Nature medicine , 25(8):1301–1309, 2019. Noriaki Hashimoto, Daisuke Fukushima, Ryoichi Koga, Yusuke Takagi, Kaho Ko, Kei Kohno, Masato Nakaguro, Shigeo Nakamura, Hidekata Hontani, and Ichiro Takeuchi. Multi-scale domain-adversarial multiple-instance cnn for cancer subtype classification with unannotated histopathological images. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 3852–3861, 2020. Jiajun Wu, Yinan Yu, Chang Huang, and Kai Yu. Deep multiple instance learning for image classification and auto-annotation. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 3460–3469, 2015. Zhe Li, Chong Wang, Mei Han, Yuan Xue, Wei Wei, Li-Jia Li, and Li Fei-Fei. Thoracic disease identification and localization with limited supervision. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 8290–8299, 2018. Maximilian Ilse, Jakub Tomczak, and Max Welling. Attention-based deep multiple instance learning. In International conference on machine learning , pages 2127–2136. PMLR, 2018. PJ Sudharshan, Caroline Petitjean, Fabio Spanhol, Luiz Eduardo Oliveira, Laurent Heutte, and Paul Honeine. Multiple instance learning for histopathological breast cancer image classification. Expert Systems with Applications , 117: 103–111, 2019. Bin Li, Yin Li, and Kevin W Eliceiri. Dual-stream multiple instance learning network for whole slide image classification with self-supervised contrastive learning. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 14318–14328, 2021. Ming Y Lu, Drew FK Williamson, Tiffany Y Chen, Richard J Chen, Matteo Barbieri, and Faisal Mahmood. Data-efficient and weakly supervised computational pathology on whole-slide images. Nature biomedical engineering , 5 (6):555–570, 2021. Hongrun Zhang, Yanda Meng, Yitian Zhao, Yihong Qiao, Xiaoyun Yang, Sarah E Coupland, and Yalin Zheng. Dtfd-mil: Double-tier feature distillation multiple instance learning for histopathology whole slide image classification. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 18802–18812, 2022. Yusuke Takagi, Noriaki Hashimoto, Hiroki Masuda, Hiroaki Miyoshi, Koichi Ohshima, Hidekata Hontani, and Ichiro Takeuchi. Transformer-based personalized attention mechanism for medical images with clinical records. Journal of Pathology Informatics , 14:100185, 2023. Noriaki Hashimoto, Hiroyuki Hanada, Hiroaki Miyoshi, Miharu Nagaishi, Kensaku Sato, Hidekata Hontani, Koichi Ohshima, and Ichiro Takeuchi. Multimodal gated mixture of experts using whole slide image and flow cytometry for multiple instance learning classification of lymphoma. Journal of Pathology Informatics , 15:100359, 2024. Sarthak Jain and Byron C Wallace. Attention is not explanation. In Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, Volume 1 (Long and Short Papers) , pages 3543–3556, 2019. Sofia Serrano and Noah A Smith. Is attention interpretable? In Proceedings of the 57th annual meeting of the association for computational linguistics , pages 2931–2951, 2019. Sarah Wiegreffe and Yuval Pinter. Attention is not not explanation. In Proceedings of the 2019 conference on empirical methods in natural language processing and the 9th international joint conference on natural language processing (EMNLP-IJCNLP) , pages 11–20, 2019. 20 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology Zhenzhen Wang, Carla Saoud, Sintawat Wangsiricharoen, Aaron W James, Aleksander S Popel, and Jeremias Sulam. Label cleaning multiple instance learning: Refining coarse annotations on single whole-slide images. IEEE transactions on medical imaging , 41(12):3952–3968, 2022. Linghan Cai, Shenjin Huang, Ye Zhang, Jinpeng Lu, and Yongbing Zhang. Rethinking attention-based multiple instance learning for whole-slide pathological image classification: An instance attribute viewpoint. arXiv preprint arXiv:2404.00351 , 2024. Susu Sun, Leslie Tessier, Frédérique Meeuwsen, Clément Grisi, Dominique van Midden, Geert Litjens, and Christian F Baumgartner. Label-free concept based multiple instance learning for gigapixel histopathology. arXiv preprint arXiv:2501.02922 , 2025. Philip Zehnder, Jeffrey Feng, Trung Nguyen, Philip Shen, Ruth Sullivan, Reina N Fuji, and Fangyao Hu. Diagnostic classification in toxicologic pathology using attention-guided weak supervision and whole slide image features: a pilot study in rat livers. Scientific Reports , 15(1):4202, 2025. Nikolaus Kriegeskorte, W Kyle Simmons, Patrick SF Bellgowan, and Chris I Baker. Circular analysis in systems neuroscience: the dangers of double dipping. Nature Neuroscience , 12(5):535–540, 2009. doi:10.1038/nn.2303. Jason D Lee, Dennis L Sun, Yuekai Sun, and Jonathan E Taylor. Exact post-selection inference, with application to the lasso. The Annals of Statistics , 44(3):907–927, 2016. doi:10.1214/15-AOS1371. Xiaoying Tian and Jonathan Taylor. Selective inference with a randomized response. The Annals of Statistics , 46(2): 679–710, 2018. doi:10.1214/17-AOS1564. Jonathan Taylor and Robert Tibshirani. Post-selection inference for ℓ1-penalized likelihood models. Canadian Journal of Statistics , 46(1):41–61, 2018. Vo Nguyen Le Duy, Shogo Iwazaki, and Ichiro Takeuchi. Quantifying statistical significance of neural network-based image segmentation by selective inference. In Advances in Neural Information Processing Systems , volume 35, pages 31627–31639. Curran Associates, Inc., 2022. doi:10.52202/068431-2293. Daiki Miwa, Vo Nguyen Le Duy, and Ichiro Takeuchi. Valid p-value for deep learning-driven salient region. In The Eleventh International Conference on Learning Representations , 2023. URL https://openreview.net/forum? id=qihMOPw4Sf_ .Tomohiro Shiraishi, Daiki Miwa, Teruyuki Katsuoka, Vo Nguyen Le Duy, Kouichi Taji, and Ichiro Takeuchi. Statistical test for attention maps in vision transformers. In Proceedings of the 41st International Conference on Machine Learning , volume 235 of Proceedings of Machine Learning Research , pages 45079–45096. PMLR, 2024. URL 
+
+https://proceedings.mlr.press/v235/shiraishi24a.html .Tomohiro Shiraishi, Daiki Miwa, Teruyuki Katsuoka, Vo Nguyen Le Duy, Shuichi Nishino, Kouichi Taji, and Ichiro Takeuchi. Statistical test for attention in transformers for images and time series. Journal of Machine Learning Research , 27(119):1–43, 2026. Mizuki Niihori, Shuichi Nishino, Teruyuki Katsuoka, Tomohiro Shiraishi, Kouichi Taji, and Ichiro Takeuchi. Quan-tifying statistical significance of deep nearest neighbor anomaly detection via selective inference. In Advances in Neural Information Processing Systems , volume 38, pages 173174–173203. Curran Associates, Inc., 2025. doi:10.52202/085713-5762. Zhi-Hua Zhou and Min-Ling Zhang. Neural networks for multi-instance learning. In Proceedings of the International Conference on Intelligent Information Technology, Beijing, China , pages 455–459. Citeseer, 2002. Stuart Andrews, Ioannis Tsochantaridis, and Thomas Hofmann. Support vector machines for multiple-instance learning. 
+
+Advances in neural information processing systems , 15, 2002. Ji Feng and Zhi-Hua Zhou. Deep miml network. In Proceedings of the AAAI conference on artificial intelligence , 2017. Xinggang Wang, Yongluan Yan, Peng Tang, Xiang Bai, and Wenyu Liu. Revisiting multiple instance neural networks. 
+
+Pattern Recognition , 74:15–24, 2018. Angel Cruz-Roa, Ajay Basavanhally, Fabio González, Hannah Gilmore, Michael Feldman, Shridar Ganesan, Natalie Shih, John Tomaszewski, and Anant Madabhushi. Automatic detection of invasive ductal carcinoma in whole slide images with convolutional neural networks. In Medical Imaging 2014: Digital Pathology , volume 9041, page 904103. SPIE, 2014. Ashish Shrivastava, Vishal M Patel, Jaishanker K Pillai, and Rama Chellappa. Generalized dictionaries for multiple instance learning. International Journal of Computer Vision , 114:288–305, 2015. Oren Z Kraus, Jimmy Lei Ba, and Brendan J Frey. Classifying and segmenting microscopy images with deep multiple instance learning. Bioinformatics , 32(12):i52–i59, 2016. 21 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology Juho Lee, Yoonho Lee, Jungtaek Kim, Adam Kosiorek, Seungjin Choi, and Yee Whye Teh. Set transformer: A framework for attention-based permutation-invariant neural networks. In International conference on machine learning , pages 3744–3753. PMLR, 2019. Richard J Chen, Ming Y Lu, Wei-Hung Weng, Tiffany Y Chen, Drew FK Williamson, Trevor Manz, Maha Shady, and Faisal Mahmood. Multimodal co-attention transformer for survival prediction in gigapixel whole slide images. In 
+
+Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 4015–4025, 2021. Zhuchen Shao, Hao Bian, Yang Chen, Yifeng Wang, Jian Zhang, Xiangyang Ji, et al. Transmil: Transformer based correlated multiple instance learning for whole slide image classification. Advances in neural information processing systems , 34:2136–2147, 2021. Richard J Chen, Chengkuan Chen, Yicong Li, Tiffany Y Chen, Andrew D Trister, Rahul G Krishnan, and Faisal Mahmood. Scaling vision transformers to gigapixel images via hierarchical self-supervised learning. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 16144–16155, 2022. Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention is all you need. Advances in neural information processing systems , 30, 2017. Jonathan Taylor and Robert J Tibshirani. Statistical learning and selective inference. Proceedings of the National Academy of Sciences , 112(25):7629–7634, 2015. doi:10.1073/pnas.1507583112. Ryan J Tibshirani, Jonathan Taylor, Richard Lockhart, and Robert Tibshirani. Exact post-selection inference for sequential regression procedures. Journal of the American Statistical Association , 111(514):600–620, 2016. doi:10.1080/01621459.2015.1108848. Yoshikazu Terada and Hidetoshi Shimodaira. Selective inference after feature selection via multiscale bootstrap. Annals of the Institute of Statistical Mathematics , 75(1):99–125, 2023. Sangwon Hyun, Max G’Sell, and Ryan J Tibshirani. Exact post-selection inference for the generalized lasso path. 
+
+Electronic Journal of Statistics , 12(1):1053–1097, 2018. Snigdha Panigrahi, Natasha Stewart, Chandra Sripada, and Elizaveta Levina. Selective inference for sparse multitask regression with applications in neuroimaging. The Annals of Applied Statistics , 18(1):445–467, 2024. Shinya Suzumura, Kazuya Nakagawa, Yuta Umezu, Koji Tsuda, and Ichiro Takeuchi. Selective inference for sparse high-order interaction models. In International Conference on Machine Learning , pages 3338–3347. PMLR, 2017. Makoto Yamada, Yuta Umezu, Kenji Fukumizu, and Ichiro Takeuchi. Post selection inference with kernels. In 
+
+International Conference on Artificial Intelligence and Statistics , pages 152–160. PMLR, 2018. Ali Charkhi and Gerda Claeskens. Asymptotic post-selection inference for the akaike information criterion. Biometrika ,105(3):645–664, 2018. Tomohiro Shiraishi, Tatsuya Matsukawa, Shuichi Nishino, and Ichiro Takeuchi. Statistical test for feature selection pipelines by selective inference. In International Conference on Machine Learning , pages 55283–55302. PMLR, 2025. Yiqun T. Chen and Daniela M. Witten. Selective inference for k-means clustering. Journal of Machine Learning Research , 24(152):1–41, 2023. Lucy L. Gao, Jacob Bien, and Daniela Witten. Selective inference for hierarchical clustering. Journal of the American Statistical Association , 119(545):332–342, 2024. doi:10.1080/01621459.2022.2116331. Vo Nguyen Le Duy, Hiroki Toda, Ryota Sugiyama, and Ichiro Takeuchi. Computing valid p-value for optimal changepoint by selective inference using dynamic programming. In Advances in Neural Information Processing Systems , volume 33, pages 11356–11367. Curran Associates, Inc., 2020. Shuxiao Chen and Jacob Bien. Valid inference corrected for outlier removal. Journal of Computational and Graphical Statistics , 29(2):323–334, 2020. doi:10.1080/10618600.2019.1660180. Ronan Perry, Snigdha Panigrahi, Jacob Bien, and Daniela Witten. Inference on the proportion of variance ex-plained in principal component analysis. Journal of the American Statistical Association , 121(553):667–677, 2026. doi:10.1080/01621459.2025.2538895. Vo Nguyen Le Duy and Ichiro Takeuchi. More powerful conditional selective inference for generalized lasso by parametric programming. Journal of Machine Learning Research , 23(300):1–37, 2022. Shuichi Nishino, Tomohiro Shiraishi, Teruyuki Katsuoka, and Ichiro Takeuchi. Statistical test for saliency maps of graph neural networks via selective inference. Transactions on Machine Learning Research , 2025. ISSN 2835-8856. URL https://openreview.net/forum?id=5NkXTCVa7F .22 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology Teruyuki Katsuoka, Tomohiro Shiraishi, Daiki Miwa, Shuichi Nishino, and Ichiro Takeuchi. si4onnx: Apython package for selective inference in deep learning models. arXiv preprint arXiv:2501.17415 , 2025. doi:10.48550/arXiv.2501.17415. Vo Nguyen Le Duy and Ichiro Takeuchi. Parametric programming approach for more powerful and general lasso selective inference. In Arindam Banerjee and Kenji Fukumizu, editors, Proceedings of The 24th International Conference on Artificial Intelligence and Statistics , volume 130 of Proceedings of Machine Learning Research , pages 901–909. PMLR, 2021. URL https://proceedings.mlr.press/v130/nguyen-le-duy21a.html .William Fithian, Dennis Sun, and Jonathan Taylor. Optimal inference after model selection. arXiv preprint arXiv:1410.2597 , 2014. Kazuya Sugiyama, Vo Nguyen Le Duy, and Ichiro Takeuchi. More powerful and general selective inference for stepwise feature selection using homotopy method. In Marina Meila and Tong Zhang, editors, Proceedings of the 38th International Conference on Machine Learning , volume 139 of Proceedings of Machine Learning Research , pages 9891–9901. PMLR, 2021. URL https://proceedings.mlr.press/v139/sugiyama21a.html .Li Deng. The mnist database of handwritten digit images for machine learning research [best of the web]. IEEE signal processing magazine , 29(6):141–142, 2012. Babak Ehteshami Bejnordi, Mitko Veta, Paul Johannes Van Diest, Bram Van Ginneken, Nico Karssemeijer, Geert Litjens, Jeroen AWM Van Der Laak, Meyke Hermsen, Quirine F Manson, Maschenka Balkenhol, et al. Diagnostic assessment of deep learning algorithms for detection of lymph node metastases in women with breast cancer. Jama ,318(22):2199–2210, 2017. Richard J Chen, Tong Ding, Ming Y Lu, Drew FK Williamson, Guillaume Jaume, Andrew H Song, Bowen Chen, An-drew Zhang, Daniel Shao, Muhammad Shaban, et al. Towards a general-purpose foundation model for computational pathology. Nature medicine , 30(3):850–862, 2024. Eugene Vorontsov, Alican Bozkurt, Adam Casson, George Shaikovski, Michal Zelechowski, Kristen Severson, Eric Zimmermann, James Hall, Neil Tenenholtz, Nicolo Fusi, et al. A foundation model for clinical-grade computational pathology and rare cancers detection. Nature medicine , 30(10):2924–2935, 2024. Tong Ding, Sophia J Wagner, Andrew H Song, Richard J Chen, Ming Y Lu, Andrew Zhang, Anurag J Vaidya, Guillaume Jaume, Muhammad Shaban, Ahrong Kim, et al. A multimodal whole-slide foundation model for pathology. Nature medicine , 31(11):3749–3761, 2025. 23 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 
+
+## A Summary of notation 
+
+This appendix summarizes the principal notation used throughout the paper. Bold lowercase and uppercase letters denote vectors and random vectors, respectively, while calligraphic letters denote sets, selection maps, or selection outcomes. For a positive integer N , [N ] := {1, . . . , N }.
+
+A.1 Multiple instance learning 
+
+Symbol Description 
+
+N , M n Number of bags and number of instances in the n-th bag. 
+
+Xn = {xn,m }m∈[M n] The n-th bag and its constituent input instances. 
+
+Y n, yn,m , ˆY n Bag label, unobserved instance label, and predicted bag label. 
+
+f , fenc , fatt , fclf MIL model, feature extractor, attention network, and classifier. 
+
+hn,m , hn 
+
+> bag
+
+Feature representation of instance m and attention-pooled representation of bag 
+
+n.
+
+an,m , a′ n,m , ˜an,m Pre-sigmoid attention logit, post-sigmoid attention score, and normalized atten-tion weight. 
+
+τ , C(X) Attention threshold and the set of indices of high-attention instances in bag X.
+
+d, d′ Input dimension and encoded feature dimension. 
+
+A.2 Test and reference instances 
+
+Symbol Description 
+
+Xtest = {xi
+
+> test
+
+}i∈[Mtest ] Test bag containing Mtest observed instances. 
+
+Xref = {xj 
+
+> ref
+
+}j∈[Mref ] Reference set containing Mref observed normal instances. 
+
+hi
+
+> test
+
+, hj 
+
+> ref
+
+Encoded features of test instance i and reference instance j.
+
+ai 
+
+> test
+
+Pre-sigmoid attention logit of test instance i.
+
+k, jmed Number of nearest neighbors and index of the selected medoid reference in-stance. 
+
+Xtest , Xj 
+
+> ref
+
+Random vector corresponding to the selected test instance and random vectors corresponding to the reference instances. 
+
+stest , sj 
+
+> ref
+
+Unknown signal vectors of the selected test instance and reference instance j.
+
+ϵtest , ϵj 
+
+> ref
+
+Independent Gaussian noise vectors with covariance σ2Id.
+
+σ2, Id Noise variance and the d-dimensional identity matrix. 
+
+H0, H1 Null and alternative hypotheses comparing the signal vectors of the selected test instance and selected medoid reference instance. 
+
+A.3 Test statistics and selective inference 
+
+Symbol Description 
+
+y, Y Concatenated observed vector and corresponding random vector formed from one test instance and all reference instances. 
+
+vec( ·) Vector concatenation operator used to construct y and Y .
+
+P Orthogonal projection matrix representing the contrast between the test instance and the selected medoid reference instance. 
+
+T (Y ), eT (Y ) Test statistic ∥P Y ∥2 and its standardized version ∥P Y ∥2/σ .
+
+pnaive , pselective Naive p-value and selective p-value. 
+
+pBonferroni Bonferroni-corrected p-value. 
+
+A(Y ), A(y) Attention selection map and its observed outcome. 
+
+K(Y ), K(y) k-nearest-neighbor retrieval map and its observed set. 
+
+M(Y ), M(y) Adaptive reference-selection map, defined by k-nearest-neighbor retrieval fol-lowed by medoid selection, and its observed outcome. 
+
+E(Y ), E(y) Overall selection map (A, M) and its observed outcome. 
+
+Q(Y ), Q(y) Nuisance statistic and its observed value, consisting of the direction of P Y and the component orthogonal to the range of P .
+
+α Significance level. 
+
+λatt Multiplicity factor accounting for attention-based target selection in the Bonfer-roni correction. 24 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 
+
+A.4 One-dimensional conditional path and selection events 
+
+Symbol Description 
+
+a, b, z, Y (z) Quantities defining the conditional path Y (z) = a + bz, where z = eT (Y ) > 0.
+
+Xtest (z), Xj 
+
+> ref
+
+(z) Conditional-path representations of the test instance and the j-th reference instance. 
+
+jobs med Index of the observed representative reference, jobs med = M(y).
+
+ZA, ZM Feasible regions preserving the observed attention-selection outcome and se-lected representative reference, respectively. 
+
+ZK(K) Local region on the conditional path over which the k-nearest-neighbor set is fixed to K.
+
+ZM|K (K) Local region within ZK(K) in which jobs med is selected as the medoid. 
+
+Z Overall truncation region ZA ∩ Z M.
+
+αtest , βtest Affine coefficients of the encoded test feature on the conditional path. 
+
+αj 
+
+> ref
+
+, βj 
+
+> ref
+
+Affine coefficients of the encoded feature of reference instance j.
+
+Dj (z), Djr (r = 0 , 1, 2) Squared feature-space distance from the test instance to reference instance j and its constant, linear, and quadratic coefficients. 
+
+SjK (z), SjK,r (r = 0 , 1, 2) Medoid score of candidate j within a fixed k-nearest-neighbor set K and its constant, linear, and quadratic coefficients. 
+
+ℓr , ur Lower and upper endpoints of the r-th interval constituting the truncation region 
+
+Z.
+
+R Number of disjoint intervals constituting the truncation region Z.
+
+## B Proofs of theorems 
+
+Noise variance. The theoretical guarantees assume that the true noise variance σ2 is known. In the synthetic and MNIST-based experiments, the true variance used for data generation is also used for inference. For CAMELYON16, an estimate obtained from independent normal instances is substituted for the true variance. The proofs below do not account for uncertainty in this estimate and do not establish exact finite-sample validity for this plug-in implementation. 
+
+B.1 Proof of Theorem 4.1 
+
+Fix the observed selection outcome E(y) and let P denote the corresponding deterministic projection matrix throughout this proof. Recall that, under the proposed conditioning scheme, E = ( A, M); the intermediate k-nearest-neighbor set is not itself included in the conditioning event. The unconditional distributional calculations below use this fixed matrix before conditioning on the selection event. We next condition on Q(Y ) = Q(y), which gives 
+
+Q(Y ) = Q(y) ⇐⇒ 
+
+ P Y
+
+∥P Y ∥2
+
+, (I − P )Y
+
+
+
+=
+
+ P y
+
+∥P y∥2
+
+, (I − P )y
+
+
+
+⇐⇒ Y = a + bz, 
+
+where 
+
+a = ( I − P )y,
+
+b = σ P y
+
+∥P y∥2
+
+,z = eT (Y ) ∈ R>0.
+
+Therefore, 
+
+n
+
+Y ∈ R(Mref +1) d E(Y ) = E(y), Q(Y ) = Q(y)
+
+o
+
+= {a + bz | z ∈ Z} ,
+
+where 
+
+Z = {z ∈ R>0 | E (a + bz) = E(y)}
+
+is the truncation region determined by the observed selection event. 25 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology Under the Gaussian model and the null hypothesis associated with the fixed selection outcome, 
+
+P E[Y ] = 0.
+
+Before conditioning on the selection event, 
+
+P Y ∼ N (0, σ 2P ).
+
+Since P is an orthogonal projection matrix of rank d,
+
+eT (Y ) = ∥P Y ∥2
+
+σ ∼ χd.
+
+Moreover, because P and I − P are orthogonal projections, P Y and (I − P )Y are independent. The norm of P Y is also independent of its direction P Y /∥P Y ∥2. Therefore, eT (Y ) is independent of Q(Y ) before conditioning on the selection event. Conditioning additionally on E(Y ) = E(y) restricts the support of eT (Y ) to Z. Consequently, 
+
+eT (Y ) | E (Y ) = E(y), Q(Y ) = Q(y)
+
+follows a χ distribution with d degrees of freedom truncated to Z. □
+
+B.2 Proof of Theorem 4.2 
+
+By Theorem 4.1, under the null hypothesis, 
+
+eT (Y ) | E (Y ) = E(y), Q(Y ) = Q(y)
+
+follows a χ distribution with d degrees of freedom truncated to Z. Since the selective p-value is defined as the upper-tail probability of this conditional distribution, the probability integral transform gives 
+
+PH0 (pselective ≤ α | E (Y ) = E(y), Q(Y ) = Q(y)) = α, 
+
+for any α ∈ (0 , 1) .Since this equality holds for all possible values of Q(Y ), the law of iterated expectations gives 
+
+PH0 (pselective ≤ α | E (Y ) = E(y)) = EH0 [PH0 (pselective ≤ α | E (Y ) = E(y), Q(Y )) | E (Y ) = E(y)] = α. 
+
+Therefore, the selective p-value exactly controls the conditional Type-I error rate given the observed selection event. This guarantee holds for each selection outcome for which the corresponding null hypothesis is true. □
+
+## C Selection event characterization 
+
+In this appendix, we explicitly characterize the selection event introduced in Section 4.4. Recall that the overall selection map is 
+
+E(Y ) = ( A(Y ), M(Y )) ,
+
+where A represents attention-based target selection and M represents adaptive reference selection. The reference-selection map M is determined by first retrieving the k nearest reference instances and then selecting their medoid. The intermediate k-nearest-neighbor set is not itself included in the conditioning event. According to Theorem 4.1, after conditioning on Q(Y ) = Q(y), the random vector Y can be represented as 
+
+Y (z) = a + bz, z ∈ R>0, (2) where z = eT (Y ) is the only remaining random quantity. Let Xtest (z) and Xj 
+
+> ref
+
+(z) denote the test instance and the 
+
+j-th reference instance contained in Y (z), respectively. Along the one-dimensional path in Eq. (2), the observed selection outcome is preserved when the attention-selection outcome and the final selected representative reference remain unchanged. The k-nearest-neighbor set may change along the path. We therefore use regions with a fixed k-nearest-neighbor set only as local partitions for characterizing the adaptive reference-selection event. 26 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 
+
+C.1 Attention selection event 
+
+The attention selection event determines whether the test instance is selected according to its pre-sigmoid attention logit. Along the one-dimensional path Y (z), the attention logit of the selected test instance is 
+
+fatt (fenc (Xtest (z))) .
+
+The threshold τ is fixed before performing selective inference. Depending on the experimental setting, it may either be specified directly or determined from an independent dataset. Once fixed, τ is treated as a constant throughout the selective inference procedure. The observed attention-selection outcome is preserved when 
+
+I {fatt (fenc (Xtest (z))) > τ } = A(y).
+
+Since both fenc and fatt are piecewise affine, the attention logit is affine in z within each activation region. Therefore, the feasible region associated with the attention selection event is 
+
+ZA = {z ∈ R>0 | A (a + bz) = A(y)} .
+
+C.2 k-nearest-neighbor partition 
+
+For each reference instance, define its squared Euclidean distance from the test instance along the conditional path by 
+
+Dj (z) = fenc (Xtest (z)) − fenc 
+
+
+
+Xj 
+
+> ref
+
+(z)
+
+ 22
+
+. (3) Using squared Euclidean distances does not change the nearest-neighbor ordering compared with ordinary Euclidean distances. For any index set K ⊆ [Mref ] with |K| = k, the k-nearest-neighbor set is equal to K when every reference instance in 
+
+K is no farther from the test instance than every candidate outside K:
+
+Dj (z) ≤ Dj′
+
+(z), j ∈ K, j′ ∈ [Mref ] \ K. (4) Within each activation region, the encoded features are affine functions of z:
+
+fenc (Xtest (z)) = αtest + βtest z, (5) 
+
+fenc 
+
+
+
+Xj 
+
+> ref
+
+(z)
+
+
+
+= αj 
+
+> ref
+
++ βj 
+
+> ref
+
+z. (6) Here, αtest , βtest , αj 
+
+> ref
+
+, and βj 
+
+> ref
+
+are fixed within the corresponding activation region and are obtained by propagating 
+
+a and b through the encoder. Substituting Eqs. (5)–(6) into Eq. (3) gives 
+
+Dj (z) = 
+
+
+
+αtest − αj
+
+> ref
+
+
+
++
+
+
+
+βtest − βj
+
+> ref
+
+
+
+z 22
+
+= Dj 
+
+> 0
+
++ Dj
+
+> 1
+
+z + Dj
+
+> 2
+
+z2,
+
+where 
+
+Dj 
+
+> 0
+
+= αtest − αj
+
+> ref
+> 22
+
+,Dj 
+
+> 1
+
+= 2 
+
+
+
+αtest − αj
+
+> ref
+
+⊤ 
+
+βtest − βj
+
+> ref
+
+
+
+,Dj 
+
+> 2
+
+= βtest − βj
+
+> ref
+> 22
+
+.
+
+Therefore, each ordering condition in Eq. (4) is equivalent to the quadratic inequality 
+
+
+
+Dj 
+
+> 0
+
+− Dj′
+
+> 0
+
+
+
++
+
+
+
+Dj 
+
+> 1
+
+− Dj′
+
+> 1
+
+
+
+z +
+
+
+
+Dj 
+
+> 2
+
+− Dj′
+
+> 2
+
+
+
+z2 ≤ 0.
+
+27 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology For a fixed k-nearest-neighbor set K, define the corresponding local region by 
+
+ZK(K) = \ 
+
+> j∈Kj′∈[Mref ]\K
+
+n
+
+z ∈ R>0 Dj (z) − Dj′
+
+(z) ≤ 0
+
+o
+
+.
+
+The regions ZK(K) partition the conditional path according to the k-nearest-neighbor set, up to boundary points determined by the prespecified tie-breaking rule. Importantly, ZK(K) is used only as a local partition for characterizing the reference-selection map; the k-nearest-neighbor set itself is not conditioned upon. If k-nearest-neighbor retrieval is performed in the input space, the same derivation applies by replacing the encoded test and reference features with Xtest (z) and Xj 
+
+> ref
+
+(z), respectively. 
+
+C.3 Medoid selection event 
+
+Within a region where the k-nearest-neighbor set is fixed to K, the medoid is the reference instance that minimizes the sum of squared Euclidean distances to the other instances in K.For each candidate j ∈ K, define its medoid score by 
+
+SjK (z) = X
+
+> j′∈K
+
+fenc 
+
+
+
+Xj 
+
+> ref
+
+(z)
+
+
+
+− fenc 
+
+
+
+Xj′ 
+
+> ref
+
+(z)
+
+ 22
+
+.
+
+Let 
+
+jobs med = M(y)
+
+denote the observed representative reference. For a fixed K containing jobs med , the observed reference-selection outcome is preserved when 
+
+Sjobs med  
+
+> K
+
+(z) ≤ SjK (z), j ∈ K \ jobs med . (7) If jobs med /∈ K, the observed representative-reference outcome cannot be preserved within that k-nearest-neighbor region. Using the affine representation in Eq. (6), each medoid score can be written as 
+
+SjK (z) = X
+
+> j′∈K
+
+
+
+αj 
+
+> ref
+
+− αj′
+
+> ref
+
+
+
++
+
+
+
+βj 
+
+> ref
+
+− βj′
+
+> ref
+
+
+
+z 22
+
+= SjK, 0 + SjK, 1z + SjK, 2z2,
+
+where 
+
+SjK, 0 = X
+
+> j′∈K
+
+αj 
+
+> ref
+
+− αj′
+
+> ref
+> 22
+
+,SjK, 1 = 2 X
+
+> j′∈K
+
+
+
+αj 
+
+> ref
+
+− αj′
+
+> ref
+
+⊤ 
+
+βj 
+
+> ref
+
+− βj′
+
+> ref
+
+
+
+,SjK, 2 = X
+
+> j′∈K
+
+βj 
+
+> ref
+
+− βj′
+
+> ref
+> 22
+
+.
+
+Thus, Eq. (7) reduces to 
+
+
+
+Sjobs med  
+
+> K, 0
+
+− SjK, 0
+
+
+
++
+
+
+
+Sjobs med  
+
+> K, 1
+
+− SjK, 1
+
+
+
+z +
+
+
+
+Sjobs med  
+
+> K, 2
+
+− SjK, 2
+
+
+
+z2 ≤ 0.
+
+For a fixed K containing jobs med , define the corresponding local medoid region by 
+
+ZM|K (K) = \
+
+> j∈K\{ jobs med }
+
+n
+
+z ∈ R>0 Sjobs med  
+
+> K
+
+(z) − SjK (z) ≤ 0
+
+o
+
+.
+
+28 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology Since the k-nearest-neighbor set is not conditioned upon, the overall region preserving the observed representative reference is obtained by combining all k-nearest-neighbor regions for which the same medoid is selected: 
+
+ZM = [  
+
+> K⊆[Mref ],|K|=kjobs med ∈K
+
+ZK(K) ∩ Z M|K (K) .
+
+Thus, the k-nearest-neighbor set may change across different parts of ZM as long as the final selected medoid remains 
+
+jobs med .If medoid selection is performed in the input space, the same derivation applies by replacing the encoded reference features fenc (Xj 
+
+> ref
+
+(z)) with Xj 
+
+> ref
+
+(z).Throughout this appendix, an intersection over an empty index set is interpreted as R>0. In particular, this convention applies to ZK(K) when k = Mref and to ZM|K (K) when k = 1 .
+
+C.4 Overall selection event 
+
+The overall selection outcome is represented by 
+
+E(Y ) = ( A(Y ), M(Y )) .
+
+Therefore, preserving the observed selection outcome E(y) requires simultaneous preservation of the attention-selection outcome and the selected representative reference. The k-nearest-neighbor set itself need not remain equal to its observed value. The resulting truncation region is 
+
+Z = {z ∈ R>0 | E (a + bz) = E(y)}
+
+= ZA ∩ Z M.
+
+Within each activation region, the attention constraint is characterized by linear inequalities, whereas the boundaries associated with k-nearest-neighbor retrieval and medoid selection are characterized by quadratic inequalities. Because these inequalities may produce disconnected feasible subsets, the overall truncation region generally takes the form 
+
+Z =
+
+> R
+
+[
+
+> r=1
+
+[ℓr , u r ], (8) where R ∈ N is the number of disjoint feasible intervals, and ℓr and ur denote the lower and upper endpoints of the 
+
+r-th interval, respectively. Whether individual endpoints are included does not affect the selective p-value because the null distribution is continuous. 
+
+C.5 Computation of the truncation region 
+
+The truncation region is computed along the one-dimensional path Y (z) = a + bz. Within each activation region of the encoder and attention network, the affine representations of the encoded features and attention logits are fixed. Consequently, the attention constraint and the boundaries associated with k-nearest-neighbor retrieval and medoid selection reduce to linear or quadratic inequalities in z.The k-nearest-neighbor boundaries partition the conditional path into local regions over which K(Y (z)) is fixed. Within each such region, the medoid constraints determine whether the selected representative reference is equal to 
+
+jobs med . Parametric programming explores these local regions along the one-dimensional path and retains those portions satisfying the observed attention-selection outcome and 
+
+M(Y (z)) = M(y).
+
+The retained intervals are then combined over all local regions and merged when adjacent. Importantly, a change in the 
+
+k-nearest-neighbor set does not by itself exclude an interval from the truncation region if the final selected medoid remains unchanged. In contrast to over-conditioning, which uses only the local feasible interval containing the observed statistic, this procedure identifies the entire truncation region consistent with the observed selection outcome. Given the decomposition in Eq. (8), the selective p-value is computed as 
+
+pselective =
+
+X    
+
+> r:ur≥eT(y)
+
+Z ur
+
+> max
+
+{ℓr , eT (y)} fχd (z) dz 
+
+> R
+
+X
+
+> r=1
+
+Z ur
+
+> ℓr
+
+fχd (z) dz , (9) 29 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology where fχd denotes the probability density function of the χ distribution with d degrees of freedom. Equation (9) is the upper-tail probability of the χd distribution truncated to the selection-dependent region Z.
+
+## D Experimental details and additional results 
+
+This appendix provides additional experimental details that were omitted from the main paper due to space limitations, together with additional experimental results under various parameter settings. For each dataset, we first describe the corresponding experimental settings and then present supplementary results that complement the findings reported in Section 5. 
+
+Computational environment. All experiments, except for UNI2 feature extraction, were implemented in Python and executed on an x86_64 Linux computer equipped with two Intel Xeon Gold 6230 CPUs (20 cores each, 40 CPU cores in total). UNI2 feature extraction for CAMELYON16 was performed on a separate Linux computer equipped with an NVIDIA RTX A6000 GPU. 
+
+D.1 Synthetic experiments Experimental settings. This section provides additional details of the synthetic data experiments. The inference settings are identical to those described in Section 5.2. For each combination of the input dimension d and Gaussian noise variance σ2, we independently trained an ABMIL model using synthetically generated bags. Each training epoch consisted of 1,000 positive bags and 1,000 negative bags, each containing 10 instances. The number of positive instances in a positive bag was sampled uniformly from one to ten, while negative bags consisted entirely of negative instances. New training bags were generated at every epoch. The ABMIL model consisted of an MLP-based feature extractor, an attention network, and a bag-level classifier. The feature extractor had hidden dimensions d/ 2 and d/ 4, while both the attention network and the classifier used a hidden dimension of d/ 8. ReLU activations were used in all hidden layers. Attention weights were obtained by applying a sigmoid function followed by a softmax normalization across the instances in a bag. The model was trained for 10 epochs using the binary cross-entropy loss and the Adam optimizer with an initial learning rate of 10 −3. The batch size was set to one, and the learning rate was halved every five epochs. After training, only the feature extractor and the attention network were used in the subsequent selective inference experiments. 
+
+Additional results. Besides the experiments reported in the main paper, we additionally evaluated the effects of the input dimension and the Gaussian noise variance under different settings of the number of nearest neighbors k.The top row of Figure 7 shows the results obtained by varying the input dimension while fixing the Gaussian noise variance to σ2 = 1 .0 and the number of nearest neighbors to k = 5 . The proposed method consistently controlled the Type-I error rate close to the nominal significance level. Ablation 1 also exhibited Type-I error rates close to the nominal level in the examined settings, whereas Ablation 2 showed conservative behavior. OC maintained valid Type-I error control, while Bonferroni correction was highly conservative. For the statistical power, the proposed method consistently outperformed OC, and the difference between the two methods became larger as the input dimension increased. The statistical power of both methods increased with the input dimension. The middle and bottom rows show the results obtained by varying the Gaussian noise variance while fixing the input dimension to d = 32 . The middle row corresponds to k = 1 , whereas the bottom row corresponds to k = 10 .Across both settings, the proposed method maintained Type-I error rates close to the nominal significance level. Ablation 1 showed Type-I error rates around the nominal level in the examined range of noise variances, whereas Ablation 2 remained conservative. OC also maintained valid Type-I error control, while Bonferroni correction was highly conservative. For the statistical power, the proposed method consistently outperformed OC, and the statistical power decreased as the noise variance increased for both methods. Overall, these additional results confirm that the proposed method maintains valid Type-I error control across a range of input dimensions, noise variances, and values of 
+
+k, while consistently achieving higher statistical power than OC. 30 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 16 32 48 64 Length of vector 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200 Type-I error rate                    
+
+> Proposed Ablation 1 Ablation 2 OC Bonferroni Naive 16 32 48 64 Length of vector 0.0 0.1 0.2 0.3 0.4 0.5 Statistical power
+> Proposed OC Bonferroni 0.6 0.8 1.0 1.2 1.4 Variance of noise 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200 Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni Naive 0.6 0.8 1.0 1.2 1.4 Variance of noise 0.0 0.1 0.2 0.3 0.4 0.5 Statistical power
+> Proposed OC Bonferroni 0.6 0.8 1.0 1.2 1.4 Variance of noise 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200 Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni Naive 0.6 0.8 1.0 1.2 1.4 Variance of noise 0.0 0.1 0.2 0.3 0.4 0.5 Statistical power
+> Proposed OC Bonferroni
+
+Figure 7: Type-I error rate (left column) and statistical power (right column) under different parameter settings in the synthetic experiments. The dashed horizontal line indicates the nominal significance level of 0.05. The top row shows the results obtained by varying the input dimension while fixing the Gaussian noise variance to σ2 = 1 .0 and the number of nearest neighbors to k = 5 . The middle row shows the results obtained by varying the Gaussian noise variance while fixing the input dimension to 32 and setting k = 1 . The bottom row shows the corresponding results with k = 10 .
+
+D.2 MNIST-based experiments Experimental settings. This section provides additional details of the MNIST experiments. The settings for statistical inference are identical to those described in Section 5.3. For each experiment, digit “0” was used as the negative class, while one of the digits {1, . . . , 9} was specified as the positive class. After downsampling each image to 14 × 14 as described in Section 5.3, the images were flattened into 196-dimensional vectors and normalized to the range [0 , 1] . For each class, a specified number of MNIST images were selected as cluster centers. An instance was generated by randomly selecting one of these centers and adding independent Gaussian noise with variance σ2 to each dimension. Separate cluster centers were selected from the MNIST training and test sets for model training and statistical inference, respectively. 31 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology Each training epoch consisted of 1,000 positive bags and 1,000 negative bags, with 10 instances in each bag. The number of positive-class instances in a positive bag was sampled uniformly from one to ten, and the remaining instances were generated from the negative class. A negative bag consisted entirely of negative-class instances. New Gaussian noise was generated at every epoch. The ABMIL model consisted of a linear feature extractor that mapped the 196-dimensional input to a 32-dimensional feature vector, followed by an attention network and a bag-level classifier. Both the attention network and classifier used a 16-dimensional hidden layer with a ReLU activation. As in the synthetic data experiments, the attention logits were transformed by a sigmoid function and subsequently normalized across the bag using softmax. The model was trained for 10 epochs using the binary cross-entropy loss and the Adam optimizer with an initial learning rate of 10 −3. The batch size was set to one, and the learning rate was halved every five epochs. After training, only the feature extractor and attention network were used in the subsequent selective inference experiments. 
+
+Additional results. In addition to the results reported in the main paper, we evaluated different values of the number of nearest neighbors k under both the three-cluster and five-cluster settings. The positive and negative classes and the Gaussian noise variance were kept unchanged from the corresponding experiments in Section 5.3. Figure 8 shows the Type-I error rate and statistical power for the three-cluster setting, and Figure 9 shows the corresponding results for the five-cluster setting. Across the examined values of k, the proposed method consistently controlled the Type-I error rate close to the nominal significance level while achieving higher statistical power than OC. Bonferroni remained substantially conservative and markedly less powerful than the proposed method and OC. These results indicate that the performance of the proposed method is robust to both the number of clusters and the choice of 
+
+k.32 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 1 2 3 4 5 6 7 8 9
+
+Positive class             
+
+> 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200
+> Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni 123456789
+
+Positive class           
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Statistical power
+> Proposed OC Bonferroni 123456789
+
+Positive class             
+
+> 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200
+> Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni 123456789
+
+Positive class   
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Statistical power
+> Proposed OC Bonferroni
+
+Figure 8: Type-I error rate and statistical power in the MNIST-based experiments using three Gaussian clusters. From top to bottom, the plots show the Type-I error rate and statistical power with k = 3 , followed by the Type-I error rate and statistical power with k = 1 . The horizontal axis represents the positive class. 33 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 1 2 3 4 5 6 7 8 9
+
+Positive class             
+
+> 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200
+> Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni 123456789
+
+Positive class           
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Statistical power
+> Proposed OC Bonferroni 123456789
+
+Positive class             
+
+> 0.000 0.025 0.050 0.075 0.100 0.125 0.150 0.175 0.200
+> Type-I error rate
+> Proposed Ablation 1 Ablation 2 OC Bonferroni 123456789
+
+Positive class   
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Statistical power
+> Proposed OC Bonferroni
+
+Figure 9: Type-I error rate and statistical power in the MNIST-based experiments using five Gaussian clusters. From top to bottom, the plots show the Type-I error rate and statistical power with k = 3 , followed by the Type-I error rate and statistical power with k = 1 . The horizontal axis represents the positive class. 34 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology 
+
+D.3 Real-world experiments on CAMELYON16 Experimental settings. This section provides additional implementation details of the CAMELYON16 experiments. The dataset construction, feature extraction, reference construction, and selective inference settings are identical to those described in Section 5.4. The attention-based MIL model consisted of a linear feature extractor that mapped the 192-dimensional pooled UNI2 features to a 32-dimensional representation, followed by an attention network and a bag-level classifier with a 16-dimensional hidden layer. ReLU activations were used in the hidden layers. As in the synthetic and MNIST experiments, the attention logits were transformed by a sigmoid function and normalized using softmax across instances within each bag. For model training, each WSI was randomly divided into bags consisting of 50 image patches. Up to 50 bags were generated from each WSI, depending on the number of available patches, and the bag assignment was regenerated at every training epoch. The model was trained for 10 epochs using the binary cross-entropy loss and the Adam optimizer with an initial learning rate of 10 −4. The batch size was set to one, and the learning rate was halved every five epochs. For slide-level evaluation, all patches from each WSI were treated as a single bag. The trained ABMIL model achieved a slide-level classification accuracy of 0.897 on the test set. After training, only the feature extractor and attention network were used in the subsequent selective inference experiments. 
+
+Additional results. Additional qualitative results are presented in Figures 10 and 11. The main paper presents the visualization results for three tumor WSIs. For completeness, we present the remaining six tumor WSIs in the test set. The proposed method generally identifies more statistically significant regions than OC, while Bonferroni yields substantially fewer rejections. 35 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology (a) Tumor mask Rejec �on rate = 0.312 Rejec �on rate = 0.379 Rejec �on rate = 0.500 (b) Proposed Rejec �on rate = 0.273 Rejec �on rate = 0.379 Rejec �on rate = 0.441 (c) OC Rejec �on rate = 0.000 Rejec �on rate = 0.000 Rejec �on rate = 0.000 (d) Bonferroni 
+
+Figure 10: Visualization of p-value maps for additional CAMELYON16 tumor WSIs (Part I). (a) shows the ground-truth tumor masks, while (b), (c), and (d) show the results of Proposed, OC, and Bonferroni, respectively. Green and red rectangles indicate selected high-attention instances with p ≥ 0.05 and p < 0.05 , respectively. 36 Statistical Testing for Multiple Instance Learning via Selective Inference with Applications to Computational Pathology (a) Tumor mask Rejec �on rate = 0.167 Rejec �on rate = 0.273 Rejec �on rate = 0.087 (b) Proposed Rejec �on rate = 0.125 Rejec �on rate = 0.245 Rejec �on rate = 0.087 (c) OC Rejec �on rate = 0.000 Rejec �on rate = 0.000 Rejec �on rate = 0.000 (d) Bonferroni 
+
+Figure 11: Visualization of p-value maps for additional CAMELYON16 tumor WSIs (Part II). (a) shows the ground-truth tumor masks, while (b), (c), and (d) show the results of Proposed, OC, and Bonferroni, respectively. Green and red rectangles indicate selected high-attention instances with p ≥ 0.05 and p < 0.05 , respectively. 37

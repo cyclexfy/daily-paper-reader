@@ -1,0 +1,888 @@
+Title: Multimodal LLMs Outperform Pathology Foundation Models in Cross-Domain Histological Similarity
+
+URL Source: https://arxiv.org/pdf/2609.32876v1
+
+Published Time: Tue, 29 Sep 2026 01:52:59 GMT
+
+Number of Pages: 34
+
+Markdown Content:
+# Multimodal LLMs Outperform Pathology Foundation Models in Cross-Domain Histological Similarity 
+
+Yishu Zhang Yun Li Daiwei Zhang ∗
+
+University of North Carolina at Chapel Hill 
+
+yzhang4@unc.edu , yun_li@med.unc.edu , daiwei@unc.edu 
+
+Abstract 
+
+State-of-the-art pathology foundation models, trained on millions of histology tiles, can fail to preserve tissue similarity when comparisons cross slide or institu-tion boundaries. We show that general-purpose multimodal LLMs, without being trained as pathology foundation models, consistently outperform these specialized models in cross-domain histological similarity judgments. Using a relative similar-ity framework that we release as the MOSAIC (Model Similarity Assessment across Institutions and Cohorts) benchmark, we evaluate 17 models across 6 datasets and find that pathology encoders often rank same-institution, different-disease tiles as more similar than same-disease, different-institution tiles, a clinically dangerous failure mode invisible to standard within-domain evaluations. LLMs appear less susceptible to this failure, likely because they perform semantic visual comparison of morphology and tissue architecture rather than relying on shortcut features tied to acquisition context. Scaling training data does not resolve the problem for pathol-ogy encoders, implicating the learning objective rather than data coverage. Our results expose a fundamental robustness gap in current pathology foundation mod-els and establish multimodal LLMs as a viable alternative for cross-institutional retrieval, dataset harmonization, and multi-site quality control. Code and data will be released upon acceptance. 
+
+1 Introduction 
+
+Large-scale self-supervised pretraining has transformed computational pathology through visual foundation models [7, 47, 13, 44, 32]. Trained on millions of histology image tiles, these models extract general-purpose representations that support a broad spectrum of downstream tasks, including tissue classification, cancer subtyping, and biomarker inference [12, 4]. For these representations to support safety-critical applications such as cross-institutional image retrieval, few-shot adaptation, and multi-site clinical trials, the learned embedding space must cluster images by disease-relevant morphology rather than by acquisition context. In this work, we expose a fundamental failure mode of current pathology foundation models: their embedding spaces can remain strongly entangled with technical variation, causing them to rank same-institution, different-disease tiles as more similar than same-disease, different-institution tiles. This failure is invisible to standard within-domain evaluations (linear probes, k-NN) yet directly undermines the retrieval and transfer tasks that motivate foundation model development. Concretely, if a pathologist queries a multi-site case database, a model with this failure mode will return color-matched tissue from the same scanner rather than morphologically equivalent disease from another laboratory, with direct consequences for diagnostic support and clinical decision-making. Recent work has confirmed that pathology foundation model embeddings encode site-level technical signatures more strongly than biological class [23, 8, 24], and that standard stain normalization does not fully remove these shortcuts [20, 19, 5]. However, prior evaluations rely on embedding geometry 
+
+> ∗Corresponding author. Preprint. arXiv:2609.32876v1 [cs.CV] 26 Sep 2026
+
+or downstream classifiers, making them inapplicable to generative models. Standard task-specific probes (linear classifiers, k-NN) can further obscure the problem by achieving high accuracy through cohort-specific correlations [9, 28]. To expose and quantify this failure mode, we introduce a relative similarity framework, inspired by representational similarity analysis [25] and human similarity judgments [36, 31], that tests whether a model ranks a biologically similar tile from a different source (slide or institution) above a biologically dissimilar tile that shares the same acquisition context. This formulation can be applied uniformly to both embedding-based models and generative LLMs. Using this framework, we demonstrate that multimodal LLMs, without being trained as pathology foundation models, consistently outperform specialized pathology encoders in cross-domain settings, serving as an existence proof that the failure is specific to current training paradigms rather than inherent to the task. Our contributions are: (1) We expose a clinically dangerous robustness gap in state-of-the-art pathol-ogy foundation models that is invisible to standard evaluations. (2) We introduce a relative similarity evaluation framework that directly quantifies cross-domain generalization. (3) We demonstrate that multimodal LLMs serve as an existence proof that robust cross-domain similarity is achievable without domain-specific training. (4) We release MOSAIC, a benchmark suite including comparison triplets, evaluation code, and baseline outputs, spanning 6 histopathology cohorts for evaluating cross-domain generalization in computational pathology. 
+
+2 Related Work 
+
+Robustness Evaluation for Pathology Models. Kömen et al. [23] demonstrated that pathology foun-dation model embeddings retain hospital-specific signatures that persist across principal components even after stain normalization. De Jong et al. [8] formalized this with the Robustness Index, which quantifies whether embedding neighborhoods are dominated more by biological labels or medical center labels, finding that nearly all evaluated models encode site identity more strongly than tissue type. PathoROB [24] scaled this analysis to 20 models across 34 centers, establishing systematic benchmarking of embedding robustness. Additional work has examined scanner-specific [42] and staining-specific [5] domain shifts. All of these approaches operate on embedding geometry or downstream classifiers, requiring access to continuous vector representations. Our relative similarity framework complements these methods by reformulating robustness evaluation as a comparative judg-ment task, enabling direct comparison between embedding-based models and generative multimodal LLMs on the same task. 
+
+Domain Shift Mitigation in Computational Pathology. Multiple strategies have been proposed to reduce the impact of technical variation on histopathology models. Stain normalization methods transform images to a canonical color space [19], while stain augmentation approaches like Rand-StainNA [38] train models to be invariant to stain variation by sampling diverse styles during training. Style transfer methods such as STRAP [45] use medically irrelevant artistic images as style sources to learn domain-agnostic representations. However, these methods target color and style variation, whereas the robustness studies above show that residual site information extends beyond color to deeper structural artifacts (tissue thickness, cutting angle, scanner optics) that current mitigation strategies do not fully address [23, 41]. Our work takes a complementary perspective: rather than modifying the input to remove domain shift, we evaluate whether models can make correct similarity judgments despite it. 
+
+Representational Similarity and Human Judgment. Representational similarity analysis (RSA) [25] provides a framework for comparing model representations by correlating dissimilarity matrices, independent of task-specific performance. Human similarity judgments offer a principled ground truth for evaluating representational geometry: Hebart et al. [18] collected 1.5 million odd-one-out triplet judgments to reveal the dimensional structure of object representations, and Roads and Love [36] enriched ImageNet with human similarity data. Muttenthaler et al. [30] showed that aligning neural network representations with human triplet judgments improves downstream generalization, and subsequent work demonstrated that such alignment transfers across abstraction levels [31]. Our relative similarity framework adapts the triplet evaluation paradigm to histopathol-ogy, using tissue-class structure as the ground truth rather than human perceptual judgments, and specifically tests whether similarity is preserved across domain boundaries. We operationalize this as MOSAIC, a cross-domain triplet benchmark for tissue-level biological similarity. 2Multimodal LLMs as Visual Judges. The LLM-as-a-judge paradigm [46] has established that language models can serve as reliable evaluators for text generation, with pairwise comparison being more reliable than direct scoring. Chen et al. [6] extended this to the multimodal setting, showing that models like GPT-4V exhibit human-like discernment in pairwise visual comparisons. Our work applies this paradigm to a specialized scientific domain: rather than judging aesthetic quality or prompt adherence, we use multimodal LLMs to judge biological similarity between histopathology tiles, a task requiring domain-specific visual reasoning about cell morphology and tissue architecture. 
+
+Generative Multimodal LLMs in Histopathology. Recent studies have begun to evaluate whether general-purpose multimodal LLMs can perform histopathology reasoning without task-specific training. Ferber et al. [11] showed that GPT-4V with in-context examples can approach specialized models on selected histopathology classification tasks. However, large-scale pathology vision-language benchmarks report only moderate accuracy and suggest that models may exploit textual question or answer priors rather than consistently rely on visual evidence [14]. These findings suggest that general-purpose MLLMs have visual reasoning capabilities but require stronger task structure for fine-grained histomorphologic interpretation. Our work shifts the focus from direct classification to probing whether MLLMs can make relational judgments of histological similarity, a task that provides stronger visual grounding by requiring explicit comparison between images rather than generating a class label from a single image. 
+
+3 Method 
+
+3.1 Relative Similarity Analysis 
+
+We propose a relative similarity evaluation framework that tests whether vision models preserve correct tissue-type similarity structure in histopathology images (Figure 1a). Given a set of tiles 
+
+T = {t1, . . . , t N } with associated class labels yi ∈ C and a model-induced similarity function 
+
+s : T × T → R, we construct comparison tuples (tr , t p, t n) where the reference tr and positive tp
+
+share the same class ( yr = yp) and the negative tn belongs to a different class ( yn̸ = yr ). The model is evaluated on whether it correctly ranks the positive candidate as more similar to the reference than the negative: 
+
+1s(tr , t p) > s (tr , t n). (1) Relative similarity accuracy, the proportion of correctly ordered comparisons, directly measures whether the model’s similarity function respects the semantic class structure. 
+
+3.1.1 Scope of Comparison 
+
+We define three comparison configurations (Figure 1b) that introduce progressively stronger domain shifts, each testing a different aspect of the model’s similarity structure. 
+
+Within-slide. All three tiles come from the same slide s: tr , t p, t n ∈ T s. This tests whether the model can discriminate tissue classes in the absence of batch effects, providing an upper bound on class-discrimination ability. 
+
+Cross-slide. The reference tr and negative tn come from the same slide s, while the positive tp comes from a different slide s′ of the same class: tr , t n ∈ T s, tp ∈ T s′ , s̸ = s′. The model must recognize that a tile from a different slide but the same tissue class is more similar to the reference than a tile from the same slide but a different class. This tests whether tissue-type similarity generalizes across slide-level variation. 
+
+Cross-institution. The reference tr and negative tn come from the same institution I, while the positive tp comes from a different institution I′: tr , t n ∈ T I , tp ∈ T I′ , I̸ = I′. This is the most demanding configuration, testing whether the model can see past institution-level batch effects (scanner differences, staining protocols, tissue preparation) to identify tissue-type similarity. 
+
+3.1.2 Model Evaluation Foundation model evaluation. For each comparison, we compute Euclidean distances between the reference embedding and each candidate embedding: 
+
+dk = ∥eref − eck ∥2, k ∈ { 1, 2}. (2) The model selects the candidate with smaller distance. This directly tests whether the embedding space assigns higher similarity to same-class tiles. 3LLM evaluation. Each comparison is presented as three images (reference, candidate 1, candidate 2) along with a text prompt instructing the model to identify which candidate is more biologically similar to the reference. The prompt directs the model to focus on cell morphology (cell size, shape, nuclear features) and tissue architecture (glandular organization, stromal patterns, cell density), while ignoring non-biological differences such as staining intensity, imaging artifacts, or tissue preparation variations. 
+
+Accuracy. A comparison is scored as correct if the model selects the positive candidate. Comparisons where the model fails to return a valid response are excluded. Per-class accuracy aggregates over all comparisons where the reference shares a given class, and overall accuracy averages across all comparisons. We also compute per-class-pair accuracy matrices to identify which tissue type pairs are most easily confused. 
+
+Figure 1: Schematic of the relative similarity evaluation framework. 
+
+3.2 MOSAIC Benchmark 
+
+We curate MOSAIC, a benchmark of six histopathology cohorts designed to evaluate cross-domain generalizability at two levels of domain shift. The datasets were selected to span (1) multiple organs (breast, colorectal, lung), (2) a range of tissue-class granularity (2–6 classes), (3) 9 distinct institutions across the cross-institution datasets, and (4) two distinct axes of domain shift: slide-level variation (different physical sections within a cohort) and institution-level variation (different scanners, staining protocols, and tissue preparation). HER2ST, CCTGS, and TIGER provide multi-slide cohorts for cross-slide evaluation, while CAMELYON16, TCGA, and BEETLE provide multi-institution cohorts for cross-institution evaluation. Together, these six datasets yield 13,800 comparison triplets, of which 8,400 are cross-domain (6,200 cross-slide and 2,200 cross-institution), that we release as a standardized evaluation resource alongside evaluation code and baseline model outputs. The six component datasets are as follows. HER2ST: breast cancer dataset with 8 slides (74,275 tiles), annotated with 5 tissue classes (adipose, breast glandular, cancer, connective, immune infiltrate) [1]. CCTGS: 39 colorectal cancer slides (3,428,031 tiles) with 6 classes (adipose, lamina propria, lymphovascular invasion, muscularis propria, normal mucosa, tumor) [2]. TIGER: 40 breast cancer slides (3,063,641 tiles) from the Tumor InfiltratinG lymphocytes in breast cancER grand-challenge with 4 classes (healthy glands, necrosis, stroma, tumor) [43]. CAMELYON16: 40 breast cancer slides (892,722 tiles) with 2 classes (tumor vs. normal) from 2 institutions (Radboud and Utrecht) [3]. TCGA: 30 lung squamous cell carcinoma slides (601,155 tiles) from The Cancer Genome Atlas [33], with annotations of invasive tumor [29], yielding 2 classes (tumor vs. normal) across 3 tissue source sites (Mayo Clinic Rochester, the International Genomics Consortium, Indivumed). BEETLE: 40 breast cancer slides (2,553,697 tiles) with 3 classes (invasive epithelium, necrosis, non-invasive epithelium) from 4 institutions (NKI, RUMC, SCH, TCGA) [27]. For each dataset, WSIs are tiled using a sliding window (512 ×512 pixels, stride 256) after Otsu-based tissue masking, and tiles are filtered by foreground proportion ( ≥1%). For each cross-domain comparison triplet, a positive candidate shares the reference’s tissue class but comes from a different slide or institution, while a negative candidate shares the reference’s 4acquisition context but belongs to a different class. Candidates are randomly assigned to positions 1 and 2 with equal probability, so chance accuracy is 50%. Triplet sampling details, including sampling strata and counts by dataset, are in Appendix A. 
+
+3.3 Models 
+
+We evaluate three categories of models. Pathology foundation models are domain-specific vision encoders pretrained on histopathology data: UNI2H [7], H-optimus-0 [37], Midnight [22], CONCH v1.5 [10], and Virchow2 [47]. General foundation models include general-purpose vision encoders: DINOv2 [34], ResNet-50 [17], Gemini Embedding 2 [26], and vision encoders extracted from multi-modal LLM architectures (Qwen3.5-encoder [35], GLM-4.6V-encoder [40], Gemma 3-encoder [21]). LLMs are multimodal LLMs used as zero-shot judges for relative similarity: Gemini 3 Flash [15], Gemini 3.1 Flash Lite [16], GPT-5 Nano [39], Gemma 3 [21], GLM-4.6V [40], and Qwen3.5 [35]. All embedding extraction and local model inference were performed on an NVIDIA RTX 4090 GPU. 
+
+4 Results 
+
+We test whether pathology foundation models preserve biological similarity when comparisons cross domain boundaries, using multimodal LLMs as a reference point for what is achievable without domain-specific training. Figure 2 summarizes results across all six datasets. The pattern is consistent: pathology foundation models perform well within a domain but degrade sharply across slides and institutions, while LLMs maintain robust performance. The advantage of LLMs is most pronounced in the hardest settings (cross-institution, morphologically similar classes) where foundation model shortcuts are most exposed. HER2ST CCTGS TIGER CAMELYON16 TCGA BEETLE          
+
+> 0.2 0.4 0.5 0.6 0.8
+> (a)
+> HER2ST Adi HER2ST Bre HER2ST Can HER2ST Con HER2ST Imm CCTGS Adi CCTGS Lam CCTGS Lym CCTGS Mus CCTGS Nor CCTGS Tum TIGER Hea TIGER Nec TIGER Str TIGER Tum CAM16 normal CAM16 tumor TCGA normal TCGA tumor BEETLE inv. epi. BEETLE nec. BEETLE non-inv.
+> 0.2 0.4 0.5 0.6 0.8
+> (b)
+> Virchow2 (Pathology) UNI2H (Pathology) Qwen3.5 (LLM) Gemini 3.1 Flash Lite (LLM)
+
+Figure 2: Accuracy for relative similarity analysis across all the experiments. 
+
+4.1 Cross-Slide Relative Similarity Analysis 
+
+A robust computational pathology model should recognize the same tissue phenotype across different physical slides. However, slide-specific variation in tissue thickness, staining, and cutting artifacts can introduce technical signatures that models may exploit. We therefore evaluate cross-slide relative similarity on HER2ST, TIGER and CCTGS, testing whether models rank same-class tiles as more similar despite slide-level variation. Experiment setup details are in Appendix A. As shown in Table 1, multimodal LLMs outperform both pathology-specific and general-purpose foundation models in overall accuracy on all three datasets and achieve the best or second-best performance for most tissue classes. The LLM advantage over pathology foundation models is statistically significant on HER2ST (McNemar’s p < 0.0001 ; Appendix F). These results demonstrate the potential ability of zero-shot multimodal LLMs to look past superficial slide-specific technical artifacts and match tissues based on genuine morphological features, such as cellular organization and structural architecture. 5Table 1: Cross-slide tile relative similarity accuracy on HER2ST, CCTGS, and TIGER, broken down by positive class c+. For each column, the best method is in bold and the second best is underlined. “All” refers to the overall accuracy across all classes. Class abbreviations are listed in Table 15. HER2ST CCTGS TIGER Method Adi Bre Can Con Imm All Adi Lam Lym Mus Nor Tum All Hea Nec Str Tum All                                                                                                                                                                                                                                                                                                                   
+
+> Pathology foundation models
+> UNI2H 0.61 0.57 0.38 0.38 0.36 0.46 0.60 0.58 0.56 0.62 0.55 0.62 0.59 0.39 0.21 0.09 0.13 0.19 H-optimus-0 0.59 0.53 0.36 0.40 0.32 0.44 0.59 0.56 0.57 0.59 0.51 0.51 0.55 0.40 0.20 0.17 0.17 0.22 Midnight 0.60 0.56 0.41 0.37 0.40 0.46 0.76 0.70 0.69 0.76 0.75 0.68 0.72 0.50 0.12 0.11 0.16 0.20 CONCH v1.5 0.43 0.52 0.51 0.41 0.38 0.45 0.47 0.59 0.58 0.66 0.53 0.55 0.56 0.32 0.19 0.18 0.20 0.21 Virchow2 0.59 0.58 0.45 0.35 0.33 0.46 0.75 0.78 0.64 0.73 0.71 0.65 0.71 0.42 0.15 0.15 0.23 0.23
+> General foundation models
+> Gemini Emb. 2 0.54 0.50 0.51 0.45 0.43 0.48 0.67 0.77 0.69 0.69 0.63 0.61 0.67 0.43 0.23 0.35 0.40 0.36 DINOv2 0.61 0.51 0.57 0.49 0.56 0.55 0.50 0.63 0.66 0.65 0.60 0.61 0.60 0.36 0.17 0.45 0.39 0.36 ResNet-50 0.55 0.54 0.45 0.33 0.41 0.45 0.49 0.70 0.66 0.65 0.62 0.60 0.61 0.28 0.16 0.36 0.34 0.30 Qwen3.5-enc. 0.63 0.50 0.38 0.32 0.36 0.44 0.59 0.61 0.56 0.56 0.55 0.54 0.57 0.41 0.52 0.29 0.30 0.36 GLM-4.6V-enc. 0.57 0.49 0.44 0.41 0.46 0.48 0.53 0.61 0.60 0.63 0.62 0.57 0.59 0.31 0.33 0.36 0.34 0.34 Gemma 3-enc. 0.54 0.49 0.40 0.31 0.34 0.41 0.63 0.75 0.72 0.66 0.60 0.60 0.65 0.40 0.19 0.29 0.45 0.34
+> LLMs
+> Gemini 3 Flash 0.61 0.53 0.55 0.54 0.53 0.55 0.79 0.79 0.80 0.78 0.68 0.67 0.75 0.35 0.28 0.31 0.44 0.35 Gemini 3.1 Flash Lite 0.60 0.52 0.54 0.50 0.48 0.53 0.79 0.78 0.74 0.72 0.63 0.66 0.72 0.37 0.32 0.34 0.45 0.37 Qwen3.5 0.60 0.52 0.56 0.57 0.51 0.55 0.78 0.80 0.78 0.77 0.68 0.67 0.74 0.35 0.42 0.36 0.47 0.40 GLM-4.6V 0.59 0.50 0.57 0.51 0.58 0.55 0.64 0.73 0.73 0.76 0.64 0.64 0.68 0.48 0.31 0.38 0.40 0.39 Gemma 3 0.55 0.54 0.58 0.50 0.52 0.54 0.65 0.67 0.71 0.71 0.62 0.56 0.65 0.41 0.36 0.41 0.50 0.43 GPT-5 Nano 0.64 0.58 0.56 0.50 0.56 0.57 0.60 0.68 0.66 0.73 0.62 0.60 0.64 0.56 0.56 0.39 0.41 0.46
+
+4.1.1 Class-Level Confusion 
+
+To better characterize the failure modes behind this performance gap, we analyze which tissue classes are most frequently conflated in cross-slide comparisons. Per-class-pair confusion heatmaps (Appendix Figures 8, 10, and 11) show that foundation models most easily confuse morphologically similar classes. On HER2ST, for example, UNI2H achieves only 25% accuracy on the connective-vs-immune-infiltrate pair and 32% on the cancer-vs-immune-infiltrate pair, both well below chance. MLLMs improve most on these difficult pairs, where foundation models fall below chance, rather than uniformly improving all class pairs. Across all datasets, LLMs also show more uniform per-class accuracy: UNI2H accuracy on TIGER ranges from 0.09 to 0.39 across classes (spread of 0.30), while GPT-5 Nano ranges from 0.39 to 0.56 (spread of 0.17). 
+
+4.1.2 Comparison with Within-Slide Performance 
+
+The cross-slide results above show that foundation models struggle when comparisons cross slide boundaries. To disentangle the effect of domain shift from inherent class-discrimination limitations, we introduce a within-slide baseline on HER2ST, where the reference, positive, and negative tiles all come from the same slide ( tr , t p, t n ∈ T s). We then compare this baseline with cross-slide accuracy, where the positive tile comes from a different slide ( tp ∈ T s′ , s′̸ = s; Figure 3). In the within-slide setting, pathology foundation models dominate: Virchow2 leads at 73.5%, followed by UNI2H (72.8%). When comparisons cross slide boundaries, all models drop in accuracy, but pathology foundation models suffer the largest decline while LLMs maintain relatively higher cross-slide accuracy. This suggests that foundation models capture slide-specific features well but struggle to generalize across slides, whereas LLMs trade some within-slide precision for better cross-slide robustness. Within-slide accuracy breakdown is in Appendix B.1 (Table 4); scatter plot comparison is in Figure 7. 
+
+4.2 Cross-Institution Relative Similarity Analysis 
+
+The cross-slide analysis shows that slide-level variation already degrades foundation model perfor-mance. Cross-institution comparisons introduce a stronger domain shift, where the positive tp comes from a different institution I′ with different scanners, staining protocols, and tissue preparation, while the reference tr and negative tn come from the same institution I. We evaluate cross-institutional relative similarity on CAMELYON16, TCGA, and BEETLE. Experiment setup details are in Ap-pendix A. Table 2 reports overall accuracy across all three datasets. LLMs generally outperform foundation models, with the advantage most pronounced on CAMELYON16 (Gemini 3.1 Flash Lite: 73.0% vs best foundation model Midnight: 64.0%, McNemar’s p < 0.001 ; Appendix F) and TCGA (Qwen3.5: 58.9% vs best foundation model Gemini Emb. 2: 50.3%). Pathology foundation models show high variance across institutions and perform worst on TCGA (H-optimus-0: 17.7%), indicating that institution-level batch effects dominate their similarity structure. When the reference and 6UNI2H H-optimus-0 Midnight CONCH v1.5 Virchow2 Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano 0.40 0.45 0.50 0.55 0.60 0.65 0.70 0.75  
+
+> Relative similarity accuracy (All)  Within-slide
+> UNI2H H-optimus-0 Midnight CONCH v1.5 Virchow2 Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano 0.40 0.45 0.50 0.55 0.60 0.65 0.70 0.75
+> Cross-slide
+> Pathology foundation models LLMs
+
+Figure 3: Within-slide (left) and cross-slide (right) relative similarity accuracy on HER2ST. Pathology foundation models lead within-slide accuracy, while LLMs achieve competitive or higher cross-slide accuracy. positive candidate are normal tiles, most foundation models fall below chance across datasets, while LLMs more frequently maintain above-chance accuracy. A qualitative examination of these failures makes the mechanics of this shortcut learning visually apparent (Figure 4). Foundation model embeddings often favor color-matched negative tiles from the same institution, whereas MLLMs more often recover the biological match despite staining differences. Per-institution breakdowns are in Appendix C.1 (Tables 5, 6, and 7). Table 2: Cross-institution relative similarity accuracy on CAMELYON16 (2 institutions, 2 classes), TCGA (3 institutions, 2 classes), and BEETLE (4 institutions, 3 classes). For each column, the best method is in bold and the second best is underlined. Per-institution breakdowns are in Appendix C.1. 
+
+Method CAMELYON16 TCGA BEETLE 
+
+Pathology foundation models 
+
+UNI2H 0.61 0.31 0.56 H-optimus-0 0.40 0.18 0.45 Midnight 0.64 0.36 0.48 CONCH v1.5 0.57 0.37 0.47 Virchow2 0.63 0.44 0.57 
+
+General foundation models 
+
+Gemini Emb. 2 0.61 0.50 0.56 DINOv2 0.52 0.44 0.51 ResNet-50 0.49 0.44 0.46 Qwen3.5-enc. 0.56 0.41 0.33 GLM-4.6V-enc. 0.58 0.40 0.48 Gemma 3-enc. 0.60 0.39 0.55 
+
+LLMs 
+
+Gemini 3 Flash 0.71 0.55 0.54 Gemini 3.1 Flash Lite 0.73 0.56 0.58 
+
+Qwen3.5 0.68 0.59 0.57 GLM-4.6V 0.61 0.47 0.50 Gemma 3 0.56 0.53 0.56 GPT-5 Nano 0.59 0.52 0.57 
+
+4.2.1 Comparison with Within-Institution Performance 
+
+As with the cross-slide analysis, we compare within-domain and cross-domain accuracy to quantify the effect of institution-level domain shift. Figure 5 compares within-institution accuracy (where 
+
+tr , t p, t n ∈ T I ) with cross-institution accuracy (where tp ∈ T I′ , I′̸ = I). On both CAMELYON16 and TCGA, all models fall below the diagonal, confirming that cross-institution discrimination is harder. The gap is larger on TCGA, where pathology foundation models cluster in the bottom-right with high within-institution accuracy (63–69%) but low cross-institution accuracy (18–44%). LLMs maintain higher cross-institution accuracy relative to their within-institution performance, mirroring the within-slide vs cross-slide pattern observed in Figure 3. This consistent pattern across both slide-level and institution-level domain shifts suggests that foundation models encode domain-specific features well but struggle to generalize, whereas LLMs are more robust to batch effects. Per-institution within-institution breakdowns are in Appendix C.2. 7normal (Radboud) 
+
+> Example 1
+
+Reference ( tr)
+
+normal (Utrecht) 
+
+Positive ( tp)
+
+tumor (Radboud) 
+
+Evaluation        
+
+> Pathology foundation models
+> UNI2H
+> H-optimus-0
+> Midnight
+> CONCH v1.5
+> Virchow2
+> LLMs
+> Gemini 3Flash
+> Gemini 3.1 FL
+> Qwen3.5
+> GLM-4.6V
+> Gemma 3
+> GPT-5 Nano
+
+Negative ( tn)
+
+tumor (Radboud) 
+
+> Example 2
+
+tumor (Utrecht) 
+
+normal (Radboud)        
+
+> Pathology foundation models
+> UNI2H
+> H-optimus-0
+> Midnight
+> CONCH v1.5
+> Virchow2
+> LLMs
+> Gemini 3Flash
+> Gemini 3.1 FL
+> Qwen3.5
+> GLM-4.6V
+> Gemma 3
+> GPT-5 Nano
+
+tumor (Radboud) 
+
+> Example 3
+
+tumor (Utrecht) 
+
+normal (Radboud)        
+
+> Pathology foundation models
+> UNI2H
+> H-optimus-0
+> Midnight
+> CONCH v1.5
+> Virchow2
+> LLMs
+> Gemini 3Flash
+> Gemini 3.1 FL
+> Qwen3.5
+> GLM-4.6V
+> Gemma 3
+> GPT-5 Nano
+
+Figure 4: Example cross-institution comparisons on CAMELYON16. Each row shows one compar-ison: reference tr (left), positive tp (center, green border, same class from a different institution), negative tn (right, red border, different class from the same institution). Correctness of each model’s choice is shown on the right ( ✓ correct, × incorrect). 0.4 0.5 0.6 0.7 0.8 Within-institution accuracy 0.4 0.5 0.6 0.7 0.8 Cross-institution accuracy  
+
+> CONCH v1.5 DINOv2 GLM-4.6V-e. Gem. Emb. 2 Gemma 3-e. H-optimus-0 Midnight Qwen3.5-e. ResNet-50 UNI2H Virchow2 Gem. 3 Flash Gem. 3.1 FL Gemma 3 GLM-4.6V GPT-5 Nano Qwen3.5
+
+CAMELYON16 0.2 0.3 0.4 0.5 0.6 0.7 0.8 Within-institution accuracy 0.2 0.3 0.4 0.5 0.6 0.7 0.8 Cross-institution accuracy 
+
+> CONCH v1.5 DINOv2 GLM-4.6V-e. Gem. Emb. 2 Gemma 3-e. H-optimus-0 Midnight Qwen3.5-e. ResNet-50 UNI2H Virchow2 Gem. 3 Flash Gem. 3.1 FL Gemma 3 GLM-4.6V GPT-5 Nano Qwen3.5
+
+TCGA   
+
+> Pathology foundation models General foundation models LLMs
+
+Figure 5: Within-institution vs cross-institution relative similarity accuracy on CAMELYON16 (left) and TCGA (right). Each point is a model. 
+
+4.3 Scaling Training Data Does Not Resolve the Robustness Gap 
+
+A natural hypothesis is that the cross-domain failures of pathology foundation models reflect insuffi-cient training data, and that models trained on more tiles would learn to separate biology from batch effects. We test this directly. Figure 6 shows relative similarity accuracy across all six datasets as a function of training data size (for pathology models) and input-token price as a proxy for deployment cost (for LLMs). Within the evaluated pathology encoders, larger reported training sets do not trans-late into better cross-domain similarity accuracy: models trained on over 100 million tiles perform comparably to those trained on far fewer. This suggests that training-set scale alone is insufficient and points to the learning objective as a likely driver. For LLMs, even the cheapest models consistently outperform pathology foundation models, indicating that the advantage is not driven by model scale 8or cost. General foundation models and per-dataset LLM cost-accuracy panels are in Appendix D.1. Training data sizes are listed in Appendix D.2 (Table 11). 10K 100K 1M 
+
+> Training data size
+> 0.2 0.3 0.4 0.5 0.6 0.7
+> Relative similarity accuracy (All) Pathology foundation models
+> $0.10
+> Price per 1M input tokens (USD)
+> 0.2 0.3 0.4 0.5 0.6 0.7
+> LLMs
+> Pathology foundation models
+> UNI2H H-optimus-0 Midnight CONCH v1.5 Virchow2
+> Datasets
+> HER2ST CCTGS TIGER CAMELYON16 TCGA-LUSC BEETLE
+> Pathology foundation models
+> UNI2H H-optimus-0 Midnight CONCH v1.5 Virchow2
+> Datasets
+> HER2ST CCTGS TIGER CAMELYON16 TCGA-LUSC BEETLE
+> LLMs
+> Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano
+
+Figure 6: Relative similarity accuracy vs model cost/size across all six datasets. 
+
+4.4 Ablation Studies 
+
+To assess the contribution of the biology-focused prompt, we compare it against a minimal prompt that simply asks which candidate is more similar to the reference without any domain-specific guidance (full prompt text in Appendix E.1). The biology-focused prompt instructs the LLM to focus on cell morphology and tissue architecture while ignoring non-biological differences such as staining intensity and imaging artifacts. Table 3 reports accuracy for Gemini 3 Flash and GPT-5 Nano on HER2ST (cross-slide) and CAMELYON16 (cross-institution). For both models and both datasets, the biology-focused prompt yields higher accuracy than the minimal prompt. Even the minimal prompt outperforms pathology foundation models on CAMELYON16 (0.668 vs best FM 0.640). This highlights a practical advantage of LLMs: similarity criteria can be steered at inference time, whereas foundation model embeddings are fixed after pretraining. Table 3: Effect of LLM prompt on relative similarity accuracy. 
+
+HER2ST (cross-slide) CAMELYON16 (cross-inst.) Prompt Gemini 3 Flash GPT-5 Nano Gemini 3 Flash GPT-5 Nano Biology-focused (default) 0.549 0.570 0.705 0.590 Minimal 0.510 0.560 0.668 0.555 
+
+5 Conclusion 
+
+Pathology foundation models can appear robust under standard within-domain evaluations while failing to preserve biological similarity across institutions, a clinically consequential gap that scaling training data alone does not resolve. Multimodal LLMs, without domain-specific training, consistently outperform these specialized models in cross-domain settings, demonstrating that robust histological similarity is achievable today and highlighting the potential of LLMs as a tool for mitigating batch effects in computational pathology. We release MOSAIC, a cross-domain benchmark spanning 6 histopathology cohorts, to support future development of models that prioritize biological signal over acquisition-context shortcuts. Our evaluation is limited to H&E-stained images. Future work could extend this framework to other pathology imaging modalities such as immunohistochemistry and multiplexed imaging, as well as spatial biology data where cross-platform batch effects pose similar challenges. 
+
+References 
+
+[1] Alma Andersson, Ludvig Larsson, Linnea Stenbeck, Fredrik Salmén, Anna Ehinger, Sunny Z. Wu, Ghamdan Al-Eryani, Daniel Roden, Alex Swarbrick, Åke Borg, Jonas Frisén, Camilla Engblom, and Joakim Lundeberg. Spatial deconvolution of HER2-positive breast cancer 9delineates tumor-associated cell type interactions. Nature Communications , 12(1):6012, 2021. doi: 10.1038/s41467-021-26271-2. [2] Duygu Arslan, Sina Sehlaver, Erce Guder, Mehmet Arda Temena, Alper Bahcekapili, Umut Ozdemir, Duriye Ozer Turkay, Gunes Guner, Servet Guresci, Cenk Sokmensuer, et al. Colorectal cancer tumor grade segmentation: A new dataset and baseline results. Heliyon , 11(4), 2025. doi: 10.1016/j.heliyon.2025.e42467. [3] Babak Ehteshami Bejnordi, Mitko Veta, Paul J van Diest, Bram van Ginneken, Nico Karsse-meijer, Geert Litjens, Jeroen AWM van der Laak, Meyke Hermsen, Quirine F Manson, Maschenka Balkenhol, et al. Diagnostic assessment of deep learning algorithms for detection of lymph node metastases in women with breast cancer. JAMA , 318(22):2199–2210, 2017. doi: 10.1001/jama.2017.14585. [4] Gabriele Campanella, Shengjia Chen, Ruchika Verma, Jennifer Zeng, Austin Stock, Matthew Croken, Brandon Veremis, Abdulkadir Elmas, Kuan-lin Huang, Ricky Kwan, Jane Houldsworth, Adam J Schoenfeld, and Chad M Vanderbilt. A clinical benchmark of public self-supervised pathology foundation models. Nature Communications , 16, 2025. doi: 10.1038/ s41467-025-58796-1. [5] Binghao Chai, Jianan Chen, Paul Cool, Fatine Oumlil, Anna Tollitt, David Steiner, Tapabrata Chakraborti, and Adrienne M Flanagan. Impact of tissue staining and scanner variation on the performance of pathology foundation models: a study of sarcomas and their mimics. The Journal of Pathology: Clinical Research , 12, 2026. doi: 10.1002/2056-4538.70080. [6] Dongping Chen, Ruoxi Chen, Shilin Zhang, Yinuo Liu, Yaochen Wang, Huichi Zhou, Qihui Zhang, Pan Zhou, Yao Wan, and Lichao Sun. MLLM-as-a-Judge: Assessing multimodal LLM-as-a-judge with vision-language benchmark. In International Conference on Machine Learning , 2024. [7] Richard J Chen, Tong Ding, Ming Y Lu, Drew F K Williamson, Guillaume Jaume, Andrew H Song, Bowen Chen, Andrew Zhang, Daniel Shao, Muhammad Shaban, et al. Towards a general-purpose foundation model for computational pathology. Nature Medicine , 30:850–862, 2024. doi: 10.1038/s41591-024-02857-3. [8] Edwin D. de Jong, Eric Marcus, and Jonas Teuwen. Current pathology foundation models are unrobust to medical center differences. arXiv preprint arXiv:2501.18055 , 2025. [9] Taher Dehkharghanian, Azam Asilian Bidgoli, Abtin Riasatian, Pooria Mazaheri, Clinton J. V. Campbell, Liron Pantanowitz, H. R. Tizhoosh, and Shahryar Rahnamayan. Biased data, biased AI: Deep networks predict the acquisition site of TCGA images. Diagnostic Pathology , 18(1): 67, 2023. doi: 10.1186/s13000-023-01355-3. [10] Tong Ding, Ming Y Lu, Drew FK Williamson, Guillaume Jaume, Richard J Chen, Andrew H Song, and Faisal Mahmood. CONCHv1.5: Bridging vision and language for computational pathology. arXiv preprint arXiv:2411.19666 , 2024. [11] Dyke Ferber, Georg Wölflein, Isabella C Wiest, Marta Ligero, Srividhya Sainath, Narmin Ghaf-fari Laleh, Omar SM El Nahhas, Gustav Müller-Franzes, Dirk Jäger, Daniel Truhn, and Jakob Nikolas Kather. In-context learning enables multimodal large language models to classify cancer pathology images. Nature Communications , 15(1):10104, 2024. doi: 10.1038/s41467-024-51465-9. [12] Alexandre Filiot, Ridouane Ghermi, Antoine Olivier, Paul Jacob, Lucas Fidon, Alice MacKain, Cécile Saillard, and Jean-Baptiste Schiratti. Scaling self-supervised learning for histopathology with masked image modeling. In Medical Imaging with Deep Learning , 2024. [13] Alexandre Filiot, Paul Jacob, Alice Mac Kain, and Charlie Saillard. Phikon-v2, a large and public feature extractor for biomarker prediction. arXiv preprint arXiv:2409.09173 , 2024. [14] Nauman Ullah Gilal, Rachida Zegour, Khaled Al-Thelaya, Erdener Özer, Marco Agus, Jens Schneider, and Sabri Boughorbel. Pathvlm-eval: Evaluation of open vision language models in histopathology. Journal of Pathology Informatics , 18:100455, 2025. doi: 10.1016/j.jpi.2025. 100455. 10 [15] Google DeepMind. Gemini 3 Flash model card, 2025. URL https://deepmind.google/ models/gemini/flash/ .[16] Google DeepMind. Gemini 3.1 Flash-Lite model card, 2026. URL https://deepmind. google/models/model-cards/gemini-3-1-flash-lite/ .[17] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. Proceedings of the IEEE conference on computer vision and pattern recognition ,pages 770–778, 2016. doi: 10.1109/cvpr.2016.90. [18] Martin N Hebart, Charles Y Zheng, Francisco Pereira, and Chris I Baker. Revealing the multidi-mensional mental representations of natural objects underlying human similarity judgments. 
+
+Nature Human Behaviour , 4:1173–1185, 2020. doi: 10.1038/s41562-020-00951-3. [19] Md. Ziaul Hoque, Anja Keskinarkaus, Pia Nyberg, and Tapio Seppänen. Stain normaliza-tion methods for histopathology image analysis: A comprehensive review and experimental comparison. Information Fusion , 102:101997, 2024. doi: 10.1016/j.inffus.2023.101997. [20] Frederick M. Howard, James Dolezal, Sara Kochanny, Jefree Schulte, Heather Chen, Lara Heij, Dezheng Huo, Rita Nanda, Olufunmilayo I. Olopade, Jakob N. Kather, Nicole Cipriani, Robert L. Grossman, and Alexander T. Pearson. The impact of site-specific digital histology signatures on deep learning model accuracy and bias. Nature Communications , 12(1):4423, 2021. doi: 10.1038/s41467-021-24698-1. [21] Gemma Team Aishwarya Kamath, Johan Ferret, Shreya Pathak, Nino Vieillard, Ramona Merhej, Sarah Perrin, Tatiana Matejovicova, Alexandre Ram’e, Morgane Rivière, Louis Rouillard, Thomas Mesnard, Geoffrey Cideron, Jean-Bastien Grill, Sabela Ramos, Edouard Yvinec, Michelle Casbon, Etienne Pot, Ivo Penchev, Gael Liu, Francesco Visin, Kathleen Kenealy, Lucas Beyer, Xiaohai Zhai, Anton Tsitsulin, Róbert Istvan Busa-Fekete, Alex Feng, Noveen Sachdeva, Benjamin Coleman, Yi Gao, Basil Mustafa, Iain Barr, Emilio Parisotto, David Tian, Matan Eyal, Colin Cherry, Jan-Thorsten Peter, Danila Sinopalnikov, Surya Bhupatiraju, Rishabh Agarwal, Mehran Kazemi, Dan Malkin, Ravin Kumar, David Vilar, Idan Brusilovsky, Jiaming Luo, Andreas Steiner, Abe Friesen, et al. Gemma 3 technical report. ArXiv , abs/2503.19786, 2025. [22] Mikhail Karasikov, Joost van Doorn, Nicolas Känzig, Melis Erdal Cesur, Hugo Mark Horlings, Robert Berke, Fei Tang, and Sebastian Otálora. Training state-of-the-art pathology foundation models with orders of magnitude less data. In Medical Image Computing and Computer Assisted Intervention – MICCAI 2025 , volume LNCS 15967, pages 573–583. Springer Nature Switzerland, October 2025. doi: 10.1007/978-3-032-04984-1_55. [23] Jonah Kömen, Hannah Marienwald, Jonas Dippel, and Julius Hense. Do histopathological foun-dation models eliminate batch effects? a comparative study. arXiv preprint arXiv:2411.05489 ,2024. [24] Jonah Kömen, Edwin D. de Jong, Julius Hense, Hannah Marienwald, Jonas Dippel, Philip Naumann, Eric Marcus, Lukas Ruff, Maximilian Alber, Jonas Teuwen, Frederick Klauschen, and Klaus-Robert Müller. Towards Robust Foundation Models for Digital Pathology, 2025. [25] Nikolaus Kriegeskorte, Marieke Mur, and Peter Bandettini. Representational similarity analysis – connecting the branches of systems neuroscience. Frontiers in Systems Neuroscience , 2:4, 2008. [26] Jinhyuk Lee, Feiyang Chen, Sahil Dua, Daniel Cer, Madhuri Shanbhogue, Iftekhar Naim, Gustavo Hernández Ábrego, Zhe Li, Kaifeng Chen, Henrique Schechter Vera, et al. Gemini embedding: Generalizable embeddings from gemini. arXiv preprint arXiv:2503.07891 , 2025. [27] Carlijn Lems, Leslie Tessier, John-Melle Bokhorst, Mart van Rijthoven, Witali Aswolinskiy, Matteo Pozzi, Natalie Klubickova, Suzanne Dintzis, Michela Campora, Maschenka Balkenhol, et al. A multicentric dataset for training and benchmarking breast cancer segmentation in h&e slides. arXiv preprint arXiv:2510.02037 , 2025. 11 [28] Siyu Lin, Haowen Zhou, Mark Watson, Ramaswamy Govindan, Richard J Cote, and Changhuei Yang. Impact of stain variation and color normalization for prognostic predictions in pathology. 
+
+Scientific reports , 15(1):2369, 2025. [29] Chiara Loeffler and Jakob Nikolas Kather. Manual tumor annotations in tcga, August 2021. URL https://doi.org/10.5281/zenodo.5320076 .[30] Lukas Muttenthaler, Lorenz Linhardt, Jonas Dippel, Robert A Vandermeulen, Katherine L Her-mann, Andrew Kyle Lampinen, and Simon Kornblith. Improving neural network representations using human similarity judgments. In Neural Information Processing Systems , 2023. [31] Lukas Muttenthaler, Klaus Greff, Frieda Born, Bernhard Spitzer, Simon Kornblith, Michael C Mozer, Klaus-Robert Müller, Thomas Unterthiner, and Andrew Kyle Lampinen. Aligning machine and human visual representations across abstraction levels. Nature , 647:349–355, 2025. doi: 10.1038/s41586-025-09631-6. [32] Dmitry Nechaev, Alexey Pchelnikov, and Ekaterina Ivanova. Hibou: A family of foundational vision transformers for pathology. arXiv preprint arXiv:2406.05074 , 2024. [33] The Cancer Genome Atlas Research Network. Comprehensive genomic characterization of squamous cell lung cancers. Nature , 489:519–525, 2012. doi: 10.1038/nature11404. [34] Maxime Oquab, Timothée Darcet, Théo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, Mahmoud Assran, Nicolas Ballas, Wojciech Galuba, Russell Howes, Po-Yao Huang, Shang-Wen Li, Ishan Misra, Michael Rabbat, Vasu Sharma, Gabriel Synnaeve, Hu Xu, Hervé Jegou, Julien Mairal, Patrick Labatut, Armand Joulin, and Piotr Bojanowski. Dinov2: Learning robust visual features without supervision. arXiv preprint arXiv:2304.07193 , 2023. [35] Qwen Team. Qwen3.5: Towards native multimodal agents, February 2026. URL https: //qwen.ai/blog?id=qwen3.5 .[36] Brett D Roads and Bradley C Love. Enriching ImageNet with human similarity judgments and psychological embeddings. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 3546–3556, 2021. doi: 10.1109/CVPR46437.2021.00355. [37] Charlie Saillard, Rodolphe Jenatton, Felipe Llinares-López, Zelda Mariet, David Cahané, Eric Durand, and Jean-Philippe Vert. H-optimus-0, 2024. URL https://github.com/ bioptimus/releases/tree/main/models/h-optimus/v0 .[38] Yiqing Shen, Yulin Luo, Dinggang Shen, and Jing Ke. RandStainNA: Learning stain-agnostic features from histology slides by bridging stain augmentation and normalization. In Interna-tional Conference on Medical Image Computing and Computer-Assisted Intervention , pages 212–221, 2022. doi: 10.1007/978-3-031-16434-7_21. [39] Aaditya Singh, Adam Fry, Adam Perelman, Adam Tart, Adi Ganesh, et al. OpenAI GPT-5 System Card. arXiv preprint arXiv:2601.03267 , 2026. [40] V Team, Wenyi Hong, Wenmeng Yu, Xiaotao Gu, Guo Wang, Guobing Gan, Haomiao Tang, Jiale Cheng, Ji Qi, Junhui Ji, Lihang Pan, Shuaiqi Duan, Weihan Wang, Yan Wang, Yean Cheng, Zehai He, Zhe Su, Zhen Yang, Ziyang Pan, Aohan Zeng, Baoxu Wang, Bin Chen, Boyan Shi, Changyu Pang, Chenhui Zhang, Da Yin, Fan Yang, Guoqing Chen, Jiazheng Xu, Jiale Zhu, Jiali Chen, Jing Chen, Jinhao Chen, Jinghao Lin, Jinjiang Wang, Junjie Chen, Leqi Lei, Letian Gong, Leyi Pan, Mingdao Liu, Mingde Xu, Mingzhi Zhang, Qinkai Zheng, Sheng Yang, Shi Zhong, Shiyu Huang, Shuyuan Zhao, Siyan Xue, Shangqin Tu, Shengbiao Meng, Tianshu Zhang, Tianwei Luo, Tianxiang Hao, Tianyu Tong, Wenkai Li, Wei Jia, Xiao Liu, Xiaohan Zhang, Xin Lyu, Xinyue Fan, Xuancheng Huang, Yanling Wang, Yadong Xue, Yanfeng Wang, Yanzi Wang, Yifan An, Yifan Du, Yiming Shi, Yiheng Huang, Yilin Niu, Yuan Wang, Yuanchang Yue, Yuchen Li, Yutao Zhang, Yuting Wang, Yu Wang, Yuxuan Zhang, Zhao Xue, Zhenyu Hou, Zhengxiao Du, Zihan Wang, Peng Zhang, Debing Liu, Bin Xu, Juanzi Li, Minlie Huang, Yuxiao Dong, and Jie Tang. GLM-4.5V and GLM-4.1V-Thinking: Towards versatile multimodal reasoning with scalable reinforcement learning, 2025. 12 [41] David Tellez, Geert Litjens, Péter Bándi, Wouter Bulten, John-Melle Bokhorst, Francesco Ciompi, and Jeroen van der Laak. Quantifying the effects of data augmentation and stain color normalization in convolutional neural networks for computational pathology. Medical Image Analysis , 58:101544, 2019. doi: 10.1016/j.media.2019.101544. [42] Erik Thiringer, Fredrik Gustafsson, Kajsa Ledesma Eriksson, and Mattias Rantalainen. Scanner-induced domain shifts undermine the robustness of pathology foundation models. arXiv preprint arXiv:2601.04163 , 2026. [43] Mart van Rijthoven, Witali Aswolinskiy, Leslie Tessier, Maschenka Balkenhol, Joep M A Bogaerts, Damien Drubay, Laura Comerma Blesa, Dieter Peeters, Elisabeth Specht Stovgaard, Anne-Vibeke Lænkholm, et al. Tumor-infiltrating lymphocytes in breast cancer through artificial intelligence: biomarker analysis from the results of the TIGER challenge. medRxiv preprint medRxiv:2025.02.28.25323078 , 2025. doi: 10.1101/2025.02.28.25323078. [44] Hanwen Xu, Naoto Usuyama, Jaspreet Bagga, Sheng Zhang, Rajesh Rao, Tristan Naumann, Cliff Wong, Zelalem Gero, Javier González, Yu Gu, Yanbo Xu, Mu Wei, Wenhui Wang, Shuming Ma, Furu Wei, Jianwei Yang, Chunyuan Li, Jianfeng Gao, Jaylen Rosemon, Tucker Bower, Soohee Lee, Roshanthi Weerasinghe, Bill J. Wright, Ari Robicsek, Brian Piening, Carlo Bifulco, Sheng Wang, and Hoifung Poon. A whole-slide foundation model for digital pathology from real-world data. Nature , 2024. doi: 10.1038/s41586-024-07441-w. [45] Rikiya Yamashita, Jin Long, Snikitha Banda, Jeanne Shen, and Daniel Rubin. Learning domain-agnostic visual representation for computational pathology using medically-irrelevant style transfer augmentation. IEEE Transactions on Medical Imaging , 40(12):3945–3954, 2021. doi: 10.1109/TMI.2021.3101985. [46] Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric P Xing, Hao Zhang, Joseph E Gonzalez, and Ion Stoica. Judging LLM-as-a-judge with MT-Bench and Chatbot Arena. In Advances in Neural Information Processing Systems , 2023. [47] Eric Zimmermann, Eugene Vorontsov, Julian Viret, Adam Casson, Michal Zelechowski, George Shaikovski, Neil Tenenholtz, James Hall, Thomas Fuchs, Nicolo Fusi, Siqi Liu, and Kristen Severson. Virchow2: Scaling self-supervised mixed magnification models in pathology. arXiv preprint arXiv:2408.00738 , 2024. 13 A Experiment Setup 
+
+A.1 Within-Slide Comparisons 
+
+All three tiles come from the same slide s: tr , t p, t n ∈ T s, with tr and tp sharing class c+ and tn
+
+from class c−. For HER2ST, 20 comparisons are sampled per (slide, c+, c−) combination. The positive and negative are randomly assigned to positions 1 and 2 with equal probability, so chance accuracy is 50%. 
+
+A.2 Cross-Slide Comparisons 
+
+For each ordered class pair (c+, c −) with c+̸ = c−, we sample 100 comparisons where the reference 
+
+tr has class c+, the positive tp ∈ T s′ has class c+ from a different slide ( s′̸ = s), and the negative 
+
+tn ∈ T s has class c− from the same slide as the reference. HER2ST (5 classes) yields 20 ordered pairs for 2000 total comparisons. CCTGS (6 classes, 39 slides) yields 30 pairs for 3000 total, and TIGER (4 classes, 40 slides) yields 12 pairs for 1200 total. The positive and negative are randomly assigned to positions 1 and 2 with equal probability, so chance accuracy is 50%. 
+
+A.3 Within-Institution Comparisons 
+
+All three tiles come from the same institution I: tr , t p, t n ∈ T I , with tr and tp sharing class c+ and 
+
+tn from class c−. Tiles may come from different slides within the institution. For each (institution, 
+
+c+, c−) combination, 100 comparisons are sampled. 
+
+A.4 Cross-Institution Comparisons 
+
+For each (institution I, c+) combination, 100 comparisons are sampled where the reference tr ∈ T I
+
+has class c+, the positive tp ∈ T I′ has class c+ from a different institution ( I′̸ = I), and the negative 
+
+tn ∈ T I has class c−̸ = c+ from the same institution (with c− drawn uniformly from available classes). CAMELYON16 has 2 institutions (Radboud with 21 slides, Utrecht with 19 slides) and 2 classes (tumor vs normal, assigned by computing tumor fraction from pixel-level masks with threshold >50%), yielding 4 combinations and 400 total comparisons. TCGA has 3 tissue source sites (TSS-22, TSS-56, TSS-66, each with 10 slides) and 2 classes, yielding 6 combinations and 600 total. BEETLE has 4 institutions (NKI, RUMC, SCH, TCGA, each with 10 slides) and 3 classes (invasive epithelium, necrosis, non-invasive epithelium derived from pixel-level segmentation masks), yielding 12 combinations and 1200 total. 14 B Cross-Slide Supplementary Results 
+
+B.1 Within-Slide Accuracy 
+
+Table 4: Within-slide tile relative similarity accuracy on HER2ST, broken down by tissue class. Method Adipose Breast gl. Cancer Connective Immune inf. All 
+
+Pathology foundation models 
+
+UNI2H 0.775 0.759 0.664 0.757 0.712 0.728 H-optimus-0 0.709 0.691 0.682 0.748 0.756 0.719 Midnight 0.706 0.732 0.670 0.695 0.700 0.697 CONCH v1.5 0.706 0.736 0.691 0.689 0.724 0.705 Virchow2 0.741 0.718 0.755 0.739 0.709 0.735 
+
+General foundation models 
+
+Gemini Emb. 2 0.616 0.591 0.720 0.691 0.641 0.662 DINOv2 0.681 0.523 0.689 0.566 0.674 0.633 ResNet-50 0.675 0.691 0.689 0.700 0.676 0.687 Qwen3.5-enc. 0.734 0.605 0.650 0.591 0.647 0.644 GLM-4.6V-enc. 0.662 0.582 0.670 0.623 0.671 0.646 Gemma 3-enc. 0.641 0.614 0.720 0.632 0.688 0.664 
+
+LLMs 
+
+Gemini 3 Flash 0.728 0.659 0.716 0.718 0.685 0.706 Gemini 3.1 Flash Lite 0.744 0.609 0.707 0.727 0.621 0.690 Qwen3.5 0.713 0.623 0.705 0.745 0.682 0.702 GLM-4.6V 0.684 0.568 0.675 0.671 0.676 0.663 Gemma 3 0.697 0.600 0.691 0.609 0.588 0.640 GPT-5 Nano 0.669 0.573 0.634 0.577 0.624 0.616 0.40 0.45 0.50 0.55 0.60 0.65 0.70 0.75   
+
+> Within-slide accuracy
+> 0.40 0.45 0.50 0.55 0.60 0.65 0.70 0.75
+> Cross-slide accuracy
+> All
+> UNI2H H-opt. Midn. CONCH Vir.2 Gem.Emb.2 DINOv2 RN-50 Qwen-enc GLM-enc Gemma-enc G3F G3.1FL Qwen GLM Gemma GPT5N
+> Pathology emb. General emb. LLMs
+
+Figure 7: Within-slide vs cross-slide relative similarity accuracy on HER2ST (overall accuracy). Each point is a method, colored/marked by category (pathology foundation models = blue circles, general foundation models = green squares, LLMs = red triangles) and labeled with an abbreviated name. Dashed diagonal: y = x; dotted gray lines: chance (0.5). All methods fall below the diagonal, confirming that cross-slide discrimination is harder. Pathology foundation models cluster in the lower-right (high within-slide, low cross-slide), while LLMs maintain higher cross-slide accuracy relative to their within-slide performance. 
+
+B.2 Per-Class Pair Confusion Heatmaps 
+
+15 adipose breast gl. cancer connective immune inf. 
+
+-- 38 30 56 33 32 -- 29 57 55 49 64 -- 69 68 56 63 53 -- 75 57 66 57 75 --
+
+UNI2H 
+
+-- 31 39 61 35 29 -- 34 51 54 34 56 -- 61 69 56 69 63 -- 73 49 70 70 79 --
+
+Virchow2 
+
+-- 35 44 50 33 31 -- 45 49 52 39 61 -- 68 70 58 66 60 -- 70 44 57 64 76 --
+
+Midnight 
+
+-- 37 44 43 32 26 -- 56 53 60 30 45 -- 38 58 41 41 59 -- 62 22 34 65 55 --
+
+DINOv2 
+
+> adipose breast gl. cancer connective immune inf.
+
+adipose breast gl. cancer connective immune inf. 
+
+-- 33 40 64 19 29 -- 58 51 50 37 48 -- 41 56 51 42 44 -- 49 32 42 59 56 --
+
+Gemini 3 Flash 
+
+> adipose breast gl. cancer connective immune inf.
+
+-- 36 40 57 30 30 -- 57 52 61 26 46 -- 38 61 50 36 60 -- 52 20 35 60 53 --
+
+GLM-4.6V 
+
+> adipose breast gl. cancer connective immune inf.
+
+-- 38 37 64 22 28 -- 55 55 56 33 47 -- 39 59 43 43 43 -- 44 35 43 60 58 --
+
+Qwen3.5 
+
+> adipose breast gl. cancer connective immune inf.
+
+-- 36 31 51 25 33 -- 43 40 52 29 49 -- 45 51 47 47 57 -- 49 33 42 53 48 --
+
+GPT-5 Nano 
+
+0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Confusion (%)
+
+Alternative class True class Figure 8: Per-class pair confusion for cross-slide comparisons on HER2ST. Rows indicate the positive class c+ (shared by reference tr and positive tp) and columns the negative class c−. Higher values (warmer colors) indicate greater confusion. adipose breast gl. cancer connective immune inf. 
+
+-- 18 11 38 20 25 -- 10 33 30 32 22 -- 39 34 27 30 16 -- 30 20 38 22 37 --
+
+UNI2H 
+
+-- 27 13 36 30 25 -- 20 43 22 18 17 -- 27 31 24 35 23 -- 28 12 40 25 38 --
+
+Virchow2 
+
+-- 30 16 43 28 18 -- 27 37 25 16 42 -- 36 39 29 38 24 -- 36 13 32 28 39 --
+
+Midnight 
+
+-- 27 25 41 33 35 -- 63 38 57 23 37 -- 29 38 33 43 46 -- 49 20 45 38 29 --
+
+DINOv2 
+
+> adipose breast gl. cancer connective immune inf.
+
+adipose breast gl. cancer connective immune inf. 
+
+-- 20 23 40 20 25 -- 38 35 40 28 27 -- 22 38 33 32 21 -- 32 15 40 37 32 --
+
+Gemini 3 Flash 
+
+> adipose breast gl. cancer connective immune inf.
+
+-- 27 19 47 32 30 -- 47 45 55 25 25 -- 31 45 35 28 30 -- 38 20 43 32 35 --
+
+GLM-4.6V 
+
+> adipose breast gl. cancer connective immune inf.
+
+-- 22 19 42 30 25 -- 43 42 43 27 30 -- 22 42 27 30 22 -- 27 13 43 34 35 --
+
+Qwen3.5 
+
+> adipose breast gl. cancer connective immune inf.
+
+-- 20 21 47 43 27 -- 55 43 48 30 35 -- 32 49 40 47 41 -- 43 22 50 44 35 --
+
+GPT-5 Nano 
+
+0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Confusion (%)
+
+Alternative class True class 
+
+Figure 9: Per-class pair confusion for within-slide comparisons on HER2ST. Rows indicate the positive class c+ and columns the negative class c−. Higher values (warmer colors) indicate greater confusion. 16 tumor normal muc. muscularis . adipose tis. lamina pro. lymphovascu. 
+
+-- 17 31 24 49 70 55 -- 31 51 47 43 44 12 -- 44 52 --42 21 35 -- 63 39 44 19 48 58 -- --62 18 -- 51 -- --
+
+UNI2H 
+
+-- 29 31 28 32 53 39 -- 19 31 35 22 20 12 -- 37 38 --17 17 23 -- 43 24 19 11 21 36 -- --52 19 -- 36 -- --
+
+Virchow2 
+
+-- 31 28 17 35 51 34 -- 22 18 30 22 18 20 -- 26 33 --16 14 19 -- 49 22 22 20 41 37 -- --43 21 -- 30 -- --
+
+Midnight 
+
+-- 42 49 12 39 55 61 -- 32 27 38 40 36 42 -- 18 46 --40 48 45 -- 56 59 48 38 41 23 -- --56 24 -- 21 -- --
+
+DINOv2 
+
+> tumor normal muc. muscularis . adipose tis. lamina pro. lymphovascu.
+
+tumor normal muc. muscularis . adipose tis. lamina pro. lymphovascu. 
+
+-- 39 39 10 32 44 59 -- 28 18 34 22 13 19 -- 16 39 --7 16 20 -- 30 31 21 18 29 17 -- --30 14 -- 16 -- --
+
+Gemini 3 Flash 
+
+> tumor normal muc. muscularis . adipose tis. lamina pro. lymphovascu.
+
+-- 44 37 12 35 50 64 -- 30 21 31 35 15 25 -- 13 42 --25 29 34 -- 44 49 22 19 47 21 -- --40 15 -- 25 -- --
+
+GLM-4.6V 
+
+> tumor normal muc. muscularis . adipose tis. lamina pro. lymphovascu.
+
+-- 38 34 15 32 43 51 -- 24 23 37 24 18 21 -- 15 37 --9 18 23 -- 31 28 16 12 31 22 -- --30 12 -- 25 -- --
+
+Qwen3.5 
+
+> tumor normal muc. muscularis . adipose tis. lamina pro. lymphovascu.
+
+-- 46 36 29 44 45 51 -- 29 33 44 32 21 25 -- 22 42 --30 32 42 -- 42 52 41 23 46 17 -- --36 26 -- 40 -- --
+
+GPT-5 Nano 
+
+0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Confusion (%)
+
+Alternative class True class Figure 10: Per-class pair confusion for cross-slide comparisons on CCTGS. Rows indicate the positive class c+ and columns the negative class c−. Higher values (warmer colors) indicate greater confusion. tumor stroma healthy gla. necrosis 
+
+-- 89 77 94 92 -- 87 94 58 65 -- --70 89 -- --
+
+UNI2H 
+
+-- 83 69 79 90 -- 85 81 50 67 -- --80 90 -- --
+
+Virchow2 
+
+-- 87 84 82 90 -- 80 97 44 56 -- --85 92 -- --
+
+Midnight 
+
+-- 72 60 51 66 -- 59 41 72 56 -- --89 77 -- --
+
+DINOv2 
+
+> tumor stroma healthy gla. necrosis
+
+tumor stroma healthy gla. necrosis 
+
+-- 64 51 53 79 -- 62 67 75 55 -- --72 73 -- --
+
+Gemini 3 Flash 
+
+> tumor stroma healthy gla. necrosis
+
+-- 68 65 46 75 -- 70 41 62 43 -- --80 58 -- --
+
+GLM-4.6V 
+
+> tumor stroma healthy gla. necrosis
+
+-- 62 50 46 79 -- 56 56 72 58 -- --60 57 -- --
+
+Qwen3.5 
+
+> tumor stroma healthy gla. necrosis
+
+-- 49 66 61 63 -- 59 62 50 39 -- --49 39 -- --
+
+GPT-5 Nano 
+
+0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Confusion (%)
+
+Alternative class True class 
+
+Figure 11: Per-class pair confusion for cross-slide comparisons on TIGER. Rows indicate the positive class c+ and columns the negative class c−. Higher values (warmer colors) indicate greater confusion. 17 C Cross-Institution Supplementary Results 
+
+C.1 Per-Institution Breakdown 
+
+Table 5: Cross-institution tile relative similarity accuracy on CAMELYON16. Method Radboud normal Radboud tumor Utrecht normal Utrecht tumor All 
+
+Pathology foundation models 
+
+UNI2H 0.340 0.770 0.440 0.900 0.613 H-optimus-0 0.390 0.310 0.490 0.400 0.398 Midnight 0.610 0.670 0.550 0.730 0.640 CONCH v1.5 0.460 0.630 0.410 0.760 0.565 Virchow2 0.500 0.660 0.630 0.710 0.625 
+
+General foundation models 
+
+Gemini Emb. 2 0.510 0.800 0.400 0.730 0.610 DINOv2 0.370 0.750 0.250 0.690 0.515 ResNet-50 0.380 0.700 0.330 0.560 0.492 Qwen3.5-enc. 0.340 0.630 0.480 0.770 0.555 GLM-4.6V-enc. 0.430 0.750 0.410 0.730 0.580 Gemma 3-enc. 0.510 0.730 0.410 0.740 0.598 
+
+LLMs 
+
+Gemini 3 Flash 0.590 0.790 0.550 0.890 0.705 Gemini 3.1 Flash Lite 0.600 0.820 0.600 0.900 0.730 
+
+Qwen3.5 0.593 0.700 0.581 0.840 0.681 GLM-4.6V 0.479 0.820 0.414 0.720 0.611 Gemma 3 0.480 0.600 0.420 0.720 0.555 GPT-5 Nano 0.550 0.680 0.410 0.720 0.590 Table 6: Cross-institution tile relative similarity accuracy on TCGA. Method TSS-22 normal TSS-22 tumor TSS-56 normal TSS-56 tumor TSS-66 normal TSS-66 tumor All 
+
+Pathology foundation models 
+
+UNI2H 0.190 0.540 0.220 0.450 0.090 0.380 0.312 H-optimus-0 0.020 0.040 0.200 0.300 0.200 0.300 0.177 Midnight 0.110 0.080 0.470 0.590 0.300 0.590 0.357 CONCH v1.5 0.300 0.410 0.300 0.480 0.300 0.400 0.365 Virchow2 0.330 0.470 0.300 0.530 0.430 0.580 0.440 
+
+General foundation models 
+
+Gemini Emb. 2 0.490 0.630 0.360 0.580 0.390 0.570 0.503 DINOv2 0.350 0.490 0.300 0.590 0.410 0.520 0.443 ResNet-50 0.450 0.510 0.250 0.390 0.370 0.640 0.435 Qwen3.5-enc. 0.330 0.410 0.350 0.490 0.330 0.550 0.410 GLM-4.6V-enc. 0.350 0.340 0.460 0.500 0.330 0.440 0.403 Gemma 3-enc. 0.140 0.390 0.380 0.600 0.260 0.540 0.385 
+
+LLMs 
+
+Gemini 3 Flash 0.490 0.750 0.360 0.610 0.390 0.680 0.547 Gemini 3.1 Flash Lite 0.680 0.790 0.400 0.560 0.360 0.560 0.558 Qwen3.5 0.609 0.794 0.455 0.630 0.424 0.626 0.589 
+
+GLM-4.6V 0.413 0.544 0.299 0.540 0.378 0.660 0.473 Gemma 3 0.490 0.640 0.430 0.580 0.500 0.520 0.527 GPT-5 Nano 0.580 0.540 0.360 0.590 0.370 0.650 0.515 Table 7: Cross-institution tile relative similarity accuracy on BEETLE. Method NKI inv. NKI nec. NKI non-inv. RUMC inv. RUMC nec. RUMC non-inv. SCH inv. SCH nec. SCH non-inv. TCGA inv. TCGA nec. TCGA non-inv. All                                                                                                                                                                                                                              
+
+> Pathology foundation models
+> UNI2H 0.650 0.750 0.800 0.620 0.670 0.670 0.300 0.310 0.320 0.400 0.680 0.520 0.557 H-optimus-0 0.600 0.570 0.430 0.800 0.410 0.490 0.410 0.310 0.390 0.500 0.170 0.280 0.447 Midnight 0.350 0.740 0.860 0.120 0.630 0.700 0.140 0.420 0.590 0.190 0.290 0.700 0.477 CONCH v1.5 0.450 0.470 0.450 0.700 0.710 0.590 0.390 0.370 0.360 0.360 0.310 0.430 0.466 Virchow2 0.390 0.810 0.740 0.660 0.520 0.850 0.600 0.170 0.480 0.420 0.420 0.720 0.565
+> General foundation models
+> Gemini Emb. 2 0.640 0.670 0.570 0.690 0.710 0.520 0.460 0.630 0.400 0.690 0.360 0.420 0.563 DINOv2 0.710 0.500 0.600 0.510 0.190 0.350 0.620 0.480 0.550 0.800 0.370 0.440 0.510 ResNet-50 0.480 0.360 0.360 0.370 0.450 0.470 0.490 0.470 0.470 0.650 0.490 0.490 0.463 Qwen3.5-enc. 0.590 0.230 0.340 0.460 0.160 0.260 0.290 0.430 0.460 0.400 0.170 0.160 0.329 GLM-4.6V-enc. 0.550 0.400 0.670 0.600 0.380 0.510 0.460 0.350 0.410 0.660 0.350 0.430 0.481 Gemma 3-enc. 0.650 0.530 0.470 0.630 0.750 0.520 0.540 0.480 0.410 0.730 0.320 0.530 0.547
+> LLMs
+> Gemini 3 Flash 0.760 0.810 0.540 0.790 0.660 0.520 0.430 0.460 0.360 0.680 0.160 0.290 0.538 Gemini 3.1 Flash Lite 0.650 0.810 0.610 0.760 0.660 0.450 0.510 0.650 0.450 0.730 0.310 0.360 0.579
+> Qwen3.5 0.620 0.820 0.590 0.620 0.770 0.590 0.460 0.660 0.360 0.760 0.200 0.400 0.571 GLM-4.6V 0.707 0.500 0.600 0.660 0.354 0.379 0.550 0.530 0.560 0.720 0.020 0.378 0.497 Gemma 3 0.600 0.670 0.510 0.640 0.650 0.490 0.610 0.630 0.600 0.660 0.200 0.400 0.555 GPT-5 Nano 0.710 0.510 0.720 0.550 0.590 0.540 0.620 0.560 0.700 0.590 0.300 0.450 0.570
+
+18 C.2 Within-Institution Accuracy C.2.1 CAMELYON16 
+
+Table 8: Within-institution tile relative similarity accuracy on CAMELYON16. Method Radboud normal Radboud tumor Utrecht normal Utrecht tumor All 
+
+Pathology foundation models 
+
+UNI2H 0.610 0.970 0.530 0.940 0.763 H-optimus-0 0.570 0.890 0.680 0.890 0.758 Midnight 0.730 0.970 0.680 0.930 0.828 CONCH v1.5 0.610 0.950 0.560 0.910 0.758 Virchow2 0.710 0.960 0.790 0.950 0.853 
+
+General foundation models 
+
+DINOv2 0.450 0.840 0.370 0.870 0.633 ResNet-50 0.460 0.820 0.460 0.760 0.625 Qwen3.5-enc. 0.390 0.910 0.610 0.790 0.675 GLM-4.6V-enc. 0.240 0.420 0.330 0.470 0.365 Gemma 3-enc. 0.600 0.860 0.510 0.880 0.713 
+
+LLMs 
+
+Gemini 3 Flash 0.690 0.920 0.650 0.919 0.794 Gemini 3.1 Flash Lite 0.730 0.930 0.690 0.910 0.815 Qwen3.5 0.705 0.908 0.674 0.902 0.797 GLM-4.6V 0.625 0.907 0.505 0.870 0.732 Gemma 3 0.596 0.727 0.590 0.860 0.693 GPT-5 Nano 0.620 0.780 0.580 0.770 0.688 
+
+C.2.2 TCGA 
+
+Table 9: Within-institution tile relative similarity accuracy on TCGA. Method TSS-22 normal TSS-22 tumor TSS-56 normal TSS-56 tumor TSS-66 normal TSS-66 tumor All 
+
+Pathology foundation models 
+
+UNI2H 0.730 0.760 0.430 0.690 0.490 0.830 0.655 H-optimus-0 0.720 0.820 0.450 0.730 0.460 0.920 0.683 Midnight 0.760 0.750 0.520 0.650 0.570 0.890 0.690 CONCH v1.5 0.710 0.600 0.450 0.690 0.470 0.870 0.632 Virchow2 0.780 0.720 0.500 0.720 0.540 0.840 0.683 
+
+General foundation models 
+
+DINOv2 0.610 0.790 0.430 0.710 0.470 0.780 0.632 ResNet-50 0.660 0.700 0.410 0.650 0.440 0.790 0.608 Qwen3.5-enc. 0.660 0.810 0.500 0.640 0.500 0.680 0.632 GLM-4.6V-enc. 0.200 0.410 0.320 0.460 0.160 0.340 0.315 Gemma 3-enc. 0.760 0.800 0.470 0.660 0.560 0.680 0.655 
+
+LLMs 
+
+Gemini 3 Flash 0.810 0.810 0.460 0.840 0.510 0.870 0.717 
+
+Gemini 3.1 Flash Lite 0.830 0.760 0.490 0.800 0.550 0.750 0.697 Qwen3.5 0.773 0.800 0.535 0.723 0.570 0.816 0.702 GLM-4.6V 0.747 0.828 0.429 0.710 0.458 0.810 0.666 Gemma 3 0.700 0.790 0.510 0.650 0.540 0.710 0.650 GPT-5 Nano 0.700 0.670 0.460 0.550 0.520 0.670 0.595 
+
+C.2.3 BEETLE 
+
+Table 10: Within-institution tile relative similarity accuracy on BEETLE. Method NKI inv. NKI nec. NKI non-inv. RUMC inv. RUMC nec. RUMC non-inv. SCH inv. SCH nec. SCH non-inv. TCGA inv. TCGA nec. TCGA non-inv. All 
+
+Pathology foundation models 
+
+UNI2H 0.930 0.940 0.980 0.770 1.000 0.945 0.945 0.905 0.740 0.785 1.000 0.780 0.893 H-optimus-0 0.885 0.950 0.965 0.845 1.000 0.910 0.985 0.795 0.715 0.815 1.000 0.795 0.888 Midnight 0.940 0.965 0.950 0.870 1.000 0.945 0.930 0.905 0.770 0.905 0.995 0.755 0.910 
+
+CONCH v1.5 0.840 0.960 0.805 0.870 0.995 0.905 0.970 0.825 0.640 0.765 0.975 0.755 0.859 Virchow2 0.945 0.955 0.970 0.835 1.000 0.975 0.980 0.870 0.800 0.790 0.975 0.765 0.905 
+
+General foundation models 
+
+Gemini Emb. 2 0.835 0.965 0.765 0.815 0.980 0.800 0.890 0.830 0.595 0.910 1.000 0.705 0.841 DINOv2 0.835 0.930 0.780 0.675 0.955 0.760 0.900 0.625 0.575 0.915 0.800 0.690 0.787 ResNet-50 0.755 0.950 0.735 0.720 0.990 0.725 0.835 0.705 0.570 0.805 0.975 0.670 0.786 Qwen3.5-enc. 0.805 0.950 0.785 0.720 0.885 0.715 0.815 0.745 0.555 0.870 0.985 0.710 0.795 GLM-4.6V-enc. 0.675 0.885 0.820 0.630 0.945 0.760 0.840 0.650 0.575 0.745 0.825 0.710 0.755 Gemma 3-enc. 0.775 0.955 0.795 0.895 0.975 0.800 0.850 0.695 0.600 0.930 0.935 0.755 0.830 
+
+LLMs 
+
+Gemini 3 Flash 0.900 0.955 0.855 0.899 0.985 0.780 0.870 0.730 0.600 0.895 0.990 0.775 0.853 Gemini 3.1 Flash Lite 0.900 0.965 0.810 0.835 1.000 0.745 0.895 0.765 0.610 0.820 0.970 0.745 0.838 Qwen3.5 0.838 0.964 0.820 0.919 1.000 0.781 0.899 0.893 0.648 0.848 0.985 0.758 0.863 GLM-4.6V 0.798 0.943 0.868 0.850 1.000 0.795 0.895 0.719 0.582 0.934 0.980 0.749 0.843 Gemma 3 0.716 0.934 0.807 0.778 0.969 0.769 0.850 0.735 0.565 0.873 0.880 0.665 0.794 GPT-5 Nano 0.780 0.850 0.845 0.810 0.925 0.775 0.740 0.545 0.565 0.725 0.630 0.780 0.748 19 C.3 Per-Class Pair Confusion invasive epi. necrosis non-inv. epi. 
+
+-- 39 55 33 -- 50 41 45 --
+
+UNI2H 
+
+-- 40 51 40 -- 70 29 34 --
+
+Virchow2 
+
+-- 66 86 52 -- 42 32 22 --
+
+Midnight 
+
+-- 18 40 65 -- 56 64 25 --
+
+DINOv2 
+
+> invasive epi. necrosis non-inv. epi.
+
+invasive epi. necrosis non-inv. epi. 
+
+-- 16 41 54 -- 39 66 39 --
+
+Gemini 3 Flash 
+
+> invasive epi. necrosis non-inv. epi.
+
+-- 16 41 74 -- 51 65 24 --
+
+GLM-4.6V 
+
+> invasive epi. necrosis non-inv. epi.
+
+-- 26 43 47 -- 26 59 36 --
+
+Qwen3.5 
+
+> invasive epi. necrosis non-inv. epi.
+
+-- 27 43 58 -- 40 49 20 --
+
+GPT-5 Nano 
+
+0.2 0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Confusion (%)
+
+Alternative class True class 
+
+Figure 12: Per-class pair confusion for cross-institution comparisons on BEETLE. Rows indicate the positive class c+ and columns the negative class c−. Higher values (warmer colors) indicate greater confusion. 
+
+D Model Cost and Training Data 
+
+D.1 Accuracy vs Model Cost $0.10 0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Triplet accuracy (All)
+> Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano
+
+HER2ST (cross-slide) 
+
+$0.10 0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano
+
+CCTGS (cross-slide) 
+
+$0.10 0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano
+
+TIGER (cross-slide) 
+
+$0.10 
+
+Price per 1M input tokens (USD) 
+
+0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Triplet accuracy (All)
+> Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano
+
+CAMELYON16 (cross-institution) 
+
+$0.10 
+
+Price per 1M input tokens (USD) 
+
+0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano
+
+TCGA-LUSC (cross-institution) 
+
+$0.10 
+
+Price per 1M input tokens (USD) 
+
+0.3 0.4 0.5 0.6 0.7 0.8 
+
+> Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano
+
+BEETLE (cross-institution) 
+
+Figure 13: LLM relative similarity accuracy vs input-token price. Top row: cross-slide accuracy on HER2ST, CCTGS, and TIGER (Table 1). Bottom row: cross-institution accuracy on CAMELYON16, TCGA, and BEETLE (Tables 5, 6, and 7). Each point is one LLM. Dashed line indicates chance (0.5). 20 10K 100K 1.0M Training data size 0.3 0.4 0.5 0.6 0.7 0.8 Triplet accuracy (All) 
+
+> UNI2H H-optimus-0 Midnight CONCH v1.5 Virchow2
+
+Pathology embeddings 
+
+10M 100M Training data size 0.3 0.4 0.5 0.6 0.7 0.8 Triplet accuracy (All) 
+
+> DINOv2 ResNet-50
+
+General embeddings 
+
+$0.10 Price per 1M input tokens (USD) 0.3 0.4 0.5 0.6 0.7 0.8 Triplet accuracy (All) 
+
+> Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano
+
+LLMs Figure 14: CAMELYON16 cross-institution relative similarity accuracy vs model cost. Left: pathol-ogy foundation model accuracy vs training data size. Center: general foundation model accuracy vs training data size (Gemini Emb. 2 training size estimated at ∼1B). Right: LLM accuracy vs price per million input tokens. Dashed line indicates chance (50%). 10K 100K 1.0M Training data size 0.1 0.2 0.3 0.4 0.5 0.6 0.7 Triplet accuracy (All)  
+
+> UNI2H H-optimus-0 Midnight CONCH v1.5 Virchow2
+
+Pathology embeddings 
+
+10M 100M Training data size 0.1 0.2 0.3 0.4 0.5 0.6 0.7 Triplet accuracy (All) 
+
+> DINOv2 ResNet-50
+
+General embeddings 
+
+$0.10 Price per 1M input tokens (USD) 0.1 0.2 0.3 0.4 0.5 0.6 0.7 Triplet accuracy (All) 
+
+> Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano
+
+LLMs 
+
+Figure 15: TCGA cross-institution relative similarity accuracy vs model cost. Left: pathology foundation model accuracy vs training data size. Center: general foundation model accuracy vs training data size. Right: LLM accuracy vs price per million input tokens. Dashed line indicates chance (50%). 10K 100K 1.0M Training data size 0.30 0.35 0.40 0.45 0.50 0.55 0.60 0.65 0.70 Triplet accuracy (All)  
+
+> UNI2H H-optimus-0 Midnight CONCH v1.5 Virchow2
+
+Pathology embeddings 
+
+10M 100M Training data size 0.30 0.35 0.40 0.45 0.50 0.55 0.60 0.65 0.70 Triplet accuracy (All) 
+
+> DINOv2 ResNet-50
+
+General embeddings 
+
+$0.10 Price per 1M input tokens (USD) 0.30 0.35 0.40 0.45 0.50 0.55 0.60 0.65 0.70 Triplet accuracy (All) 
+
+> Gemini 3 Flash Gemini 3.1 Flash Lite Qwen3.5 GLM-4.6V Gemma 3 GPT-5 Nano
+
+LLMs 
+
+Figure 16: BEETLE cross-institution relative similarity accuracy vs model cost. Left: pathology foundation model accuracy vs training data size. Center: general foundation model accuracy vs training data size. Right: LLM accuracy vs price per million input tokens. Dashed line indicates chance (50%). 21 1M 10M 100M 1B 10B 
+
+Training data size 
+
+> 0.30 0.35 0.40 0.45 0.50 0.55 0.60 0.65
+> Relative similarity accuracy (All)
+
+General foundation models 
+
+> Datasets
+> HER2ST CCTGS TIGER CAMELYON16 TCGA-LUSC BEETLE
+> Datasets
+> HER2ST CCTGS TIGER CAMELYON16 TCGA-LUSC BEETLE
+> Foundation models
+> DINOv2 ResNet-50 Qwen3.5-enc. GLM-4.6V-enc. Gemma 3-enc.
+
+Figure 17: General foundation model relative similarity accuracy vs training data size across all six datasets. Color indicates dataset; marker shape indicates method. Lines connect methods within the same dataset. Dashed line indicates chance (0.5). Training data sizes for LLM-derived encoders are estimates based on the upstream vision encoder’s pretraining data (Table 11). 22 D.2 Training Data Sources 
+
+Table 11: Training data sizes for foundation models used in cost/size vs accuracy analysis (Figure 6). Sizes marked with † are estimates based on the upstream vision encoder’s pretraining data, as the multimodal training data size is not separately disclosed. Model Training size Source URL Quote 
+
+Pathology foundation models 
+
+UNI2H >350K WSIs HuggingFace model card https://huggingface.co/MahmoodLab/UNI2-h “Over 200 million image tiles sampled from over 350k diverse H&E and IHC slides sourced from Mass General Brigham.” H-optimus-0 >500K WSIs HuggingFace model card https://huggingface.co/bioptimus/H-optimus-0 “The model is a 1.1B parameter vision transformer trained on a proprietary collection of more than 500,000 H&E stained whole slide histology im-ages.” Midnight 12K WSIs Tolkach et al. (2025) https://arxiv.org/abs/2504.05186 “We trained our first FM on the 12k TCGA WSIs alone.” CONCH v1.5 1.26M pairs Ding et al. (2024) https://arxiv.org/abs/2411.19666 “CONCHv1.5, an extended version of CONCH, which was trained with 1.26 million image-caption pairs using the CoCa training objective.” Virchow2 3.1M WSIs Zimmermann et al. (2024) https://arxiv.org/abs/2408.00738 “each trained with 3.1 million histopathology whole slide images” 
+
+General foundation models 
+
+Gemini Emb. 2 † ∼1B images Lee et al. (2025) https://arxiv.org/abs/2503.07891 Training data size not disclosed; estimated at ∼1B based on the Gemini model family. DINOv2 142M images Oquab et al. (2024) https://arxiv.org/abs/2304.07193 “We gathered a small but diverse corpus of 142M images to validate our approach.” ResNet-50 1.28M images ILSVRC 2012 https://www.image-net.org/challenges/LSVRC/2012/ “The training data, the subset of ImageNet contain-ing the 1000 categories and 1.2 million images” Qwen3.5-enc. † ∼5B images DFN-5B model card https://huggingface.co/apple/DFN5B-CLIP-ViT-H-14-378 “trained on a 5B subset of a pool of 43B uncurated image-text pairs” GLM-4.6V-enc. † ∼10B pairs Yang et al. (2025) https://arxiv.org/abs/2507.01006 “an initial pool of over 10 billion image-text pairs from diverse sources” Gemma 3-enc. † ∼10B pairs SigLIP model card; Gemma 3 report https://arxiv.org/abs/2503.19786 “a 400M variant of the SigLIP encoder”; SigLIP pre-trained on WebLI ( ∼10B image-text pairs). 
+
+D.3 LLM Input-Token Prices 
+
+Table 12: LLM input-token prices used in cost vs accuracy analysis (Figure 6). Model Price per 1M input tokens (USD) Gemini 3 Flash $0.50 Gemini 3.1 Flash Lite $0.25 Qwen3.5 $0.39 GLM-4.6V $0.30 Gemma 3 $0.08 GPT-5 Nano $0.05 23 E Ablation Studies 
+
+E.1 Prompt Ablation 
+
+We compare two prompts for LLM-based relative similarity evaluation. In both cases, the LLM receives three images (one reference and two candidates) and must select which candidate is more similar to the reference. 
+
+Biology-focused prompt (default). 
+
+Attached are three H&E histology image tiles: one reference tile (reference_tile) and two candidate tiles (candidate_tile_1, candidate_tile_2). Your task is to determine which candidate tile is more biologically similar to the reference tile. When assessing similarity, focus on biological differences: • Cell morphology (e.g., cell size, shape, nuclear features) • Tissue architecture (e.g., glandular organization, stromal patterns, cell density) Ignore non-biological differences such as imaging artifacts, stain intensity, resolution, or tissue preparation variations. 
+
+Minimal prompt (ablation). 
+
+Attached are three images: one reference image (reference_tile) and two candidate images (candidate_tile_1, candidate_tile_2). Which candidate is more similar to the reference? 
+
+Both prompts require the LLM to output a JSON response with a more_similar_candidate field. The biology-focused prompt provides domain-specific guidance on which features to attend to and which to ignore, while the minimal prompt contains no such guidance. 24 F Statistical Significance 
+
+We report bootstrap 95% confidence intervals and McNemar’s test results for HER2ST cross-slide (2,000 comparisons) and CAMELYON16 cross-institution (400 comparisons), the two experiments where all models evaluate the same comparison tuples. For LLMs that fail to return a valid response on some comparisons, McNemar’s test uses only the subset where both models returned valid responses (the n column in Table 13 reports valid counts per model). Bootstrap confidence intervals are computed with 10,000 resamples over the sampled comparisons. For McNemar’s test, we use the exact binomial test when the number of discordant pairs is below 25, and the chi-squared test with continuity correction otherwise. The pairwise comparisons in Table 14 are exploratory (best model selected post hoc within each category), so p-values should be interpreted accordingly. Table 13: Bootstrap 95% confidence intervals for overall accuracy on HER2ST (cross-slide, n =2000 ) and CAMELYON16 (cross-institution, n = 400 ). Models are grouped by category. HER2ST (cross-slide) CAMELYON16 (cross-inst.) Method Acc. 95% CI n Acc. 95% CI n
+
+Pathology foundation models 
+
+UNI2H 0.459 [0.437, 0.480] 2000 0.613 [0.565, 0.660] 400 H-optimus-0 0.439 [0.416, 0.461] 2000 0.398 [0.350, 0.445] 400 Midnight 0.464 [0.442, 0.485] 2000 0.640 [0.593, 0.685] 400 CONCH v1.5 0.450 [0.428, 0.472] 2000 0.565 [0.517, 0.613] 400 Virchow2 0.459 [0.436, 0.480] 2000 0.625 [0.578, 0.672] 400 
+
+General foundation models 
+
+Gemini Emb. 2 0.482 [0.461, 0.504] 2000 0.610 [0.562, 0.657] 400 DINOv2 0.549 [0.528, 0.571] 2000 0.515 [0.465, 0.562] 400 ResNet-50 0.453 [0.431, 0.474] 2000 0.492 [0.443, 0.540] 400 Qwen3.5-enc. 0.436 [0.414, 0.458] 2000 0.555 [0.505, 0.605] 400 GLM-4.6V-enc. 0.476 [0.454, 0.497] 2000 0.580 [0.530, 0.630] 400 Gemma 3-enc. 0.412 [0.391, 0.434] 2000 0.598 [0.550, 0.645] 400 
+
+LLMs 
+
+Gemini 3 Flash 0.549 [0.527, 0.572] 2000 0.705 [0.660, 0.748] 400 Gemini 3.1 Flash Lite 0.528 [0.506, 0.550] 2000 0.730 [0.685, 0.775] 400 Qwen3.5 0.549 [0.527, 0.571] 2000 0.681 [0.633, 0.729] 354 GLM-4.6V 0.550 [0.529, 0.572] 1995 0.611 [0.559, 0.659] 370 Gemma 3 0.538 [0.516, 0.559] 2000 0.555 [0.507, 0.603] 400 GPT-5 Nano 0.570 [0.547, 0.591] 2000 0.590 [0.540, 0.637] 400 Table 14: McNemar’s test for key pairwise comparisons. Each test uses paired comparisons where both models returned valid responses. The best LLM is compared against the best pathology foundation model and the best general foundation model for each experiment.                        
+
+> Experiment Comparison Acc. A Acc. B χ2p-value HER2ST (cross-slide) GPT-5 Nano vs Midnight 0.570 0.464 58.1 <0.0001 GPT-5 Nano vs DINOv2 0.570 0.549 2.0 0.153 CAMELYON16 (cross-inst.) Gem. 3.1 F. Lite vs Midnight 0.730 0.640 11.8 <0.001 Gem. 3.1 F. Lite vs Gemini Emb. 2 0.730 0.610 26.9 <0.0001
+
+25 G Class Abbreviations 
+
+Table 15: Tissue class abbreviations used in Table 1. Dataset Abbreviation Full name HER2ST Adi Adipose Bre Breast glandular Can Cancer Con Connective Imm Immune infiltrate CCTGS Adi Adipose Lam Lamina propria Lym Lymphovascular invasion Mus Muscularis propria Nor Normal mucosa Tum Tumor TIGER Hea Healthy glands Nec Necrosis Str Stroma Tum Tumor 26 H Model Licenses 
+
+Table 16: Licenses for models used in this paper. Model License 
+
+Pathology foundation models 
+
+UNI2H CC-BY-NC-ND 4.0 H-optimus-0 Apache 2.0 Midnight MIT CONCH v1.5 CC-BY-NC-ND 4.0 Virchow2 CC-BY-NC-ND 4.0 
+
+General foundation models 
+
+DINOv2 Apache 2.0 ResNet-50 BSD 3-Clause Gemini Embedding 2 Google API Terms of Service Qwen3.5-encoder Apache 2.0 GLM-4.6V-encoder MIT Gemma 3-encoder Gemma Terms of Use 
+
+LLMs 
+
+Gemini 3 Flash Google API Terms of Service Gemini 3.1 Flash Lite Google API Terms of Service GPT-5 Nano OpenAI Terms of Service Gemma 3 Gemma Terms of Use GLM-4.6V MIT Qwen3.5 Apache 2.0 27 NeurIPS Paper Checklist 
+
+1. Claims 
+
+Question: Do the main claims made in the abstract and introduction accurately reflect the paper’s contributions and scope? Answer: [Yes] Justification: The abstract and introduction (Section 1) clearly state four contributions: (1) exposing a robustness gap in pathology foundation models, (2) introducing a relative similarity evaluation framework, (3) demonstrating that multimodal LLMs achieve robust cross-domain similarity, and (4) releasing a benchmark suite. All claims are supported by the experimental results in Section 4. Guidelines: • The answer [N/A] means that the abstract and introduction do not include the claims made in the paper. • The abstract and/or introduction should clearly state the claims made, including the contributions made in the paper and important assumptions and limitations. A [No] or [N/A] answer to this question will not be perceived well by the reviewers. • The claims made should match theoretical and experimental results, and reflect how much the results can be expected to generalize to other settings. • It is fine to include aspirational goals as motivation as long as it is clear that these goals are not attained by the paper. 2. Limitations 
+
+Question: Does the paper discuss the limitations of the work performed by the authors? Answer: [Yes] Justification: The conclusion discusses limitations: the evaluation is restricted to H&E-stained images, and future work could extend the framework to other pathology imaging modalities (e.g., immunohistochemistry, multiplexed imaging) and spatial biology data. Guidelines: • The answer [N/A] means that the paper has no limitation while the answer [No] means that the paper has limitations, but those are not discussed in the paper. • The authors are encouraged to create a separate “Limitations” section in their paper. • The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be. • The authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated. • The authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon. • The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size. • If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness. • While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren’t acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an impor-tant role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations. 28 3. Theory assumptions and proofs 
+
+Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof? Answer: [N/A] Justification: The paper does not include theoretical results or proofs. It is an empirical study evaluating model robustness via a relative similarity framework. Guidelines: • The answer [N/A] means that the paper does not include theoretical results. • All the theorems, formulas, and proofs in the paper should be numbered and cross-referenced. • All assumptions should be clearly stated or referenced in the statement of any theorems. • The proofs can either appear in the main paper or the supplemental material, but if they appear in the supplemental material, the authors are encouraged to provide a short proof sketch to provide intuition. • Inversely, any informal proof provided in the core of the paper should be complemented by formal proofs provided in appendix or supplemental material. • Theorems and Lemmas that the proof relies upon should be properly referenced. 4. Experimental result reproducibility 
+
+Question: Does the paper fully disclose all the information needed to reproduce the main ex-perimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)? Answer: [Yes] Justification: The paper describes the evaluation framework (Section 3), all datasets with preprocessing details (Section 3.2), all evaluated models by name and version, triplet sam-pling procedures (Appendix A), and the LLM prompt text (Appendix E.1). The benchmark triplets, evaluation code, and baseline outputs will be released. Guidelines: • The answer [N/A] means that the paper does not include experiments. • If the paper includes experiments, a [No] answer to this question will not be perceived well by the reviewers: Making the paper reproducible is important, regardless of whether the code and data are provided or not. • If the contribution is a dataset and/or model, the authors should describe the steps taken to make their results reproducible or verifiable. • Depending on the contribution, reproducibility can be accomplished in various ways. For example, if the contribution is a novel architecture, describing the architecture fully might suffice, or if the contribution is a specific model and empirical evaluation, it may be necessary to either make it possible for others to replicate the model with the same dataset, or provide access to the model. In general. releasing code and data is often one good way to accomplish this, but reproducibility can also be provided via detailed instructions for how to replicate the results, access to a hosted model (e.g., in the case of a large language model), releasing of a model checkpoint, or other means that are appropriate to the research performed. • While NeurIPS does not require releasing code, the conference does require all submis-sions to provide some reasonable avenue for reproducibility, which may depend on the nature of the contribution. For example (a) If the contribution is primarily a new algorithm, the paper should make it clear how to reproduce that algorithm. (b) If the contribution is primarily a new model architecture, the paper should describe the architecture clearly and fully. (c) If the contribution is a new model (e.g., a large language model), then there should either be a way to access this model for reproducing the results or a way to reproduce the model (e.g., with an open-source dataset or instructions for how to construct the dataset). 29 (d) We recognize that reproducibility may be tricky in some cases, in which case authors are welcome to describe the particular way they provide for reproducibility. In the case of closed-source models, it may be that access to the model is limited in some way (e.g., to registered users), but it should be possible for other researchers to have some path to reproducing or verifying the results. 5. Open access to data and code 
+
+Question: Does the paper provide open access to the data and code, with sufficient instruc-tions to faithfully reproduce the main experimental results, as described in supplemental material? Answer: [Yes] Justification: Code and data will be released upon acceptance, as stated in the abstract. The paper describes the evaluation framework in sufficient detail for independent reimplementa-tion. Guidelines: • The answer [N/A] means that paper does not include experiments requiring code. • Please see the NeurIPS code and data submission guidelines ( https://neurips.cc/ public/guides/CodeSubmissionPolicy ) for more details. • While we encourage the release of code and data, we understand that this might not be possible, so [No] is an acceptable answer. Papers cannot be rejected simply for not including code, unless this is central to the contribution (e.g., for a new open-source benchmark). • The instructions should contain the exact command and environment needed to run to reproduce the results. See the NeurIPS code and data submission guidelines ( https: //neurips.cc/public/guides/CodeSubmissionPolicy ) for more details. • The authors should provide instructions on data access and preparation, including how to access the raw data, preprocessed data, intermediate data, and generated data, etc. • The authors should provide scripts to reproduce all experimental results for the new proposed method and baselines. If only a subset of experiments are reproducible, they should state which ones are omitted from the script and why. • At submission time, to preserve anonymity, the authors should release anonymized versions (if applicable). • Providing as much information as possible in supplemental material (appended to the paper) is recommended, but including URLs to data and code is permitted. 6. Experimental setting/details 
+
+Question: Does the paper specify all the training and test details (e.g., data splits, hyperpa-rameters, how they were chosen, type of optimizer) necessary to understand the results? Answer: [Yes] Justification: The paper describes all evaluation details: dataset composition and preprocess-ing (Section 3.2), triplet construction and sampling procedures (Appendix A), embedding distance computation (Section 3), and LLM prompt design (Appendix E.1). No model training is performed. Guidelines: • The answer [N/A] means that the paper does not include experiments. • The experimental setting should be presented in the core of the paper to a level of detail that is necessary to appreciate the results and make sense of them. • The full details can be provided either with the code, in appendix, or as supplemental material. 7. Experiment statistical significance 
+
+Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments? Answer: [Yes] 30 Justification: Bootstrap 95% confidence intervals and McNemar’s tests are reported in Appendix F for HER2ST (cross-slide) and CAMELYON16 (cross-institution). Key pairwise comparisons are tested for statistical significance and referenced in the main text. Guidelines: • The answer [N/A] means that the paper does not include experiments. • The authors should answer [Yes] if the results are accompanied by error bars, confidence intervals, or statistical significance tests, at least for the experiments that support the main claims of the paper. • The factors of variability that the error bars are capturing should be clearly stated (for example, train/test split, initialization, random drawing of some parameter, or overall run with given experimental conditions). • The method for calculating the error bars should be explained (closed form formula, call to a library function, bootstrap, etc.) • The assumptions made should be given (e.g., Normally distributed errors). • It should be clear whether the error bar is the standard deviation or the standard error of the mean. • It is OK to report 1-sigma error bars, but one should state it. The authors should preferably report a 2-sigma error bar than state that they have a 96% CI, if the hypothesis of Normality of errors is not verified. • For asymmetric distributions, the authors should be careful not to show in tables or figures symmetric error bars that would yield results that are out of range (e.g., negative error rates). • If error bars are reported in tables or plots, the authors should explain in the text how they were calculated and reference the corresponding figures or tables in the text. 8. Experiments compute resources 
+
+Question: For each experiment, does the paper provide sufficient information on the com-puter resources (type of compute workers, memory, time of execution) needed to reproduce the experiments? Answer: [Yes] Justification: The paper reports that all embedding extraction and local model inference were performed on an NVIDIA RTX 4090 GPU (Section 3). LLM costs are reported via input-token prices (Appendix D.3). Guidelines: • The answer [N/A] means that the paper does not include experiments. • The paper should indicate the type of compute workers CPU or GPU, internal cluster, or cloud provider, including relevant memory and storage. • The paper should provide the amount of compute required for each of the individual experimental runs as well as estimate the total compute. • The paper should disclose whether the full research project required more compute than the experiments reported in the paper (e.g., preliminary or failed experiments that didn’t make it into the paper). 9. Code of ethics 
+
+Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics https://neurips.cc/public/EthicsGuidelines ?Answer: [Yes] Justification: The research uses publicly available datasets and pre-trained models for evaluation purposes. No new data collection involving human subjects was conducted. The work aims to improve the safety and reliability of computational pathology models. Guidelines: • The answer [N/A] means that the authors have not reviewed the NeurIPS Code of Ethics. • If the authors answer [No], they should explain the special circumstances that require a deviation from the Code of Ethics. 31 • The authors should make sure to preserve anonymity (e.g., if there is a special consid-eration due to laws or regulations in their jurisdiction). 10. Broader impacts 
+
+Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed? Answer: [Yes] Justification: The paper discusses the clinical danger of relying on foundation models whose embeddings are entangled with acquisition context (Section 1), highlighting negative societal impacts of deploying non-robust models in multi-site clinical settings. Positive impacts are discussed in the conclusion, where LLMs are proposed as complementary tools for cross-institutional retrieval, dataset harmonization, and quality control. Guidelines: • The answer [N/A] means that there is no societal impact of the work performed. • If the authors answer [N/A] or [No], they should explain why their work has no societal impact or why the paper does not address societal impact. • Examples of negative societal impacts include potential malicious or unintended uses (e.g., disinformation, generating fake profiles, surveillance), fairness considerations (e.g., deployment of technologies that could make decisions that unfairly impact specific groups), privacy considerations, and security considerations. • The conference expects that many papers will be foundational research and not tied to particular applications, let alone deployments. However, if there is a direct path to any negative applications, the authors should point it out. For example, it is legitimate to point out that an improvement in the quality of generative models could be used to generate Deepfakes for disinformation. On the other hand, it is not needed to point out that a generic algorithm for optimizing neural networks could enable people to train models that generate Deepfakes faster. • The authors should consider possible harms that could arise when the technology is being used as intended and functioning correctly, harms that could arise when the technology is being used as intended but gives incorrect results, and harms following from (intentional or unintentional) misuse of the technology. • If there are negative societal impacts, the authors could also discuss possible mitigation strategies (e.g., gated release of models, providing defenses in addition to attacks, mechanisms for monitoring misuse, mechanisms to monitor how a system learns from feedback over time, improving the efficiency and accessibility of ML). 11. Safeguards 
+
+Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pre-trained language models, image generators, or scraped datasets)? Answer: [N/A] Justification: The released assets (comparison triplets, evaluation code, baseline outputs) are evaluation tools that do not pose risks for misuse. No new models or scraped datasets are released. Guidelines: • The answer [N/A] means that the paper poses no such risks. • Released models that have a high risk for misuse or dual-use should be released with necessary safeguards to allow for controlled use of the model, for example by requiring that users adhere to usage guidelines or restrictions to access the model or implementing safety filters. • Datasets that have been scraped from the Internet could pose safety risks. The authors should describe how they avoided releasing unsafe images. • We recognize that providing effective safeguards is challenging, and many papers do not require this, but we encourage authors to take this into account and make a best faith effort. 32 12. Licenses for existing assets 
+
+Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected? Answer: [Yes] Justification: All datasets and models are cited with their original publications (Sections 3.2 and 3). Model licenses are listed in Appendix H (Table 16). Guidelines: • The answer [N/A] means that the paper does not use existing assets. • The authors should cite the original paper that produced the code package or dataset. • The authors should state which version of the asset is used and, if possible, include a URL. • The name of the license (e.g., CC-BY 4.0) should be included for each asset. • For scraped data from a particular source (e.g., website), the copyright and terms of service of that source should be provided. • If assets are released, the license, copyright information, and terms of use in the package should be provided. For popular datasets, paperswithcode.com/datasets 
+
+has curated licenses for some datasets. Their licensing guide can help determine the license of a dataset. • For existing datasets that are re-packaged, both the original license and the license of the derived asset (if it has changed) should be provided. • If this information is not available online, the authors are encouraged to reach out to the asset’s creators. 13. New assets 
+
+Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets? Answer: [Yes] Justification: The benchmark is documented in the paper: triplet construction procedures (Sections 3 and 3.2), sampling details (Appendix A), and baseline results. Documentation and evaluation code will accompany the released benchmark. Guidelines: • The answer [N/A] means that the paper does not release new assets. • Researchers should communicate the details of the dataset/code/model as part of their submissions via structured templates. This includes details about training, license, limitations, etc. • The paper should discuss whether and how consent was obtained from people whose asset is used. • At submission time, remember to anonymize your assets (if applicable). You can either create an anonymized URL or include an anonymized zip file. 14. Crowdsourcing and research with human subjects 
+
+Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? Answer: [N/A] Justification: The paper does not involve crowdsourcing or research with human subjects. Guidelines: • The answer [N/A] means that the paper does not involve crowdsourcing nor research with human subjects. • Including this information in the supplemental material is fine, but if the main contribu-tion of the paper involves human subjects, then as much detail as possible should be included in the main paper. 33 • According to the NeurIPS Code of Ethics, workers involved in data collection, curation, or other labor should be paid at least the minimum wage in the country of the data collector. 15. Institutional review board (IRB) approvals or equivalent for research with human subjects 
+
+Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained? Answer: [N/A] Justification: The paper does not involve research with human subjects. All data used consists of publicly available histopathology image datasets. Guidelines: • The answer [N/A] means that the paper does not involve crowdsourcing nor research with human subjects. • Depending on the country in which research is conducted, IRB approval (or equivalent) may be required for any human subjects research. If you obtained IRB approval, you should clearly state this in the paper. • We recognize that the procedures for this may vary significantly between institutions and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the guidelines for their institution. • For initial submissions, do not include any information that would break anonymity (if applicable), such as the institution conducting the review. 16. Declaration of LLM usage 
+
+Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does not impact the core methodology, scientific rigor, or originality of the research, declaration is not required. Answer: [Yes] Justification: LLMs are a core component of the methodology. Section 3 describes how multimodal LLMs are used as zero-shot judges for relative similarity evaluation, and Section 4 reports their performance. All LLM models are named with specific versions. Guidelines: • The answer [N/A] means that the core method development in this research does not involve LLMs as any important, original, or non-standard components. • Please refer to our LLM policy in the NeurIPS handbook for what should or should not be described. 34
